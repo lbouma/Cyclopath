@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+// BUG_JUL_2014: For greatermn.cyclopath.org, we should probably say that
+//               the site is sandbox. Not that anyone but [lb] knows the URI.
+//               We could add a var. to CONFIG or Conf_Instance
+//               or to key_value_pair to indicate if site is live or not.
+-->
+
+<views_panel_util:Fadeawayable_VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns="*"
+   width="100%"
+   creationComplete="this.on_creation_complete();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.effects.Fade;
+      import mx.effects.Resize;
+      import mx.events.EffectEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ItemClickEvent;
+      import mx.events.ResizeEvent;
+
+      import gwis.GWIS_Kval_Get;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pysvr_Msg');
+
+      // A hacky, system-wide message that DEVs can easily modify or turn off.
+      protected static const pyserver_msg_keyname:String = 'pyserver_msg';
+
+      // *** Instance attributes
+
+      protected var pull_from_server_timer:Timer;
+
+      protected var latest_message:String = '';
+
+      protected var watcher_height:ChangeWatcher;
+
+      // *** Instance methods
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         m4_DEBUG2('on_change_height.1: height:', this.height,
+                   '/ ctnr_of_evrythng.y', G.app.container_of_everything.y);
+
+         G.app.container_of_everything.y =
+            G.app.ccp_header.height
+            + G.app.pad
+            + 1
+            + ((this.visible) ? (this.height + G.app.pad - 3) : 0);
+
+         m4_DEBUG2('on_change_height.2: height:', this.height,
+                   '/ ctnr_of_evrythng.y', G.app.container_of_everything.y);
+      }
+
+      //
+      protected function on_creation_complete() :void
+      {
+         m4_DEBUG('on_creation_complete');
+
+         this.pull_from_server_timer = new Timer(
+            /*delay=*/Conf.gwis_pyserver_message_interval,
+            /*repeatCount=*/0);
+         this.pull_from_server_timer.addEventListener(
+            TimerEvent.TIMER, this.on_pull_from_server_timer, false, 0, true);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this, 'height', this.on_change_height);
+      }
+
+      //
+      override protected function on_effect_resize_fwd_end(ev:EffectEvent)
+         :void
+      {
+         super.on_effect_resize_fwd_end(ev);
+
+         // This is a hack: Tell the Map Key to resize, otherwise when the user
+         // opens it, it'll look funny.
+         G.map.on_resize();
+         G.app.map_key.on_canvas_change_dimensions();
+      }
+
+      //
+      protected function on_link_dismiss_message() :void
+      {
+         this.component_fade_away();
+      }
+
+      //
+      public function on_pull_from_server_timer(event:TimerEvent) :void
+      {
+         m4_DEBUG('on_pull_from_server_timer');
+         var kval_keys:Array = [Pyserver_Message.pyserver_msg_keyname,];
+         var gwis_req:GWIS_Kval_Get =
+            new GWIS_Kval_Get(
+               kval_keys,
+               this.on_gwis_kval_get_okay,
+               this.on_gwis_kval_get_fail);
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_req);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function on_gwis_kval_get_okay(
+         gwis_req:GWIS_Kval_Get, xml:XML) :void
+      {
+         var newest_message:String = xml..kvals.pyserver_msg;
+
+         m4_DEBUG('on_gwis_kval_get_okay: newest_message:', newest_message);
+
+         if (newest_message != this.latest_message) {
+
+            m4_DEBUG('on_gwis_kval_get_ok: latest_msg:', this.latest_message);
+
+            this.latest_message = newest_message;
+            this.pyserver_message_text_lhs.htmlText = newest_message;
+
+            if (!this.visible) {
+               this.component_fade_into();
+               m4_DEBUG('on_gwis_kval_get_ok: component_fade_into...');
+            }
+         }
+      }
+
+      //
+      protected function on_gwis_kval_get_fail(
+         gwis_req:GWIS_Kval_Get, rset:XML, payload:*=null) :void
+      {
+         m4_ASSERT_SOFT(false);
+         // EXPLAIN: The user should see a generic network error... right?
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      paddingLeft="6"
+      paddingRight="6"
+      paddingTop="6"
+      paddingBottom="6"
+      verticalAlign="middle"
+      backgroundColor="0xcccccc"
+      >
+
+      <mx:HBox
+         width="100%"
+         height="100%"
+         paddingLeft="2"
+         paddingRight="3"
+         paddingTop="1"
+         paddingBottom="1"
+         backgroundColor="{Conf.background_color}"
+         verticalAlign="bottom"
+         >
+
+         <mx:Text
+            id="pyserver_message_text_lhs"
+            leading="0"
+            condenseWhite="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            width="60%"
+            >
+<!--
+If you omit pyserver_message_text_rhs, use 100%, otherwise 60.
+            width="100%"
+            width="60%"
+-->
+
+<!-- 
+      Don't forget to delete this message someday!
+2014.05.07: That someday!, or someearly!overnightmorning, is tomorning. 01:02.
+
+
+     MAYBE: Put a time thingy in here so we automatically stop
+            showing this message at some point...
+  BUG nnnn: also, really, the server should send this message, and
+            the server should determine when to send it and
+            when to stop sending it... 
+     MAYBE: move this custom text to Conf_Instance, or have server send it
+-->
+
+<!--
+Welcome to the brand new Cyclopath!
+
+We hope you enjoy the new site, and please email
+<span style="color:blue"><u><a href="mailto:info@cyclopath.org">
+info@cyclopath.org</a></u></span> to let us what you think.
+
+We hope you enjoy the new site.
+If you have feedback, please email
+<span style="color:blue"><u><a href="mailto:info@cyclopath.org">
+info@cyclopath.org</a></u></span> to tell us what you think.
+
+Please enjoy the new site.
+And email <span style="color:blue"><u><a href="mailto:info@cyclopath.org">
+info@cyclopath.org</a></u></span> if you have any comments.
+-->
+
+<!--
+            <mx:htmlText><![CDATA[
+<b>Cyclopath has been redesigned!</b>
+We hope you enjoy the new site.<br/>
+If you want, email
+<span style="color:blue"><u><a href="mailto:info@cyclopath.org">
+info@cyclopath.org</a></u></span> and let us know what you think.
+            ]]></mx:htmlText>
+-->
+            <mx:htmlText><![CDATA[
+<b>Cyclopath has been redesigned!</b>
+We hope you enjoy the new site.<br/>
+If you want, email
+<span style="color:blue"><u><a href="mailto:info@cyclopath.org">
+info@cyclopath.org</a></u></span> and let us know what you think.
+            ]]></mx:htmlText>
+
+         </mx:Text>
+
+         <mx:Text
+            id="pyserver_message_text_rhs"
+            leading="0"
+            condenseWhite="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            width="40%"
+
+            htmlText="{
+      '&lt;span style=&quot;color:red&quot;&gt;'
+      + 'Lots of improvements! Latest release: '
+      + '&lt;a href=&quot;http://cyclopath.org/wiki/Release_Notes&quot;'
+      + ' target=&quot;_blank&quot;&gt;'
+      + BUILD_INFO.major + ' (' + BUILD_INFO.nowdate + ')'
+      + '&lt;/a&gt;&lt;/span&gt;'}"
+            >
+<!--
+            <mx:htmlText><![CDATA[
+And we're still fixing some bugs.<br/>
+Check out the
+<span style="color:yellow"><u>
+<a href="http://cyclopath.org/wiki/Tech:CcpV2/Release_Bugs" target="_blank">
+list of known issues.</a></u></span>
+            ]]></mx:htmlText>
+-->
+         </mx:Text>
+
+
+               <views_panel_util:Help_Link
+                  styleName="labelminor"
+                  click_url="/Release_Notes"
+                  text="{BUILD_INFO.major}"
+                  paddingLeft="0"
+                  paddingRight="3"
+                  paddingTop="-2"
+                  toolTip="{
+                     'Click to view the software release notes for release '
+                     + '&quot;' + BUILD_INFO.major + '&quot;'
+                     + ' (' + BUILD_INFO.now + ')'
+                     + ', built on: '
+                     + BUILD_INFO.nowdate
+                     + '.'}"
+                  />
+
+
+         <!--
+            text="Dismiss"
+            text="Hide"
+         -->
+
+
+         <!--
+
+
+BUG_FALL_2013: BUG nnnn: There's another reference to this bug in rte code:
+
+   wmctrl -r "Cyclopath Geowiki - Mozilla Firefox" -e 0,0,0,900,600
+
+   If you click Show More Options, the Find Route button disappears.
+This is after you Hide This Message (the system message above the panels
+and map), so route panel just needs a resize event.
+
+         -->
+
+         <views_panel_util:Hyper_Link
+            id="link_dismiss_message"
+            text="Hide this message"
+            toolTip="Click to hide this message."
+            enabled="true"
+            click="this.on_link_dismiss_message();"
+            color="0xffffff"
+            />
+
+      </mx:HBox>
+
+   </mx:HBox>
+
+</views_panel_util:Fadeawayable_VBox>
+

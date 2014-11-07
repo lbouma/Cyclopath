@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<gconf>
+	<entry name="highlight_current_line" mtime="1390434993" type="bool" value="false"/>
+	<entry name="show_whitespace" mtime="1390434962" type="bool" value="false"/>
+	<entry name="use_syntax_highlighting" mtime="1390434791" type="bool" value="true"/>
+	<entry name="show_line_numbers" mtime="1390434783" type="bool" value="true"/>
+	<entry name="custom_font" mtime="1390434758" type="string">
+		<stringvalue>Monospace 9</stringvalue>
+	</entry>
+	<entry name="use_custom_font" mtime="1390434753" type="bool" value="true"/>
+	<entry name="tab_size" mtime="1390434750" type="int" value="3"/>
+	<entry name="window_size_y" mtime="1390410730" type="int" value="1000"/>
+	<entry name="window_size_x" mtime="1390342489" type="int" value="1678"/>
+</gconf>

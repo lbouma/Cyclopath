@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import items.utils.Travel_Mode;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Mltimdl');
+
+      // *** Instance variables
+
+      [Bindable] public var mm_change:Function = null;
+
+      protected var rf_planner_old:int = Travel_Mode.bicycle;
+
+      // *** Base class overrides
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_DEBUG('on_initialize: mm_change:', this.mm_change);
+
+         this.register_widgets([
+            this.date_picker,
+            ]);
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange', this.on_branch_change);
+         this.on_branch_change();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate: mm_change:', this.mm_change);
+      }
+
+      // ***
+
+      //
+      protected function on_branch_change(ev:Event=null) :void
+      {
+         m4_DEBUG('on_branch_change: mm_change:', this.mm_change);
+
+         this.widget_container.visible = false;
+         this.transit_service_icon.visible = false;
+
+         if (G.item_mgr.active_branch !== null) {
+            if (Conf.transit_services !== null) {
+               var trans_def:Object;
+               var branch_name:String = G.item_mgr.active_branch.name_;
+               trans_def = Conf.transit_services[branch_name];
+               if (trans_def !== null) {
+                  m4_DEBUG2('on_branch_change: multimodal enabled on branch:',
+                            G.item_mgr.active_branch.name_);
+                  this.transit_service_label.text =
+                     'Use ' + trans_def._name + ' buses when possible';
+                  if (trans_def.icon !== null) {
+                     this.transit_service_icon.visible = true;
+                     this.transit_service_icon.source = trans_def.icon;
+                  }
+                  this.widget_container.visible = true;
+               }
+               else {
+                  m4_DEBUG2('on_branch_change: multimodal not enabled on br.:',
+                            G.item_mgr.active_branch.name_);
+               }
+            }
+         }
+         // else, G.item_mgr.active_branch === null, so branch is changing.
+      }
+
+      // ***
+
+      //
+      protected function on_multimodal_click() :void
+      {
+         m4_DEBUG2('on_multimodal_click: mm.sel:', this.multimodal.selected,
+                   '/ mm_change:', this.mm_change);
+         if (this.multimodal.selected) {
+            this.rf_planner_old = G.user.rf_planner_default;
+            G.user.rf_planner_default = Travel_Mode.transit;
+         }
+         else {
+            G.user.rf_planner_default = this.rf_planner_old;
+         }
+         if (this.mm_change !== null) {
+            this.mm_change();
+         }
+      }
+
+      //
+      protected function on_multimodal_toggle() :void
+      {
+         m4_DEBUG('on_multimodal_toggle: mm_change:', this.mm_change);
+         this.multimodal.selected = !this.multimodal.selected;
+         this.on_multimodal_click();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- NOTE: includeInLayout="{this.visible}" does not work on boot:
+              there's a big empty white space, because visible is False
+              but not includeInLayout. I [lb] think this has to do with
+              how we calculate the visible Boolean, but am not sure. -->
+
+   <mx:VBox
+      id="widget_container"
+      styleName="optgroupZeroes"
+      width="100%"
+      verticalGap="0"
+      paddingTop="0"
+      paddingBottom="2"
+      visible="false"
+      includeInLayout="{this.widget_container.visible}"
+      >
+
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle"
+         horizontalGap="2"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0">
+
+         <mx:CheckBox
+            id="multimodal"
+            label=""
+            change="this.on_multimodal_click();"
+            />
+
+         <mx:HBox
+            horizontalGap="0"
+            paddingLeft="5"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            >
+            <mx:Image
+               id="transit_service_icon"
+               visible="false"
+               includeInLayout="{this.transit_service_icon.visible}"
+               click="this.on_multimodal_toggle();"
+               />
+         </mx:HBox>
+
+         <mx:Label
+            id="transit_service_label"
+            text="Use buses when possible."
+            fontWeight="normal"
+            click="this.on_multimodal_toggle();"
+            paddingTop="1"
+            />
+
+      </mx:HBox>
+
+      <mx:VBox
+         id="rf_multimodal_box"
+         width="100%"
+         paddingTop="6"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         horizontalAlign="center"
+         visible="{this.rf_multimodal_box.includeInLayout}"
+         includeInLayout=
+   "{this.widget_container.visible &amp;&amp; this.multimodal.selected}"
+         >
+
+            <!-- BUG nnnn: The multimodal route finder is very much imperfect.
+                           E.g., try to route from downtown Mpls to St Paul
+                                 and you won't ever be put on the 94 express.
+                           E.g., try to route from downtown Mpls to MOA and
+                                 you'll be sent on a scenic journey around
+                                 Lake Harriet rather than being put on the
+                                 train.
+                 -->
+         <mx:VBox
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            paddingLeft="0"
+            paddingRight="0"
+            verticalGap="0"
+            horizontalAlign="left"
+            >
+            <mx:Label
+               htmlText=
+   "&lt;i&gt;Disclaimer: Bike + bus routes are still in beta.&lt;/i&gt;"
+               fontWeight="normal"
+               paddingTop="1"
+               />
+            <mx:Label
+               htmlText=
+   "&lt;i&gt;Please consult the transit authority Web site.&lt;/i&gt;"
+               fontWeight="normal"
+               paddingTop="0"
+               />
+         </mx:VBox>
+
+         <mx:HBox
+            width="92.5%"
+            horizontalAlign="center"
+            verticalAlign="middle"
+            >
+
+            <mx:VBox
+               horizontalGap="0"
+               verticalGap="-4"
+               verticalAlign="middle"
+               horizontalAlign="center"
+               paddingLeft="4"
+               paddingTop="2"
+               paddingRight="0"
+               paddingBottom="0"
+               >
+               <!-- SEARCH_ME: 'More Biking' -->
+               <mx:Label
+                  text="More"
+                  fontWeight="normal"
+                  />
+               <mx:Label
+                  text="Biking"
+                  fontWeight="normal"
+                  />
+            </mx:VBox>
+            <mx:HSlider
+               id="transit_pref"
+               minimum="-4"
+               maximum="6"
+               value="0"
+               snapInterval="2"
+               tickInterval="2"
+               showDataTip="false"
+               change=
+                  "{G.user.rf_p2_transit_pref = this.transit_pref.value}"
+               width="92.5%"
+               />
+            <mx:VBox
+               horizontalGap="0"
+               verticalGap="-4"
+               verticalAlign="middle"
+               horizontalAlign="center"
+               paddingLeft="2"
+               paddingTop="2"
+               paddingRight="2"
+               paddingBottom="0"
+               >
+               <!-- SEARCH_ME: 'More Transit' -->
+               <mx:Label
+                  text="More"
+                  fontWeight="normal"
+                  />
+               <mx:Label
+                  text="Transit"
+                  fontWeight="normal"
+                  />
+            </mx:VBox>
+         </mx:HBox>
+         <mx:HBox
+            width="100%"
+            paddingTop="2"
+            paddingBottom="0"
+            horizontalAlign="center"
+            verticalAlign="middle">
+            <!-- BUG nnnn: Add support for 'Arrive By'.
+                           E.g., imagine two inputs,
+            <mx:PopUpMenuButton id="depart_arrive" width="135">
+               <mx:dataProvider>
+                  <mx:Array>
+                     <mx:String>Depart At:</mx:String>
+                     <mx:String>Arrive By:</mx:String>
+                  </mx:Array>
+               </mx:dataProvider>
+            </mx:PopUpMenuButton>
+            -->
+            <views_panel_routes:Widget_Date_Time
+               id="date_picker"
+               width="100%"
+               selected_date="{new Date()}"
+               minuteIncrement="1"/>
+         </mx:HBox>
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

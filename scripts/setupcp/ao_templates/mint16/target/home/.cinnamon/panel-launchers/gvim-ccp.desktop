@@ -1,0 +1,8 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=Dubsacks: fs notes
+# Use --login so Vim gets our environment variables (for the Cyclopath IDE).
+Exec=/bin/bash --login -c "gvim --servername SAMPI --remote-silent /home/TARGETUSER()/Documents/my_notes.txt"
+Type=Application
+Icon=gvim

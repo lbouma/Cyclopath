@@ -1,0 +1,1236 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Application
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:cp="*"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_map_components="views.map_components.*"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_activity="views.panel_activity.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_history="views.panel_history.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_search="views.panel_search.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_panel_watchers="views.panel_watchers.*"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns:views_section_launchers="views.section_launchers.*"
+   xmlns:views_section_toolbar="views.section_toolbar.*"
+   xmlns="*"
+   applicationComplete="init();"
+   preinitialize="on_preinitialize();"
+   creationPolicy="all"
+   layout="vertical"
+   clipContent="false"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   paddingLeft="{this.pad}"
+   paddingTop="{this.pad}"
+   paddingRight="{this.pad}"
+   paddingBottom="{this.pad}"
+   >
+
+   <!-- DEVS: Start the MonsterDebugger: MXML Method.
+        2012.11.20: The MonsterDubugger doesn't work well under Linux. -->
+   <!--
+   xmlns:debugger="com.demonsters.debugger.*"
+   <debugger:monsterdebuggerflex id="monsterDebugger_2"/>
+   -->
+
+   <!-- BUG nnnn: 2014.04.23: Production application spews our cute
+        trace header followed by *** Security Sandbox Violation *** -->
+
+   <mx:Style source="/assets/css/main.css"/>
+   <mx:Style source="/assets/css/tool_palette.css"/>
+
+   <mx:Script><![CDATA[
+
+      // DEVS: Include TheMiner.
+      //import com.sociodox.theminer.*;
+      // Broken: import com.demonsters.debugger.MonsterDebugger;
+
+      import flash.events.TimerEvent;
+      import flash.system.Capabilities;
+      import flash.utils.Timer;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Alert;
+      import mx.controls.ComboBox;
+      import mx.effects.Fade;
+      import mx.events.IndexChangedEvent;
+      import mx.managers.ToolTipManager;
+
+      import grax.Deep_Link;
+      import grax.Grac_Manager;
+      import grax.Item_Manager;
+      import grax.User;
+      import gwis.utils.Heartbeat;
+      import gwis.utils.Log_S;
+      import items.Item_Versioned;
+      import utils.misc.Flash_Cookies;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.base.App_Mode_Base;
+      import views.base.App_Mode_Edit;
+      import views.base.Panel_Manager;
+      import views.base.Tab_Managers;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('main.mxml');
+
+      // *** Instance variables
+
+      [Bindable] public var pad:int = 8; // padding distance in pixels
+
+      // The application can be in view mode, edit mode, or historic mode.
+      public var mode:App_Mode_Base = null;
+      // Sometimes the application mode cannot be changed to edit mode.
+      [Bindable] public var edit_restriction:Boolean = Conf.edit_restriction;
+
+      protected var version_fadeout_timer:Timer;
+      protected var version_fadeout_fade:Fade;
+
+      // *** Embedded sources (icons and whatnot)
+
+      // MAYBE: Move these icons and associated MXML to a new class so we can
+      //        declutter and better modularize main.mxml.
+      //
+      [Embed(source='/assets/img/icon_help_question_down.png')]
+      public var question_down:Class;
+      //
+      [Embed(source='/assets/img/icon_help_question_up.png')]
+      public var question_up:Class;
+      //
+      [Embed(source='/assets/img/icon_all_maps_down.png')]
+      public var icon_all_maps_down:Class;
+      //
+      [Embed(source='/assets/img/icon_all_maps_up.png')]
+      public var icon_all_maps_up:Class;
+      //
+      [Embed(source='/assets/img/icon-search-disabled.png')]
+      public var search_disabled:Class;
+      //
+      [Embed(source='/assets/img/icon-routes-disabled.png')]
+      public var route_disabled:Class;
+
+      // *** Init methods
+
+      //
+      public function on_preinitialize() :void
+      {
+         m4_DEBUG('                             ');
+         m4_DEBUG('~~~ CYCLOWIKI GEODATABASE ~~~');
+         m4_DEBUG('                             ');
+
+         // DEVS: Start the MonsterDebugger: ActionScript Method.
+         // 2012.11.20: The MonsterDubugger doesn't work well under Linux.
+         //  MonsterDebugger.initialize(this);
+         //  MonsterDebugger.trace(this, 'Hello World!', 'lb', 'main');
+         //  monsterDebugger_2.trace("Hello World!");
+
+         // This fcn. is called before the MXML in this file is processed,
+         // which is before init() is called. So make sure some things are
+         // ready for all the objects about to be created by the MXML.
+
+         // Now that the G class is defined, init the logger.
+         G.init_logging();
+
+         // Prepare Item_Versioned's class factory by force-loading packages.
+         Item_Versioned.init_GetDefinitionByName();
+
+         // Make us available to the world.
+         G.app = this;
+
+         // Initialize some attributes
+
+         // EXPLAIN: MAGIC NUMBER
+         Alert.buttonWidth = 72;  // prevent "Can..." Alert buttons
+
+         // Don't hide toolTips until the user mouses away
+         ToolTipManager.hideDelay = Infinity;
+
+         // FIXME: Try using false for production release -- does that reduce
+         //        bandwidth? Maybe add a switch to Conf_Instance.as.
+         XML.prettyPrinting = true;
+
+         // EXPLAIN: What's this do?
+         this.contextMenu.builtInItems.print = false;
+
+         // Don't bother with the stage quality. Setting it low doesn't have a
+         // performance impact, and it's ugly.
+         // No: this.stage.quality = StageQuality.LOW;
+
+         // Setup the logger and other subsystems before Flex creates the MXML
+         // controls.
+
+         m4_DEBUG('Conf.init_logger()');
+         Conf.init_logger();
+
+         m4_DEBUG('Cookies!');
+         G.fcookies_user = new Flash_Cookies('cyclopath', false);
+         G.fcookies_anon = new Flash_Cookies('cyclopath_anon', true);
+
+         m4_DEBUG('New Log_S and Heartbeat()');
+         G.sl = new Log_S();
+         G.heartbeat = new Heartbeat();
+
+         m4_DEBUG('new Item_Manager()');
+         G.item_mgr = new Item_Manager();
+
+         m4_DEBUG('new Panel_Manager()');
+         G.panel_mgr = new Panel_Manager();
+
+         m4_DEBUG('new Deep_Link()');
+         G.deep_link = new Deep_Link();
+      }
+
+      //
+      public function init() :void
+      {
+         m4_DEBUG('====== main.mxml: init() ======');
+
+         // Remember the major version of the software (auto-generated by
+         // makefile and stored in build/BUILD_ID.mxml, but grabbed from the
+         // help panel). 2013.04.05: See now autogenerated BUILD_INFO.as.
+         // This is, e.g., "not_a_working_copy", or "55.5".
+         // Passe: G.version_major = this.about_panel.build_id.major.text;
+         G.version_major = BUILD_INFO.major;
+
+         // We use the base path of the flashclient main.swf to guess the
+         // server address, unless a developer is cross-debugging.
+         G.url_base = Conf_Instance.url_base;
+         if (G.url_base === null) {
+            // NOTE: This only works when the loader URL starts with http://.
+            //       If we're running from file:///, we'll see this in
+            //       Conf.instance_config and we'll use url_base_if_file.
+            //       See also Conf.external_interface_okay.
+            G.url_base = this.loaderInfo.url.replace(
+                           /^(http:\/\/.+)\/.*/, "$1");
+         }
+         m4_DEBUG('init: G.url_base:', G.url_base);
+
+         // Now that we have the url_base, setup the instance config.
+         m4_DEBUG('init: Conf.init_instance()');
+         Conf.init_instance();
+
+         // Startup the subsystems.
+
+         // Make the user first so that the GUI components can bind to it,
+         // e.g., enabled="{G.user.logged_in}".
+         m4_DEBUG('init: new User()');
+         G.user = new User();
+
+         m4_DEBUG('init: new Tab_Managers()');
+         G.tabs = new Tab_Managers();
+         G.tabs.init();
+
+         m4_DEBUG('init: Deep_Link.init()');
+         G.deep_link.init();
+
+         m4_DEBUG('init: G.map.startup()');
+         G.map = this.map;
+         G.map.startup();
+
+         G.view_mode.activate();
+
+         m4_DEBUG('init: G.user.startup()');
+         G.user.startup();
+         m4_DEBUG('init: new Grac_Manager()');
+         G.grac = new Grac_Manager('user');
+
+         // UI.init() just shows the Cyclopath "alpha" notice for Colorado.
+         m4_DEBUG('init: UI.init()');
+         UI.init();
+
+         // Load Deep Links after the UI so throbberers is ready, and others.
+         m4_DEBUG('init: Deep_Link.go');
+         G.deep_link.load_deep_link(Deep_Link.ANONYMOUS);
+
+         // Trigger a remeasure; this is needed for clipping to work.
+         // No: G.map.invalidateSize();
+         // Tickle its parent container instead.
+         this.map_canvas_print.invalidateSize();
+
+         // DEVS: You can't use ExternalInterface unless swf from Web server:
+         // Error #2067: ExternalInterface is not available in this container.
+         if (Conf.external_interface_okay) {
+            // Make this method available to JavaScript wrapper.
+            ExternalInterface.addCallback("is_dirty", is_dirty);
+         }
+
+         // Tickle the throbber.
+         // FIXME: I think this is a no-op.
+         UI.request_progressbar_update();
+
+         // Initialize the Editing Tools palette.
+         var access_changed:Boolean = true;
+         UI.editing_tools_update(access_changed);
+
+         // Init. the map key.
+         this.map_key.fill_values();
+
+         // Register the mouse catcher shim. The object simply passes events
+         // directly to Map_Canvas.
+         // EXPLAIN: We can't Map_Canvas catch its own mouse events?
+         //          If I remember correctly, Map_Canvas sometimes gets
+         //          mouse events, but not always...?
+         G.map.hitArea = G.app.map_mousecatcher;
+
+         // Choose the pan tool on startup.
+         G.map.tool_choose('tools_pan');
+
+         // Indicate that we're done initializing the map.
+         G.initialized = true;
+         G.app.dispatchEvent(new Event('g_initialized_event'));
+
+         // Startup in view mode.
+         //  Wrong: this.mode = new App_Mode_View();
+         //  Wrong: this.mode = G.view_mode;
+         //  Wrong: G.view_mode.activate();
+         //  Correct:
+         if (G.tabs.settings.always_editing_cbox) {
+            G.edit_mode.activate();
+         }
+         // We used to only activate the mode if the default differed
+         // from how we start (in view mode), but it's useful to signal
+         // the event again, in case some listeners bailed because
+         // G.initialized wasn't set the first time modeChange was dispatched.
+         // Skipping: (Conf.map_default_mode !== G.view_mode) { ... }
+         else {
+            Conf.map_default_mode.activate();
+         }
+
+         // Signal IndexChangedEvent so that the panel stack is initialized and
+         // so we start on the Find Route panel.
+         // FIXME: Statewide UI: With [lb]'s changes, is this still necessary?
+         this.side_panel.dispatchEvent(
+            new IndexChangedEvent(IndexChangedEvent.CHANGE,
+                                  false, false, this.routes_panel, -1, 0));
+
+         // Send a log message that the client has started up.
+         G.sl.event('misc/startup', {version:          G.version_major,
+                                     flash_isDebugger: Capabilities.isDebugger,
+                                     flash_os:         Capabilities.os,
+                                     flash_version:    Capabilities.version});
+
+         // Load the map viewport (we call update_user because we need the
+         // branch ID and revision ID first).
+         // MAYBE: This fcn. name seems weird. We're not updating the user,
+         //        we're updating the map in context of having a new user....
+         G.map.update_user();
+
+         // Open the find route panel, even though it is already open. This is
+         // required to assign G.tabs.route (Find_Route_Manager) .find_panel
+         // correctly.
+         // FIXME: What happens when Cyclopath is launched through a deep link
+         //        that requires some other panel to be opened?
+         G.tabs.route.panel_routes_new_open('startup');
+
+         // Our power users and other observant peeps will appreciate a quick
+         // know of the version numb and release version while flashclient
+         // boots.
+         if (BUILD_INFO.major != 'not_a_working_copy') {
+            this.side_panel_tabs_release_deets_ccpv.text = BUILD_INFO.major;
+         }
+         else {
+            this.side_panel_tabs_release_deets_ccpv.text = 'wrkg';
+         }
+         this.side_panel_tabs_release_deets_date.text = BUILD_INFO.date_abbrev;
+         // Now fade it out.
+         // MAGIC_NUMBER: Version fades out after X0000 seconds.
+         //  (We could define this value in Conf.as, but it's not that special.)
+         this.version_fadeout_timer = new Timer(7500, 1);
+         this.version_fadeout_timer.addEventListener(TimerEvent.TIMER,
+                                             this.on_version_fadeout_timer,
+                                             false, 0, true);
+         this.version_fadeout_timer.start();
+
+         // DEVS: Start the TheMiner.
+         // 2012.11.20: The TheMiner doesn't work well under Linux. Only one or
+         // two of its features work, but you'll see a notification bar in the
+         // upper right of the app that shows the FPS and mem usage (so it's
+         // useful to get a general idea about memory usage... but there's
+         // probably an easy way for our code to determine FPS and to spit out
+         // its usage numbers over time).
+         //  G.map.addChild(new TheMiner());
+      }
+
+      // Property to function converter (call from JavaScript).
+      public function is_dirty() :Boolean
+      {
+         return G.item_mgr.contains_dirty_any;
+      }
+
+      //
+      public function on_version_fadeout_timer(event:TimerEvent) :void
+      {
+         m4_DEBUG('on_version_fadeout_timer');
+
+         var targets:Array = [this.side_panel_tabs_release_deets_box,];
+         this.version_fadeout_fade = new Fade();
+         this.version_fadeout_fade.targets = targets;
+         // MAGIC_NUMBER: The fade out takes this long:
+         this.version_fadeout_fade.duration = 1500;
+         this.version_fadeout_fade.alphaFrom = 1.0;
+         this.version_fadeout_fade.alphaTo = 0.0;
+         this.version_fadeout_fade.end();
+         this.version_fadeout_fade.play();
+      }
+
+      //
+      public function save_non_wiki() :void
+      {
+         // FIXME: Save non wiki items.
+         m4_DEBUG('save_non_wiki');
+      }
+
+      // If the user okays a Discard-all unsaved changes Alert, reload the map.
+      // This fcn. is only handled for dumping and reloading the working copy,
+      // and does not apply to logging in or out or changing branches.
+      public function discard_alert_handler() :void
+      {
+         UI.save_reminder_hide(); // clear the reminder if it was up
+         // BUG nnnn: [lb] If the user discards their changes, we reload the
+         //                entire map (by indicating branch_changed=true). We
+         //                could just revert the items that were changed.
+         //                The reload would be quicker, but not many people
+         //                edit and discard.
+         G.map.rev_loadnext = new utils.rev_spec.Current();
+         var user_loggingin:Boolean = false;
+         var user_loggedout:Boolean = false;
+         var branch_changed:Boolean = true;
+         G.map.discard_and_update(user_loggingin, user_loggedout,
+                                  branch_changed);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- MAYBE: The no. of secs here should come from Conf or Conf_Instance. -->
+   <utils_misc:Idle_Timeout
+      id="timeout"
+      warn_seconds="600"
+      timeout_seconds="900"
+      warn_function="UI.on_timeout_warn"
+      timeout_function="UI.on_timeout"/>
+
+   <!-- CcpV1: See Bug 2085: Disable focusEnabled in TabBar. If it's enabled,
+        when the user clicks a tab, the map canvas stops receiving mouse events
+        that indicate the user is pressing the shift key, so our
+        straight-line-selection-tool doesn't activate.
+        NOTE: In CcpV2, we don't use the TabBar anymore. But this comment might
+              still be valid for other controls, so keeping this comment. -->
+
+   <mx:Canvas
+      id="big_canvas"
+      width="100%"
+      height="100%"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      clipContent="true"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <!-- *** Header widget -->
+
+      <!-- CcpV3: This is the new toolbar that sits above the panel and the map
+                  and contains the Cyclopath logo, universal search control,
+                  and login info. -->
+      <views_section_header:Cyclopath_Header
+         id="ccp_header"
+         />
+
+      <!-- *** System messages -->
+
+      <views_section_header:Pyserver_Message
+         id="pyserver_msg"
+         y="{this.ccp_header.height + this.pad + 2}"
+         visible="{Conf.bug_nnnn_ccpv2_message}"
+         includeInLayout="{Conf.bug_nnnn_ccpv2_message}"
+         />
+
+      <!-- *** Everything below the header widget -->
+
+      <!-- Begin: container of everything -->
+      <mx:HBox
+         id="container_of_everything"
+         width="100%"
+         height="100%"
+         paddingTop="5"
+         paddingBottom="0"
+         y="{this.ccp_header.height + this.pad + 1
+             + ((this.pyserver_msg.visible)
+                ? (this.pyserver_msg.height + this.pad - 3)
+                : 0)}"
+         >
+
+         <!-- *** Left-side launcher widgets -->
+
+         <mx:VBox
+            id="left_launchers"
+            height="100%"
+            verticalGap="6"
+            >
+
+            <!-- FLEX_ADVICE: The dataProvider of a ToggleButtonBar 'must be a
+                              String, ViewStack, Array, or IList.'
+                              [lb] finds it strange that an ArrayCollection is
+                              not allowed. (This comment from old code that was
+                              deleted.) -->
+            <views_section_launchers:Launchers
+               id="side_panel_tabs"
+               dataProvider="{G.app.side_panel}"
+               />
+
+            <!-- We use height="100%" here so the HRule ends up below Launchers
+                 and not in the middle of the empty space between that and this
+                 control. -->
+            <mx:HBox
+               horizontalAlign="right"
+               verticalAlign="bottom"
+               height="100%"
+               >
+               <mx:VBox
+                  horizontalAlign="right"
+                  verticalAlign="bottom"
+                  horizontalGap="0"
+                  height="100%"
+                  >
+                  <mx:VBox
+                     id="side_panel_tabs_release_deets_box"
+                     horizontalAlign="left"
+                     verticalAlign="bottom"
+                     verticalGap="0"
+                     paddingBottom="3"
+                     height="100%"
+                     >
+                     <mx:Text
+                        id="side_panel_tabs_release_deets_ccpv"
+                        color="0xffffff"
+                        mouseChildren="false"
+                        mouseEnabled="false"
+                        />
+                     <mx:Text
+                        id="side_panel_tabs_release_deets_date"
+                        color="0xffffff"
+                        mouseChildren="false"
+                        mouseEnabled="false"
+                        />
+                  </mx:VBox>
+                  <mx:Canvas
+                     width="23"
+                     height="23"
+                     clipContent="true"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="off"
+                     >
+                     <!-- MAGIC_NUMBERS: The two-left-arrows icon is 7x7. We make
+                          the buttons here a little bigger (23x23) to make a nice
+                          button.
+                          -->
+                     <mx:Button
+                        id="panel_collapse"
+                        icon=
+                     "@Embed(source='/assets/img/icon_panelw_arrow_left.png')"
+                        height="23"
+                        width="23"
+                        visible="{this.left_panel.visible}"
+                        includeInLayout="{this.panel_collapse.visible}"
+                        click="this.left_panel.visible = false;"
+                        />
+                     <mx:Button
+                        id="panel_expand"
+                        icon=
+                     "@Embed(source='/assets/img/icon_panelw_arrow_right.png')"
+                        height="23"
+                        width="23"
+                        visible="{!this.left_panel.visible}"
+                        includeInLayout="{this.panel_expand.visible}"
+                        click="this.left_panel.visible = true;"
+                        />
+                  </mx:Canvas>
+               </mx:VBox>
+            </mx:HBox>
+
+         </mx:VBox>
+
+         <!-- *** Left-side panel area -->
+
+         <!-- Bug 2417: Let user hide side panel by dragging divider all the
+         <              way to the left. -->
+         <mx:HDividedBox
+            width="100%"
+            height="100%">
+
+            <!-- MAGIC NUMBER: 366 is a nice default width for the side panel.
+                 -->
+            <!-- MAYBE: Set width based on the window size rather than a
+                        one-size-fits-all default (though 366 isn't bad...).
+                        -->
+            <mx:VBox
+               id="left_panel"
+               height="100%"
+               minWidth="366"
+               width="366"
+               maxWidth="500"
+               verticalGap="0"
+               visible="true"
+               includeInLayout="{this.left_panel.visible}"
+               horizontalScrollPolicy="off"
+               verticalScrollPolicy="off"
+               hide="this.side_panel_tabs.on_content_panels_hide();"
+               show="this.side_panel_tabs.on_content_panels_show();"
+               >
+
+               <!-- NOTE: CcpV1 used a TabBar, which derives its selected tab
+                          color from its parent's background. Which is why we
+                          set alpha to 0, so the rounded tabs appear correctly.
+                          The TabBar is gone, but leaving the backgroundColor
+                          and backgroundAlpha is fine. -->
+               <mx:VBox
+                  id="side_panel_frame"
+                  width="100%"
+                  height="100%"
+                  verticalGap="-1"
+                  backgroundColor="0xffffff"
+                  backgroundAlpha="0">
+
+                  <!-- FIXME: Just like new navver, make widgets for sections
+                              of mxml. -->
+                  <views_panel_base:Item_Navver
+                     id="item_navver"
+                     width="100%"
+                     includeInLayout="true"
+                     visible="{this.item_navver.includeInLayout}"
+
+                     backgroundColor="0xffffff"
+                     verticalGap="0"
+                     paddingLeft="{this.pad}"
+                     paddingRight="{this.pad}"
+                     paddingTop="5"
+                     paddingBottom="1"
+                     />
+
+                  <!-- For various reasons, an HRule here does not display
+                       properly. One trick is to use
+                        <mx:Canvas width="100%" height="100%"
+                                   backgroundColor="0xc4cccc"/>
+                       The other trick is to embed the HRule in a VBox. We
+                       choose the latter since what we really want is an
+                       HRule. And don't forget to pad the HRule the same as we
+                       pad the ViewStack children. Also - another caveat - the
+                       VBox has to be 2-pixels tall. If it's height is just
+                       one, the HRule doesn't display. -->
+                  <mx:VBox
+                     id="box_navver_rule"
+                     width="100%"
+                     height="2"
+                     paddingLeft="{pad}"
+                     paddingRight="{pad}">
+                     <mx:HRule
+                        width="100%"
+                        strokeWidth="1"/>
+                  </mx:VBox>
+
+                  <!-- MEH: Move this ViewStack to its own class?
+                  <         (Just to declutter this file.) -->
+                  <mx:ViewStack
+                     id="side_panel"
+                     width="100%"
+                     height="100%"
+                     includeInLayout="true"
+                     visible="{this.side_panel.includeInLayout}"
+                     backgroundColor="0xffffff"
+                     change="G.panel_mgr.on_side_panel_change(event);"
+                     verticalScrollPolicy="off"
+                     >
+
+                     <!-- Routes panel -->
+                     <views_panel_routes:Panel_Routes_Box
+                        id="routes_panel"
+                        icon=
+                           "@Embed(source='/assets/img/icon_tabs_routes.png')"
+                        label="Routes"
+                        width="100%"
+                        height="100%"
+                        paddingTop="{pad}"
+                        paddingLeft="{pad}"
+                        paddingRight="{pad}"
+                        paddingBottom="{pad}"
+                        horizontalScrollPolicy="off"
+                        verticalScrollPolicy="off"/>
+
+                     <!-- Feed panel: Discussions, Reactions, Recent changes
+                          -->
+                     <!-- FIXME: Statewide UI: Was: discussions_panel_box. -->
+                     <views_panel_activity:Latest_Activity_Panels
+                        id="activity_panel"
+                        icon=
+                     "@Embed(source='/assets/img/icon_tabs_discussions.png')"
+                        label="Activity"
+                        width="100%"
+                        height="100%"
+                        paddingTop="{pad}"
+                        paddingLeft="{pad}"
+                        paddingRight="{pad}"
+                        paddingBottom="{pad}"
+                        horizontalScrollPolicy="off"
+                        verticalScrollPolicy="off"/>
+
+                     <!-- Search panel -->
+                     <views_panel_search:Panel_Search
+                        id="search_panel"
+                        icon=
+                           "@Embed(source='/assets/img/icon_tabs_search.png')"
+                        label="Search"
+                        width="100%"
+                        height="100%"
+                        paddingTop="{pad}"
+                        paddingLeft="{pad}"
+                        paddingRight="{pad}"
+                        paddingBottom="{pad}"
+                        horizontalScrollPolicy="off"
+                        verticalScrollPolicy="off"/>
+
+                     <!-- *** Non-permanent details panels: -->
+
+                     <!-- Pretty dividing line divides permanent and dynamic.
+                          -->
+                     <mx:VBox
+                        id="viewstack_tab_hrule"
+                        toolTip=""
+                        icon="{null}"
+                        label=""
+                        width="100%"
+                        height="100%"
+                        horizontalScrollPolicy="off"
+                        verticalScrollPolicy="off"
+                        paddingTop="{pad}"
+                        paddingLeft="{pad}"
+                        paddingRight="{pad}"
+                        paddingBottom="{pad}"/>
+
+                     <!-- We'll add Detail_Panel_Base panels here dynamically.
+                          -->
+
+                  </mx:ViewStack>
+
+                  <!-- 
+                     2013.05.31: This is a secondary save button (w/ undo, 
+                     redo, and reset) that sits sticky below the side_panel
+                     ViewStack.  It's... okay. [lb] was experimenting with
+                     separating saving map edits from non-map edits (the
+                     latter being byway ratings, item watchers, and route
+                     editing). But this footer doesn't quite feel right:
+                     saving a route makes sense, because nothing you do
+                     on the route details is a map command, but having to
+                     save ratings and watchers with a different button on
+                     the same panel as other widgets that are map commands
+                     and need to be saved with the map save button... that just
+                     feels wrong. So we're making rating and watching immediate
+                     actions. Maybe later if we decide they should be undoable
+                     and saveable commands, we'll change this.
+                  <views_panel_base:Route_Save_Footer
+                     id="save_footer"
+                     width="100%"
+                     paddingTop="0"
+                     paddingLeft="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     horizontalAlign="center"
+                     backgroundColor="0xffffff"
+                     />
+                     -->
+
+               </mx:VBox> <!-- end: side_panel_frame -->
+
+            </mx:VBox> <!-- end: left_panel (366 pixels wide) -->
+
+            <mx:VBox
+               id="map_toolbar_and_viewport"
+               width="100%"
+               height="100%"
+               verticalGap="1"
+               >
+
+               <!-- Map Toolbar. -->
+               <!-- CcpV3: This is the new map toolbar that sits above the map
+                           and contains map-related options, like aerial,
+                           display layers, print map, etc. -->
+               <views_section_toolbar:Main_Toolbar
+                  id="main_toolbar"
+                  width="100%"
+                  />
+
+               <views_section_toolbar:Message_Test_Mode
+                  id="read_only_msg"
+                  width="100%"
+                  visible="{Conf.edit_restriction}"
+                  includeInLayout="{Conf.edit_restriction}"
+                  />
+
+               <views_section_toolbar:Message_Maintenance
+                  id="maintenance_msg_real"
+                  width="100%"
+                  visible="false"
+                  includeInLayout="false"
+                  />
+
+               <!-- Map canvas -->
+               <!-- Note resize hack; see bug #43. -->
+               <!-- WARNING: Changing the arrangement of these containers can
+                             have strange effects, such as the selection
+                             resolver not working (bug 1399). Please use
+                             caution. -->
+
+               <mx:Canvas
+                  id="map_canvas"
+                  width="100%"
+                  height="100%"
+                  clipContent="true"
+                  horizontalScrollPolicy="off"
+                  verticalScrollPolicy="off"
+                  mouseEnabled="true"
+                  resize="if (G.map !== null) { G.map.on_resize(null); }"
+                  >
+
+                  <views_section_toolbar:Message_Maintenance
+                     id="maintenance_msg_fake"
+                     width="100%"
+                     height="100%"
+                     msg_real="{this.maintenance_msg_real}"
+                     />
+
+                  <!--
+                     2013.05.13: Hrm. We used to use opaqueBackground on
+                     map_canvas:
+                        opaqueBackground="{Conf.background_color}"
+                     but then, on boot, the canvas covers half the
+                     side panel briefly while it's sizing itself.
+                     And [lb] gets annoyed easily when things aren't
+                     smooth. I tried using backgroundColor on the Canvas,
+                     but that didn't work. But using an HBox as the first child
+                     does, but only with backgroundColor. And a Canvas as the
+                     first child didn't work, either. I'm not too sure what
+                     opaqueBackground does different than backgroundColor.
+                     The docs say the Flex makes a bitmap for the background.
+                     So maybe it's faster when you have vector graphics on
+                     top of such a background?
+                     -->
+                  <mx:HBox
+                     width="100%"
+                     height="100%"
+                     backgroundColor="{Conf.background_color}"
+                     />
+
+                  <!-- Background object that catches mouse events in canvas
+                       and passes them unchanged to map. This replaces the
+                       invisible button hack in an earlier build which didn't
+                       work if most of the map was off the canvas. -->
+                  <views_map_components:Map_Mouse_Catcher
+                     id="map_mousecatcher"
+                     />
+
+                  <!-- The Map viewport goes on top of the mouse catcher, and
+                       all other items in the canvas pile on top of the
+                       map. The outer canvas here use clipContent so that
+                       we don't both fetching map data for geometry that's
+                       obscured by all our panels and widgets.
+                       -->
+                  <mx:Canvas
+                     id="map_canvas_print"
+                     width="100%"
+                     height="100%"
+                     clipContent="true"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="off"
+                     mouseEnabled="true">
+                     <!-- The map itself -->
+                     <views_base:Map_Canvas
+                        id="map"
+                        />
+                  </mx:Canvas>
+
+                  <!-- Map zoom control -->
+                  <!-- MAGIC_NUMBERS: The 2 "23"s match so we're square off the
+                                      upper-right corner. -->
+                  <mx:HBox
+                     id="zoombar_container"
+                     width="100%"
+                     height="100%"
+                     horizontalAlign="right"
+                     verticalAlign="top"
+                     filters="{[UI.mapglow, UI.mapglow2,]}"
+                     paddingRight="23"
+                     paddingTop="23"
+                     paddingBottom="23"
+                     >
+                     <views_map_components:Map_Zoombar
+                        id="zoombar"
+                        />
+                  </mx:HBox>
+                  
+                  <mx:HBox
+                     id="landmark_panel_container"
+                     width="100%"
+                     height="100%"
+                     horizontalAlign="right"
+                     verticalAlign="top"
+                     filters="{[UI.mapglow, UI.mapglow2,]}"
+                     paddingRight="73"
+                     paddingTop="23"
+                     paddingBottom="23"
+                     >
+                     <views_map_components:Landmark_Experiment_Floating_Panel
+                        id="landmark_experiment_panel"
+                        title="Landmarks Experiment"
+                        styleName="toolPalettePanel"
+                        visible="false"
+                        />
+                  </mx:HBox>
+
+                  <!-- Controls attached to top of map -->
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="0">
+
+                     <!-- Top bar(s). -->
+                     <!-- NOTE: The height is not set until the respective bar
+                                is show()n. -->
+
+                     <!-- FIXME: Copy one of these and make the system message
+                                 bar. I.e., for messages like, "System is
+                                 read-only", or, "Cyclopath is going down for
+                                 maintenance soon. Please save your work!" -->
+                     <!-- FIXME: The notice_bar and the RotD invitation_bar
+                                 probably don't work well together, but anyway
+                                 RotD is disabled. -->
+                     <views_map_components:Invitation_Bar
+                        id="invitation_bar"
+                        width="100%"
+                        visible="false"
+                        includeInLayout="{this.invitation_bar.visible}"/>
+                     <views_map_components:Notice_Bar
+                        id="notice_bar"
+                        width="100%"
+                        visible="false"
+                        includeInLayout="{this.notice_bar.visible}"/>
+
+                     <mx:HBox
+                        width="100%"
+                        horizontalGap="0"
+                        verticalAlign="top"
+                        horizontalAlign="right">
+
+                        <!-- Pan/zoom and other navigation -->
+
+                        <!-- CcpV1 has a Compass_Rose, but it's not a N/S/E/W
+                             compass, it's eigth arrow buttons that simply pan
+                             the map. Not super useful, and it's a confusing
+                             control (it's not obvious what it does until you
+                             play with it, and then it's like, What's the
+                             point? -->
+
+                        <!-- CcpV1 also puts the trobber here, inside the,
+                             Compass_Rose but the throbber spins when panel
+                             data is loading, so we've moved it to a more
+                             universal position. -->
+
+                        <!-- CcpV1 also puts left and right arrow buttons to
+                             the right of the Compass_Rose that traverse the
+                             stack of views the user has seen, i.e., if the
+                             user zooms or pans, or if the user jumps to a map
+                             item (e.g., via search results), they can use the
+                             prev/next arrows to return to previous views.
+                             Like the compass control, it's not a standard
+                             online map widget, so it seems confusing. And
+                             it's really only useful if you're jumping around
+                             search results and want to return to where you
+                             were before jumping around search results.
+                             -->
+                        <!-- MAYBE: Reimplement the forward/back control but
+                                    find a better place for it to live. Here's
+                                    what the old code smells like:
+                              <mx:Button
+                                 id="view_back"
+                                 click="G.map.view_stack.back();"
+                                 disabledIcon=
+                  "@Embed(source='/assets/img/map_chevron_left_disabled.png')"
+                                 height="25"
+                                 width="30"
+                                 icon="@Embed(source=
+                                          '/assets/img/map_chevron_left.png')"
+                                 toolTip="Go back one view"/>
+                              <mx:Button
+                                 id="view_forward"
+                                 click="G.map.view_stack.forward();"
+                                 disabledIcon=
+                  "@Embed(source='/assets/img/map_chevron_right_disabled.png')"
+                                 height="25"
+                                 width="30"
+                                 icon=
+                  "@Embed(source='/assets/img/map_chevron_right.png')"
+                                 toolTip="Go forward one view"/>
+                        -->
+
+                        <!-- CcpV1 also has a 'Search' button in this area, but
+                             that's just silly. We have a universal search box
+                             above the map and also a link to
+                             'Advanced Search'.
+                             -->
+
+                     </mx:HBox>
+
+                  </mx:VBox> <!-- end: Controls attached to top of map -->
+                  <!--
+                     This control used to be at the bottom, but [lb] thinks
+                     it should be more obvious.
+                     Here's some code that works well for bottom placement:
+                        bottom=
+                        "{this.map_canvas.height - this.map_key.y + this.pad}"
+                        "{this.map_canvas.height - this.map_key.y
+                          + this.box_scale_bar.height}"
+                     -->
+                  <mx:VBox
+                     top="{this.zoombar.y}"
+                     width="100%"
+                     horizontalAlign="center">
+
+                     <!-- Note about what revision is loaded (i.e., Historic or
+                     <    Diff, but not shown for Current/Working). -->
+                     <mx:HBox
+                        id="rev_note_container"
+                        width="100%"
+                        horizontalAlign="center"
+                        visible="false"
+                        includeInLayout="{this.rev_note_container.visible}"
+                        >
+               <!-- FIXME: Rethink the backgroundAlpha, backgroundColor,
+                           filters, and color.
+                           -->
+                        <mx:HBox
+               backgroundAlpha="0.66"
+               backgroundColor="{Conf.change_color}"
+                           horizontalGap="0"
+                           paddingLeft="7"
+                           paddingTop="7"
+                           paddingBottom="7"
+                           paddingRight="7"
+                           >
+                           <mx:Spacer
+                              width="100%"/>
+                           <mx:VBox
+                              width="100%"
+                              horizontalAlign="center"
+                              filters="{[UI.mapglow, UI.mapglow2,]}"
+                              >
+                              <mx:HBox
+                                 width="100%"
+                                 horizontalAlign="center">
+                                 <mx:Label
+                                    id="rev_note"
+                                    styleName="labelmajor"
+               color="0xcc3333"
+                                    />
+                              </mx:HBox>
+                              <mx:HBox
+                                 width="100%"
+                                 horizontalAlign="center"
+                                 visible="{this.diff_toggle.visible}"
+                                 includeInLayout="{this.diff_toggle.visible}"
+                                 >
+                                 <!-- MAGIC_NUMBER:
+                                       selectedIndex="2" ==> 'Both'.
+                                       -->
+                                 <mx:ToggleButtonBar
+                                    id="diff_toggle"
+                                    itemClick="G.map.diff_show = event.index;"
+                                    selectedIndex="2"
+                                    visible="false"
+                                    includeInLayout=
+                                       "{this.diff_toggle.visible}"
+                                    >
+                                    <mx:dataProvider>
+                                       <mx:Array>
+                                          <mx:String>Before</mx:String>
+                                          <mx:String>After</mx:String>
+                                          <mx:String>Both</mx:String>
+                                       </mx:Array>
+                                    </mx:dataProvider>
+                                 </mx:ToggleButtonBar>
+                                 <!-- FIXME: [lb] notes that Diff is still not
+                                             reimplemented, so this might not
+                                             really, ya know, work that well.
+                                             -->
+                              </mx:HBox>
+                              <mx:HBox
+                                 width="100%"
+                                 horizontalAlign="center">
+                                 <!--
+                                    label="Look At"
+                                 -->
+                                 <mx:Button
+                                    id="rev_note_go_there"
+                                    label="Go There"
+                                    click="G.map.lookat_rev();"/>
+                                 <mx:Spacer
+                                    width="100%"/>
+                                 <mx:Button
+                                    label="Exit Historic Mode"
+                                    click=
+                                       "G.tabs.changes_panel.show_current();"
+                                    />
+                              </mx:HBox>
+                           </mx:VBox>
+                           <mx:Spacer
+                              width="100%"/>
+                        </mx:HBox>
+                     </mx:HBox> <!-- end: rev_note_container -->
+
+                  </mx:VBox>
+
+                  <mx:VBox
+                     id="box_scale_bar"
+                     bottom="{pad}"
+                     left="{pad}"
+                     filters="{[UI.mapglow, UI.mapglow2,]}"
+                     horizontalAlign="left">
+                     <mx:Label
+                        id="scalebar_feet_label"
+                        fontWeight="bold"/>
+                     <utils_misc:Map_Scalebar
+                        id="scale_bar"/>
+                     <mx:Label
+                        id="scalebar_meters_label"
+                        fontWeight="bold"/>
+                  </mx:VBox>
+
+                  <mx:Canvas
+                     xmlns:mx="http://www.adobe.com/2006/mxml"
+                     xmlns="*"
+                     width="100%"
+                     height="100%"
+                     id="panel_window_canvas"
+                     mouseEnabled="true"
+                     clipContent="true"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="off"
+                     >
+                     <!-- BUG 1739: This placement is lame. -->
+                     <!-- FIXME: 2013.02.15: We can probably close Bug 1739...
+                                           And delete this commented-out code.
+                          -->
+                     <!--
+                     <views_map_components:Floating_Tool_Palette
+                        id="tool_palette"
+                        title="Editing Tools"
+                        styleName="toolPalettePanel"
+                        x="80"
+                        y="40"/>
+                     -->
+                     <!-- SYNC_ME: MAGIC_NUMBERS: These "23"s match similar for
+                                                  Map_Zoombar.
+                                                  -->
+                     <views_map_components:Floating_Tool_Palette
+                        id="tool_palette"
+                        title="Editing Tools"
+                        styleName="toolPalettePanel"
+                        x="23"
+                        y="23"
+                        visible="{(Conf.map_default_mode is App_Mode_Edit)}"
+                        />
+
+                  </mx:Canvas>
+
+                  <views_map_legend:Map_Key_Button
+                     id="map_key"
+                     visible="false"
+                     includeInLayout="{this.map_key.visible}"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="off"
+                     filters="{[UI.mapglow, UI.mapglow2,]}"
+                     x="0"
+                     y="0"
+                     clipContent="true"
+                     />
+
+               </mx:Canvas> <!-- end: map_canvas -->
+
+            </mx:VBox> <!-- end: map_toolbar_and_viewport -->
+
+         </mx:HDividedBox>
+
+      </mx:HBox> <!-- end: container of everything -->
+
+   <!-- Account control (login/logout/signup/forgot) -->
+   <!-- This control is last so it's atop all else. -->
+   <!--
+
+FIXME_2013_06_11: [lb] playing around w/ non-modal login.
+
+    fillColors="[0xE6EEEE, 0xFFFFFF]"
+    x="{this.ccp_header.account_control.banner_button_user_login.x}"
+    y="{this.ccp_header.account_control.banner_button_user_login.y
+        + this.ccp_header.account_control.banner_button_user_login.height}"
+height="{this.height}"
+   -->
+
+<!--
+
+FIXME/BUG nnnn: Finish implementing this.
+Also consider signup, lost password, change password, change email, etc.
+
+-->
+
+      <mx:Canvas
+         id="header_drop_canvas"
+         width="100%"
+         height="100%"
+
+         clipContent="true"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+
+visible="false"
+includeInLayout="false"
+         >
+         <mx:HBox
+            id="box_login_dropdown"
+            x="{this.header_drop_canvas.width
+                - this.box_login_dropdown.width
+                }"
+            y="{this.ccp_header.height
+                }"
+            backgroundColor="0xFFFFFF"
+            borderColor="0xE6EEEE"
+            borderStyle="solid"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            >
+            <views_map_components:Login_Dropdown
+               id="login_dropdown"
+               />
+         </mx:HBox>
+      </mx:Canvas>
+
+
+   </mx:Canvas> <!-- end: big_canvas -->
+
+</mx:Application>
+

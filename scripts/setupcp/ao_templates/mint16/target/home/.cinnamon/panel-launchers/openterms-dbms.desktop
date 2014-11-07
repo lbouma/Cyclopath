@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=term
+Exec=env DUBS_TERMNAME="" env DUBS_STARTIN="" env DUBS_STARTUP="" /ccp/dev/cp/scripts/util/openterm.sh -t dbms
+Type=Application
+Icon=terminal

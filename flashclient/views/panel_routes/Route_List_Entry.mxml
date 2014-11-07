@@ -1,0 +1,854 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off"
+   click="this.on_click(event);"
+   doubleClickEnabled="true"
+   doubleClick="this.on_double_click(event);"
+   dataChange="this.entry_update();"
+   rollOver="this.on_roll_over_entry();"
+   rollOut="this.on_roll_out_entry();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.controls.Button;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Item_Findability_Put;
+      import gwis.GWIS_Route_Get_Saved;
+      import items.feats.Route;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Data_Change_Event;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.base.UI;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_routes.Panel_Routes_Base;
+      import views.panel_routes.Panel_Routes_Box;
+      import views.panel_routes.Panel_Routes_Library;
+      import views.panel_routes.Panel_Routes_Looked_At;
+      import views.panel_routes.Route_List;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##Rt_Lst_Ent');
+
+      // ***
+
+      protected var mouse_is_hovering:Boolean = false;
+
+      protected var ignore_click_list:Set_UUID;
+
+      // To support double-click, we can't immediately respond to single
+      // clicks.
+      protected var on_click_timer:Timer;
+
+      protected var was_route:Route = null;
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         // this.register_widgets([
+         //   ]);
+
+         this.dp.addEventListener(FlexEvent.HIDE, this.on_hide_event_,
+                                  false, 0, true);
+      }
+
+      /*/
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         // NOTE: Hooking our own FlexEvent.HIDE doesn't work here.
+         //       Which is why we hook dp's hide event from set detail_panel.
+         //       Maybe the first place one could do it is on_creation_complete
+         //       or maybe you this widget's HIDE event doesn't fire??
+      }
+      /*/
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+
+         super.on_creation_complete(ev);
+
+         // We listen for clicks on the Detail_Panel_Widget container, but
+         // we want to ignore clicks on our child components, which generally
+         // react on their own.
+         this.ignore_click_list = new Set_UUID(
+            [this.filter_cbox,
+             this.button_lookat,
+             this.button_more,
+             this.lock_symbol,]);
+      }
+
+      //
+      // Named as such, with underscore, to differentiate from base class fcn.
+      protected function on_hide_event_(ev:FlexEvent) :void
+      {
+         //var route:Route = (this.data as Route);
+         //m4_DEBUG('on_hide_event_: route:', route);
+         //m4_DEBUG('on_hide_event_: route.route_panel_:', route.route_panel_);
+         //m4_DEBUG2('on_hide_event_: effectively_active_panel:',
+         //          G.panel_mgr.effectively_active_panel);
+
+         this.mouse_is_hovering = false;
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         var route:Route = (this.data as Route);
+         m4_TALKY('on_remove_event: route:', route);
+         m4_TALKY(' .. this.was_route:', this.was_route);
+
+         if (route !== null) {
+            route.set_filter_show_route(false, /*force=*/true);
+            route.route_list_membership_nix(this);
+            m4_DEBUG2('on_remove_event: route.route_list_membership:',
+                      route.route_list_membership);
+         }
+
+         super.on_remove_event(ev);
+      }
+
+      // ***
+
+      // update background color and symbols to reflect route's properties
+      public function entry_update() :void
+      {
+         var route:Route = (this.data as Route);
+
+         m4_TALKY('entry_update: route:', route);
+         m4_TALKY(' .. this.was_route:', this.was_route);
+         m4_TALKY(' .. can_edit:', route.can_edit);
+         m4_TALKY(' .. is_private:', route.is_private);
+         m4_TALKY(' .. is_shared:', route.is_shared);
+         //m4_TALKY(' .. access_scope_id:', route.access_scope_id);
+         m4_TALKY(' .. accss_infr_id:', Strutil.as_hex(route.access_infer_id));
+         m4_TALKY(' .. route.created_user:', route.created_user);
+
+         // First off, you can't really select routes in the list: if you hover
+         // the mouse over a list entry, we'll select the route on the map.
+         // Which is why Route_List sets
+         //   selectionColor == backgroundDisabledColor
+
+         // FIXME: Statewide UI: Permissions. Is this arbit or edit?
+         // if (route.owned) {
+         // if (route.can_arbit) {
+         var show_lock_icon:Boolean = false;
+         var background_color:* = undefined;
+         if (route.can_edit) {
+            if (route.is_private) {
+               background_color = Conf.private_color;
+               show_lock_icon = true;
+            }
+            else if (route.is_shared) {
+               background_color = Conf.shared_color;
+            }
+            else {
+               // This is either scope_public or scope_undefined.
+               //  m4_ASSURT(route.is_public);
+            }
+         }
+         else {
+            // Use white background and display lock icon.
+            //
+            // FIXME/Bug nnnn: Add the lock icon to the hint widget, which the
+            //    users sees when they press "What do the colors mean?"
+            //
+            show_lock_icon = true;
+         }
+         this.lock_symbol.visible = show_lock_icon;
+         this.lock_symbol.includeInLayout = show_lock_icon;
+         if ((background_color != undefined)
+             && (G.user.logged_in) 
+             && (route.created_user == G.user.username)
+             && (route.can_arbit)
+             ) {
+            this.setStyle("backgroundColor", background_color);
+            this.lock_symbol.toolTip =
+             'This route is shared by you and is not editable by other users.';
+         }
+         else {
+            // In the route list, other users' routes always have a white
+            // background. The lock icon indicates if the route is
+            // editable or not.
+            this.clearStyle("backgroundColor");
+            this.lock_symbol.toolTip =
+               'This route is shared by another user and is not editable.';
+         }
+
+         m4_TALKY('entry_update: route.hydrated:', route.hydrated);
+         m4_TALKY2('entry_update: route.filter_show_route:',
+                   route.filter_show_route);
+         this.filter_cbox.selected = route.hydrated && route.filter_show_route;
+         m4_TALKY2('entry_update: filter_cbox.selected:',
+                   this.filter_cbox.selected);
+
+         // If the label text fits, Flash will not show a toolTip. If the
+         // label is clipped, Flash adds a '...' and also a toolTip (see:
+         // truncateToFit).
+         this.rt_name.text = route.name_;
+         if (this.rt_name.text == '') {
+            this.rt_name.htmlText = '<i>Unnamed route</i>';
+         }
+         this.fromto_label.text = this.pretty_addr(route.from_canaddr,
+                                                   route.to_canaddr);
+
+         var rt_len_miles:String = Strutil.meters_to_miles_pretty(
+            route.rsn_len, /*decimal=*/2, /*units=*/false);
+         this.rt_len.text = rt_len_miles + ' mi';
+         this.rt_len.toolTip =
+            'This route is ' + rt_len_miles + ' miles long.';
+
+         route.route_list_membership_add(this);
+         m4_DEBUG2('entry_update: route.route_list_membership:',
+                   route.route_list_membership);
+
+         m4_DEBUG('entry_update: addEventListener: routeFilterChanged');
+         route.addEventListener('routeFilterChanged',
+                                this.on_route_filter_changed);
+
+         //m4_DEBUG('entry_update: addEventListener: routeViewCountIt');
+         //route.addEventListener('routeViewCountIt',
+         //                       this.on_route_view_count_it);
+      }
+
+      //
+      protected function on_click(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_click: event:', event);
+         m4_DEBUG('on_click: event.target:', event.target);
+
+         if (this.ignore_click_list.is_member(event.target)) {
+            return;
+         }
+
+         // The user might be double-clicking, so wait to see if this is a
+         // double-click... hrmpf, [lb] is surprised the Flex framework doesn't
+         // have a way to handle this problem.
+
+         if (this.on_click_timer !== null) {
+            m4_WARNING('on_click: on_click_timeout still set?');
+            //this.on_click_timeout_cleanup();
+            this.on_click_timer.stop();
+         }
+         else {
+            this.on_click_timer = new Timer(Conf.double_click_time, 1);
+            this.on_click_timer.addEventListener(TimerEvent.TIMER,
+                                                 this.on_click_timeout,
+                                                 false, 0, true);
+         }
+         this.on_click_timer.reset();
+         this.on_click_timer.start();
+      }
+
+      //
+      public function on_click_timeout(event:TimerEvent) :void
+      {
+         m4_DEBUG('on_click_timeout: event:', event);
+
+         this.on_click_timeout_cleanup();
+
+         // We let double-click switch to the route panel. A single mouse click
+         // just loads the route and locates it on the map.
+         //this.route_action_do(this.route_select);
+         this.route_action_do(this.route_lookat);
+      }
+
+      //
+      public function on_click_timeout_cleanup() :void
+      {
+         if (this.on_click_timer !== null) {
+            this.on_click_timer.removeEventListener(TimerEvent.TIMER,
+                                                    this.on_click_timeout);
+            this.on_click_timer = null;
+         }
+      }
+
+      //
+      protected function on_double_click(event:MouseEvent) :void
+      {
+         // NOTE: on_click is called first... we could be clever like the map
+         //       and set a timeout and manage double-clicks ourselves (darn
+         //       yoooou, Flex!), or we could just accept the fact that a
+         //       double-click performs *two* actions... <grumble, grumble>.
+         m4_DEBUG('on_double_click: event:', event);
+         m4_DEBUG('on_double_click: event.target:', event.target);
+
+         if (this.ignore_click_list.is_member(event.target)) {
+            return;
+         }
+
+         this.on_click_timeout_cleanup();
+
+         this.route_action_do(this.route_select);
+      }
+
+      //
+      public function on_filter_cbox_check() :void
+      {
+         m4_DEBUG2('on_filter_cbox_check: filter_cbox.selected:',
+                   this.filter_cbox.selected);
+
+         var route:Route = (this.data as Route);
+
+         if (this.filter_cbox.selected) {
+            m4_DEBUG('on_filter_cbox_check: route_filter: route:', route);
+            route.set_filter_show_route(true, /*force=*/true);
+            this.route_action_do(this.route_filter);
+         }
+         else {
+            m4_DEBUG('on_filter_cbox_check: uncheck all for route:', route);
+            route.set_filter_show_route(false, /*force=*/true);
+         }
+      }
+
+      //
+      public function on_filter_cbox_click() :void
+      {
+         m4_DEBUG2('on_filter_cbox_click: filter_cbox.selected:',
+                   this.filter_cbox.selected);
+
+         // No-op. See: on_filter_cbox_check.
+      }
+
+      //
+      protected function on_lookat_click() :void
+      {
+         m4_DEBUG('on_lookat_click: this.dp:', this.dp);
+         this.route_action_do(this.route_lookat);
+      }
+
+      //
+      protected function on_more_click() :void
+      {
+         m4_DEBUG('on_more_click: this.dp:', this.dp);
+         this.route_action_do(this.route_select);
+      }
+
+      //
+      protected function on_roll_over_entry() :void
+      {
+         m4_VERBOSE('on_roll_over_entry: this.dp:', this.dp);
+         if (!this.mouse_is_hovering) {
+            this.on_roll_over_entry_();
+         }
+      }
+
+      //
+      protected function on_roll_over_entry_() :void
+      {
+         m4_VERBOSE('on_roll_over_entry_: this.dp:', this.dp);
+         if (G.panel_mgr.effectively_active_panel !== this.dp) {
+            m4_WARNING2('on_roll_over_entry_: not effectively_active_panel?:',
+                        G.panel_mgr.effectively_active_panel);
+         }
+
+         var route:Route = (this.data as Route);
+         m4_TALKY('on_roll_over_entry_: route:', route);
+
+         if (route.hydrated) {
+            // Note that this.dp is Panel_Routes_Box (main.mxml's
+            // "routes_panel"). It's when the user mouses over a
+            // Route_List_Entry that we set a panel selected, and
+            // it'll attach to the routes panel.
+            if ((this.dp.items_selected !== null)
+                && (this.dp.items_selected.length > 0)) {
+               if (this.dp.items_selected.length == 1) {
+                  if (this.dp.items_selected.one() === route) {
+                     // This happens when the user clicks 'lookat' or 'more',
+                     // which selects the route.
+                     m4_TALKY('on_roll_over_entry_: is selected:', route);
+                  }
+                  else {
+                     m4_TALKY('on_roll_over_entry_: not selected:', route);
+                     m4_TALKY2('on_roll_over_entry_: cur selected:',
+                               this.dp.items_selected.one());
+                  }
+               }
+               else {
+                  m4_WARNING2('on_roll_over_entry_: unexpected: no. selected:',
+                              this.dp.items_selected.length);
+                  var force_reset:Boolean = true;
+                  var dont_deselect:* = route;
+                  this.dp.panel_selection_clear(force_reset, dont_deselect);
+               }
+            }
+            // else, nothing is currently selected.
+
+            // This is counter-intuitive, or maybe the 'solo' param is just
+            // poorly named, but if you specify solo, you might get a new
+            // geofeature details panel. Since we know the routes_panel
+            // selection is already clear, we specify solo=false so that
+            // the route chooses our panel to which to add itself.
+            route.set_selected(true, /*nix=*/false, /*solo=*/false);
+         }
+         // else, not hydrated, so just wait for user to load the route.
+
+         m4_TALKY2('on_roll_over_entry_: mouse_is_hovering:',
+                   this.mouse_is_hovering);
+         this.mouse_is_hovering = true;
+      }
+
+      //
+      protected function on_roll_out_entry() :void
+      {
+         m4_TALKY('on_roll_out_entry: this.dp:', this.dp);
+
+         var route:Route = (this.data as Route);
+         m4_TALKY('on_roll_out_entry: route:', route);
+
+         // The dp.items_selected is null if the route isn't loaded, so it
+         // wouldn't have been selected in on_roll_over_entry.
+         //
+         // And the dp.items_selected.length is 0 if Panel_Routes_Box...???
+         //
+         // And the selected one isn't the one if... ?
+
+         m4_DEBUG2('on_roll_out_entry: items_selected:',
+                   this.dp.items_selected);
+
+         if ((this.dp.items_selected !== null)
+             && (this.dp.items_selected.length == 1)
+             && (this.dp.items_selected.one() === route)) {
+            if (route.hydrated) {
+               m4_DEBUG2('on_roll_out_entry: route.route_panel_:',
+                         route.route_panel_);
+               m4_DEBUG2('on_roll_out_entry: effectively_active_panel:',
+                         G.panel_mgr.effectively_active_panel);
+               if (G.panel_mgr.effectively_active_panel
+                   !== route.route_panel_) {
+                  // FIXME: When using nix=true, we should pass this.dp to
+                  //        set_selected?
+                  route.set_selected(false, /*nix=*/true, /*solo=*/false);
+               }
+            }
+            // else, not hydrated, so just wait for user to load the route.
+         }
+
+         m4_DEBUG2('on_roll_out_entry: mouse_is_hovering:',
+                   this.mouse_is_hovering);
+         this.mouse_is_hovering = false;
+      }
+
+      //
+      public function on_route_filter_changed(ev:Event) :void
+      {
+         m4_DEBUG2('on_route_filter_changed: routeFilterChanged: ev.target:',
+                   ev.target);
+
+         var route:Route = (this.data as Route);
+         m4_DEBUG('on_route_filter_changed: route:', route);
+
+         var at_least_one_checked:Boolean = false;
+
+         if (route.filter_show_route) {
+            this.filter_cbox.selected = true;
+            at_least_one_checked = true;
+         }
+         else {
+            this.filter_cbox.selected = false;
+         }
+
+         var tickled:Boolean = false;
+         var arr:Array;
+         var routes_panel_tab:Panel_Routes_Base = null;
+         if (this.parentDocument !== null) {
+            routes_panel_tab = (this.parentDocument as Panel_Routes_Base);
+            // Adjust, e.g., the 'Clear all selected' et al. buttons.
+            arr = routes_panel_tab.on_filter_cbox_changed(
+                                    at_least_one_checked);
+            tickled = true;
+         }
+         if ((routes_panel_tab === null) && (this.dp !== null)) {
+            // this.dp is side_panel_frame.side_panel.routes_panel, which is
+            // the parent of the find-route panel tabs.
+            // Wrong: routes_panel_tab = (this.dp as Panel_Routes_Base);
+            var route_tabs_box:Panel_Routes_Box;
+            route_tabs_box = (this.dp as Panel_Routes_Box);
+            if (route_tabs_box !== null) {
+               // Tickle both Panel_Routes_Library and Panel_Routes_Looked_At.
+               //   G.app.routes_panel.routes_library
+               //   G.app.routes_panel.routes_looked_at
+               arr = route_tabs_box.routes_library.on_filter_cbox_changed(
+                                                      at_least_one_checked);
+               arr = route_tabs_box.routes_looked_at.on_filter_cbox_changed(
+                                                      at_least_one_checked);
+               tickled = true;
+            }
+            m4_ASSERT_ELSE_SOFT();
+         }
+         if (!tickled) {
+            m4_DEBUG('on_filter_cbox_check: this.dp:', this.dp);
+            m4_DEBUG2('on_filter_cbox_check: parentDocument:',
+                      this.parentDocument);
+            m4_ASSERT_SOFT(false);
+            G.sl.event('error/rte_lst_ety/on_rte_fltr_chgd',
+               {
+               // E.g.s:
+               // history_routes.ListBaseContentHolder709.Route_List_Entry3971:
+               rte_lst_entry: String(this),
+               // side_panel_frame.side_panel.routes_panel:
+               rts_lst_e_dp: String(this.dp),
+               // null:
+               parentDocument: String(this.parentDocument)});
+         }
+      }
+
+      //
+      protected function findability_saved_okay(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_DEBUG('findability_saved_okay');
+
+         // A little hack to force the route_list to maybe refresh itself.
+         G.app.routes_panel.routes_looked_at.force_fetch_list_next_maybe();
+      }
+
+      //
+      protected function findability_saved_fail(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_WARNING('findability_saved_fail');
+      }
+
+      // ***
+
+      //
+      protected function ensure_hydrated(route_or_event:*, callback:Function)
+         :Route
+      {
+         var route:Route;
+         if (route_or_event === null) {
+            route = (this.data as Route);
+         }
+         else if (route_or_event is Event) {
+            route = route_or_event.target as Route;
+            m4_ASSERT(route.hydrated);
+         }
+         else {
+            route = route_or_event as Route;
+         }
+
+         if (route !== null) {
+
+            // If the route is not hydrated, and it's not an old route version,
+            // get link_values.
+            if (!route.hydrated) {
+
+               m4_DEBUG('ensure_hydrated: lazy-loading: route:', route);
+               if (route.rsteps === null) {
+                  m4_ERROR('ensure_hydrated: route:', route);
+                  m4_ERROR7('ensure_hydrated: hydrated:', route.hydrated,
+                     '/ rsteps:',
+                        (route.rsteps !== null) ? route.rsteps.length : 'null',
+                     '/ rstops:',
+                        (route.rstops !== null) ? route.rstops.length : 'null',
+                     '/ invalid:', route.invalid,
+                     '/ links_lazy_loaded:', route.links_lazy_loaded);
+               }
+               // route_action_do ensures rsteps are set.
+               // 2013.09.18: Except this has been firing.
+               //m4_ASSERT_SOFT(route.rsteps !== null);
+               m4_ASSERT_SOFT(route.master_route === null);
+               m4_ASSERT_SOFT(route.master_item === null);
+               m4_ASSERT_SOFT(!route.links_lazy_loaded);
+
+               // We don't need link_values for old versions of a route (or
+               // any item) because commands.Item_Reversion doesn't touch
+               // link_values.
+
+               // BUG_JUL_2014: MAJOR BUG: [lb] dragged vertex to connect it to
+               // a byway endpoint clusted, saved the map, then tried to route,
+               // and an infinite callback loop ensued...
+               route.addEventListener('featLinksLoaded', callback);
+// FIXME: Stuck in recursive loop....
+               G.app.callLater(G.item_mgr.link_values_lazy_load, [route,]);
+            }
+            else {
+               m4_DEBUG('ensure_hydrated: all clear; that is- route.hydrated');
+               route.removeEventListener('featLinksLoaded', callback);
+
+               // If the mouse is hovering, select the route.
+               if (G.panel_mgr.effectively_active_panel === this.dp) {
+                  m4_DEBUG2('ensure_hydrated: mouse_is_hovering:',
+                            this.mouse_is_hovering);
+                  if (this.mouse_is_hovering) {
+                     // Not this one: this.on_roll_over_entry();
+                     this.on_roll_over_entry_();
+                  }
+               }
+            }
+         }
+         else {
+            // MAYBE: Does this matter?
+            m4_WARNING('ensure_hydrated: route has gone away: this:', this);
+            m4_ASSERT_SOFT(false);
+         }
+
+         return route;
+      }
+
+      // invoke callback directly, or load the route then callback
+      protected function route_action_do(callback:Function) :void
+      {
+         var route:Route = (this.data as Route);
+         m4_DEBUG('route_action_do: callback:', callback, '/ route:', route);
+         if (route.rsteps !== null) {
+            m4_DEBUG('route_action_do: rsteps.length:', route.rsteps.length);
+         }
+         if (route.hydrated) {
+            m4_DEBUG('route_action_do: route.hydrated:', route);
+            // EXPLAIN: Why not?: callback.call(this, route);
+            callback.call(null, null, route);
+         }
+         else {
+            m4_DEBUG('route_action_do: getting route from server:', route);
+            var gwis_cmd:GWIS_Route_Get_Saved =
+               new GWIS_Route_Get_Saved(
+                  route.stack_id,
+                  /*caller_source=*/'route_action_do',
+                  /*callback_item=*/callback,
+                  // MAYBE: Implement callback_fail?
+                  /*callback_fail=*/null,
+                  /*as_gpx=*/false,
+                  /*check_invalid=*/
+                     Panel_Routes_Base.recalculate_routes_on_fetch,
+                  // MAYBE: We don't need to use the session ID, do we?
+                  /*gia_use_sessid=*/route.unlibraried,
+                  /*get_steps_and_stops=*/true,
+                  /*compute_landmarks=*/route.show_landmarks);
+            //gwis_cmd.fetch();
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_cmd);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+      }
+
+      //
+      // Called via route_action_do/ensure_hydrated/dispatchEvent.
+      protected function route_filter(
+         gwis_route_get_saved:*=null,
+         route_or_event:*=null) :void
+      {
+         var route:Route;
+         route = this.ensure_hydrated(route_or_event, this.route_filter);
+
+         m4_DEBUG('route_filter: route', route);
+
+         if ((route !== null) && (route.hydrated)) {
+
+            route.set_filter_show_route(true, /*force=*/true);
+
+            // STYLE_GUIDE: There used to be spaghettish code here,
+            // but mxmlc often complains about this object not being
+            // declared, and compilation fails. So we use an event instead.
+            // Bad: if (this.owner
+            //          === G.app.routes_panel.routes_library.search_routes) {
+            //         G.tabs.route.route_view_record(route);
+            //      }
+            //?: route.signal_route_view();
+         }
+      }
+
+      //
+      // Called via route_action_do/ensure_hydrated/dispatchEvent.
+      protected function route_lookat(
+         gwis_route_get_saved:*=null,
+         route_or_event:*=null) :void
+      {
+         m4_DEBUG('route_lookat');
+
+         var route:Route;
+         route = this.ensure_hydrated(route_or_event, this.route_lookat);
+
+         m4_DEBUG2('route_lookat: route.filter_show_route: was:',
+                   route.filter_show_route);
+
+         if ((route !== null) && (route.hydrated)) {
+
+            route.set_filter_show_route(true, /*force=*/true);
+            // See routeFilterChanged: this.filter_cbox.selected = true;
+
+            // NOTE: Because of ensure_hydrated, we might be called after a
+            //       small delay. If the user happens to pan or zoom during
+            //       this delay, we'll trump their action and pan/zoom to the
+            //       route.
+            G.map.lookat(route);
+         }
+      }
+
+      //
+      // Called via route_action_do/ensure_hydrated/dispatchEvent.
+      protected function route_select(
+         gwis_route_get_saved:*=null,
+         route_or_event:*=null) :void
+      {
+         // MAYBE: Geofeature.set_selected will also lazy-loaded links, but
+         //        if the GWIS calls are constructed and started in the same
+         //        frame, the update class should notice and ignore the
+         //        duplicate request. But [lb] isn't quite so sure.
+         var route:Route;
+         route = this.ensure_hydrated(route_or_event, this.route_select);
+
+         if ((route !== null) && (route.hydrated)) {
+
+            m4_DEBUG2('route_select: route.filter_show_route: was:',
+                      route.filter_show_route);
+
+            route.set_filter_show_route(true, /*force=*/true);
+            // See routeFilterChanged: this.filter_cbox.selected = true;
+
+            // De-select the route first, so that it detaches from the
+            // routes_panel, maybe. Otherwise, if the item is already
+            // selected (i.e., part of routes_panel's feats_selected),
+            // set_selected will ignore our request, since the item is
+            // technically already selected.
+            route.set_selected(false);
+            route.set_selected(true, /*nix=*/false, /*solo=*/true);
+
+            G.map.lookat(route);
+         }
+         else {
+            m4_DEBUG2('route_select: no route or not hydrated:',
+                      (route !== null) ? route : 'null');
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      protected function pretty_addr(from:String, to:String) :String
+      {
+         return trim_addr(from) + ' to ' + trim_addr(to);
+      }
+
+      //
+      protected function trim_addr(addr:String) :String
+      {
+         var first_comma:int = addr.indexOf(',');
+         var first_paren:int = addr.indexOf('(');
+
+         var split_index:int = first_comma;
+         if ((split_index > first_paren) && (first_paren > 0)) {
+            split_index = first_paren;
+         }
+
+         if (split_index < 0) {
+            return addr;
+         }
+         else {
+            return addr.substring(0, split_index);
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      paddingLeft="4"
+      paddingRight="3"
+      horizontalGap="5"
+      verticalAlign="middle"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+      >
+
+      <!-- The labelless checkbox that determines if the route is
+           drawn on the map (well, this checkbox and whether or not
+           the route panel is showing). -->
+      <mx:CheckBox
+         id="filter_cbox"
+         selected="false"
+         toolTip="Display the route even if the route's panel is closed."
+         change="this.on_filter_cbox_check();"
+         click="this.on_filter_cbox_click();"
+         />
+
+      <mx:VBox
+         width="100%"
+         height="100%"
+         verticalGap="-1">
+         <!-- Top row of the entry: Name, Length, Action buttons -->
+         <mx:HBox
+            width="100%"
+            horizontalGap="4">
+            <mx:Label
+               id="rt_name"
+               minWidth="0"
+               width="100%"
+               fontWeight="bold" />
+            <mx:Label
+               id="rt_len" />
+            <mx:Button
+               id="button_lookat"
+               label="lookat"
+               toolTip="Load the route to the map"
+               height="16"
+               styleName="small"
+               click="this.on_lookat_click();"
+               />
+   <!-- BUG NNNN: 'more' is just 'lookat' + go to route details panel?
+                  And clicking an entry just goes to route details panel?
+                  Seems... not intuitive. -->
+            <mx:Button
+               id="button_more"
+               label="more"
+               toolTip="See more details about the route"
+               height="16"
+               styleName="small"
+               click="this.on_more_click();"/>
+         </mx:HBox>
+         <!-- Second row of entry: To and from address -->
+         <mx:HBox
+            width="100%"
+            horizontalGap="0">
+            <mx:Image
+               id="lock_symbol"
+               source="{UI.locked_icon}"
+               visible="false"
+               includeInLayout="false"
+               toolTip=
+      "This route is shared by another user, and cannot be edited by you."
+               />
+            <mx:Label
+               id="fromto_label"
+               width="100%"
+               minWidth="0"
+               text=""/>
+         </mx:HBox>
+      </mx:VBox>
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

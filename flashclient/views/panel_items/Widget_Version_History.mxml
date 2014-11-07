@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Label;
+      import mx.events.CollectionEvent;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.GWIS_Item_History_Get;
+      import gwis.GWIS_Route_Get_Saved;
+      import gwis.update.Update_Base;
+      import gwis.utils.Query_Filters;
+      import items.Geofeature;
+      import items.Item_User_Access;
+      import items.feats.Route;
+      import utils.misc.Counter;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_routes.Panel_Item_Route;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_VerHist');
+
+      // *** Instance variables
+
+      [Bindable] public var version_history_page_size:int = 3;
+
+      protected var results_xml:XMLList = null;
+
+      public var history_cmd:GWIS_Item_History_Get = null;
+      protected var callback_okay:Function = null;
+
+      // The DataGrid entries come and go, so we manage its important data.
+      public var version_cmds:Dictionary = new Dictionary();
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         m4_TALKY('set detail_panel: dp:', dp);
+
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         m4_VERBOSE('set on_added_renderer_maybe');
+
+         var renderer:Widget_Version_History_Entry;
+         renderer = (ev.target as Widget_Version_History_Entry);
+         if (renderer !== null) {
+            // Renderer can also just use parentDocument.
+            renderer.detail_panel = this;
+         }
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_TALKY2('on_initialize: version_history_page_size:',
+                   this.version_history_page_size);
+
+         this.version_list_pager.records_per_page
+            = this.version_history_page_size;
+         this.version_list_pager.list_control_callback
+            = this.on_pageinator;
+      }
+
+      //
+      protected function on_pageinator() :void
+      {
+         m4_DEBUG('on_pageinator');
+
+         var first_record_num:int;
+         if (this.version_list_pager.current_page_number == 0) {
+            first_record_num = 0;
+         }
+         else {
+            first_record_num = 
+               (this.version_list_pager.records_per_page
+                * (this.version_list_pager.current_page_number - 1))
+               //+ 1
+            ;
+         }
+         m4_DEBUG('on_pageinator: first_record_num:', first_record_num);
+         this.paginator_update_list(first_record_num);
+      }
+
+      //
+      // C.f. Address_Picker.paginator_update_list
+      public function paginator_update_list(index:uint=0) :void
+      {
+         var provider:ArrayCollection = new ArrayCollection();
+
+         // Note the XMLList's length is a fcn., length().
+         if ((!this.results_xml) || (this.results_xml.length() == 0)) {
+            m4_ASSERT_SOFT(index == 0);
+            this.version_list_pager.records_total_count = 0;
+            this.version_history_list.dataProvider = provider;
+         }
+         else {
+            m4_DEBUG2('paginator_update_list: index:', index,
+                      '/ results_xml.len:', this.results_xml.length());
+            //m4_DEBUG2('paginator_update_list: results_xml:',
+            //          this.results_xml.toXMLString());
+
+            var limit:int = 
+               Math.min(index + this.version_history_page_size,
+                        this.results_xml.length());
+            m4_DEBUG('paginator_update_list: limit:', limit);
+
+            for (var posit:int = index; posit < limit; posit++) {
+               provider.addItem(this.results_xml[posit]);
+            }
+
+            this.version_history_list.dataProvider = provider;
+
+            this.version_list_pager.records_total_count =
+               this.results_xml.length();
+
+            // Avoid: "warning: unable to bind to property 'text' on class
+            //        'XML' (class is not an IEventDispatcher)
+            m4_DEBUG('update_result_list: provider.len:', provider.length);
+            this.version_list_pager.p_collect = provider;
+
+            this.version_list_pager.update_pagination_text();
+
+            if (this.results_xml.length() <= this.version_history_page_size) {
+               this.version_list_pager.visible = false;
+               this.version_list_pager.includeInLayout = false;
+            }
+            else {
+               this.version_list_pager.visible = true;
+               this.version_list_pager.includeInLayout = true;
+            }
+         }
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_TALKY('depopulate: this.dp:', this.dp.class_name_tail);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_TALKY('repopulate');
+
+         // Hide ourselves unless there's just one item.
+         if (this.items_selected.length != 1) {
+            m4_TALKY('repopulate: hiding: not just 1 item selected');
+            this.visible = false;
+            this.includeInLayout = false;
+            // Note that this only applies if we're inline on the Geofeature
+            // details panel, otherwise
+         }
+
+      }
+
+      // ***
+
+      //
+      public function clear_history() :void
+      {
+         this.results_xml = null;
+         this.paginator_update_list();
+      }
+
+      // ***
+
+      //
+      public function fetch_history(callback_okay:Function=null) :void
+      {
+         if (this.history_cmd !== null) {
+            m4_DEBUG('fetch_history: ignoring duplicate command, eh');
+         }
+         else {
+            this.callback_okay = callback_okay;
+
+            m4_DEBUG2('fetch_history: items_selected.length:',
+                      this.items_selected.length);
+
+            m4_DEBUG('fetch_history: this.dp:', this.dp);
+            m4_DEBUG('fetch_history: parentDocument:', this.parentDocument);
+
+
+            var some_item:Item_User_Access;
+            some_item = (this.items_selected.item_get_random()
+                         as Item_User_Access);
+
+            m4_DEBUG('fetch_history: some_item:', some_item);
+
+            this.history_cmd = new GWIS_Item_History_Get(
+                                       some_item,
+                                       this.fetch_history_okay,
+                                       this.fetch_history_fail);
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(this.history_cmd);
+            // We already checked for a duplicate command:
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+      }
+
+      //
+      protected function fetch_history_okay(
+         gwis_req:GWIS_Item_History_Get,
+         xml:XML) :void
+      {
+         m4_DEBUG('fetch_history_okay: xml:', xml.toXMLString());
+         m4_DEBUG('fetch_history_okay: xml.length:', xml.length());
+
+         m4_DEBUG(' .. : xml.item_history[0]:', xml.item_history[0]);
+         m4_DEBUG(' .. : xml.row[0]:', xml.row[0]);
+         m4_DEBUG(' .. : xml.item_history:', xml.item_history);
+         m4_DEBUG(' .. : xml.row:', xml.row);
+         m4_DEBUG(' .. : xml..row:', xml..row);
+
+         this.history_cmd = null;
+
+         // The server returns:
+         //    <item_history>
+         //       <row ... />
+         //       <row ... />
+
+         this.results_xml = xml..row;
+
+         this.paginator_update_list();
+
+         if (this.callback_okay !== null) {
+            this.callback_okay();
+            this.callback_okay = null;
+         }
+
+      }
+
+      //
+      protected function fetch_history_fail(
+         gwis_req:GWIS_Item_History_Get,
+         xml:XML) :void
+      {
+         m4_WARNING('fetch_history_fail: gwis_req:', gwis_req);
+
+         this.history_cmd = null;
+      }
+
+      // ***
+
+      //
+      public function version_load_hide_show(version_xml:XML) :void
+      {
+         m4_DEBUG2('version_load_hide_show: version_xml:',
+                   version_xml.toXMLString());
+
+         var item_version:int = int(version_xml.@version);
+         m4_ASSERT_SOFT(item_version > 0);
+
+         var gf_panel:Panel_Item_Geofeature =
+            (this.dp as Panel_Item_Geofeature);
+
+         if (!gf_panel.item_version_show_toggle(item_version)) {
+
+            var system_id:int = int(version_xml.@system_id);
+            m4_ASSERT_SOFT(system_id > 0);
+
+            this.version_request(system_id, item_version);
+         }
+      }
+
+      // ***
+
+      //
+      protected function version_request(system_id:int, item_version:int) :void
+      {
+         var gwis_cmd:GWIS_Base;
+
+         var outstanding:Boolean = false;
+         gwis_cmd = this.version_cmds[item_version];
+         if (gwis_cmd !== null) {
+            m4_ASSERT_SOFT(gwis_cmd.query_filters.only_system_id == system_id);
+            outstanding = true;
+         }
+
+         if (outstanding) {
+            m4_DEBUG('version_request: already fetching sys_id:', system_id);
+         }
+         else {
+            m4_DEBUG('version_request: v:', item_version, '/ sys:', system_id);
+            m4_ASSERT_SOFT(item_version > 0);
+            // Argh... [lb] too lazy/not feeling there's a compelling reason
+            // not to couple this class to the item type...
+            var rt_panel:Panel_Item_Route = (this.dp as Panel_Item_Route);
+            if (rt_panel !== null) {
+               var route_get_cmd:GWIS_Route_Get_Saved =
+                  new GWIS_Route_Get_Saved(
+                     /*route_stack_id=*/0,
+                     /*caller_source=*/'widget_version_history',
+                     /*callback_okay=*/this.version_route_okay,
+                     /*callback_fail=*/this.version_route_fail,
+                     /*as_gpx=*/false,
+                     /*check_invalid=*/false,
+                     /*gia_use_sessid=*/false,
+                     /*get_steps_and_stops=*/true,
+                     /*compute_landmarks=*/rt_panel.route.show_landmarks);
+               route_get_cmd.item_version = item_version;
+
+               gwis_cmd = route_get_cmd;
+            }
+            else {
+               // Not a route.
+               var item_type_str:String = this.dp.shows_type.class_item_type;
+               // The server will ignore the rev since we're sending system_id.
+               var rev_cur:utils.rev_spec.Base = new utils.rev_spec.Current();
+               var buddy_ct:Counter = null;
+               var update_req:Update_Base = null;
+               var resp_items:Array = null; // This is for diffing.
+               var callback_load:Function = this.version_load_okay;
+               var callback_fail:Function = this.version_load_fail;
+
+               var qfs:Query_Filters = new Query_Filters();
+               qfs.only_system_id = system_id;
+
+               var checkout_cmd:GWIS_Checkout_Versioned_Items;
+               checkout_cmd = new GWIS_Checkout_Versioned_Items(
+                  item_type_str, rev_cur, buddy_ct, qfs, update_req,
+                  resp_items, callback_load, callback_fail);
+               checkout_cmd.item_version = item_version;
+
+               gwis_cmd = checkout_cmd;
+            }
+
+            gwis_cmd.query_filters.only_system_id = system_id;
+
+            this.version_cmds[item_version] = gwis_cmd;
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_cmd);
+            // We already checked for a duplicate command:
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+      }
+
+      //
+      protected function version_load_okay(
+         gwis_req:GWIS_Checkout_Base,
+         xml:XML) :void
+      {
+         m4_DEBUG2('version_load_okay: gwis_req.resp_items.len:',
+                   gwis_req.resp_items.length);
+         m4_DEBUG('version_load_okay: gwis_cmd:', gwis_cmd);
+         m4_DEBUG('version_load_okay: xml:', xml.toString());
+         m4_DEBUG('version_load_okay: resp_items:', gwis_req.resp_items);
+
+         var gwis_cmd:GWIS_Checkout_Versioned_Items =
+            (gwis_req as GWIS_Checkout_Versioned_Items);
+
+         delete this.version_cmds[gwis_cmd.item_version];
+
+         if (gwis_req.resp_items.length == 1) {
+
+            var feat:Geofeature = (gwis_req.resp_items[0] as Geofeature);
+            m4_DEBUG('version_load_okay: feat:', feat);
+            m4_ASSERT_SOFT(gwis_cmd.item_version == feat.version);
+
+            var gf_panel:Panel_Item_Geofeature =
+               (this.dp as Panel_Item_Geofeature);
+            gf_panel.item_version_load(feat);
+
+         }
+         // 2014.09.16: This is firing when I look at a byway's history and try
+         // loading a previous version. E.g., see stack ID 1486587.
+         // FIXME/BUG nnnn: Byway version history (and probably other item
+         // types' version history) doesn't work -- when I click Load, the
+         // Load button is disabled but the active version is still the latest
+         // version.
+         m4_ASSERT_ELSE_KNOWN();
+      }
+
+      //
+      protected function version_load_fail(
+         gwis_req:GWIS_Checkout_Base,
+         xml:XML) :void
+      {
+         var gwis_cmd:GWIS_Checkout_Versioned_Items =
+            (gwis_req as GWIS_Checkout_Versioned_Items);
+
+         m4_WARNING('version_load_fail: checkout failed: gwis_cmd:', gwis_cmd);
+
+         delete this.version_cmds[gwis_cmd.item_version];
+
+         var gf_panel:Panel_Item_Geofeature =
+            (this.dp as Panel_Item_Geofeature);
+         gf_panel.item_version_load(/*feat=*/null);
+      }
+
+      //
+      public function version_route_okay(
+         gwis_req:GWIS_Route_Get_Saved,
+         route:Route) :void
+      {
+         m4_DEBUG('version_route_okay: gwis_req:', gwis_req);
+         m4_DEBUG('version_route_okay: route:', route);
+
+         delete this.version_cmds[gwis_req.item_version];
+
+         var rt_panel:Panel_Item_Route = (this.dp as Panel_Item_Route);
+         rt_panel.item_version_load(route);
+
+      }
+
+      //
+      protected function version_route_fail(
+         gwis_req:GWIS_Route_Get_Saved,
+         xml:XML) :void
+      {
+         m4_WARNING('version_route_fail: checkout failed:', gwis_req);
+
+         delete this.version_cmds[gwis_req.item_version];
+
+         var rt_panel:Panel_Item_Route = (this.dp as Panel_Item_Route);
+         rt_panel.item_version_load(/*route=*/null);
+      }
+
+      // ***
+
+      //
+      public function version_history_list_tickle() :void
+      {
+         m4_DEBUG('version_history_list_tickle');
+         if ((this.version_history_list !== null)
+             && (this.version_history_list.dataProvider !== null)) {
+            this.version_history_list.dataProvider.dispatchEvent(
+               new CollectionEvent(CollectionEvent.COLLECTION_CHANGE));
+         }
+      }
+
+      //
+      public function version_revert(version_xml:XML) :void
+      {
+         m4_DEBUG('version_revert: version_xml:', version_xml.toXMLString());
+
+         var item_version:int = int(version_xml.@version);
+         m4_ASSERT_SOFT(item_version > 0);
+
+         var gf_panel:Panel_Item_Geofeature =
+            (this.dp as Panel_Item_Geofeature);
+
+         gf_panel.item_version_revert(item_version);
+
+         this.version_history_list_tickle();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Version History"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <!-- Not using the style that similar widgets use:
+            styleName="looknfeelCleanInner"
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+      -->
+      <mx:VBox
+         paddingLeft="{G.app.pad}"
+         paddingTop="4"
+         paddingRight="{G.app.pad}"
+         paddingBottom="0"
+         width="100%"
+         verticalGap="2"
+         >
+
+         <mx:DataGrid
+            id="version_history_list"
+            width="100%"
+            sortableColumns="false"
+            verticalScrollPolicy="off"
+            draggableColumns="false"
+            selectedIndex="-1"
+            selectable="false"
+            showHeaders="false"
+            headerHeight="0"
+            added="this.on_added_renderer_maybe(event);"
+            rowCount=
+         "{Math.max(1,
+                    Math.min(this.version_history_list.dataProvider.length,
+                             this.version_history_page_size))}"
+            allowMultipleSelection="false"
+            borderStyle="none"
+            resizableColumns="true"
+            >
+            <!--
+            borderStyle="solid"
+            borderColor="0xb7babc"
+            borderColor="0x333333"
+            -->
+
+            <mx:columns>
+               <mx:DataGridColumn
+                  headerText=""
+                  itemRenderer="views.panel_items.Widget_Version_History_Entry"
+                  />
+            </mx:columns>
+         </mx:DataGrid>
+
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            horizontalGap="0"
+            verticalAlign="middle"
+            horizontalAlign="right"
+            >
+            <views_panel_util:Paginator_Widget
+               id="version_list_pager"
+               width="100%"
+               horizontalAlign="right"
+               paddingRight="1"
+               paddingTop="3"
+               paddingBottom="1"
+               horizontalGap="0"
+               visible="true"
+               includeInLayout="{this.version_list_pager.visible}"
+               />
+         </mx:HBox>
+
+         <mx:HBox
+            id="caveat_no_lvals"
+            width="100%"
+            paddingTop="0"
+            horizontalGap="0"
+            verticalAlign="middle"
+            horizontalAlign="left"
+            visible="false"
+            includeInLayout="{this.caveat_no_lvals.visible}"
+            >
+            <mx:Text
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               >
+               <mx:htmlText><![CDATA[
+               <i>
+               Caveat: This list does not include changes
+                       to attributes, notes, or tags.
+               </i>
+               ]]></mx:htmlText>
+            </mx:Text>
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,294 @@
+= What's the Diff? =
+
+The multimodal branch is derived from the Cyclopath V1 Trunk. Here's what's different.
+
+== Pyserver ==
+
+=== New Files ===
+
+{| class="wikitable"
+|-
+! Filename 
+! Description 
+|-
+| graphserv_build.py 
+| The main script that builds the multimodal graph used by graphserver. Calls graph_import_gtfs.py, graph_import_sql.py and graph_link.py.
+|-
+| graph_import_gtfs.py
+| Code barely modified from graphserver/pygs/build/lib/graphserver/compiler/gdb_import_gtfs. This step takes most of the 4 minutes, but is not affected by changes to the Cyclopath map or to preferences; if it were possible to make a copy of this graph at this stage, it would greatly speed up the graph loading.
+|-
+| graph_import_sql.py
+| New code to create a graphserver graph from the byways database. Uses some code from http://graphserver.github.com/graphserver/
+|-
+| graph_link.py
+| New code that merges the metro transit and byways graphs.
+|-
+| graphserv_get_route.py
+| Given the linked graph, this class takes route requests, asks graphserver for a shortest path, and transforms the result into a set of route_steps. Note that WalkOptions, the main way to communicate preferences to graphserver, are defined here.
+|-
+| sql.py
+| A helper class, it provides some useful sql methods to graphserv_get_route.py.
+|}
+      
+=== Modified Files ===
+
+{| class="wikitable"
+|-
+! Filename 
+! Description 
+|-
+| layers/route.py
+| Adds additional information to the route class, including start time, end time, station names, etc. Calls graphserv_get_route.py when it receives a route request.
+|-
+| routed
+| Now builds the graphserver graph, accepts more arguments from the client (for example, date and time). Contains several FIXMEs regarding passing the username, preference ratings, etc.
+|-
+| wfs_GetRoute.py
+| Accepts a few new arguments from the client (such as date and whether the route is "depart at" or "arrive by".
+|}
+
+== Flashclient ==
+
+=== New Files ===
+
+{| class="wikitable"
+|-
+! Filename 
+! Description 
+|-
+| DateTimePicker.mxml
+| Data selector I found on the internet. Needs work on the "minutes" control; it should rollover from 55 to 0, and all minutes should have two zeros ("00" and "05". Decide if 5 minute block is preferred by users. Deal with the error that if a user types a number but DOESN'T TYPE RETURN, the change doesn't register with the widget.
+|-
+| Transit_Stop.as
+| A geofeature class for the "start", "end" and "transfer" dots on the map. Enables tooltips.
+|}
+
+=== Modified Files ===
+
+{| class="wikitable"
+|-
+! Filename 
+! Description 
+|-
+| Conf.as
+| Adds a tooltip time for the Transit Stops (currently set at 0 secs) and colors for the transit mode route coloring.
+|-
+| Find_Route_Popup.mxml
+| Adds date/time selector, hides most of the original preference selectors.
+|-
+| G.as
+| Contains a hack to prevent a mysterious error where the list of x and y coordinates is empty (line 425).
+|-
+| Route.as
+| Handles additional parameters, such as start time and end time for each step. Generates new public transit instructions. Draws transfer points on the map. The error where the transit points are not being deleted occurs here, due to a hack to prevent a bug where deleting a child would generate a "child does not exist" error.
+|-
+| Route_Details_Panel
+| Changes what is displayed in the panel.
+|-
+| Route_Step.as
+| Adds other information about route steps, such as start/end times, name of station, etc.
+|-
+| Route_Viz.as
+| Possible bug here. Always returns transit mode coloring IF user is not logged in.
+|-
+| Route_Viz_Color_Map
+| Adds transit mode coloring.
+|-
+| WFS_GetRoute.as 
+| Adds date/time parameter. Possible bug here involving user and saving preferences.
+|}
+
+
+
+
+
+
+FIXME: Add to wiki
+We have to release Multimodal this week, so I'm making a plea for help!
+
+Michael and I need bug warriors and beta testers.
+
+Beta testers
+
+* The demo is publically-accessible on Huffy <http://huffy.cs.umn.edu:8081/>.
+
+Bug warriors
+
+* We'll submit bugs for the following:
+
+1. pyserver/routed code review
+2. flashclient code review
+3. compare route results with actual Metro Transit bus schedules
+4. test corner cases (create a long list of route requests that test corner cases, i.e., routing to/from points vs. addresses (searches our database vs. sends a geocode request to Bing), routing to/from isolated locations (e.g., I've seen failures routing to/from 'ridgedale mall' and 'southdale mall bus'), routing at odd hours (e.g., I've seen weird results requesting bus routes in the middle of the night))
+5. cleanup/fixme (e.g., downloading the transit database from MetC is not currently automated, so a developer has to do it periodically, which is going to get tedious real fast)
+6. ???
+
+Loren and Michael, and other developers, too: please read on for an in-depth description of the new edge weight function.
+
+-Landon
+
+
+Multimodal routing algorithm
+
+The new algorithm in located in pyserver at
+
+  routed_v2.payload_byway.Payload_Byway.cost_graphserver_passable
+
+Here's how the new algorithm works.
+
+Firstly, tag prefs and ratings still apply, and in the normal fashion.
+
+In the original route finder, the initial edge weight is calculated as the
+byway length in meters, with a penalty for "turning" from the last edge (turn
+penalties assume that vertices are roadway intersections, and that turning
+incurs a penalty, e.g. turning left may involve waiting to cross a traffic
+lane, or waiting at a traffic control).
+
+This initial edge weight is then modified based on the Bikeability value.
+
+If the Bikeability slider is all the way left, meaning the user wants the
+shortest route, then the final edge weight is simply the initial edge length
+(byway length in meters with a turn penalty). If the Bikeability slider is all
+the way right, then the initial edge weight is modified by the user's tag prefs
+and ratings (e.g., a thumbs up decreases weight, a thumbs down increases it, and
+an avoid increases the weight to infinity, etc.).  If the Bikeability slider is
+somewhere in between, the final edge weight is a weighted combination of the two.
+
+In the new route finder, the Bikeability is applied in a similar fashion, with
+two differences: first, the edge weight is the number of seconds that it takes
+to travel the edge, rather than the number of meters; and second, the initial
+edge weight (to which the Bikeability algorithm is applied) is calculated
+differently.
+
+To calculate an edge's travel time, the algorithm first assumes an average
+travel velocity, i.e., 4.5 meters per second. This velocity is then modified
+based on the slope of the edge and then multiplied by the edge length to
+produce an estimated time for someone to bike the edge.
+
+  edge_weight = byway_len / avg_speed
+
+Next, the algorithm adds the turn penalty, which is the same as in the original
+route finder (except that I converted the penalty values from meters to seconds).
+
+  edge_weight += byway_transition_cost
+
+(I'm not the happiest with this penalty, because it doesn't account for
+vertices that aren't really traffic intersections -- so if you split a byway
+for whatever reason, now all of a sudden that vertex incurs a cost penalty to
+the two byways, when in reality there might not be a penalty. Anyway, I like
+the idea of a turn penalty, but I just wonder if we should disable it for now
+until we have a better mechanism to handle it (like a 'stop sign' attribute).)
+
+Next, the edge weight is scaled by the generic bike reluctance. This value is
+used to scale bike edges to give transit edges an advantage or disadvantage.
+
+  edge_weight *= biking_reluctance
+
+Then, the edge weight has hill reluctance added, which is the rise of the edge
+multiplied by the hill reluctance. Hill reluctance is currently 0, so this
+is currently ineffective (but it's a nifty thing from Graphserver that I wanted
+to copy over, since Cyclopath has elevation data but hasn't ever used it in
+route finding, so I thought we could play around with it). The byway_rise is
+the elevation gain, in meters, of the edge (or 0 if the edge slopes downhill,
+so this only penalizes uphill edges).
+
+   edge_weight += (byway_rise * hill_reluctance)
+
+If we've exceeded the max bike distance, then the edge is again penalized. For
+example, if max bike is 4 miles and an edge being considered is 5 miles into
+the current path being computed, it's penalized. The penalty is based on the
+number of meters of extra biking.
+
+   if (end_dist > max_bike):
+      edge_weight += ((end_dist - max_bike)       # excess meters
+                      * biking_overage            # penalty
+                      * (byway_len / avg_speed))  # secs to trav edge
+
+Finally, the slog is applied. This value is currently inactive (set to 1.0).
+
+   edge_weight *= slog
+
+So now we've got the number of seconds to traverse the edge, and this value
+is then fed through the normal Bikeability algorithm.
+
+Regarding the new algorithm, I think the More Biking / More Busing slider
+should influence more than just one variable. Let's call them pre-canned
+algorithm profiles.
+
+The transit slider currently goes from -4 to 6, at intervals of 2, and defaults
+to 0. So I'll just keep this convention, since the slider values are arbitrary.
+
+== Pre-canned Algorithm Profiles ========================================
+| ===================================================================== |
+|             | ------------ Cyclopath transit_pref slider ------------ |
+|             |     -4    |   -2   |    0   |    2   |    4   |    6    |
+| alg. opts.  |           |        |        |        |        |         |
+| ----------- | ------------------------------------------------------- |
+| relucatance |    0.5    |  0.75  |   1.0  |   1.0  |   2.0  |   2.0   |
+|    max_bike |    inf    |  inf   |   inf  |   len  |  len/2 |   0.0   |
+|     overage |    0.0    |  0.0   |   0.0  |   0.1  |   0.1  |   0.1   |
+| ===================================================================== |
+
+The control profile is '0' on the slider. It sets Bike Reluctance to 1,
+Max Biking to Infinity, and Overage Penalty to 0 (which will never apply,
+anyway, since Max Biking is Infinity). What this means is that biking and
+busing should have comparable edge weights: that is, the bus edge weight is
+a real-world number that represents the number of real-world seconds that it
+takes to ride the bus along that edge. So our edge weight should be what we
+believe to be the real-world number of seconds it takes a bicyclist to travel
+the byway (which takes into account an average speed, the slope of the edge,
+and a turn penalty).
+
+For the other control profiles, I'm kind of guessing.
+
+I figured, for more busing, the Max Biking value should be used, and it
+should relate to the overall route length. That is, if the user selects More
+Busing ('6'), we should penalize biking immediately, using a Max Biking of
+0 meters. If the user is one tick over on the slider ('4'), let's start
+penalizing biking halfway through the route. (To calculate route length before
+having calculated the route, I just take the straight line distance between the
+start and end points of the route request.)  If the slider is two ticks over
+from More Busing ('2'), we only penalize biking once the user has ridden the
+length of the route. (Though maybe for profile '2', Max Biking should be len/2,
+and for profile '4', it should be len/3 or len/4... it's hard to tell without
+more testing. Or maybe profile '2' should have a small bike reluctance, like
+1.1 or 1.2. Hmmm.)
+
+For the two More Biking profiles, '-4' and '-2', I've disabled Max Bike and
+just set the Bike Reluctance to 0.5 and 0.75, respectively. For example, for
+the Most Biking profile ('-4'), a Reluctance of 0.5 means bike edge are twice
+as light as transit edges. So if it takes the bus 30 minutes to go from X to Y,
+and it takes you 55 minutes to bike the same, then you're given a biking route
+(55 * 0.5 < 30). However, at the next tick in the slider ('-2'), you'd be given
+the transit route, since 55 minutes biking * 0.75 > 30 minutes busing.
+
+Obviously, testing is going to be key here. It'd be awesome to be able to set 
+these from flashclient, but we don't have the time to implement that this     
+week. So for now, we just need to test the app, tweak the code, restart the
+server, test again, etc., until we're happy with the results.
+
+==========
+
+
+
+
+
+
+
+
+
+
+test cases
+
+I think/hope I got it.
+
+A search from Depot Coffee Hopkins to Sweeney's at 8:00 AM on tomorrow (Monday, 6/27) morning produces at least three unique results.
+
+Using Most Biking ('-4'), I'm given a bike route along the Cedar Lake trail, across the Mississippi, then along Marshall to Dale and Selby, near Sweeney's. The route is 14.32 miles. The GUI does not indicate the travel time.
+
+Using Most Busing ('6'), I'm given a bus route that use twos buses that starts at 8:00 AM and ends at 9:50, with a transfer-delay between 8:31 and 8:54. (By the way, this is an express bus and helps us test the algorithm -- if you request a route after 8:00, the next bus isn't for at least an hour, so the algorithm usually makes a bike decision.) 1h50m travel time.
+
+Using A Little Busing ('2'), I start biking along at Cedar Lake trail at 8:00 AM and bike downtown to board the 94 at 9:02 AM, which I take to downtown St Paul and disembark at 9:19 AM, then I bike to my destination and arrive at 9:33 AM. 1h33m travel time.
+
+So, um, yeah, I think a "Boo-Yeah!" is in order.
+

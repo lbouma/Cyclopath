@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Usage of this class should be deprecated as much as possible.
+            Modal dialogs are very annoying.
+            -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   creationPolicy="all"
+   layout="vertical"
+   showCloseButton="false"
+   visible="false"
+   paddingLeft="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   width="448"
+   horizontalAlign="right"
+   defaultButton="{ok}">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.KeyboardEvent;
+      import mx.managers.PopUpManager;
+
+      import utils.misc.Logging;
+
+      // *** Class variables
+
+      protected static var log:Logging = Logging.get_logger('Alert_Dialog');
+
+      protected static var current:Alert_Dialog;
+
+      // *** Instance variables
+
+      protected var _on_ok:Function;
+      protected var ok_label:String;
+      protected var _on_cancel:Function;
+      protected var cancel_label:String;
+      protected var _on_third_option:Function;
+      protected var third_option_label:String;
+      protected var callback_data:*;
+
+      // *** Instance methods
+
+      //
+      public static function hide() :void
+      {
+         PopUpManager.removePopUp(current);
+      }
+
+      /* Show a modal alert dialog. Arguments:
+
+           title          - Dialog title
+           text           - Text within the dialog prompting
+           html           - True if text is HTML (otherwise plain text)
+           on_ok          - Function called when OK button is clicked.
+           ok_label       - Label for the 'OK' button, defaults to 'OK'.
+           on_cancel      - Function called when Cancel button is clicked.
+           cancel_label   - Label for the 'Cancel' button, default no button.
+          on_third_option - [lb]'s hack for a third option, like,
+       third_option_label -   'yes', 'no', 'stop bugging me'
+
+         If no label is specified for the Cancel button, that button will not
+         be shown.
+      */
+      public static function show(title:String,
+                                  text:String,
+                                  html:Boolean=false,
+                                  on_ok:Function=null,
+                                  ok_label:String="Okay",
+                                  on_cancel:Function=null,
+                                  cancel_label:String=null,
+                                  on_third_option:Function=null,
+                                  third_option_label:String=null,
+                                  callback_data:*=null) :void
+      {
+         var d:Alert_Dialog = new Alert_Dialog();
+         PopUpManager.addPopUp(d, G.app, true);
+         d.ok.label = ok_label;
+         if (cancel_label !== null) {
+            d.cancel.label = cancel_label;
+         }
+         else {
+            // This is a lame hack because removeChild() fails. [rp]
+            d.cancel.width = 0;
+            d.cancel.visible = false;
+            d.button_box.setStyle('horizontalGap', 0);
+         }
+         d.title = title;
+         if (html) {
+            d.text.htmlText = text;
+         }
+         else {
+            d.text.text = text;
+         }
+         d._on_ok = on_ok;
+         d._on_cancel = on_cancel;
+         d.callback_data = callback_data;
+         d.addEventListener(KeyboardEvent.KEY_DOWN,
+                            d.on_keydown, false, 0, true);
+         d.visible = true;
+         PopUpManager.centerPopUp(d);
+         current = d;
+      }
+
+      // *** Event handlers
+
+      // Button clicked. Call callback f if non-null.
+      protected function on_button(f:Function) :void
+      {
+         if (f !== null) {
+            if (this.callback_data === null) {
+               f();
+            }
+            else {
+               f(this.callback_data);
+            }
+         }
+         PopUpManager.removePopUp(this);
+      }
+
+      //
+      public function on_keydown(ev:KeyboardEvent) :void
+      {
+         m4_DEBUG7('on_keydown:',
+            '/ charCode:', ev.charCode,
+            '/ keyCode:', ev.keyCode,
+            '/ alt:', ev.altKey,
+            '/ ctrl:', ev.ctrlKey,
+            '/ shift:', ev.shiftKey,
+            '/ fromCharCode:', String.fromCharCode(ev.charCode));
+         // NOTE: For the list of Keyboard key Macros, see:
+         //  http://livedocs.adobe.com/flex/3/langref/flash/ui/Keyboard.html
+         var handled:Boolean = true;
+         switch (ev.keyCode) {
+            case Keyboard.ESCAPE:
+               this.on_button(this._on_cancel);
+               break;
+            default:
+               handled = false;
+               break;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Text
+      id="text"
+      width="100%"/>
+
+   <mx:HBox
+      id="button_box">
+      <mx:Button
+         id="ok"
+         click="this.on_button(this._on_ok);"/>
+      <mx:Button
+         id="cancel"
+         click="this.on_button(this._on_cancel);"/>
+      <mx:Button
+         id="third_option"
+         click="this.on_button(this._on_third_option);"
+         visible="false"
+         includeInLayout="{this.third_option.visible}"/>
+   </mx:HBox>
+
+</mx:TitleWindow>
+

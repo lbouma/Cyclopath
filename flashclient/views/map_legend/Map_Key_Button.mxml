@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   verticalGap="0"
+   creationComplete="this.on_creation_complete()"
+
+   borderStyle="none"
+backgroundColor="0xDDDDDD"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+      import views.map_legend.Cyclopath_About;
+      import views.map_legend.Map_Legend_Bike_Facilities;
+      import views.map_legend.Map_Legend_Editing_Hints;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Map_Key');
+
+      // *** Instance variables
+
+      // NOTE: We no longer use anchor_x but we still use anchor_y.
+      public var anchor_x:int = 0;
+      public var anchor_y:int = 0;
+
+      private var up:Boolean;
+
+      protected var canvas_watcher_width:ChangeWatcher;
+      protected var canvas_watcher_height:ChangeWatcher;
+
+      // *** Animation variables
+
+      // See Floating_Tool_Palette.mxml for animation example code that uses a
+      // timer to slowly fade out the control. Here, we show a smaller tab when
+      // the key is not displayed and then expand it to a much bigger window.
+
+      public var dim_expanded_width:int;
+      public var dim_expanded_height:int;
+      protected var dim_keylabel_width:int;
+      protected var dim_keylabel_height:int;
+      protected var dim_key_text_width:int;
+      protected var dim_current_width:int;
+      protected var dim_current_height:int;
+
+      // 2013.05.23: This is a hack so the map legend resizes itself when it's
+      //             first shown.
+      protected var first_time_ever:Boolean = true;
+
+      // *** Instance methods
+
+      //
+      public function move_to_anchor() :void
+      {
+         m4_VERBOSE('move_to_anchor: this.anchor_y:', this.anchor_y);
+         // MAGIC_NUMBERS: Nudge the widget so the application border consumes
+         // the button's right and bottom border, otherwise the button's border
+         // looks funny.
+         /*
+         if (!this.showing) {
+            this.x = G.app.map_canvas.width - this.dim_current_width + 1;
+            this.y = this.anchor_y - this.dim_keylabel_height + 1;
+         }
+         else {
+            this.x = G.app.map_canvas.width - this.dim_expanded_width;
+            this.y = this.anchor_y - this.dim_expanded_height;
+         }
+         */
+         this.x = this.relative_x(this.showing);
+         this.y = this.relative_y(this.showing);
+         m4_VERBOSE('move_to_anchor: this.x:', this.x, '/ this.y:', this.y);
+      }
+
+      //
+      protected function on_creation_complete() :void
+      {
+         // On the initialize event, the control doesn't know its height, but
+         // it does now. We store it now because we fiddle with the ViewStack
+         // when the user hides or shows the map key.
+         m4_DEBUG('on_creation_complete');
+         m4_DEBUG('  this.height:', this.height);
+         m4_DEBUG('  this.width:', this.width);
+         this.dim_expanded_width = this.width;
+         this.dim_expanded_height = this.height;
+         this.dim_keylabel_width = this.show_button.width;
+         this.dim_keylabel_height = this.show_button.height;
+         this.dim_current_width = this.dim_keylabel_width;
+         this.dim_current_height = this.dim_keylabel_height;
+         var tlm:TextLineMetrics = this.show_button.measureText(
+                                          this.show_button.label);
+         this.dim_key_text_width = tlm.width;
+         //m4_DEBUG2('  dim_expanded_: w:', this.dim_expanded_width,
+         //          '/ h:', this.dim_expanded_height);
+         //m4_DEBUG2('  dim_keylabel_: w:', this.dim_keylabel_width,
+         //          '/ h:', this.dim_keylabel_height);
+         //m4_DEBUG('  dim_key_text_width:', this.dim_key_text_width);
+
+         //
+         this.show_button.percentWidth = 100;
+         this.keys.visible = false;
+         this.keys.includeInLayout = false;
+
+         // 2013.05.01: Listening on resize isn't the right way to know when
+         // the height changes, since the resize event fires during the resize.
+         // Instead, we want to know when the height has actually changed.
+         //
+         // Let on map_canvas width since that's what we use to find x.
+         this.canvas_watcher_width = ChangeWatcher.watch(
+            G.app.map_canvas, 'width', this.on_canvas_change_dimensions);
+         // The height is calculated for y, so using map_canvas or side_panel
+         // works.
+         this.canvas_watcher_height = ChangeWatcher.watch(
+            G.app.map_canvas, 'height', this.on_canvas_change_dimensions);
+
+         G.item_mgr.addEventListener('branchChange', this.on_branch_change);
+         G.item_mgr.addEventListener('branchListLoaded',
+                                     this.on_branch_list_loaded);
+         if (G.item_mgr !== null) {
+            this.on_branch_change();
+         }
+      }
+
+      // ***
+
+      // MAGIC_NUMBERS: For both relative_x and relative_y, a little nudging.
+      //                We could spend time figuring how what components' whats
+      //                to measure instead, but hard-coding is easier.
+
+      //
+      protected function relative_x(show:*=null) :int
+      {
+         var rel_x:int;
+         if (show === null) {
+            show = this.showing;
+         }
+         // MAGIC_NUMBERS: See 'splanation above.
+         if (show) {
+            rel_x = G.app.map_canvas.width - this.dim_expanded_width + 1;
+         }
+         else {
+            rel_x = G.app.map_canvas.width - this.dim_current_width + 1;
+         }
+         return rel_x;
+      }
+
+      //
+      protected function relative_y(show:*=null) :int
+      {
+         var rel_y:int;
+         if (show === null) {
+            show = this.showing;
+         }
+         // MAGIC_NUMBERS: See 'splanation above.
+         if (show) {
+            rel_y = this.anchor_y - this.dim_expanded_height; //- 4;
+         }
+         else {
+            rel_y = this.anchor_y - this.dim_keylabel_height + 1;
+         }
+         return rel_y;
+      }
+
+      //
+      public function reset_xy() :void
+      {
+         this.x = this.relative_x();
+         this.y = this.relative_y();
+      }
+
+      //
+      public function get showing() :Boolean
+      {
+         return this.up;
+      }
+
+      //
+      public function set showing(show:Boolean) :void
+      {
+         var use_tween:Boolean = true;
+         if (show != this.showing) {
+            m4_DEBUG('showing: _expanded_width:', this.dim_expanded_width);
+            m4_DEBUG('showing: map_canvas.width:', G.app.map_canvas.width);
+            if (show) {
+               m4_DEBUG('showing: show: true');
+               this.keys.visible = true;
+               this.keys.includeInLayout = true;
+               this.remeasure_title_text(show);
+            }
+            else {
+               m4_DEBUG('showing: show: false');
+               if (!use_tween) {
+                  this.remeasure_title_text(show);
+               }
+               this.keys.visible = false;
+               this.keys.includeInLayout = false;
+            }
+            if (use_tween) {
+               this.key_mover.end();
+               this.key_mover.captureStartValues();
+               this.key_mover.xTo = this.relative_x(show);
+               this.key_mover.yTo = this.relative_y(show);
+               this.key_mover.play();
+            }
+            else {
+               this.x = this.relative_x(show);
+               this.y = this.relative_y(show);
+            }
+            this.up = show;
+         }
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_branch_change(ev:Event=null) :void
+      {
+         //branch_title = G.item_mgr.active_branch.name_
+         //               + ' (' + branch_scope + ' Map)';
+         if ((G.map !== null)
+             && (G.item_mgr !== null)
+             && (G.item_mgr.active_branch !== null)
+             //&& (G.map.branches_list !== null)
+             //&& (G.map.branches_list.length > 0)
+             ) {
+
+            var active_branch_name:String = G.item_mgr.active_branch.name_;
+
+            // MAYBE: 2013.05.13: [mm] thinks we still need "Map Key" or "Map
+            // Legend" always visible (and easily discoverable). [lb] thinks we
+            // can hide it one level deep in the new branch details map popup,
+            // but maybe we can compromise by including the word "Legend" in
+            // the branch name label.
+            //  this.show_button.label = G.item_mgr.active_branch.name_;
+            this.show_button.label = active_branch_name
+                                     //+ ' Legend';
+                                     + ' (Map Legend)';
+
+            this.remeasure_title_text();
+         }
+         // Don't change: it looks weird (we're about to change to another
+         // branch name; this is just the event that one branch unloaded.
+         //   else {
+         //     this.show_button.label = 'Map Key';
+         //   }
+         //   this.remeasure_title_text();
+      }
+
+      //
+      protected function on_branch_list_loaded(ev:Event=null) :void
+      {
+         m4_DEBUG('on_branch_list_loaded');
+         this.on_branch_change();
+      }
+
+      //
+      public function on_canvas_change_dimensions(ev:Event=null) :void
+      {
+         m4_VERBOSE2('on_canvas_change_dim: map: w:', G.app.map_canvas.width,
+                     '/ h:', G.app.map_canvas.height);
+         m4_VERBOSE(' .. this.w:', this.width, '/ h:', this.height);
+         /* These are all 0:
+              this.getStyle('padding*')
+              G.app.map_toolbar_and_viewport.getStyle('padding*')
+         */
+
+         this.anchor_y = G.app.map_canvas.height;
+         this.move_to_anchor();
+      }
+
+      //
+      protected function on_show_button_click() :void
+      {
+         m4_DEBUG('on_show_button_click');
+         this.showing = !this.showing;
+      }
+
+      //
+      protected function on_tween_end() :void
+      {
+         m4_VERBOSE('on_tween_end');
+
+         this.remeasure_title_text();
+
+         if ((this.showing) && (this.first_time_ever)) {
+            //
+            var legend_about:Cyclopath_About;
+            legend_about = this.drawer.view_cyclopath_about;
+            var legend_facil:Map_Legend_Bike_Facilities;
+            legend_facil = this.drawer.view_map_key_facilities;
+            var legend_hints:Map_Legend_Editing_Hints;
+            legend_hints = this.drawer.view_legend_editing_hints;
+            var dummy_event:Event = null;
+            var skip_btn:Boolean = false;
+            // Call these later so, e.g., the button returns the correct
+            // height of 30 pixels (for 14 pt font) and not a measly height
+            // of 26 pixles (for 10 pt font).
+            m4_DEBUG_CLLL('>callLater: on_change_width');
+            G.app.callLater(legend_about.on_change_width,
+                            [dummy_event, skip_btn,]);
+            m4_DEBUG_CLLL('>callLater: on_change_height');
+            G.app.callLater(legend_about.on_change_height,
+                            [dummy_event, skip_btn,]);
+            G.app.callLater(legend_facil.on_change_height,
+                            [dummy_event, skip_btn,]);
+            G.app.callLater(legend_hints.on_change_height,
+                            [dummy_event, skip_btn,]);
+            //
+            this.first_time_ever = false;
+         }
+      }
+
+      // ***
+
+      //
+      public function remeasure_title_text(force_showing:*=null) :void
+      {
+         var is_showing:Boolean = (force_showing !== null) ? force_showing
+                                                           : this.showing;
+         if (is_showing) {
+            this.show_button.setStyle("fontSize", "14");
+            this.width = this.dim_expanded_width;
+            this.keys.width = this.dim_expanded_width;
+            this.keys.height = this.dim_expanded_height;
+            m4_DEBUG('remeasure_title_text: dew:', this.dim_expanded_width);
+         }
+         else {
+            this.show_button.setStyle("fontSize", "10");
+            if ((G.item_mgr.active_branch !== null)
+                //&& (G.map.branches_list !== null)
+                //&& (G.map.branches_list.length > 0)
+                ) {
+               var tlm:TextLineMetrics =
+                  this.show_button.measureText(this.show_button.label);
+               // Rather than figure out how a button normally pads, just use
+               // the same amount that was used before we changed the label.
+               m4_ASSERT(this.dim_keylabel_width > this.dim_key_text_width);
+               this.dim_current_width = 
+                  tlm.width + (this.dim_keylabel_width
+                               - this.dim_key_text_width);
+               m4_DEBUG2('remeasure_title_text: tlm.w:', tlm.width,
+                         '/ dim_current_width:', this.dim_current_width);
+            }
+            else {
+               m4_DEBUG('remeasure_title_text: dkw:', this.dim_keylabel_width);
+               this.dim_current_width = this.dim_keylabel_width;
+            }
+            this.width = this.dim_current_width;
+            this.keys.width = this.dim_current_width;
+            this.keys.height = this.dim_current_height;
+         }
+         this.move_to_anchor();
+      }
+
+      // *** Thunks
+
+      //
+      public function get diffmode() :Boolean
+      {
+//         return this.drawer.diffmode;
+return false; // FIXME: ??
+      }
+
+      //
+      public function set diffmode(diff:Boolean) :void
+      {
+         //this.drawer.diffmode = diff;
+      }
+
+      //
+      public function fill_values() :void
+      {
+         //this.setStyle("backgroundColor", Conf.background_color);
+         this.drawer.fill_values();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- The animation. -->
+   <mx:Move
+      id="key_mover"
+      target="{this}"
+      duration="{Conf.map_key_slide_time}"
+      tweenEnd="this.on_tween_end();"/>
+
+   <!-- The button when the widget is not expanded. -->
+   <mx:HBox
+      id="toggle_box"
+      horizontalAlign="center"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingBottom="0"
+      >
+      <!-- NOTE: The button is really big when the widget is expanded, and its
+                 color comes from the default Flex style for buttons, kind of a
+                 silvery gradient.
+                 MAYBE: We should be deliberate about button colors...
+                 -->
+      <mx:Button
+         id="show_button"
+         label="Map Key"
+         click="this.on_show_button_click();"
+         styleName="labelminor"
+         cornerRadius="0"
+         paddingTop="5"
+
+         buttonMode="true"
+         useHandCursor="true"
+
+         toolTip="Click to open or close the map legend panels."
+
+         borderColor="{Conf.application_background_color}"
+         fillAlphas="[0.0, 1.0]"
+         fillColors=
+            "{[Conf.application_background_color, Conf.background_color]}"
+         />
+      <!--
+            "{[Conf.background_color, Conf.application_background_color]}"
+
+         Note: color= is the text color.
+            color="0x0B333C"
+         disabledColor="0xAAB3B3"
+         fillAlphas="[0.6, 0.4]"
+         fillColors="[0xE6EEEE, 0xFFFFFF]"
+      -->
+   <!--
+
+         color="0x0B333C"
+         borderColor="{Conf.background_color}"
+         fillColors="{[0xDDDDDD, Conf.background_color]}"
+
+         borderColor="{Conf.application_background_color}"
+         fillColors="{[Conf.background_color, 0xFFFFFF]}"
+   -->
+
+   </mx:HBox>
+
+   <!-- The map key drawer, i.e., the expaned widget. -->
+
+   <mx:HBox
+      id="keys"
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0"
+      horizontalGap="0"
+      verticalAlign="top"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      visible="false"
+      includeInLayout="false"
+      >
+
+      <mx:HBox
+         id="fake_left_hand_border"
+         height="100%"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+         <mx:Canvas
+            id="fake_left_hand_canvas"
+            width="1"
+            height="100%"
+            backgroundColor="{Conf.application_background_color}"
+            />
+      </mx:HBox>
+
+      <views_map_legend:Map_Key_Drawer
+         id="drawer"
+         width="100%"
+         height="100%"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         />
+
+   </mx:HBox>
+
+</mx:VBox>
+

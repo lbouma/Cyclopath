@@ -1,0 +1,4 @@
+-- Cyclopath Postgresql startup script for Cron!
+
+SET client_encoding='utf8';
+

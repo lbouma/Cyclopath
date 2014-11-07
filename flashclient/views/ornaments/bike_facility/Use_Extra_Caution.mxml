@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="cautionary"
+   attr_key_name="extra_cautn"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_XtraCau');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         //
+         // NOTE: After the Aug, 2013, MnDOT meeting, we decided to scrap this
+         //       caution. It's rather vague...
+         var html_hint:String = (
+            'Implies that a cyclist should be extra vigilant on this '
+            + 'stretch of roadway.'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

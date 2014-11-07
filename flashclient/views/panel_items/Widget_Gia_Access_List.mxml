@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+
+      import grax.Access_Level;
+      import items.Item_User_Access;
+      import items.gracs.Group;
+      import items.gracs.Group_Item_Access;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_List;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Gia_Lst');
+
+      // *** Instance attributes
+
+      // *** Startup and Show methods
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_TALKY('repopulate: calling populate_grid');
+         this.populate_grid();
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: ev.target:', ev.target);
+         var renderer:Widget_Gia_Access_Entry = (
+            ev.target as Widget_Gia_Access_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Gia_Access_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      protected function populate_grid() :void
+      {
+         var glue_objects:Array = new Array();
+
+         if ((this.items_selected !== null)
+             && (Access_Level.can_arbit(this.dp.access_level_id_least))) {
+
+            m4_DEBUG2('populate_grid:', this.dp, '/ no. selected:',
+                      this.items_selected.length);
+
+            // If the user selects just one item, it's easy to see what to do:
+            // if the user is only an editor, they can't set access; if the
+            // user can arbit the item, they can assign editor/viewer/denied
+            // access; if the user also owns the item, they can also assign
+            // arbitership.
+            //
+            // But if the user selects multiple items, we have to consider (a)
+            // the user's least-common access to the items and (b) a consensus
+            // of each group's accesses to the item.
+            //
+            // By the way, this means that owners cannot unassign ownership.
+            // If you want to change ownership, use ccp.py. This is
+            // intentional. (Mostly because you don't want someone to unassign
+            // themselves as owner and zombie an item. So we could allow
+            // someone to unassign group owners untils there's just one group
+            // owner left, but if this smells fishy. Best we just not let
+            // owners un-owner themselves until we understand the sitch better.
+
+            var grac:Group_Item_Access;
+
+            var grouped_gracs:Set_List = new Set_List();
+            // The first level of the Set_List is a Dictionary, but Flex
+            // stores the dictionary keys as Strings, so if we key off the
+            // group, we can't really get the group back later.
+            var groupset:Set_UUID = new Set_UUID();
+            for each (var item:Item_User_Access in this.items_selected) {
+               m4_DEBUG2(' >> grouping item:', item, '/ grpa len:',
+                         Collection.dict_length(item.groups_access));
+               for each (grac in item.groups_access) {
+                  m4_DEBUG('    adding grac:', grac, '/ grp:', grac.group);
+                  m4_ASSERT(grac.item !== null);
+                  //
+                  // FIXME: This if !== null condition was added because
+                  // Flashclient (debug player) would throw a null-ptr exception
+                  // when some debug print statement soon after this line tries
+                  // to print group.name_ for all groups added into this set.
+                  // When loading the Metc branch, two gia's come with it:
+                  // Basemap Owner and Private group of landonb. Only the former
+                  // is known to flashclient if anybody other than landonb is
+                  // logged-in.
+                  //
+                  if (grac.group !== null) {
+                     grouped_gracs.add(grac.group, grac);
+                     groupset.add(grac.group);
+                  }
+                  else {
+                     m4_WARNING('populate_grid: [lb] please fixme');
+                  }
+               }
+            }
+
+            m4_DEBUG(' >> groupset.length:', groupset.length);
+
+            for each (var grp:Group in groupset) {
+               var is_settable:Boolean = true;
+               // This loop feels like it could handled by a consensus fn. tevs
+               for each (grac in grouped_gracs[grp]) {
+                  if (grac.access_level_id == grac.item.access_level_id) {
+                     // The grpa record is what grants the user his or her
+                     // arbiter or owner rights, and users are not allowed to
+                     // demote their groups' rights.
+                     m4_DEBUG('  groups grants user same rights; skipping.');
+                     is_settable = false;
+                     break;
+                  }
+                  else {
+                     m4_ASSERT(grac.access_level_id
+                               > grac.item.access_level_id);
+                  }
+               }
+               // Make a list entry for each unique group for all of the items
+               // selected.
+               m4_DEBUG('populate_grid: grp:', grp);
+               var gao:Widget_Gia_Access_Object;
+               gao = new Widget_Gia_Access_Object();
+               gao.dp = this.dp;
+               gao.group = grp;
+               gao.is_settable = is_settable;
+               m4_DEBUG('Adding gao:', gao.toString());
+               glue_objects.push(gao);
+            }
+
+            // Sort the array so the private user is first, then the
+            // public group, and then all of the other groups are listed
+            // alphabetically.
+            glue_objects.sort(Widget_Gia_Access_Object.compare_gaos);
+
+            m4_DEBUG('populate_grid: no. entries:', glue_objects.length);
+         }
+
+/*/ FIXME: Do we need this?:
+// this.dp is Byway....
+         m4_DEBUG('populate_grid: this.dp:', this.dp);
+         m4_DEBUG2('populate_grid: (this.dp as Widget_Gia_Sharing):',
+                   (this.dp as Widget_Gia_Sharing));
+         m4_DEBUG2('populate_grid: (this.dp as Widget_Gia_Sharing).sharing_permissive:',
+                   (this.dp as Widget_Gia_Sharing).sharing_permissive);
+         m4_DEBUG2('populate_grid: (this.dp as Widget_Gia_Sharing).sharing_permissive.tab_access_group_access:',
+                   (this.dp as Widget_Gia_Sharing).sharing_permissive.tab_access_group_access);
+         (this.dp as Widget_Gia_Sharing).sharing_permissive.tab_access_group_access
+            .visible = (glue_objects.length > 0);
+/*/
+
+         this.grid_grpas.dataProvider = glue_objects;
+      }
+
+   ]]></mx:Script>
+
+<!-- FIXME: Document this.
+<    NOTE: Wrapping in VBox and Canvas, otherwise grid is taller than it should
+<          be. -->
+
+   <mx:VBox
+      width="100%"
+      horizontalScrollPolicy="off">
+      <mx:Canvas
+         width="100%"
+         minHeight="50"
+         verticalScrollPolicy="off"
+         horizontalScrollPolicy="off">
+
+         <mx:DataGrid
+            id="grid_grpas"
+            width="100%"
+            borderStyle="solid"
+            borderColor="0xb7babc"
+            sortableColumns="false"
+            verticalScrollPolicy="on"
+            selectable="false"
+            showHeaders="false"
+            headerHeight="0"
+            added="this.on_added_renderer_maybe(event);"
+            >
+            <mx:columns>
+               <mx:DataGridColumn
+                  dataField=""
+                  headerText=""
+                  itemRenderer="views.panel_items.Widget_Gia_Access_Entry"/>
+            </mx:columns>
+         </mx:DataGrid>
+
+      </mx:Canvas>
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

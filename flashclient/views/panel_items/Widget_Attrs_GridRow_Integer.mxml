@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attrs_GridRow_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+      import utils.misc.NumericStepper_Nullable;
+      import views.commands.UI_Wrapper_Attr_Link;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Wgt_AGR_Int');
+
+      // *** Instance variables
+
+      // For integers, we show a stepper.
+      public var stepper:NumericStepper_Nullable;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         //m4_DEBUG('on_initialize: this:', this);
+         //m4_DEBUG('on_initialize: this.attr_name:', this.attr_name);
+         // CxPx: The Widget_Attrs_GridRow_* classes all cheat and do this:
+         this.attr_name_ = this.attr_name;
+         this.value_hints_ = this.value_hints;
+         this.value_units_ = this.value_units;
+         this.box_edit_control_ = this.box_edit_control;
+         this.box_view_control_ = this.box_view_control;
+         this.label_view_value_ = this.label_view_value;
+      }
+
+      // ***
+
+      //
+      override public function set_enabled(is_enabled:Boolean) :void
+      {
+         if (this.stepper !== null) {
+            m4_VERBOSE('set_enabled: stepper.enabled:', this.stepper.enabled);
+            this.stepper.enabled = is_enabled;
+         }
+      }
+
+      //
+      override protected function setup_attr_controls_specific(
+         can_edit_lvals:Boolean) :void
+      {
+         if (can_edit_lvals) {
+            this.init_as_integer();
+         }
+      }
+
+      // ***
+
+      //
+      protected function init_as_integer() :void
+      {
+         m4_VERBOSE('init_as_integer');
+
+         m4_ASSERT(this.stepper === null);
+
+         this.stepper = new NumericStepper_Nullable();
+         // NOTE I'm not sure if this control really needs an ID...
+         //      (I kind of doubt it; but I'm not going to test it now, as
+         //      it doesn't hurt to set it -- except maybe then we end up
+         //      with multiple controls with the same ID?)
+         this.stepper.id = 'stepper';
+
+         // Set up the stepper constraints based on the Attribute definition
+         // FIXME Does the command obj. set these to NaN ever?
+         if (!isNaN(this.attr.value_minimum)) {
+            // Subtract 1 because this is our NumericStepper_Nullable
+            this.stepper.minimum = this.attr.value_minimum - 1;
+         }
+         else {
+            // This happens for the bikeways data.
+            this.stepper.minimum = NumericStepper_Nullable.limit_min;
+         }
+         if (!isNaN(this.attr.value_maximum)) {
+            this.stepper.maximum = this.attr.value_maximum;
+         }
+         else {
+            this.stepper.maximum = NumericStepper_Nullable.limit_max;
+         }
+         if (!isNaN(this.attr.value_stepsize)) {
+            this.stepper.stepSize = this.attr.value_stepsize;
+         }
+         else {
+            this.stepper.stepSize = 1;
+         }
+
+         /*
+         m4_DEBUG('this.stepper.maxWidth:', this.stepper.maxWidth); // 10000
+         if ((this.stepper.maximum - this.stepper.minimum) > 1000000) {
+            // FIXME: MAGIC NUMBER.
+            this.stepper.maxWidth = 90;
+         }
+         else {
+            // UIComponent.DEFAULT_MAX_WIDTH?
+            //this.stepper.maxWidth = 100%;
+         }
+         */
+         // FIXME: MAGIC NUMBER.
+         this.stepper.maxWidth = 100;
+
+         // FIXME Adjust the width of the control based on the attribute
+         //       definition? (Right now, the control is 100% wide, so for
+         //       Attributes that only accept small numbers, the control
+         //       seems excessively wide.)
+
+         // Wire the stepper to our Command_Base infrastructure and then add
+         // it to the view.
+
+         // FIXME Two old (obsolete?) comments:
+         //       (1) This happens in on_panel_show
+         //           [What happens in on_panel_show?]
+         //       (2) Is there a memory leak with the stepper? Should we use
+         //           a lookup ([this.attr.name_] -> stepper), so we can
+         //           reuse the stepper rather than re-creating it for every
+         //           geofeature's advanced tab?
+
+         // Wire the control.
+         // 2013.04.07: Create a new discussion from byway panel. Close new
+         //             discussion panel using close button. The wrap() fails
+         //             because there are no items selected.
+         if (this.dp.items_selected.length > 0) {
+            views.commands.UI_Wrapper_Attr_Link.wrap(
+               this.stepper, 'value',
+               this.dp.items_selected,
+               this.attr, 'integer');
+         }
+         else {
+            m4_WARNING('init_as_integer: no items selected');
+         }
+         // ... add it to the griditem
+         // FIXME: See comment below; use Label if Link_Value not editable.
+         this.box_edit_control.addChildAt(this.stepper, 0);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- SYNC_ME: The MXML is exactly the same in both:
+                  Widget_Attrs_GridRow_Integer
+              and Widget_Attrs_GridRow_Boolean
+                 and similar to the MXML in:
+                  Widget_Attrs_GridRow_Text
+      -->
+
+   <mx:GridItem
+      horizontalAlign="left"
+      verticalAlign="middle"
+      width="100%"
+      height="100%"
+      >
+      <mx:VBox
+         width="100%"
+         verticalGap="0"
+         height="100%"
+         >
+         <mx:Label
+            id="attr_name"
+            fontWeight="bold"
+            paddingTop="2"/>
+         <mx:Text
+            id="value_hints"
+            width="100%"
+            styleName="labelminor"
+            paddingTop="-6"
+            leading="0"/>
+      </mx:VBox>
+   </mx:GridItem>
+   <mx:GridItem
+      horizontalAlign="right"
+      verticalAlign="middle"
+      height="100%"
+      >
+      <!-- CAVEAT: [lb] had issues on 2013.04.09 using one HBox child of the
+                   GridItem. The HBox itself had three HBox children, but the
+                   children all rendered atop one another. But if the GridItem
+                   child is a VBox, and the solo HBox is within that, well,
+                   things seem to be golden. (Update: The problem might really
+                   have been that we have to set includeInLayout explicitly.)
+                   -->
+      <mx:VBox
+         horizontalAlign="right"
+         verticalAlign="middle"
+         horizontalGap="0"
+         width="100%"
+         height="100%"
+         >
+         <mx:HBox
+            id="box_edit_control"
+            horizontalAlign="right"
+            verticalAlign="middle"
+            visible="true"
+            includeInLayout="{this.box_edit_control.visible}"
+            >
+         </mx:HBox>
+         <mx:HBox
+            id="box_view_control"
+            horizontalAlign="right"
+            verticalAlign="middle"
+            paddingTop="1"
+            visible="false"
+            includeInLayout="{this.box_view_control.visible}"
+            >
+            <!-- Should this be Text so it wraps if it's a long string?
+            <mx:Label
+               selectable="true"
+               maxWidth="0"
+               truncateToFit="true"
+               -->
+            <mx:Text
+               id="label_view_value"
+               />
+         </mx:HBox>
+      </mx:VBox>
+   </mx:GridItem>
+   <mx:GridItem
+      horizontalAlign="left"
+      verticalAlign="middle"
+      height="100%"
+      >
+      <mx:VBox
+         horizontalAlign="left"
+         verticalAlign="middle"
+         horizontalGap="0"
+         paddingLeft="0"
+         paddingTop="1"
+         width="100%"
+         height="100%"
+         >
+         <mx:Label
+            id="value_units"
+            paddingLeft="0"
+            />
+      </mx:VBox>
+   </mx:GridItem>
+
+</views_panel_items:Widget_Attrs_GridRow_Base>
+

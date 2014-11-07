@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   >
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__TgFrHpTt');
+
+      // *** Instance methods
+
+      //
+      protected function on_show_tag_help() :void
+      {
+         if (this.tags_help_text.visible) {
+            this.link_tag_help.htmlText = 'How do tags work? &#187;';
+            this.tags_help_text.visible = false;
+         }
+         else {
+            this.link_tag_help.htmlText = 'Hide how tags work &#171;';
+            this.tags_help_text.visible = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      paddingTop="0"
+      paddingBottom="2"
+      verticalAlign="middle">
+
+      <views_panel_util:Hyper_Link
+         id="link_tag_help"
+         htmlText="How do tags work? &#187;"
+         toolTip="Click to learn more about the tag preferences."
+         enabled="true"
+         click="this.on_show_tag_help();"/>
+
+      <mx:Spacer
+         width="100%"/>
+
+      <views_panel_util:Help_Link
+         text="More info"
+         click_url="/Finding_Routes"/>
+
+   </mx:HBox>
+
+   <!-- [rp] would really like to use an mx:Text with htmlText, but
+             htmlText does not support in-line images or links. -->
+   <!-- [lb] fixed a problem: Labels themselves do not wrap. So we wrap
+             every single word in a special Label_Tight component. -->
+
+   <mx:VBox
+      id="tags_help_text"
+      width="100%"
+      verticalGap="4"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0"
+      visible="false"
+      includeInLayout="{this.tags_help_text.visible}"
+      >
+
+      <utils_misc:FlowBar
+         width="100%"
+         horizontalGap="0"
+         verticalGap="0"
+         paddingTop="-2"
+         paddingBottom="2"
+         expanded="true"
+         visible="true"
+         >
+
+         <!-- 2013.02.16: Some of these words were bolded in CcpV1, but it's
+                          distracting now with the Statewide UI changes. -->
+
+         <!-- SEARCH_ME:
+          Use tags to customimze your route. Select them in the list below.
+          You can assign a Bikeability Bonus or Penalty to blocks with a given
+          tag, or you can Avoid those blocks entirely.
+         -->
+
+         <views_panel_util:Label_Tight text="Use"/>
+         <views_panel_util:Label_Tight text="tags" fontWeight="normal"/>
+         <views_panel_util:Label_Tight text="to"/>
+         <views_panel_util:Label_Tight text="customize"/>
+         <views_panel_util:Label_Tight text="your"/>
+         <views_panel_util:Label_Tight text="route."/>
+         <views_panel_util:Label_Tight text="Select"/>
+         <views_panel_util:Label_Tight text="them"/>
+         <views_panel_util:Label_Tight text="in"/>
+         <views_panel_util:Label_Tight text="the"/>
+         <views_panel_util:Label_Tight text="list"/>
+         <views_panel_util:Label_Tight text="below."/>
+         <views_panel_util:Label_Tight text="You"/>
+         <views_panel_util:Label_Tight text="can"/>
+         <views_panel_util:Label_Tight text="assign"/>
+         <views_panel_util:Label_Tight text="a Bikeability "/>
+
+         <mx:HBox
+            verticalAlign="top"
+            horizontalGap="0"
+            paddingTop="0">
+            <mx:HBox
+               paddingTop="1">
+               <mx:Image
+                  source="@Embed(source='/assets/img/icon_tags_bonus.png')"/>
+            </mx:HBox>
+            <views_panel_util:Label_Tight
+               text=" Bonus"
+               fontWeight="normal"/>
+         </mx:HBox>
+
+         <views_panel_util:Label_Tight text="or "/>
+
+         <mx:HBox
+            verticalAlign="top"
+            horizontalGap="0"
+            paddingTop="0">
+            <mx:HBox
+               paddingTop="1">
+               <mx:Image
+                  source="@Embed(source='/assets/img/icon_tags_penalty.png')"/>
+            </mx:HBox>
+            <views_panel_util:Label_Tight
+               text=" Penalty"
+               fontWeight="normal"/>
+         </mx:HBox>
+
+         <views_panel_util:Label_Tight text="to"/>
+         <views_panel_util:Label_Tight text="blocks"/>
+         <views_panel_util:Label_Tight text="with"/>
+         <views_panel_util:Label_Tight text="a given"/>
+         <views_panel_util:Label_Tight text="tag,"/>
+         <views_panel_util:Label_Tight text="or"/>
+         <views_panel_util:Label_Tight text="you"/>
+         <views_panel_util:Label_Tight text="can "/>
+
+         <mx:HBox
+            verticalAlign="top"
+            horizontalGap="0"
+            paddingTop="0">
+            <mx:HBox
+               paddingTop="1">
+               <mx:Image
+                  source="@Embed(source='/assets/img/icon_tags_avoid.png')"/>
+            </mx:HBox>
+            <views_panel_util:Label_Tight
+               text=" Avoid"
+               fontWeight="normal"/>
+         </mx:HBox>
+
+         <views_panel_util:Label_Tight text="those"/>
+         <views_panel_util:Label_Tight text="blocks"/>
+         <views_panel_util:Label_Tight text="entirely."/>
+
+      </utils_misc:FlowBar>
+
+      <mx:Text
+         width="100%"
+         condenseWhite="true">
+         <mx:htmlText>
+            <![CDATA[
+               <i>Want to help?</i> Add tags to more streets.
+            ]]></mx:htmlText>
+      </mx:Text>
+
+   </mx:VBox>
+
+</mx:VBox>
+

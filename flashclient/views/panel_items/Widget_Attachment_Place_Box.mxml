@@ -1,0 +1,1018 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attachment_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   paddingTop="0"
+   paddingBottom="2"
+   verticalGap="0"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Alert;
+      import mx.controls.Text;
+      import mx.events.FlexEvent;
+
+      import items.Attachment;
+      import items.Geofeature;
+      import items.Item_Base;
+      import items.attcs.Annotation;
+      import items.attcs.Post;
+      import items.links.Link_Geofeature;
+      import items.links.Link_Post;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+      import views.commands.Geofeatures_Annotation_Add_Del;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_discussions.Panel_Item_Thread;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_PlceBox');
+
+      // *** Instance variables
+
+      [Bindable] public var noneText:String;
+
+      [Bindable] public var expanded:Boolean;
+
+      [Bindable] public var link_value_class:String;
+
+      // The Attachment object associated with this place box.
+      protected var attachment:Attachment = null;
+
+      // Link_Geofeature objects associated with this place box.
+      protected var link_geofeatures:Dictionary = new Dictionary();
+      public var link_geofeature_count:int = 0;
+      // Back-up to restore on cancel.
+      protected var link_geofeatures_bk:Array;
+
+      // Read-only or editable?
+      protected var read_only:Boolean = true;
+
+      // This is to prevent multiple inits of this widget.
+      [Bindable] public var pbox_inited:Boolean = false;
+
+      public var attachment_mode:Boolean = false;
+
+      // *** Instance methods
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate: attachment_mode:', this.attachment_mode);
+      }
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+
+         this.dp.addEventListener('activatePanel', this.on_panel_activate,
+                                  false, 0, true);
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_mode_change');
+
+         if (G.app.mode === G.edit_mode) {
+            this.editbox.visible = true;
+            this.editbox.includeInLayout = true;
+         }
+         else {
+            this.editbox.visible = false;
+            this.editbox.includeInLayout = false;
+         }
+      }
+
+      //
+      protected function on_panel_activate(ev:Event) :void
+      {
+         m4_DEBUG2('on_panel_activate: attachment_mode:',
+                   this.attachment_mode);
+         this.reapply_attachment_mode();
+      }
+
+      //
+      protected function reapply_attachment_mode() :void
+      {
+         m4_DEBUG2('reapply_attachment_mode: attachment_mode:',
+                   this.attachment_mode);
+         m4_DEBUG2(' .. effectively_active_panel:',
+                   G.panel_mgr.effectively_active_panel);
+         m4_DEBUG(' .. this.dp:', this.dp);
+         if (this.attachment_mode) {
+            G.map.attachment_mode_start(this);
+         }
+         else {
+            G.map.attachment_mode_stop();
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_more_click() :void
+      {
+         if (this.place_list.expanded == true) {
+            this.more_link.label = 'more';
+            this.place_list.expanded = false;
+            // MEH: Calling invalidateDisplayList probably does nothing.
+            this.place_list.invalidateDisplayList();
+         }
+         else {
+            this.more_link.label = 'less';
+            this.place_list.expanded = true;
+            // MEH: Calling invalidateDisplayList probably does nothing.
+            this.place_list.invalidateDisplayList();
+         }
+      }
+
+      //
+      // Add a new place widget (or reuse existing one).
+      protected function pw_add(link_gf:Link_Geofeature,
+                                read_only:Boolean=false) :void
+      {
+         var found_name:Boolean = false;
+         var pw:Widget_Attachment_Place_Widget;
+
+         // FIXME: What happens if you choose two distinct geofeatures
+         //        with the same name? Or what if a Byway has same name as a
+         //        Point, and both are linked to the post?
+
+         for each (pw in this.place_list.getChildren()) {
+            m4_DEBUG('pw_add: pw.geofeature_name:', pw.geofeature_name);
+            m4_DEBUG('pw_add: link_gf.gf_name:', link_gf.gf_name);
+            if (pw.geofeature_name == link_gf.gf_name) {
+               m4_VERBOSE('pw_add: found existing:', link_gf);
+               pw.add_wppb(this, link_gf, read_only);
+               found_name = true;
+               break;
+            }
+         }
+         if (!found_name) {
+            m4_VERBOSE('pw_add: adding new:', link_gf.toString());
+            pw = new Widget_Attachment_Place_Widget();
+            this.place_list.addChild(pw);
+            this.register_widgets([pw,]);
+            pw.add_wppb(this, link_gf, read_only);
+         }
+         this.none_text_show_hide();
+
+         //m4_VERBOSE('pw_add: this.height:', this.height);
+      }
+
+      // Remove a new place widget (or reuse existing one).
+      protected function pw_remove(link_gf:Link_Geofeature) :void
+      {
+         // FIXME: What happens if you choose two distinct geofeatures
+         //        with the same name? Or what if a Byway has same name as a
+         //        Point, and both are linked to the post?
+
+         for each (var pw:Widget_Attachment_Place_Widget
+                   in this.place_list.getChildren()) {
+            if (pw.geofeature_name == link_gf.gf_name) {
+               m4_DEBUG('pw_remove: found existing:', link_gf);
+               if (pw.remove_wppb(link_gf)) {
+                  // There are no geofeatures associated with this widget, so
+                  // remove it.
+                  this.place_list.removeChild(pw);
+                  this.deregister_widget(pw);
+               }
+               break;
+            }
+         }
+         this.none_text_show_hide();
+      }
+
+      // *** Functions to control attachment mode (lock mode).
+
+      //
+      public function attaching_start() :void
+      {
+         m4_DEBUG('start attaching: this:', this);
+
+         // Show/hide action buttons.
+         this.start_attaching.visible = false;
+         this.stop_attaching.visible = true;
+         this.cancel_attaching.visible = true;
+
+         // Back-up the Link_Geofeature list.
+         this.link_geofeatures_bk = new Array();
+         for each (var link_gf:Link_Geofeature in this.link_geofeatures) {
+            this.link_geofeatures_bk.push(link_gf);
+         }
+
+         m4_DEBUG2('attaching_start: pbox_inited:', this.pbox_inited,
+                   '/ this:', this);
+         m4_ASSERT(this.pbox_inited);
+
+         // Enter attachment mode.
+         this.attachment_mode = true;
+         G.map.attachment_mode_start(this);
+      }
+
+      //
+      public function attaching_reset(adjust_mode:Boolean=true) :void
+      {
+         m4_DEBUG('reset attaching');
+
+         // Show/hide action buttons.
+         this.start_attaching.visible = true;
+         this.stop_attaching.visible = false;
+         this.cancel_attaching.visible = false;
+
+         // Leave attachment mode.
+         this.attachment_mode = false;
+
+         if (adjust_mode) {
+            G.map.attachment_mode_stop();
+         }
+      }
+
+      //
+      public function attaching_stop(adjust_mode:Boolean=true) :void
+      {
+         m4_DEBUG('stop attaching');
+
+         // Other, re-initialisation things.
+         if (this.attachment is Post) {
+            m4_DEBUG('Nothing to do.');
+         }
+         else if (this.attachment is Annotation) {
+            this.annotation_geos_dirty_refresh();
+         }
+         else {
+            m4_ASSERT(false); // No other option.
+         }
+
+         this.attaching_reset(adjust_mode);
+      }
+
+      //
+      public function attaching_cancel() :void
+      {
+         m4_DEBUG('cancel attaching');
+
+         // Re-initialise the place box.
+         //m4_DEBUG('attaching_cancel: pbox_inited=false: this:', this);
+         this.pbox_inited = false;
+         //m4_DEBUG('attaching_cancel: pbox_inited=false: this:', this);
+         this.places_init(this.attachment,
+                          this.link_geofeatures_bk,
+                          this.read_only);
+
+         // Other, re-initialisation things.
+         if (this.attachment is Post) {
+            this.post_geos_dirty_refresh();
+         }
+         else if (this.attachment is Annotation) {
+            this.annotation_geos_dirty_restore();
+         }
+         else {
+            m4_ASSERT(false); // No other option.
+         }
+
+         this.attaching_reset();
+      }
+
+      // ** Functions to initialise place box.
+
+      //
+      public function places_reset() :void
+      {
+         m4_DEBUG('places_reset');
+         this.place_list.removeAllChildren();
+         this.place_list.over_row_limit = false;
+         this.link_geofeatures = new Dictionary();
+         this.link_geofeature_count = 0;
+         this.none_text_show_hide();
+      }
+
+      // Set this.pbox_inited to false so that the next time places_init()
+      // is called, this widget is actually reset and re-initialised.
+      public function mark_for_reinit(ev:Event=null) :void
+      {
+         m4_DEBUG('mark_for_reinit: pbox_inited: false:', this);
+         this.pbox_inited = false;
+         // 2013.06.06: Can't we also reinit? [lb] is hitting an assert
+         // if I load a thread but navigate away, then go back and try
+         // attaching things.
+
+         m4_DEBUG2('mark_for_reinit: this.parentDocument:',
+                   this.parentDocument);
+
+         //var tpanel:Panel_Item_Thread;
+         //tpanel = (this.attachment_panel as Panel_Item_Thread);
+         //m4_DEBUG('places_init_post: tpanel:', tpanel);
+      }
+
+      //
+      protected function none_text_show_hide() :void
+      {
+         m4_DEBUG2('none_text_show_hide: link_geofeature_count:',
+                   this.link_geofeature_count);
+         if (this.link_geofeature_count == 0) {
+            // Show special text.
+            this.none_text_text.htmlText = 
+               (this.noneText === null
+                ? 'No Places Attached.'
+                : this.noneText);
+            // Unnecessary:
+            //  this.none_text_text.visible = true;
+            //  this.none_text_text.includeInLayout = true;
+            this.none_text_text.visible = false;
+            this.none_text_text.includeInLayout = false;
+            this.place_list.visible = false;
+            this.place_list.includeInLayout = false;
+         }
+         else {
+            // Show the places.
+            this.none_text_text.visible = false;
+            this.none_text_text.includeInLayout = false;
+            this.place_list.visible = true;
+            this.place_list.includeInLayout = true;
+         }
+      }
+
+      // Initialise this place box with the places referred to by the specified
+      // Link_Geofeatures.
+      protected function places_init(attachment:Attachment,
+                                     link_gfs:Array,
+                                     read_only:Boolean) :void
+      {
+         m4_DEBUG2('places_init: pbox_inited:', this.pbox_inited,
+                   '/ attc:', attachment);
+
+         if (!this.pbox_inited) {
+            this.attachment = attachment;
+            this.read_only = read_only;
+            this.places_reset();
+
+            // Add the places.
+            if (link_gfs.length > 0) {
+               for each (var lg:Link_Geofeature in link_gfs) {
+                  m4_DEBUG2('places_init: link_geofeature:',
+                            lg.toString_Verbose());
+                  m4_DEBUG('places_init: link_geofeature:', lg);
+                  m4_DEBUG('places_init: lg.gf_name:', lg.gf_name);
+
+                  this.link_geofeatures[lg.rhs_stack_id] = lg;
+                  this.link_geofeature_count += 1;
+                  this.pw_add(lg, read_only);
+               }
+            }
+
+            // Allow editing if not read only.
+            this.editbox.visible = !read_only;
+            this.editbox.includeInLayout = !read_only;
+
+            // Prevent multiple initialisations of this widget by setting this
+            // boolean to true.
+            m4_DEBUG('places_init: pbox_inited=true: this:', this);
+            this.pbox_inited = true;
+         }
+         else {
+
+            // This function is called from a number of places inadvertently,
+            // due a variety of reasons such as updateDisplayList(), resize,
+            // etc. We just ignore these.
+            //m4_DEBUG('Place Box already initialised.');
+            //m4_DEBUG(Introspect.stack_trace());
+         }
+      }
+
+      //
+      public function places_init_post(post:Post, read_only:Boolean) :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         var tpanel:Panel_Item_Thread;
+         m4_DEBUG('places_init_post: this:', this);
+         //m4_DEBUG2('places_init_post: this.parentDocument:',
+         //          this.parentDocument);
+         //m4_DEBUG2('this.parentDocument.parentDocument:',
+         //          this.parentDocument.parentDocument);
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+
+         var link_posts_to_show:Array = new Array();
+         if (read_only) {
+            if (post === null) {
+               m4_DEBUG2('places_init_post: tpanel.post_geos.length:',
+                         tpanel.post_geos.length);
+            }
+            for each (var lpost:Link_Post in tpanel.post_geos) {
+               if ((post === null) || (lpost.lhs_stack_id == post.stack_id)) {
+                  link_posts_to_show.push(lpost);
+               }
+            }
+         }
+         else {
+            link_posts_to_show = tpanel.post_geos_dirty;
+         }
+
+         m4_DEBUG('places_init_post: places_init: this:', this);
+         this.places_init(post, link_posts_to_show, read_only);
+         m4_ASSERT2(
+            this.read_only                // Places associated with a thread.
+            || this.attachment is Post);  // Places associated with a post.
+      }
+
+      //
+      public function places_init_annotation(annotation:Annotation,
+                                             link_geofeatures:Array,
+                                             read_only:Boolean) :void
+      {
+         m4_DEBUG('places_init_annotation: places_init: this:', this);
+         this.places_init(annotation, link_geofeatures, read_only);
+         m4_ASSERT(this.attachment is Annotation);
+      }
+
+      //
+      public function places_reinit() :void
+      {
+         m4_DEBUG('places_reinit: pbox_inited=false: this', this);
+         this.pbox_inited = false;
+         var link_gfs:Array = new Array();
+         for each (var lg:Link_Geofeature in this.link_geofeatures) {
+            link_gfs.push(lg);
+         }
+         m4_DEBUG('places_reinit: places_init: this:', this);
+         this.places_init(this.attachment, link_gfs, this.read_only);
+      }
+
+      // *** Functions to attach geofeatures.
+
+      // Attach geofeature with given stack_id.
+      protected function place_add(stack_id:int) :Link_Geofeature
+      {
+         var added:Link_Geofeature = null;
+
+         m4_DEBUG('place_add');
+
+         // Verify that this geofeature isn't already attached.
+         var exists:Boolean = false;
+         for each (var lg:Link_Geofeature in this.link_geofeatures) {
+            if (lg.rhs_stack_id == stack_id) {
+               exists = true;
+               break;
+            }
+         }
+
+         var gf:Geofeature = Geofeature.all[stack_id];
+         // gf cannot be null since the user just clicked it!
+         m4_ASSERT(gf !== null);
+
+         if (!exists) {
+            // Create a new Link_Geofeature.
+            var xml:XML = null;
+            var rev:utils.rev_spec.Base = null;
+            var lhs_item:Object = this.attachment;
+            var rhs_item:Object = gf;
+
+            m4_DEBUG('place_add: link_value_class:', this.link_value_class);
+
+            var link_class:Class;
+            link_class = Item_Base.item_get_class(this.link_value_class);
+            m4_ASSERT((link_class == Link_Post)
+                      || (link_class == Link_Geofeature));
+            var link_gf:Link_Geofeature;
+            // I.e., new Link_Post or new Link_Geofeature.
+            link_gf = new link_class(xml, rev, lhs_item, rhs_item);
+
+            m4_ASSURT(link_gf.rhs_stack_id == gf.stack_id);
+
+            // Record geofeature properties.
+            link_gf.gf_name = gf.name_;
+            link_gf.gf_xs = Collection.array_copy(gf.xs);
+            link_gf.gf_ys = Collection.array_copy(gf.ys);
+            // Skipping: link_gf.value_*
+
+            G.item_mgr.assign_id(link_gf);
+
+            m4_DEBUG('place_add: adding new:', link_gf);
+            this.link_geofeatures[link_gf.rhs_stack_id] = link_gf;
+            this.link_geofeature_count += 1;
+            this.pw_add(link_gf, false); // read_only = false
+            this.invalidateDisplayList();
+
+            added = link_gf;
+
+            // NOTE: The user has to press 'Post', then we'll call
+            //       G.tabs.activity.thread_post_commit();
+         }
+         // else, the item is already linked. The interface will only
+         //       respond if it's the last linked geofeature to the note,
+         //       in which case it'll tell the user to delete the note
+         //       rather than unlinking everything from it.
+
+         return added;
+      }
+
+      //
+      public function place_add_post(stack_id:int) :Link_Geofeature
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+         m4_ASSERT2(
+            this.read_only                // Places associated with a thread.
+            || this.attachment is Post);  // Places associated with a post.
+
+         var tpanel:Panel_Item_Thread;
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+
+         m4_DEBUG('place_add_post');
+
+         var link_gf:Link_Geofeature = this.place_add(stack_id);
+         if (link_gf !== null) {
+            // Add the incomplete link_post to the list. When the user saves
+            // the Post, we'll create the post and set lpost.lhs_stack_id.
+            m4_ASSERT(tpanel.post_geos_dirty !== null);
+            tpanel.post_geos_dirty.push(link_gf);
+         }
+
+         // NOTE: we must use callLater here because the direct invocation
+         // of panel_update will trigger a stack overflow. See bug 1868.
+         // 2013.03.07: The last comment is old and might have been fixed via
+         //             the Detail_Panel_Widget implementation...
+         m4_DEBUG_CLLL('>callLater: place_add_post: this.panel_update_post');
+         this.callLater(this.panel_update_post);
+
+         return link_gf;
+      }
+
+      //
+      public function place_add_annotation(stack_id:int) :Link_Geofeature
+      {
+         var attachment_panel_:Panel_Item_Attachment;
+         attachment_panel_ = this.attachment_panel;
+         m4_ASSERT(attachment_panel_ !== null);
+
+         m4_ASSERT(this.attachment is Annotation);
+
+         m4_DEBUG('place_add_annotation');
+
+         var link_gf:Link_Geofeature = this.place_add(stack_id);
+         if (link_gf !== null) {
+            // Update predirty lists so that UI.attachment_highlights_update()
+            // knows what to highlight.
+            if (link_gf.stack_id
+                in attachment_panel_.link_gfs_removed_predirty) {
+               // If removed in this session, remove from removed list.
+               delete attachment_panel_.link_gfs_removed_predirty[
+                                                link_gf.stack_id];
+            }
+            else {
+               // ...else add to added list.
+               attachment_panel_.link_gfs_added_predirty[link_gf.stack_id] =
+                                                                     link_gf;
+            }
+         }
+         else {
+            m4_WARNING('Could not add place to annotation.');
+         }
+
+         return link_gf;
+      }
+
+      //
+      public function place_add_smart(stack_id:int) :Link_Geofeature
+      {
+         var link_gf:Link_Geofeature = null;
+         // 2013.05.20: Bug nnnn: Don't forget about the duplicate button on
+         // the thread panel, at the top (there's also a bottom down below).
+         //if ((this.attachment is Post)
+         //    || (this.attachment is Thread)) { }
+         if (this.attachment is Post) {
+            m4_WARNING('EXPLAIN: this.attachment:', this.attachment);
+            link_gf = this.place_add_post(stack_id);
+         }
+         else if (this.attachment is Annotation) {
+            link_gf = this.place_add_annotation(stack_id);
+         }
+         else {
+            // FIXME: 2013.05.30: Fires on [lb] -- added link_geofeatures,
+            //        closed panel, reopened panel from thread list, clicked
+            //        attach button at top of panel (why are there two
+            //        buttons?) and clicked on a freeway, I think, and this
+            //        assert fired.
+            m4_ERROR3('place_add_smart: this.pbox_inited:', this.pbox_inited,
+                      '/ stack_id:', stack_id,
+                      '/ this.attachment:', this.attachment);
+            m4_ASSERT(false); // No other option.
+         }
+         return link_gf;
+      }
+
+      // ** Functions to detach geofeatures.
+
+      //
+      protected function place_remove(pw_or_id:*) :Array
+      {
+         var removed:Array = new Array();
+
+         // Identify widget to remove.
+         var to_remove:Widget_Attachment_Place_Widget = null;
+         if (pw_or_id is Widget_Attachment_Place_Widget) {
+            to_remove = (pw_or_id as Widget_Attachment_Place_Widget);
+            m4_ASSERT(to_remove !== null);
+
+            // Back-up the Link_Geofeature list.
+            this.link_geofeatures_bk = new Array();
+            for each (var link_gf:Link_Geofeature in this.link_geofeatures) {
+               this.link_geofeatures_bk.push(link_gf);
+            }
+
+            // De-highlight and remove all entries corresponding to this
+            // widget.
+            var to_dehighlight:Geofeature;
+            for (var stack_id:String in to_remove.gfs) {
+               to_dehighlight = Geofeature.all[int(stack_id)];
+               if (to_dehighlight !== null) {
+                  to_dehighlight.set_highlighted(
+                     false, Conf.attachment_highlight);
+               }
+               else {
+                  // Probably, not in the viewport.
+                  m4_WARNING('Geofeature not found. Cannot de-highlight.');
+               }
+               removed.push(this.link_geofeatures[int(stack_id)]);
+               delete this.link_geofeatures[int(stack_id)];
+               this.link_geofeature_count -= 1;
+            }
+
+            // Remove Widget_Attachment_Place_Widget
+            this.place_list.removeChild(to_remove);
+            this.deregister_widget(to_remove);
+            this.none_text_show_hide();
+         }
+         else {
+            // Verify that this geofeature is attached.
+            var exists:Boolean = false;
+            for each (var lg:Link_Geofeature in this.link_geofeatures) {
+               if (lg.rhs_stack_id == pw_or_id) {
+                  exists = true;
+                  break;
+               }
+            }
+
+            if (exists) {
+               // Remove just the specified stack id.
+               this.pw_remove(this.link_geofeatures[pw_or_id]);
+               removed.push(this.link_geofeatures[pw_or_id]);
+               delete this.link_geofeatures[pw_or_id];
+               this.link_geofeature_count -= 1;
+            }
+         }
+         this.invalidateDisplayList();
+         m4_DEBUG('place_remove: removed:', to_remove);
+
+         return removed;
+      }
+
+      //
+      protected function place_remove_post(pw_or_id:*) :Array
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+         m4_ASSERT2(
+            this.read_only               // Places associated with thread/post.
+            || this.attachment is Post); // Places associated with a post.
+
+         var tpanel:Panel_Item_Thread;
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+
+         var removed:Array = this.place_remove(pw_or_id);
+         if (removed.length > 0) {
+            this.post_geos_dirty_refresh();
+         }
+
+         return removed;
+      }
+
+      //
+      protected function place_remove_annotation(pw_or_id:*) :Array
+      {
+         var attachment_panel_:Panel_Item_Attachment;
+         attachment_panel_ = this.attachment_panel;
+         m4_ASSERT(attachment_panel_ !== null);
+
+         m4_ASSERT(this.attachment is Annotation);
+
+         // Number of places user is trying to remove.
+         var num_to_remove:int;
+         if (pw_or_id is Widget_Attachment_Place_Widget) {
+            num_to_remove = (pw_or_id as Widget_Attachment_Place_Widget)
+                                                               .gf_count;
+         }
+         else {
+            num_to_remove = 1;
+         }
+
+         var removed:Array = new Array();
+         if (num_to_remove < this.link_geofeature_count) {
+            removed = this.place_remove(pw_or_id);
+            if (removed.length > 0) {
+               for each (var link_gf:Link_Geofeature in removed) {
+                  // Update predirty lists so that
+                  // UI.attachment_highlights_update() knows what to highlight.
+                  if (link_gf.stack_id
+                      in attachment_panel_.link_gfs_added_predirty) {
+                     // If added in this session, remove from added list.
+                     delete attachment_panel_.link_gfs_added_predirty[
+                                                      link_gf.stack_id];
+                  }
+                  else {
+                     // ...else add to removed list.
+                     attachment_panel_.link_gfs_removed_predirty[
+                                                   link_gf.stack_id] = link_gf;
+                  }
+               }
+               if (pw_or_id is Widget_Attachment_Place_Widget) {
+                  // Update the map's dirty set only if user clicked 'X' on the
+                  // widget.
+                  this.annotation_geos_dirty_refresh();
+               }
+            }
+         }
+         else {
+            // Disallow. Ask to delete the attachment instead.
+            Alert.show('Cannot detach all places. Delete the note instead.');
+         }
+
+         return removed;
+      }
+
+      //
+      public function place_remove_smart(pw_or_id:*) :Array
+      {
+         var removed:Array = new Array();
+         if (this.attachment is Post) {
+            removed = this.place_remove_post(pw_or_id);
+         }
+         else if (this.attachment is Annotation) {
+            removed = this.place_remove_annotation(pw_or_id);
+         }
+         else {
+            m4_ASSERT(false); // No other option.
+         }
+         return removed;
+      }
+
+      // ***
+
+      // Sync thread panel's post_geos_dirty with this.link_geofeatures.
+      public function post_geos_dirty_refresh(tpanel:Panel_Item_Thread=null)
+         :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+         if (tpanel === null) {
+            var tpanel:Panel_Item_Thread;
+            tpanel = (this.attachment_panel as Panel_Item_Thread);
+            m4_ASSERT(tpanel !== null);
+         }
+
+         m4_DEBUG('post_geos_dirty_refresh');
+         tpanel.post_geos_dirty = new Array();
+         for each (var lg:Link_Geofeature in this.link_geofeatures) {
+            m4_DEBUG('post_geos_dirty_refresh retaining', lg);
+            tpanel.post_geos_dirty.push(lg);
+         }
+         var skip_dirty:Boolean = true;
+         this.panel_update_post(tpanel, skip_dirty);
+      }
+
+      //
+      protected function annotation_geos_dirty_restore() :void
+      {
+         var attachment_panel_:Panel_Item_Attachment;
+         attachment_panel_ = this.attachment_panel;
+         m4_ASSERT(attachment_panel_ !== null);
+
+         // Restore dirty_highlight_* dictionaries to the appropriate previous
+         // state.
+         // FIXME: Implement.
+
+         attachment_panel_.predirty_reset();
+      }
+
+      // Mark the appropriate link_geofeatures as dirty/clean.
+      protected function annotation_geos_dirty_refresh() :void
+      {
+         m4_ASSERT(this.attachment is Annotation);
+
+         m4_DEBUG('annotation_geos_dirty_refresh');
+
+         // As of now:
+         //    this.link_geofeatures:Dictionary -- after session is over.
+         //    this.link_geofeatures_bk:Array   -- before session started.
+
+         var link_gf:Link_Geofeature;
+         var feats_add:Set_UUID = new Set_UUID();
+         var feats_del:Set_UUID = new Set_UUID();
+
+         // Additions: present now, but absent when started.
+         for each (link_gf in this.link_geofeatures) {
+            if (this.link_geofeatures_bk.indexOf(link_gf) < 0) {
+               // This means that this has been added in the latest attachment
+               // mode session.
+               feats_add.add(link_gf.feat);
+               m4_INFO('annotation_geos_dirty_refresh added:', link_gf);
+            }
+         }
+
+         // Deletions: present when started, but absent now.
+         var lg_deleted:Link_Geofeature;
+         for each (link_gf in this.link_geofeatures_bk) {
+            if (!(link_gf.rhs_stack_id in this.link_geofeatures)) {
+               // This means that this has been deleted in the latest
+               // attachment mode session.
+               feats_del.add(link_gf.feat);
+               m4_INFO('annotation_geos_dirty_refresh deleted:', link_gf);
+            }
+         }
+
+// there's a problem here attaching note to route...
+// (select a road, add a note, attach places, click route to attach it...)
+// also, cannot attach new places to existing note?
+         if ((feats_add.length > 0) || (feats_del.length > 0)) {
+            var annotation:Annotation = this.attachment as Annotation;
+            var cmd:Geofeatures_Annotation_Add_Del;
+            cmd = new Geofeatures_Annotation_Add_Del(annotation,
+                                                     feats_add,
+                                                     feats_del,
+                                                     this);
+            G.map.cm.do_(cmd);
+            // The note(s) and link_value(s) should already be hydrated.
+            m4_ASSERT_SOFT(cmd.is_prepared !== null);
+            if (cmd.is_prepared) {
+               m4_DEBUG('annotation_geos_dirty_refresh: success');
+               // Following exactly like: annotation_geos_dirty_restore.
+               var attachment_panel_:Panel_Item_Attachment;
+               attachment_panel_ = this.attachment_panel;
+               m4_ASSERT(attachment_panel_ !== null);
+               attachment_panel_.predirty_reset();
+               //Link_Value.printl();
+            }
+            else {
+               m4_WARNING('annotation_geos_dirty_refresh: failed');
+            }
+         }
+         else {
+            m4_WARNING('link_geofeatures:', this.link_geofeatures);
+            m4_WARNING('link_geofeatures_bk:', this.link_geofeatures_bk);
+            m4_ASSERT_SOFT(false);
+         }
+
+         // FIXME: Test to see if the dirty set is correctly populated.
+      }
+
+      // ***
+
+      // Misc. update activities (post-related)
+      protected function panel_update_post(tpanel:Panel_Item_Thread=null,
+                                           skip_dirty:Boolean=false) :void
+      {
+         m4_DEBUG_CLLL('<callLater: panel_update_post');
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         if (tpanel === null) {
+            tpanel = (this.attachment_panel as Panel_Item_Thread);
+            m4_ASSERT(tpanel !== null);
+         }
+
+         m4_DEBUG('tpanel.posts_grid:', String(tpanel.posts_grid));
+         m4_DEBUG('tpanel.posts:', String(tpanel.posts));
+
+         if (tpanel.posts !== null) {
+
+            tpanel.dg_box.verticalScrollPosition
+               = tpanel.dg_box.maxVerticalScrollPosition;
+
+            if (!skip_dirty) {
+               // We don't make the Post() until the user activates the commit
+               // action, so we have to remember that the contents of the panel
+               // are dirty. If this is true, we'll prompt the user if the
+               // panel is closed with unsaved changes.
+               tpanel.dirty_post = true;
+            }
+         }
+      }
+
+      //
+      protected function on_place_list_added(ev:Event) :void
+      {
+         m4_DEBUG('on_place_list_added: ev:', ev);
+         m4_DEBUG('on_place_list_added: ev.target:', ev.target);
+      }
+
+   ]]></mx:Script>
+
+   <utils_misc:FlowBar
+      id="place_list"
+      width="100%"
+      paddingTop="1"
+      paddingBottom="2"
+      expanded="{this.expanded}"
+      horizontalGap="3"
+      verticalGap="3"
+      visible="true"
+      includeInLayout="{this.place_list.visible}"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+      add="this.on_place_list_added(event);"
+      />
+
+   <views_panel_util:Button_Small
+      id="more_link"
+      paddingTop="1"
+      paddingBottom="4"
+      includeInLayout="{this.place_list.over_row_limit}"
+      visible="{this.more_link.includeInLayout}"
+      click="this.on_more_click();"
+      label="{this.expanded ? 'less' : 'more'}"
+      height="16" />
+
+   <mx:Text
+      id="none_text_text"
+      htmlText="{this.noneText}"
+      paddingTop="2"
+      width="100%"
+      visible="false"
+      includeInLayout="{this.none_text_text.visible}" />
+
+   <mx:VBox
+      id="editbox"
+      width="100%"
+      verticalAlign="middle"
+      paddingBottom="-2"
+      verticalGap="0"
+      visible="true"
+      includeInLayout="{this.editbox.visible}">
+      <mx:HBox
+         horizontalGap="4"
+         width="100%"
+         paddingTop="2">
+         <views_panel_util:Button_Small
+            id="start_attaching"
+            label="Attach New Places"
+            height="17"
+            maxWidth="{this.width - this.help.width - 5}"
+            visible="true"
+            includeInLayout="{this.start_attaching.visible}"
+            enabled="{this.pbox_inited}"
+            click="this.attaching_start();"/>
+         <views_panel_util:Button_Small
+            id="stop_attaching"
+            label="Done Attaching"
+            height="17"
+            maxWidth="{this.width - this.help.width - 5}"
+            visible="false"
+            includeInLayout="{this.stop_attaching.visible}"
+            click="this.attaching_stop();"/>
+         <views_panel_util:Button_Small
+            id="cancel_attaching"
+            label="Cancel"
+            height="17"
+            maxWidth="{this.width - this.help.width - 5}"
+            visible="false"
+            includeInLayout="{this.cancel_attaching.visible}"
+            click="this.attaching_cancel();"/>
+         <views_panel_util:Help_Link
+            id="help"
+            click_url="/Tagging"
+            text="More info"
+            paddingRight="-2"/>
+      </mx:HBox>
+   </mx:VBox>
+
+</views_panel_items:Widget_Attachment_Base>
+

@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import mx.collections.ArrayCollection;
+      import mx.controls.TextInput;
+      import mx.events.ChildExistenceChangedEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.events.StateChangeEvent;
+
+      import utils.misc.AutoComplete;
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Flt_Comb_W');
+
+      // ***
+
+      [Bindable]
+      public var buttonVisible:Boolean;
+      [Bindable]
+      public var buttonText:String;
+
+      protected var selected_id:int = -1;
+
+      protected var timeout_timer:Timer;
+
+      // ***
+
+      //
+      public function get selectedId() :int
+      {
+         return this.selected_id;
+      }
+
+      //
+      public function set selectedId(id:int) :void
+      {
+         for each (var item:Object in this.filter_by_combo.dataProvider) {
+            if (item.id == id) {
+               this.filter_by_combo.selectedItem = item;
+               this.on_combo_change();
+               break;
+            }
+         }
+      }
+
+      //
+      public function set_provider(data_provider:ArrayCollection) :void
+      {
+         m4_DEBUG('set_provider: data_provider.length:', data_provider.length);
+         this.filter_by_combo.dataProvider = data_provider;
+         this.on_combo_change();
+      }
+
+      // ***
+
+      //
+      public function on_combo_change() :void
+      {
+         m4_DEBUG('on_combo_change');
+         var selectedItem:Object = this.filter_by_combo.selectedItem;
+         m4_DEBUG('selectedItem:', selectedItem, '/ id:', selectedItem.id);
+         this.filter_by_text_input.text = '';
+         this.filter_by_auto_complete.text = '';
+         this.filter_by_text_input.visible = false;
+         this.filter_by_auto_complete.visible = false;
+         this.timeout_timer = null;
+         if ((G.initialized) && (selectedItem !== null)) {
+            if (selectedItem.widget === null) {
+               selectedItem.callback();
+            }
+            else {
+               m4_DEBUG2('ctwidgetor:', Introspect.get_constructor(
+                  selectedItem.widget));
+               if (selectedItem.widget == TextInput) {
+                  this.filter_by_text_input.visible = true;
+               }
+               else if (selectedItem.widget == AutoComplete) {
+                  this.filter_by_auto_complete.visible = true;
+               }
+               else {
+                  m4_ASSERT(false);
+               }
+               this.filter_by_label.text = selectedItem.input_label;
+               this.filter_by_text_hint.htmlText = selectedItem.input_hint;
+            }
+         }
+         m4_DEBUG('on_combo_change: this.selected_id:', selectedItem.id);
+         this.selected_id = selectedItem.id;
+      }
+
+      //
+      protected function on_text_enter(immediate:Boolean=false) :void
+      {
+         // Fire queries on text change only if button is hidden.
+         if (!this.buttonVisible) {
+            if (immediate) {
+               m4_DEBUG('on_text_enter: Selecting immediately');
+               this.filter_by_combo.selectedItem.callback();
+            }
+            else {
+               m4_DEBUG('on_text_enter: Starting timer...');
+               // Start timeout clock
+               // FIXME: MAGIC NUMBER belongs in Conf?
+               this.timeout_timer = new Timer(1250, 1);
+               this.timeout_timer.addEventListener(TimerEvent.TIMER,
+                                                   this.on_timeout,
+                                                   false, 0, true);
+               this.timeout_timer.start();
+            }
+         }
+
+         if (!immediate) {
+            this.filter_button.enabled = true;
+         }
+      }
+
+      //
+      protected function on_text_focus() :void
+      {
+         m4_DEBUG('on_text_focus');
+      }
+
+      //
+      protected function on_click_filter_button(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click_filter_button:', ev);
+         this.filter_button.enabled = false;
+         this.filter_by_combo.selectedItem.callback();
+      }
+
+      //
+      protected function on_timeout(ev:TimerEvent) :void
+      {
+         m4_DEBUG('on_timeout:', ev);
+         this.filter_button.enabled = false;
+         this.filter_by_combo.selectedItem.callback();
+      }
+
+      //
+      public function get_text() :String
+      {
+         m4_DEBUG('get_text');
+         var the_text:String;
+         if (this.filter_by_combo.selectedItem.widget !== null) {
+            if (this.filter_by_combo.selectedItem.widget == TextInput) {
+               the_text = this.filter_by_text_input.text;
+            }
+            else if (this.filter_by_combo.selectedItem.widget
+                        == AutoComplete) {
+               the_text = this.filter_by_auto_complete.text;
+            }
+            else {
+               m4_ASSERT(false);
+            }
+         }
+         return the_text;
+      }
+
+      //
+      public function set_ac_dp(data_provider:Array) :void
+      {
+         this.filter_by_auto_complete.dataProvider = data_provider;
+         m4_VERBOSE2('set_ac_dp: auto_complete.width: old:',
+                     this.filter_by_auto_complete.width);
+         m4_VERBOSE('  >> filter_by_combo.width:', this.filter_by_combo.width);
+         m4_VERBOSE('  >> filter_by_label.width:', this.filter_by_label.width);
+         m4_VERBOSE('  >> filter_button.width:', this.filter_button.width);
+         m4_VERBOSE2('  >> filter_by_outer_vbox/paddingLeft:',
+                     this.filter_by_outer_vbox.getStyle('paddingLeft'));
+         m4_VERBOSE2('  >> filter_by_outer_vbox/paddingRight:',
+                     this.filter_by_outer_vbox.getStyle('paddingRight'));
+         m4_VERBOSE2('  >> filter_by_outer_vbox/horizontalGap:',
+                     this.filter_by_outer_vbox.getStyle('horizontalGap'));
+         m4_VERBOSE2('  >> filter_by_input_box/paddingLeft:',
+                     this.filter_by_input_box.getStyle('paddingLeft'));
+         m4_VERBOSE2('  >> filter_by_input_box/paddingRight:',
+                     this.filter_by_input_box.getStyle('paddingRight'));
+         m4_VERBOSE2('  >> filter_by_input_box/horizontalGap:',
+                     this.filter_by_input_box.getStyle('horizontalGap'));
+         // FIXME: Use a similar stradegy for other auto completes: guess the
+         // width and then mult by 4/5.
+         this.filter_by_auto_complete.width =
+            int(0.80 * Number(
+               this.filter_by_combo.width
+               - this.filter_by_label.width
+               - this.filter_button.width
+               - this.filter_by_outer_vbox.getStyle('paddingLeft')
+               - this.filter_by_outer_vbox.getStyle('paddingRight')
+               - (this.filter_by_outer_vbox.getStyle('horizontalGap') * 1)
+               - this.filter_by_input_box.getStyle('paddingLeft')
+               - this.filter_by_input_box.getStyle('paddingRight')
+               - (this.filter_by_input_box.getStyle('horizontalGap') * 2)));
+         m4_DEBUG2('set_ac_dp: auto_complete.width: new:',
+                   this.filter_by_auto_complete.width);
+      }
+
+      //
+      [Bindable] protected function get is_visible_filter_by_label() :Boolean
+      {
+         var is_visible:Boolean = (
+            (this.filter_by_text_input.visible
+             || this.filter_by_auto_complete.visible)
+            && (this.filter_by_label.text !== null)
+            && (this.filter_by_label.text != ''));
+         return is_visible;
+      }
+
+      //
+      protected function set is_visible_filter_by_label(ignored:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+
+      //
+      [Bindable] protected function get is_visible_filter_by_text_hint_box()
+         :Boolean
+      {
+         var is_visible:Boolean = (
+            (this.filter_by_text_input.visible
+             || this.filter_by_auto_complete.visible)
+            && (this.filter_by_text_hint.htmlText !== null)
+            && (this.filter_by_text_hint.htmlText != ''));
+         return is_visible;
+      }
+
+      //
+      protected function set is_visible_filter_by_text_hint_box(
+                                                ignored:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="filter_by_outer_vbox"
+      horizontalAlign="center"
+      paddingLeft="4"
+      paddingTop="4"
+      paddingRight="4"
+      paddingBottom="4"
+      >
+
+      <mx:VBox
+         width="100%">
+         <mx:ComboBox
+            id="filter_by_combo"
+            toolTip="Filter the list of results."
+            fontWeight="normal"
+            rowCount="99"
+            change="this.on_combo_change();"
+            />
+      </mx:VBox>
+
+      <mx:VBox
+         id="filter_by_input_box"
+         visible="{this.filter_by_text_input.visible
+                   || this.filter_by_auto_complete.visible}"
+         includeInLayout="{this.filter_by_input_box.visible}"
+         width="{this.filter_by_combo.width}"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         verticalGap="0"
+         >
+
+         <mx:HBox
+            width="100%"
+            verticalAlign="middle"
+            >
+
+            <mx:Label
+               id="filter_by_label"
+               visible="{this.is_visible_filter_by_label}"
+               includeInLayout="{this.filter_by_label.visible}"
+               fontWeight="bold"
+               paddingTop="2"
+               />
+
+            <mx:TextInput
+               id="filter_by_text_input"
+               visible="false"
+               includeInLayout="{this.filter_by_text_input.visible}"
+               width="100%"
+               change="this.on_text_enter();"
+               dataChange="this.on_text_enter();"
+               enter="this.on_text_enter(true);"
+               focusIn="this.on_text_focus();"
+               focusOut="this.on_text_enter();"
+               />
+
+            <!-- FIXME: Corrent the width programmatically. Maybe in
+                        AutoComplete, or make an AutoComplete wrapper that does
+                        it. -->
+            <utils_misc:AutoComplete
+               id="filter_by_auto_complete"
+               visible="false"
+               includeInLayout="{this.filter_by_auto_complete.visible}"
+
+               itemName="region"
+               labelField = "name_"
+
+               width="100"
+
+               lookAhead="false"
+               openDuration="0"
+
+               change="this.on_text_enter();"
+               dataChange="this.on_text_enter();"
+               focusIn="this.on_text_focus();"
+               focusOut="this.on_text_enter();"
+               itemSelected="this.on_text_enter(true);"
+               />
+
+            <mx:Button
+               id="filter_button"
+               label="{this.buttonText}"
+               click="this.on_click_filter_button(event);"
+               visible="{this.buttonVisible
+                         &amp;&amp; (this.filter_by_text_input.visible
+                                     || this.filter_by_auto_complete.visible)}"
+               includeInLayout="{this.filter_button.visible}"
+               enabled="{this.filter_button.visible}"
+               />
+
+         </mx:HBox>
+
+         <mx:HBox
+            id="filter_by_text_hint_box"
+            width="100%"
+            verticalAlign="left"
+            visible="{this.is_visible_filter_by_text_hint_box}"
+            includeInLayout="{this.filter_by_text_hint_box.visible}"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            >
+
+            <mx:Text
+               id="filter_by_text_hint"
+               selectable="false"
+               styleName="labelminor"
+               width="100%"
+               condenseWhite="true">
+            </mx:Text>
+
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</mx:VBox>
+

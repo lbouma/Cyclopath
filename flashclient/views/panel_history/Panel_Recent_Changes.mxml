@@ -1,0 +1,1526 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_activity:Tab_Latest_Activity_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_activity="views.panel_activity.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.collections.XMLListCollection;
+      import mx.controls.Alert;
+      import mx.controls.TextInput;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.DropdownEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+
+      import gwis.GWIS_Revision_History_Get;
+      import gwis.utils.Query_Filters;
+      import items.feats.Geosummary;
+      import utils.geom.MOBR_DR_Array;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Strutil;
+      import utils.rev_spec.*;
+      import views.base.UI;
+      import views.map_components.Revert_Popup;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('+Pnl_Rec_Chg');
+
+      // *** Instace variables
+
+      // MAYBE: This class is unusual: it maintains the XML list, rather than
+      //        hydrating a list of objects. This makes it difficult to change
+      //        the names of XML keys, and there's no class to help explain
+      //        what all the incoming fields are...
+      [Bindable] public var revs:XMLListCollection = new XMLListCollection();
+
+      public var revert_popup:Revert_Popup = new Revert_Popup();
+
+      public var allow_discard:Boolean = false;
+
+      public var gs_cache:Dictionary = new Dictionary();
+      public var gs_sel:MOBR_DR_Array = new MOBR_DR_Array();
+
+      public var is_extra:Array = new Array();
+
+      //
+      public var rev_autoselect:Array = new Array();
+
+      protected var confirming_change_revision:Boolean = false;
+      protected var confirming_revert_revision:Boolean = false;
+
+      protected var action_opened:Boolean = false;
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         // this.register_widgets([
+         //   ]);
+         this.dp.addEventListener(FlexEvent.HIDE,
+                                  this.on_hide_event_, false, 0, true);
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Rev_Grid_Renderer = (
+            ev.target as Rev_Grid_Renderer);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // renderer.detail_panel = this.dp;
+            renderer.my_dp = this.dp;
+         }
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         // FIXME: See shapeio_list_pager. [lb] doesn't think
+         //        history_list_pager is completely implemented.
+         //        But he can't remember why he thinks that....
+         this.history_list_pager.type_plural = 'revisions';
+         this.history_list_pager.list_control_callback =
+            this.list_control_callback;
+         this.history_list_pager.records_per_page
+            = Conf.recent_changes_list_size;
+         // Is this a given?:
+         //   this.history_list_pager.current_page_number = 0;
+
+         // FIXME: Can you dbl-click on threads in the list?
+         //this.dblbw_create.click_callback = this.on_dblbw_click;
+
+         // HACK: The base class, Tab_Latest_Activity_Base, has some fcns. that
+         // use the options combobobox widget, but we can't put visual elements
+         // in the base class unless we use state change to insert the element.
+         // So we cheat and just set the parents reference here.
+         this.filter_by_widget = this.filter_by_widget_impl;
+
+         // FIXME: Other events to listen on?
+         /* FIXME: maybe on rev change is only time we update list, or on
+                   pagination click, etc, but never on_panel_show.
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+
+         this.on_active_branch_change();
+         this.on_revision_change();
+         */
+
+         m4_VERBOSE('on_initialize: addEventListener: revisionChange');
+         G.item_mgr.addEventListener('revisionChange',
+                                     this.on_revision_change_event);
+
+         m4_VERBOSE('on_initialize: addEventListener: g_initialized_event');
+         G.app.addEventListener('g_initialized_event',
+                                this.on_g_initialized_event);
+         this.on_g_initialized_event();
+
+         // Named with underscore because Detail_Panel_Base defines.
+         // Also, this only fires when you change tabs on the activity panel,
+         // but not when the ViewStack changes...
+         this.addEventListener(FlexEvent.HIDE,
+                               this.on_hide_event_, false, 0, true);
+         // So we'll listen on the activity panel, too, when this.dp is ready.
+
+         this.filter_by_widget_impl.filter_by_combo.addEventListener(
+            DropdownEvent.CLOSE, this.on_close_filter_combobo, false, 0, true);
+         this.filter_by_widget_impl.filter_by_combo.addEventListener(
+            DropdownEvent.OPEN, this.on_open_filter_combobo, false, 0, true);
+      }
+
+      // ***
+
+      //
+      override protected function on_click_panel(ev:MouseEvent) :void
+      {
+         super.on_click_panel(ev);
+
+         m4_DEBUG2('on_click_panel:',
+                   Strutil.class_name_tail(String(ev.target)));
+
+         if ((!this.action_opened)
+             && (ev.target === this)
+             && (!this.box_change_warning.visible)) {
+            this.revgrid.selectedIndex = -1;
+            // Need?: var force_disable:Boolean = true;
+            this.buttons_update();
+            this.on_revgrid_change();
+         }
+      }
+
+      //
+      public function on_click_dgrid(ev:MouseEvent) :void
+      {
+         m4_VERBOSE('on_click_dgrid: target:', ev.target);
+         // So we don't clear the selection in on_click_panel:
+         //m4_DEBUG('on_click_dgrid: stopPropagation');
+         ev.stopPropagation();
+      }
+
+      //
+      public function on_click_selection_actions(ev:MouseEvent) :void
+      {
+         m4_VERBOSE('on_click_selection_actions: target:', ev.target);
+         // So we don't clear the selection in on_click_panel:
+         //m4_DEBUG('on_click_selection_actions: stopPropagation');
+         ev.stopPropagation();
+      }
+
+      //
+      public function on_close_selection_actions(ev:DropdownEvent) :void
+      {
+         m4_VERBOSE('on_close_selection_actions: target:', ev.target);
+         this.action_opened = false;
+      }
+
+      //
+      public function on_open_selection_actions(ev:DropdownEvent) :void
+      {
+         m4_VERBOSE('on_open_selection_actions: target:', ev.target);
+         this.action_opened = true;
+      }
+
+      //
+      public function on_close_filter_combobo(ev:DropdownEvent) :void
+      {
+         m4_DEBUG('on_close_filter_combobo: ev:', ev, '/ target:', ev.target);
+         this.action_opened = false;
+      }
+
+      //
+      override protected function on_g_initialized_event(event:Event=null)
+         :void
+      {
+         m4_DEBUG('on_g_initialized_event: G.initialized:', G.initialized);
+         super.on_g_initialized_event(event);
+         if (G.initialized) {
+            m4_DEBUG('on_g_initialized_event');
+            // We can't add the event listener in on_initialize because
+            // the map is not set yet.
+            G.map.addEventListener('itemsCommitted', this.on_items_committed);
+         }
+      }
+
+      //
+      protected function on_hide_event_(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_hide_event_');
+         this.revgrid.selectedIndex = -1;
+         this.buttons_update();
+         this.on_warning_cleanup();
+         this.on_revgrid_change();
+      }
+
+
+      // BUG_JUL_2014/FIXME: Update/re-fetch recent changes after commit.
+      // E.g., add a new byway, save the map, you don't see your save
+      //       in recent changes.
+      // BUG_JUL_2014/FIXME: Update the schanges panel after commit, too.
+      // E.g., create point, make private, save map, and panel footer still
+      //       says "The new point will be private when saved."
+
+      //
+      protected function on_items_committed(event:Event=null) :void
+      {
+         // The user saved a new revision.
+         m4_DEBUG('on_items_committed');
+         this.fetch_list();
+      }
+
+      //
+      public function on_open_filter_combobo(ev:DropdownEvent) :void
+      {
+         m4_DEBUG('on_open_filter_combobo: ev:', ev, '/ target:', ev.target);
+         this.action_opened = true;
+      }
+
+      //
+      protected function on_revision_change_event(event:Event=null) :void
+      {
+         m4_DEBUG('on_revision_change_event');
+         this.buttons_update();
+      }
+
+      // *** Base class overrides
+
+      //
+      override public function clear_list() :void
+      {
+         this.revs = new XMLListCollection();
+      }
+
+      //
+      override public function fetch_list(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         if (qfs === null) {
+            qfs = this.qfs;
+         }
+
+         if (!G.map.basics_loaded) {
+            m4_DEBUG('fetch_list: called early: not basics_loaded');
+         }
+         else {
+            this.fetch_list_really(update_paginator_count, qfs);
+         }
+      }
+
+      //
+      protected function fetch_list_really(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         m4_VERBOSE('fetch_list_really');
+
+         // Don't reset the grid selection if called from on_revgrid_change.
+         if (this.qfs === qfs) {
+            this.revgrid.selectedIndex = -1;
+            this.buttons_update();
+            this.on_revgrid_change();
+         }
+
+         var paginator:Paginator_Widget;
+
+         // Configure qfs.pagin_count, qfs.pagin_offset, and qfs.pagin_total.
+         paginator = this.fetch_prepare(this.history_list_pager);
+         // See if we should also set qfs.pagin_total, to get a total count of
+         // results.
+         //m4_ASSERT(!this.qfs.pagin_total);
+         if (update_paginator_count) {
+            qfs.pagin_total = true;
+         }
+         var gwis_req:GWIS_Revision_History_Get;
+         // MAYBE: Replace w/ GWIS_Checkout? But that expects an item type...
+         //        We could at least use a callback fcn. so that the GWIS
+         //        class doesn't have to be coupled to us (i.e., so we don't
+         //        have to pass 'this'). But that's [lb]'s OCD talking.
+         gwis_req = new GWIS_Revision_History_Get(this, qfs, paginator);
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_req);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      override protected function fetch_prepare(paginator:Paginator_Widget)
+         :Paginator_Widget
+      {
+         var pw:Paginator_Widget = super.fetch_prepare(paginator);
+         return pw;
+      }
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         m4_DEBUG('get pnl_owng_pnl: returning not activating activity_panel');
+         return G.app.activity_panel;
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Recent Changes';
+      }
+
+      // *** Instance methods
+
+      //
+      protected function buttons_update(force_disable:Boolean=false) :void
+      {
+         // MAYBE: [lb] would rather not uses indices but he's unsure how else
+         //        easily to do this...
+         const idx_hist:int = 0;
+         const idx_diff:int = 1;
+         const idx_revert:int = 2;
+         var act_dataProvider:Object = this.selection_actions.dataProvider;
+         var act_hist:Object = act_dataProvider[idx_hist];
+         var act_diff:Object = act_dataProvider[idx_diff];
+         var act_revert:Object = act_dataProvider[idx_revert];
+
+         if (force_disable) {
+            this.button_zoomto_revision.enabled = false;
+            this.button_comment_revision.enabled = false;
+            act_hist.enabled = false;
+            act_diff.enabled = false;
+            act_revert.enabled = false;
+            this.selection_actions.enabled = false;
+         }
+         else {
+
+            var rev_hist:utils.rev_spec.Historic
+               = (G.map.rev_viewport as utils.rev_spec.Historic);
+            var rev_diff:utils.rev_spec.Diff
+               = (G.map.rev_viewport as utils.rev_spec.Diff);
+
+            // Enable or disable the 'Look At' button.
+            // 2012.08.15: Don't enable the button if the revision has no bbox.
+            // That is, don't let the user click something that'll have no
+            // response other than a useless error message.
+            //
+            // BUG nnnn: For "New thread: Feedback on rev(s) ...", 'Look At' is
+            //           disable but should go to the posts panel?
+            this.button_zoomto_revision.enabled =
+               (((this.xml_latest !== null) && (this.xml_latest.@bbox))
+                && (this.gs_sel.length > 0));
+
+            // BUG nnnn: If revision has one or more threads already,
+            //           link to them! Currently, user can make duplicate
+            //           discussions about the same revision. We should
+            //           make it easier for the user to read existing
+            //           discussions because maybe the comment doesn't
+            //           warrant a new discussion but could just be another
+            //           post in an existing discussion.
+            this.button_comment_revision.enabled = true;
+
+            act_hist.enabled = true;
+            act_diff.enabled = true;
+            act_revert.enabled = true;
+            this.selection_actions.enabled = true;
+
+            act_hist.label = 'Load Revision';
+            //act_diff.label = 'Load Differences';
+            act_diff.label = 'Load Comparison';
+            //act_diff.label = 'Compare Changes';
+            //act_revert.label = 'Revert Selected Revisions';
+            //act_revert.label = 'Revert Changes';
+            act_revert.label = 'Revert Revisions';
+
+            var num_selected:int = this.revgrid.selectedItems.length;
+
+            if (num_selected == 0) {
+               this.button_zoomto_revision.enabled = false;
+               this.button_comment_revision.enabled = false;
+               act_hist.enabled = false;
+               act_diff.enabled = false;
+               act_revert.enabled = false;
+               this.selection_actions.enabled = false;
+            }
+            else if (num_selected == 1) {
+               if ((rev_hist !== null)
+                   && (this.rid_latest == rev_hist.rid_old)) {
+                  act_hist.enabled = false;
+                  act_hist.label = 'Already Loaded';
+               }
+               else if ((rev_diff !== null)
+                        && (this.rid_latest == rev_diff.rid_new)
+                        && ((this.rid_latest - 1) == rev_diff.rid_old)) {
+                  act_diff.enabled = false;
+                  act_diff.label = 'Already Comparing';
+               }
+               //act_revert.label = 'Revert Selected Revision';
+               act_revert.label = 'Revert Revision';
+            }
+            else if (num_selected == 2) {
+               // this.button_load_revision.text = 'Compare Revisions';
+               // this.button_load_revision.text = 'Compare Revs.';
+               act_hist.enabled = false;
+               if ((rev_diff !== null)
+                   && (this.rid_latest == rev_diff.rid_new)
+                   && (this.rid_earliest == rev_diff.rid_old)) {
+                  act_diff.enabled = false;
+                  act_diff.label = 'Already Diffing';
+               }
+               act_diff.label = 'Load Differences';
+            }
+            else if (num_selected > 2) {
+               act_hist.enabled = false;
+               act_diff.enabled = false;
+               // act_hist.label = 'Too many selected';
+               // act_diff.label = 'Too many selected';
+            }
+            m4_ASSERT_ELSE_SOFT;
+         }
+      }
+
+      //
+      protected function change_revision(rev:utils.rev_spec.Base) :void
+      {
+         m4_DEBUG('change_revision: rev:', rev);
+
+         // Make all routes invisible so that they get discarded during
+         // discard_and_update; we don't want current routes around.
+         // MAYBE: This should be event-driven rather than spaghetti tangled.
+         //        Use dispatchEvent and addEventListener... but on what?
+         //        revisionChanged, or something else/new?
+         // MAYBE: Are the toggle_all_check fcns called when changing users,
+         //        or branches... or updating to Current() mainline?
+         // EXPLAIN: We disable the route panels... so maybe this isn't
+         //          necessary?
+
+         // Set rev_loadnext, which disables/enables map editing tools,
+         // and closes panels about revisiony things that are going away.
+         G.map.rev_loadnext = rev;
+
+         G.map.discard_and_update();
+
+         // MAYBE: Are there other places when the revision changes that we
+         //        should do this? What about when user changes back to
+         //        current revision from historic (which is a different button,
+         //        right?).
+         G.map.items_add(this.gs_sel);
+      }
+
+      //
+      protected function do_change_revision() :void
+      {
+         if (this.revgrid.selectedItems.length == 0) {
+            m4_VERBOSE('do_change_revision: back to Current');
+            this.change_revision(
+               new utils.rev_spec.Current());
+         }
+         else if (this.revgrid.selectedItems.length == 1) {
+            const idx_diff:int = 1;
+            if (this.selection_actions.selectedIndex == idx_diff) {
+               m4_DEBUG2('do_change_revision: Diffing:', this.rid_latest,
+                         'from', this.rid_latest - 1);
+               this.change_revision(
+                  new utils.rev_spec.Diff(
+                     this.rid_latest - 1, this.rid_latest));
+            }
+            else {
+               m4_VERBOSE2('do_change_revision: loading Historic:',
+                           this.rid_latest);
+               this.change_revision(
+                  new utils.rev_spec.Historic(this.rid_latest));
+            }
+         }
+         else if (this.revgrid.selectedItems.length == 2) {
+            m4_VERBOSE2('do_change_revision: Diffing:', this.rid_latest,
+                        'from', this.rid_earliest);
+            this.change_revision(
+               new utils.rev_spec.Diff(
+                  this.rid_earliest, this.rid_latest));
+         }
+         else {
+            // Dev error. Control should be disabled.
+            m4_WARNING('do_change_revision: Control should be disabled.');
+         }
+
+         G.app.rev_note_go_there.enabled = this.button_zoomto_revision.enabled;
+
+         // Clear the geosummaries.
+         this.on_revgrid_change();
+
+         // Reset the buttons.
+         this.buttons_update();
+      }
+
+      //
+      protected function do_revert_revision() :void
+      {
+         var a:Array = new Array();
+         var o:XML;
+
+         // Allow looking at routes at the other revision.
+         //if (G.item_mgr.contains_dirty_any) {
+         if (G.item_mgr.contains_dirty_revisioned) {
+            Alert.show(
+               'The map has unsaved changes. '
+               + 'Please save or discard your map changes before reverting.',
+               'Unable to revert');
+            return;
+         }
+
+         for each (o in this.revgrid.selectedItems) {
+// FIXME: Is is_revertable being sent correctly from server?
+// Why are the V1->V2 revisions indicating is_revertable?
+            if (!o.@is_revertable) {
+               // MAYBE: Reword this so it's not negative and a contraction:
+               //        "Can't" is an ugly word.
+               Alert.show("Can't revert a shared revision that you don't own",
+                          "Can't revert");
+               // UG: Short-circuit return.
+               return;
+            }
+            a.push(int(o.@revision_id));
+         }
+
+         this.revert_popup.init(a);
+         UI.popup(this.revert_popup, 'summary');
+      }
+
+      //
+      public function geosummary(revs:XML) :void
+      {
+         m4_VERBOSE('geosummary: revs:', revs);
+         var o:Object;
+         var xml:XML;
+         var geo_summary:Geosummary;
+         for each (o in revs.row) {
+            xml = (o as XML);
+            m4_VERBOSE('geosummary: xml:', xml);
+            geo_summary = this.xml2gs(xml);
+            geo_summary.parse_gs(xml);
+            // [lb] renamed 'gs' to 'geo_summary' to make search for 'draw'
+            //      let this result pass by with nary a glance, because you
+            //      know that geo_summary is not what you're looking for,
+            //      but what the heck is a 'gs'?
+            geo_summary.draw();
+         }
+      }
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_VERBOSE('list_control_callback: fetch_list');
+         this.fetch_list();
+      }
+
+      //
+      public function replace(revs:XML) :void
+      {
+         var x:XML;
+         var seli:Array = new Array();
+
+         //m4_DEBUG('replace: revs.row:', revs.row);
+         if (Logging.get_level_key('DEBUG')
+             >= Panel_Recent_Changes.log.current_level) {
+            for each (var grev_row:Object in revs.row) {
+               m4_VERBOSE('replace: revs.row:', grev_row);
+            }
+         }
+
+         this.revs = new XMLListCollection(revs.row);
+         this.reselect();
+
+         // FIXME: rev_autoselect not implemented?
+         //        See Widget_Attachment_Place_Widget
+         if (this.rev_autoselect.length > 0) {
+            for each (x in this.revs) {
+               if (this.rev_autoselect.indexOf(Number(x.@revision_id)) >= 0) {
+                  seli.push(this.revs.getItemIndex(x));
+               }
+            }
+            this.revgrid.selectedIndices = seli;
+            //this.on_revgrid_change();
+            this.rev_autoselect.length = 0;
+         }
+
+         this.history_list_pager.p_collect = this.revs;
+         this.history_list_pager.update_pagination_text();
+
+         // Reset scroll bar to the top of the list of changes.
+         this.dg_box.verticalScrollPosition = 0;
+      }
+
+      //
+      public function refetch() :void
+      {
+         m4_VERBOSE('refetch: fetch_list');
+         this.fetch_list();
+      }
+
+      // Keep history list up-to-date. Called by GWIS_Base whenever
+      // G.rid_branch_head is changed (including when the application first
+      // loads).
+      public function refresh() :void
+      {
+         var rev_min:int = 0;
+         if (this.revs.length > 0) {
+            var o:Object = this.revs.getItemAt(0);
+            // Bug nnnn: Pagination...
+            if ((o as XML).@revision_id
+                < G.map.rev_workcopy.rid_branch_head) {
+               // Fetch and prepend new revisions to list
+               // FIXME: Double-check this, seems... not right:
+               //        why not using use rid_branch_head?
+               /*/ FIXME: This think I can delete this...
+               rev_min = int((o as XML).@revision_id) + 1;
+               m4_DEBUG('Updating history list: revs from ' + rev_min +
+                        ' to ' + G.map.rev_workcopy.rid_branch_head);
+               this.fetch(Conf.hb_prepend, [rev_min]);
+               /*/
+               m4_DEBUG('refresh: fetch_list');
+               this.fetch_list();
+            }
+         }
+         else {
+            // List is empty, initialize
+            m4_INFO('Initializing history list');
+            this.fetch_list();
+         }
+      }
+
+      // Reselect/restore items potentially lost when the revgrid was updated
+      protected function reselect(reset_extra:Boolean = true) :void
+      {
+         var i:int;
+         var j:int = 0;
+         var seli:Array = new Array();
+
+         m4_DEBUG('reselect: reset_extra:', reset_extra);
+
+         if (this.gs_sel.length == 0) {
+            return;
+         }
+
+         if (reset_extra) {
+            this.is_extra = new Array();
+         }
+
+// What's the point here? To allow user to maintain selection _and_ use
+// paginator? Should use filters instead...
+         // Loop through revs, inserting missing items and reselecting
+         for (i = 0; (i < this.revs.length) && (j < this.gs_sel.length); i++) {
+            while ((j < this.gs_sel.length)
+                   && (this.revs[i].@revision_id <= this.gs_sel[j].rid)) {
+               if (this.gs_sel[j].xml.@is_revertable) {
+                  if (this.revs[i].@revision_id < this.gs_sel[j].rid) {
+                     m4_DEBUG2('reselect: addItemAt:', i,
+                               '/', this.gs_sel[j].xml);
+                     this.revs.addItemAt(this.gs_sel[j].xml, i);
+                     this.is_extra[i] = true;
+                  }
+                  if (this.revs[i].@revision_id == this.gs_sel[j].rid) {
+                     seli.push(i);
+                  }
+               }
+               j++;
+            }
+         }
+
+         // Add and select any extra items at end
+         for (i = j; i < this.gs_sel.length; i++) {
+
+// FIXME: route manip. This is very much broken.
+//        Maybe this is @is_revertable?
+//            if ((this.gs_sel[i].xml.@visibility != Visibility.all)
+//                && (!Panel_Recent_Changes.owned(this.gs_sel[i].xml))) {
+//               // I think this hides session ID routes from the revision
+//               // history...?
+//               // Or is CcpV1 sending rev history it shouldn't be?
+//               continue;
+//            }
+// MAYBE?:
+//            if (this.gs_sel[i].xml.@is_revertable) {
+//               continue;
+//            }
+
+            m4_DEBUG('reselect: addItem:', this.gs_sel[i].xml);
+            this.revs.addItem(this.gs_sel[i].xml);
+            seli.push(revs.length - 1);
+            this.is_extra[revs.length - 1] = true;
+         }
+
+         this.revgrid.selectedIndices = seli;
+
+         m4_DEBUG('reselect: this.is_extra.length:', this.is_extra.length);
+         m4_DEBUG('reselect: this.revs.length:', this.revs.length);
+//         m4_ASSURT(this.is_extra.length == this.revs.length);
+         m4_ASSURT(this.is_extra.length == 0);
+         // MAYBE: 2012.10.24: How does this make any sense? Is this legal?
+         //        Does setting the length truncate or expand the Array?
+         this.is_extra.length = this.revs.length;
+         m4_ASSURT(this.is_extra.length == this.revs.length);
+
+         this.history_list_pager.p_collect = this.revs;
+         this.history_list_pager.update_pagination_text();
+      }
+
+      //
+      public function set_correct_heights() :void
+      {
+         // For whatever reason, if we don't use this fcn., the
+         // verticalScrollBar is shown but there's no elevator, and the
+         // DataGrid is clipped.
+         m4_VERBOSE('set_correct_heights: old:', this.revgrid.height);
+         if ((this.revs !== null) && (this.revs.length > 0)) {
+            m4_VERBOSE(' >> revs.length:', this.revs.length);
+            m4_VERBOSE(' >> revgrid.rowHeight:', this.revgrid.rowHeight);
+            var target_height:int = this.revs.length * this.revgrid.rowHeight;
+            if (this.revgrid.height != target_height) {
+               this.revgrid.height = target_height;
+            }
+            m4_VERBOSE('set_correct_heights: new:', this.revgrid.height);
+         }
+      }
+
+      //
+      public function show_current() :void
+      {
+         this.revgrid.selectedIndex = -1;
+         m4_ASSERT(this.revgrid.selectedItems.length == 0);
+         //this.buttons_update();
+         //this.on_warning_cleanup();
+         this.do_change_revision();
+         this.on_revgrid_change();
+      }
+
+      // Placed out of order for spatial locality with calling code
+      protected function write_fb_handler(ev:CloseEvent) :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         if ((ev === null) || (ev.detail == Alert.OK)) {
+
+            // 2013.05.31: Don't change any panels yet. In CcpV1, we'd hide the
+            // active thread, if there was one. But we're just showing a modal
+            // dialog -- so the user still has a chance to cancel. We'll let
+            // the dialog change the active panel if the user actually makes a
+            // new thread.
+            //   G.item_mgr.active_thread = null;
+            //   var thread_sid:int = -1; // Don't set active_thread.stack_id.
+            //   var force_refresh:Boolean = false; // Don't fetchs threads.
+            //   G.tabs.discussions.discussions_panel_update(-1);
+
+            Rev_Feedback_Popup.show_feedback_popup(this.revgrid.selectedItems);
+         }
+      }
+
+      //
+      protected function xml2gs(xml:XML) :Geosummary
+      {
+         var gs:Geosummary;
+         var key:int = int(xml.@revision_id);
+         m4_ASSERT(key > 0);
+
+         if (key in this.gs_cache) {
+            gs = this.gs_cache[key];
+            m4_DEBUG('xml2gs: key/rid_old:', key, '/ get gs_cache:', gs);
+         }
+         else {
+            gs = new Geosummary(xml);
+            this.gs_cache[key] = gs;
+            m4_DEBUG('xml2gs: key/rid_old:', key, '/ put gs_cache:', gs);
+         }
+
+         m4_ASSERT(gs !== null);
+
+         return gs;
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get rid_earliest() :int
+      {
+         return this.xml_earliest.@revision_id;
+      }
+
+      //
+      public function get rid_latest() :int
+      {
+         return this.xml_latest.@revision_id;
+      }
+
+      //
+      public function get xml_earliest() :XML
+      {
+         var o:Object;
+         var rid_winner:int = int.MAX_VALUE;
+         var xml:XML;
+         var xml_winner:XML;
+
+         for each (o in this.revgrid.selectedItems) {
+            xml = (o as XML);
+            if (xml.@revision_id < rid_winner) {
+               rid_winner = xml.@revision_id;
+               xml_winner = xml;
+            }
+         }
+
+         return xml_winner;
+      }
+
+      // From whatever the user has selected (ctrl-clicked) in the list (one or
+      // more rows), find the largest revision ID.
+      public function get xml_latest() :XML
+      {
+         var o:Object;
+         var rid_winner:int = 0;
+         var xml:XML;
+         var xml_winner:XML;
+
+         for each (o in this.revgrid.selectedItems) {
+            xml = (o as XML);
+            if (xml.@revision_id > rid_winner) {
+               rid_winner = xml.@revision_id;
+               xml_winner = xml;
+            }
+         }
+
+         return xml_winner;
+      }
+
+      // *** Event handlers
+
+      //
+      public function on_change_more_actions(ev:Event) :void
+      {
+         m4_DEBUG('on_change_more_actions: ev:', ev);
+         m4_DEBUG('on_change_more_actions: ev.target:', ev.target);
+         m4_DEBUG2('on_change_more_actions: selectedIndex:',
+                   this.selection_actions.selectedIndex);
+
+         m4_DEBUG2('on_change_more_actions: selectedItem:',
+                   this.selection_actions.selectedItem);
+
+         m4_DEBUG2('on_change_more_actions: callback:',
+                   this.selection_actions.selectedItem.callback);
+
+         this.selection_actions.selectedItem.callback();
+
+         if (!this.box_change_warning.visible) {
+            this.selection_actions.selectedIndex = -1;
+         }
+      }
+
+      //
+      protected function on_change_revision() :void
+      {
+         // Allow looking at routes at the other revision.
+         //if (G.item_mgr.contains_dirty_any) {
+         if (G.item_mgr.contains_dirty_revisioned) {
+
+            this.confirming_change_revision = true;
+
+            // MAYBE: Use transition effect.
+            this.box_change_warning.visible = true;
+
+            //var pluralize:Boolean = (this.revgrid.selectedItems.length != 1);
+            //this.text_change_warning.text = 
+            //   'You have unsaved changes. If you load the selected '
+            //   + Inflector.pluralize('revision', pluralize)
+            //   + ", you'll lose your unsaved changes.";
+
+            var force_disable:Boolean = true;
+            this.buttons_update(force_disable);
+
+            this.filter_by_widget_box.enabled = false;
+            this.dg_box.enabled = false;
+            //this.revgrid.enabled = false;
+            this.history_list_pager.enabled = false;
+         }
+         else {
+            this.do_change_revision();
+         }
+      }
+
+      //
+      protected function on_comment_revision(ev:MouseEvent) :void
+      {
+         m4_DEBUG4('on_comment_revision: no.selectedItems:',
+                   this.revgrid.selectedItems.length,
+                   '/ feedback_exists:',
+                   this.revgrid.selectedItem.@feedback_exists);
+
+         if ((this.revgrid.selectedItems.length > 1)
+             && (Objutil.consensus(this.revgrid.selectedItems,
+                                   '@feedback_exists',
+                                   '1') != '0')) {
+            // Multiple rows are selected, and one or more already have
+            // feedback. Ask the user to post their feedback to the existing
+            // thread.
+            // BUG 2715: Better errors: FIXME: This seems weird -- if you can
+            // select multiple revisions, and none have feedback, if you create
+            // feedback, how many threads get created? Do multiple threads get
+            // created, or does one thread get created with all revisions
+            // attached? If the latter, this error seems wrong.
+            Alert.show(
+               'One or more selected revisions already have feedback.'
+               + ' Click the "fb" button to see it and to add more feedback.',
+               'Unable to create new feedback thread');
+         }
+         else if ((this.revgrid.selectedItems.length == 1)
+                  && (this.revgrid.selectedItem.@feedback_exists == '1')) {
+
+// BUG_FALL_2013
+            // Only one row selected and it has feedback - go to its thread.
+// FIXME_2013_06_11: Send the thread?
+            // G.tabs.discussions.thread_open(...);
+            G.tabs.discussions.discussions_panel_update(/*thread=*/null,
+                                                /*activate_panel=*/true);
+            m4_DEBUG2('on_comment_revision: activating activity_panel:',
+                      G.app.activity_panel);
+            G.panel_mgr.panel_activate(G.app.activity_panel);
+         }
+         else {
+            // 2013.06.03: In CcpV2, we have multiple thread panels, so showing
+            // this would make us look foolish, like we don't know how to
+            // manage multiple panels, or something.
+            //    // One or more rows selected and none have fb - launch
+            //    // dialog.  We show the Thread-dirty warning now before the
+            //    // user puts in effort writing the dialog.
+            //    if (Thread.dirty) {
+            //       Alert.show(
+            //          'You have unposted changes in another thread. '
+            //          + 'If you proceed with this operation, those changes '
+            //          + 'will be lost. Is this okay?',
+            //          'Write feedback',
+            //          Alert.CANCEL | Alert.OK,
+            //          null,
+            //          this.write_fb_handler,
+            //          null,
+            //          Alert.OK);
+            //    }
+            //    else {
+            //       this.write_fb_handler(null);
+            //    }
+            //
+            this.write_fb_handler(null);
+         }
+
+         // So we don't clear the selection in on_click_panel:
+         m4_DEBUG('on_comment_revision: stopPropagation');
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_item_click_dgrid(event:ListEvent) :void
+      {
+         m4_DEBUG('event.target:', event.target);
+         m4_DEBUG('selectedIndex:', event.target.selectedIndex);
+         m4_DEBUG('on_item_click_dgrid: columnIndex:', event.columnIndex);
+         m4_DEBUG('on_item_click_dgrid: rowIndex:', event.rowIndex);
+         m4_DEBUG('on_item_click_dgrid: type:', event.type); // itemClick
+
+         var o:Object = this.revgrid.dataProvider.getChildAt(event.rowIndex);
+         m4_DEBUG('on_item_click_dgrid: o:', o);
+         m4_DEBUG('on_item_click_dgrid: o?:', (o === null));
+
+         var i:Object = this.revgrid.dataProvider.getItemAt(event.rowIndex);
+         m4_DEBUG('on_item_click_dgrid: i:', i);
+         m4_DEBUG('on_item_click_dgrid: i?:', (i === null));
+         m4_DEBUG('on_item_click_dgrid: i:', i.toString());
+
+      }
+
+      //
+      protected function on_revert_revision() :void
+      {
+
+// BUG_FALL_2013
+G.alert_broke();
+if (!Conf_Instance.debug_goodies) { return; }
+
+         // Allow looking at routes at the other revision.
+         //if (G.item_mgr.contains_dirty_any) {
+         if (G.item_mgr.contains_dirty_revisioned) {
+
+            this.confirming_revert_revision = true;
+
+            // MAYBE: Use transition effect.
+            this.box_change_warning.visible = true;
+
+            var force_disable:Boolean = true;
+            this.buttons_update(force_disable);
+         }
+         else {
+            this.do_revert_revision();
+         }
+      }
+
+      // The DataGrid signals 'change' when the selectedIndex or selectedItem
+      // property changes because of user interaction.
+      protected function on_revgrid_change() :void
+      {
+         var xml:XML;
+         var o:Object;
+         var gs:Geosummary;
+         var rids:Array = new Array();
+         var seli:Array = this.revgrid.selectedIndices;
+
+         m4_VERBOSE('on_revgrid_change');
+
+         /*/ [lb] was hoping to fix the backgroundColor problem.
+         When our renderer paints its own background color (indicating the
+         access level of the revision), the selected color applied by the
+         DataGrid doesn't show through unless we use an alpha, but that's just
+         a hack. What we want to do is for the renderer to know when the row
+         is selected and to paint a special selected color.
+         Here, this.revgrid.selectedItems is a collection of XML.
+         But maybe if we made the dataProvider objects instead, we could
+         override updateDisplayList, like our ComboBox item renderer does
+         (see List_Item_Renderer_Disableable.as / DisabledListItemRenderer.as).
+
+         for (var nc:int = this.revgrid.numChildren - 1; nc >= 0; nc--) {
+            // revgrid has many children; top-level are not our row renderers:
+            o = this.revgrid.getChildAt(nc);
+            m4_DEBUG('on_revgrid_change: o:', o);
+            var rgr:Rev_Grid_Renderer = o as Rev_Grid_Renderer;
+            m4_DEBUG('on_revgrid_change: rgr:', rgr);
+            if (rgr !== null) {
+               var bg_color:uint = rgr.data.@bg_color;
+               if (rgr.data in this.revgrid.selectedItems) {
+                  bg_color = Color_Helper.getBetweenColourByPercent(
+                                          0.25, bg_color, 0x000000);
+               }
+               rgr.setStyle("backgroundColor", bg_color);
+            }
+         }
+
+         Another approach would be to hook added/removed to see if that's
+         how the selected background color is being applied... and then
+         we could easily hack around that, like we do for detecting the
+         vertical scroll bar when we want to add padding to the side panel.
+         /*/
+
+         // MEH: [lb] allow_discard is kinda kludgy.
+         this.allow_discard = true;
+         // For some reasons this doesn't work:
+         //    if (Geosummary.Z_GEOSUMMARY in G.map.layers) { }
+         // Nor does this:
+         //    try {
+         //       G.map.layers[Geosummary.Z_GEOSUMMARY].sprite_items_discard(
+         //                                                             null);
+         //    } catch (e:TypeError) { }
+         for each (gs in this.gs_cache) {
+            try {
+               m4_DEBUG('on_revgrid_change: item_discard: gs:', gs);
+
+               // Do not discard geosummary if viewing the current revision.
+               var retain:Boolean = false;
+
+               // If current revision is Historic, compare to rid_old.
+               var rev_hist:utils.rev_spec.Historic 
+                  = (G.map.rev_viewport as utils.rev_spec.Historic);
+               if ((rev_hist !== null) && (gs.rid == rev_hist.rid_old)) {
+                  retain = true;
+               }
+
+               // If current revision is Diff, compare to rid_old, rid_new.
+               var rev_diff:utils.rev_spec.Diff 
+                  = (G.map.rev_viewport as utils.rev_spec.Diff);
+               if ((rev_diff !== null) 
+                   && (gs.rid >= rev_diff.rid_old) 
+                   && (gs.rid <= rev_diff.rid_new)) {
+                  retain = true;
+               }
+
+               if (!retain) {
+                  G.map.item_discard(gs);
+               }
+            }
+            catch (e:ArgumentError) {
+               // getChildIndex complained nonexistant.
+            }
+            catch (e:TypeError) {
+               // There was no entry in this.layers for gf.zplus.
+               // this.layers[gf.zplus].geofeature_discard
+            }
+         }
+         this.allow_discard = false;
+
+         this.gs_sel = new MOBR_DR_Array();
+         for each (o in this.revgrid.selectedItems) {
+            xml = (o as XML);
+            //m4_DEBUG('on_revgrid_change: xml:', xml.toString());
+            if (xml.@bbox.length() == 1) {
+               gs = this.xml2gs(xml);
+               this.gs_sel.push(gs);
+               if (!(G.map.rev_viewport is utils.rev_spec.Diff
+                     && G.map.zoom_is_vector())
+                   && (xml.@bbox)) {
+                  if (!gs.has_gs) {
+                     m4_DEBUG('on_revgrid_change: gs.rid:', gs.rid);
+                     if (gs.rid > 0) {
+                        rids.push(gs.rid);
+                     }
+                     else {
+                        m4_WARNING('on_revgrid_change: bad rid:', gs);
+                     }
+                  }
+                  G.map.items_add([gs,]);
+               }
+            }
+         }
+         this.gs_sel.sortOn('rid', Array.NUMERIC | Array.DESCENDING);
+
+
+         if (rids.length > 0) {
+            var gs_qfs:Query_Filters = new Query_Filters();
+            gs_qfs.include_geosummary = true;
+            gs_qfs.rev_ids = rids;
+            m4_DEBUG('on_revgrid_change: gs_qfs.rev_ids:', gs_qfs.rev_ids);
+            m4_DEBUG('on_revgrid_change: fetch_list');
+            this.fetch_list(/*update_paginator_count=*/false, gs_qfs);
+         }
+
+         this.buttons_update();
+      }
+
+      //
+      public function do_selection_action(callback:Function) :void
+      {
+         m4_DEBUG('do_selection_action:', callback);
+         callback();
+      }
+
+      //
+      protected function on_warning_accept() :void
+      {
+         if (this.confirming_change_revision) {
+            this.do_change_revision();
+         }
+         else if (this.confirming_revert_revision) {
+            this.do_revert_revision();
+         }
+         else {
+            m4_ASSERT(false);
+         }
+
+         this.on_warning_cleanup();
+      }
+
+      //
+      protected function on_warning_reject() :void
+      {
+         this.buttons_update();
+
+         this.on_warning_cleanup();
+      }
+
+      //
+      protected function on_warning_cleanup() :void
+      {
+         this.confirming_change_revision = false;
+         this.confirming_revert_revision = false;
+
+         // MAYBE: Use transition effect.
+         this.box_change_warning.visible = false;
+
+         this.filter_by_widget_box.enabled = true;
+         this.dg_box.enabled = true;
+         //this.revgrid.enabled = true;
+         this.history_list_pager.enabled = true;
+
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_zoomto_revision(ev:MouseEvent) :void
+      {
+         if (this.gs_sel.length > 0) {
+            G.map.lookat(this.gs_sel);
+         }
+         else {
+            // In CcpV1, an ugly warning was shown. But there's absolutely
+            // nothing the user can do, and it's going to annoy them to have to
+            // read a warning that's confusing (it says the error might not be
+            // an error or maybe it's a bug... hahaha).
+            // Nope: Alert.show(
+            //   'Cyclopath could not identify the location of changes in this'
+            //   + ' revision.\n\n'
+            //   + 'This may be because the revision was empty, or it is a'
+            //   + ' large special data import, or because there is a bug.'
+            //   + ' If you think you have received this dialog in error,'
+            //   + ' please contact us by clicking \"Help\" above.',
+            //   'Could not find revision');
+            m4_WARNING('on_zoomto_revision: no gs_sel; button should be disabled');
+         }
+         // So we don't clear the selection in on_click_panel:
+         m4_DEBUG('on_zoomto_revision: stopPropagation');
+         ev.stopPropagation();
+      }
+
+      // ***
+
+      //
+      override protected function get_filter_by_data_provider(
+         subject_plural:String='',
+         subject_abbrev:String='') :ArrayCollection
+      {
+         var subject_plural:String = 'revisions';
+         var subject_abbrev:String = 'revisions';
+         return super.get_filter_by_data_provider(subject_plural,
+                                                  subject_abbrev);
+      }
+
+      //
+      override protected function get_filter_okay_specific_user() :Boolean
+      {
+         return true;
+      }
+
+      //
+      override protected function get_filter_okay_specific_revision() :Boolean
+      {
+         return true;
+      }
+
+      //
+      override protected function get_filter_okay_specific_stack_id() :Boolean
+      {
+         return true;
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      horizontalAlign="center"
+      verticalGap="7"
+      verticalScrollPolicy="auto"
+      >
+
+      <mx:HBox
+         id="filter_by_widget_box"
+         width="100%"
+         horizontalAlign="center"
+         >
+         <views_panel_util:Filter_Combobo_Widget
+            id="filter_by_widget_impl"
+            buttonVisible="true"
+            buttonText="Filter"
+            click="this.on_click_filter_by_widget(event);"
+            />
+      </mx:HBox>
+
+      <mx:HBox
+         width="100%"
+         height="100%">
+
+         <mx:Canvas
+            id="dg_box"
+            width="100%"
+            height="100%"
+            borderStyle="solid"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="on">
+
+            <views_panel_util:Data_Grid_BgColor
+               id="revgrid"
+               width="100%"
+               height="100%"
+               horizontalScrollPolicy="off"
+               verticalScrollPolicy="off"
+               allowMultipleSelection="true"
+               borderStyle="none"
+               draggableColumns="false"
+               mouseWheel="this.dg_box.dispatchEvent(event)"
+               resizableColumns="true"
+               rowCount="{this.revs.length}"
+               showHeaders="false"
+               headerHeight="0"
+               sortableColumns="false"
+               variableRowHeight="false"
+               dataProvider="{this.revs}"
+               added="this.on_added_renderer_maybe(event);"
+               change="this.on_revgrid_change();"
+               click="this.on_click_dgrid(event);"
+               itemClick="this.on_item_click_dgrid(event);"
+               
+         selectionColor="{Conf.change_color}"
+         backgroundAlpha="0.25"
+               >
+               <!-- Circa 2012: Route reactions removes this:
+                  visible="{this.revs.length > 0}"
+                  includeInLayout="{this.revgrid.visible}"
+                  updateComplete="G.map.callLater(this.set_correct_heights);"
+                  -->
+               <views_panel_util:columns>
+                  <mx:DataGridColumn
+                     itemRenderer="views.panel_history.Rev_Grid_Renderer"/>
+               </views_panel_util:columns>
+            </views_panel_util:Data_Grid_BgColor>
+
+            <!-- We're inside a Canvas so this sits on top of the revgrid
+                 when it's visible. -->
+            <mx:HBox
+               id="norevs"
+               horizontalAlign="center"
+               verticalAlign="middle"
+               visible="{this.revs.length == 0}"
+               includeInLayout="{this.norevs.visible}"
+               backgroundColor="white"
+               width="100%"
+               height="100%"
+               paddingLeft="5"
+               paddingRight="5"
+               toolTip=
+                  "We searched for matching revisions but did not find any."
+               >
+               <mx:Text
+                  fontWeight="bold"
+                  textAlign="center">
+                  <mx:htmlText><![CDATA[
+No revisions found.
+
+Please try a different
+filter or search term.
+                  ]]></mx:htmlText>
+               </mx:Text>
+            </mx:HBox>
+
+         </mx:Canvas>
+
+      </mx:HBox>
+
+      <views_panel_util:Paginator_Widget
+         id="history_list_pager"
+         width="100%"
+         horizontalAlign="right"
+         paddingRight="1"
+         paddingTop="1"
+         paddingBottom="1"
+         horizontalGap="0"
+         />
+
+      <mx:HBox
+         width="100%"
+         horizontalAlign="right"
+         horizontalGap="2"
+         >
+
+         <!--
+            label="Show Where"
+            label="Zoom to"
+            label="Go there"
+         -->
+         <mx:Button
+            id="button_zoomto_revision"
+            label="Go There"
+            toolTip=
+"Click to zoom to the area of the map affected by changes in this revision. The selected revisions will not be loaded."
+            enabled="false"
+            click="this.on_zoomto_revision(event);"
+            />
+
+         <mx:Spacer
+            width="100%"/>
+
+         <mx:Button
+            id="button_comment_revision"
+            label="Write Comment"
+            toolTip=
+"If you'd like to share feedback with other users, click to start a discussion about the selected revisions."
+            enabled="false"
+            click="this.on_comment_revision(event);"
+            />
+
+         <mx:Spacer
+            width="100%"/>
+
+         <!-- FIXME: MAGIC_NUMBERS. Can you measure text instead?
+              -->
+         <!-- 2013.04.12: Haha, oops. [lb] totally forgot that Combo_Box_V2
+                          uses List_Disableable.as and 
+                          List_Item_Renderer_Disableable.as...
+                          so this new DisabledComboBox class and its renderers
+                          are pretty much redundant.
+                          -->
+         <!--
+            prompt="More Actions..."
+            label="Load Map at Revision"
+            -->
+         <views_panel_util:DisabledComboBox
+            id="selection_actions"
+            rowCount="3"
+            fontWeight="normal"
+            prompt="Actions"
+            change="this.on_change_more_actions(event);"
+            click="this.on_click_selection_actions(event);"
+            close="this.on_close_selection_actions(event);"
+            open="this.on_open_selection_actions(event);"
+            selectedIndex="-1"
+            toolTip="Click to access more actions."
+
+      maxWidth="100"
+      dropdownWidth="135"
+            >
+            <views_panel_util:dataProvider>
+               <mx:Array>
+                  <!--
+                     These labels are not used. See: buttons_update.
+                     Except for the first option...
+                     -->
+                  <mx:Object
+                     label="Load Revision"
+                     toolTip=
+"Click to load the map at the selected revision. You'll see things as they were in the past."
+                     callback="{this.on_change_revision}"
+                     enabled="{false}"
+                     />
+                  <mx:Object
+                     label="Load Comparison"
+                     toolTip=
+"Click to load changes to the map at or between the selected revisions."
+                     callback="{this.on_change_revision}"
+                     enabled="{false}"
+                     />
+                  <mx:Object
+                     label="Revert Revision"
+                     toolTip="Reverse the effect of selected revisions."
+                     callback="{this.on_revert_revision}"
+                     enabled="{false}"
+                     />
+               </mx:Array>
+            </views_panel_util:dataProvider>
+         </views_panel_util:DisabledComboBox>
+
+      </mx:HBox>
+
+      <mx:HBox
+         id="box_change_warning"
+         width="100%"
+         paddingLeft="0"
+         paddingTop="7"
+         paddingRight="0"
+         paddingBottom="0"
+         verticalAlign="right"
+         visible="false"
+         includeInLayout="{this.box_change_warning.visible}"
+         >
+         <mx:HBox
+            width="100%"
+            height="100%"
+            horizontalAlign="right"
+            verticalAlign="bottom"
+            >
+            <mx:Text
+               id="text_change_warning"
+               width="100%"
+               condenseWhite="true">
+               <mx:htmlText><![CDATA[
+   You have unsaved changes. If you continue, you'll lose your unsaved changes.
+               ]]></mx:htmlText>
+            </mx:Text>
+         </mx:HBox>
+         <mx:HBox
+            horizontalAlign="right"
+            height="100%"
+            verticalAlign="bottom"
+            >
+            <mx:Button
+               label="OK"
+               fillColors="{[Conf.save_button_fill_light,
+                             Conf.save_button_fill_dark,]}"
+               click="this.on_warning_accept();"/>
+            <mx:Button
+               label="Cancel"
+               click="this.on_warning_reject();"/>
+         </mx:HBox>
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_activity:Tab_Latest_Activity_Base>
+

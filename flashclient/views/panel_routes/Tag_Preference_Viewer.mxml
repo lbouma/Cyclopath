@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:DataGrid
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   dataProvider="{Tag.all_applied(Byway)}"
+   resizableColumns="false"
+   draggableColumns="false"
+   verticalScrollPolicy="on"
+   borderStyle="solid"
+   borderColor="0x333333"
+   showHeaders="true"
+   initialize="this.on_initialize(event);"
+   itemClick="this.on_click(event);"
+   itemRollOver="this.on_rollover(event);"
+   headerRelease="this.on_sort(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.collections.Sort;
+      import mx.collections.SortField;
+      import mx.utils.ObjectUtil;
+      import mx.events.DataGridEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+
+      import items.attcs.Tag;
+      import items.feats.Byway;
+      import utils.misc.Logging;
+
+      // *** Class variables
+
+      protected static var log:Logging = Logging.get_logger('+Tag_Prf_Vew');
+
+      // *** Instance variables
+
+      protected var last_sort_col:DataGridColumn;
+      protected var secondary_sort_alpha:Boolean = false;
+      protected var highlight_row:int = -1;
+
+      // *** Getters and setters
+
+      // Tell which enabled tags are not assigned preferences
+      public function get error_text() :String
+      {
+         var err:String = null;
+         var tags:Array = new Array();
+         var t:Tag;
+         for each (t in this.dataProvider) {
+            if (!t.pref_valid) {
+               tags.push('<b>' + t.text_ + '</b>');
+            }
+         }
+         if (tags.length > 1) {
+            err = ('The tags ' + tags.slice(0, -1).join(', ')
+                   + ' and ' + tags[tags.length-1]
+                   + ' are in use but no preferences are set.'
+                   + ' Please either uncheck them or choose one of'
+                   + ' Avoid, Penalty or Bonus.');
+         }
+         else if (tags.length == 1) {
+            err = ('The tag ' + tags[0]
+                   + ' is in use but no preference is set.'
+                   + ' Please either uncheck it or choose one of'
+                   + ' Avoid, Penalty or Bonus.');
+         }
+         return err;
+      }
+
+      // Make sure all enabled tags are assigned preferences
+      public function get valid() :Boolean
+      {
+         var t:Tag;
+         for each (t in this.dataProvider) {
+            if (!t.pref_valid) {
+               return false;
+            }
+         }
+         return true;
+      }
+
+      // *** Draw methods
+
+      // Hack: a refresh() will cause the highlight to disappear.  We use
+      // highlight_row to remember where the highlight should be, and then
+      // override drawRowBackground to use the highlight color (0xB2E1FF).
+      override protected function drawRowBackground(s:Sprite,
+                                                    rowIndex:int,
+                                                    y:Number,
+                                                    height:Number,
+                                                    color:uint,
+                                                    dataIndex:int) :void
+      {
+         if (dataIndex == this.highlight_row) {
+            super.drawRowBackground(s, rowIndex, y, height, 0xB2E1FF,
+                                    dataIndex);
+         }
+         else {
+            super.drawRowBackground(s, rowIndex, y, height, color, dataIndex);
+         }
+      }
+
+      // *** Event handlers
+
+      // Item click handler
+      protected function on_click(ev:ListEvent) :void
+      {
+         var t:Tag;
+         var i:int = 0;
+         var s:Sort = new Sort();
+         var val:Boolean;
+
+         for each (t in this.dataProvider) {
+            t.sort_index = i;
+            i++;
+         }
+         t = (this.dataProvider[ev.rowIndex] as Tag);
+         var col:DataGridColumn = this.columns[ev.columnIndex];
+
+         s.fields = [new SortField('sort_index',
+                                   false,  // not case-insensitive
+                                   false,  // not descending
+                                   true)]; // numeric
+         this.dataProvider.sort = s;
+         this.last_sort_col = null;
+
+         // Change checkbox in response clicks on the Tag and Blocks columns
+         if (col === col_tagname
+             || col === col_byways
+             || col === col_enabled) {
+            t.pref_enabled = !t.pref_enabled;
+         }
+
+         if (col === col_bonus) {
+            val = t.pref_get('bonus');
+         }
+         else if (col === col_penalty) {
+            val = t.pref_get('penalty');
+         }
+         else if (col === col_avoid) {
+            val = t.pref_get('avoid');
+         }
+         else {
+            val = t.pref_enabled;
+         }
+
+         G.sl.event('ui/container/route_finder/tag_click',
+                    {tag: t.text_, column: col.headerText, status: val});
+
+         // Preserve highlight
+         this.highlight_row = ev.rowIndex;
+
+         // Ensure nothing is selected
+         this.selectedIndex = -1;
+
+         // Refresh data provider
+         m4_DEBUG('on_click: dataProvider.refresh');
+         this.dataProvider.refresh();
+      }
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         // Whenever the app loads the list of all tags, make sure we update.
+         G.item_mgr.addEventListener('tagsLoaded', this.on_tags_loaded);
+      }
+
+      //
+      protected function on_rollover(ev:ListEvent) :void
+      {
+          // Clear saved highlight
+          if (this.highlight_row > -1) {
+             this.highlight_row = -1;
+             this.invalidateDisplayList();
+          }
+      }
+
+      //
+      protected function on_sort(ev:DataGridEvent) :void
+      {
+         var col:DataGridColumn = this.columns[ev.columnIndex];
+         var desc:Boolean = col.sortDescending;
+
+         if (col === this.last_sort_col) {
+            desc = !desc;
+         }
+         G.sl.event('ui/container/route_finder/sort_tags',
+                    {column: col.headerText, order: desc});
+         this.last_sort_col = col;
+
+         if (col === col_tagname) {
+            this.secondary_sort_alpha = true;
+         }
+         else if (col === col_byways) {
+            this.secondary_sort_alpha = false;
+         }
+      }
+
+      //
+      protected function on_tags_loaded(ev:Event) :void
+      {
+         m4_DEBUG('on_tags_loaded: tagsLoaded');
+         // FIXME: [lb] confirm this fixes the problem
+         this.reload();
+      }
+
+      // *** Instance methods
+
+      // New tags have been fetched since the Panel_Routes_New panel was first
+      // opened, so we must reassign the data provider.
+      //http://www.adobe.com/devnet/flex/quickstart/using_data_providers/#array
+      public function reload() :void
+      {
+         m4_DEBUG('reload: Tag.all_applied.length:', Tag.all_applied.length);
+         var tstart:int = G.now();
+         this.dataProvider = Tag.all_applied(Byway);
+         this.reset();
+         // ensure rf_prefs_restore() will work correctly for the new tags
+         G.user.rf_prefs_backup();
+         m4_DEBUG_TIME('reload: reloaded tags');
+      }
+
+      // Restore the DataGrid to its default view
+      public function reset() :void
+      {
+         var s:Sort = new Sort();
+         var s2:Sort = new Sort();
+
+         // Sort by first column (enabled checkbox)
+         var sf:SortField = new SortField('pref_enabled',
+                                          false, // not case-insensitive
+                                          true); // descending
+         sf.compareFunction = this.sort_function(this.col_enabled);
+         s.fields = [sf];
+
+         this.last_sort_col = this.col_enabled;
+
+         // Refresh data provider
+         this.dataProvider.sort = s;
+         m4_DEBUG('reset: dataProvider.refresh');
+         this.dataProvider.refresh();
+
+         // Now that the list is sorted, change the default sort order to be
+         // sort_index, i.e., what the user is currently viewing. If we don't
+         // do this, when the user clicks a button, Tag.pref_enabled gets set,
+         // which is a Bindable variable that triggers an event causing the
+         // list to be re-sorted, much to the chagrin of the user, who isn't
+         // expecting the list to be re-ordered. This only happens the first
+         // time, though, because on_click is called after the re-ordering, and
+         // on_click changes the sort order to sort_index. See bug 1412.
+         s2.fields = [new SortField('sort_index',
+                                   false,  // not case-insensitive
+                                   false,  // not descending
+                                   true)]; // numeric
+         this.dataProvider.sort = s2;
+      }
+
+      // Improve sorting on boolean columns by including a secondary
+      // sort field. (tag name or #byways, depending on value of
+      // secondary_sort_alpha.)
+      public function sort_function(col:DataGridColumn,
+                                    pref_name:String=null) :Function
+      {
+         var tagprefs:Tag_Preference_Viewer = this;
+         return function(tag1:Tag, tag2:Tag) :int
+         {
+            var cmp:int;
+            if (pref_name === null) {
+               cmp = ObjectUtil.stringCompare(tag1[col.dataField],
+                                              tag2[col.dataField]);
+            }
+            else {
+               if (tag1.pref_get(pref_name)) {
+                  cmp = tag2.pref_get(pref_name) ? 0 : 1;
+               }
+               else {
+                  cmp = tag2.pref_get(pref_name) ? -1 : 0;
+               }
+            }
+            if (cmp) {
+               return cmp;
+            }
+            else if (tagprefs.secondary_sort_alpha) {
+               if (col.sortDescending) {
+                  // Hack: reverse order of secondary sort so that it is
+                  // in the correct order when the primary sort is
+                  // reversed.
+                  return ObjectUtil.stringCompare(tag2.text_, tag1.text_);
+               }
+               else {
+                  return ObjectUtil.stringCompare(tag1.text_, tag2.text_);
+               }
+            }
+            else {
+               if (col.sortDescending) {
+                  //return ObjectUtil.numericCompare(tag1.count_byways,
+                  //                                 tag2.count_byways);
+                  return ObjectUtil.numericCompare(
+                     tag1.feat_links_count[Byway],
+                     tag2.feat_links_count[Byway]);
+
+               }
+               else {
+                  //return ObjectUtil.numericCompare(tag2.count_byways,
+                  //                                 tag1.count_byways);
+                  return ObjectUtil.numericCompare(
+                     tag2.feat_links_count[Byway],
+                     tag1.feat_links_count[Byway]);
+               }
+            }
+         };
+      }
+
+   ]]></mx:Script>
+
+   <mx:columns>
+      <mx:DataGridColumn
+         id="col_enabled"
+         headerText=""
+         textAlign="center"
+         dataField="pref_enabled"
+         sortCompareFunction="this.sort_function(col_enabled);"
+         sortDescending="true"
+         width="22">
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="2">
+                  <mx:CheckBox
+                     selected="{this.data.pref_enabled}"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+      <mx:DataGridColumn
+         id="col_tagname"
+         headerText="Tag Name"
+         dataField="text_">
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalScrollPolicy="off"
+                  paddingLeft="{G.app.pad}"
+                  paddingRight="{G.app.pad}">
+                  <mx:Label
+                     text="{data.text_}"
+                     truncateToFit="true"
+                     minWidth="0"
+                     width="100%"
+                     fontWeight="{this.data.pref_enabled ? 'bold' : 'normal'}"
+                     />
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+      <!-- BETTER?: Statewide UI: In CcpV1, the column header is "Blocks", but
+                    it's really a count of blocks with tag, so Blocks seems...
+                    confusing. [lb] is trying "Use Cnt" but isn't convinced
+                    this is better. Also, the column shouldn't be that wide,
+                    so we need a short name (one without lots of characters).
+            headerText="Blocks"
+            headerText="Usages"
+            -->
+      <mx:DataGridColumn
+         id="col_byways"
+         headerText="Use Cnt"
+         textAlign="right"
+         dataField="link_count_byway"
+         sortDescending="true"
+         width="65">
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalScrollPolicy="off"
+                  paddingLeft="{G.app.pad}"
+                  paddingRight="{G.app.pad}">
+                  <mx:Label
+                     text="{this.data.link_count_byway}"
+                     textAlign="right"
+                     width="45"
+                     fontWeight="{this.data.pref_enabled ? 'bold' : 'normal'}"
+                     />
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+      <mx:DataGridColumn
+         id="col_bonus"
+         headerText="Bonus"
+         sortCompareFunction="this.sort_function(col_bonus, 'bonus');"
+         sortDescending="true"
+         width="28">
+         <mx:headerRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:Image
+                     source="@Embed(source='/assets/img/icon_tags_bonus.png')"
+                     toolTip=
+                        "Give a bikeability Bonus to blocks with this tag"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:headerRenderer>
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:RadioButton
+                     toolTip="Bonus"
+                     selected="{this.data.pref_get('bonus')}"
+                     change="{this.data.pref_set('bonus')}"
+                     borderColor="{this.data.pref_border_color}"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+      <mx:DataGridColumn
+         id="col_penalty"
+         headerText="Penalty"
+         sortCompareFunction="this.sort_function(col_penalty, 'penalty');"
+         sortDescending="true"
+         width="28">
+         <mx:headerRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:Image
+                     source=
+                        "@Embed(source='/assets/img/icon_tags_penalty.png')"
+                     toolTip=
+                        "Give a bikeability Penalty to blocks with this tag"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:headerRenderer>
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:RadioButton
+                     toolTip="Penalty"
+                     selected="{this.data.pref_get('penalty')}"
+                     change="{this.data.pref_set('penalty')}"
+                     borderColor="{this.data.pref_border_color}"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+      <mx:DataGridColumn
+         id="col_avoid"
+         headerText="Avoid"
+         sortCompareFunction="this.sort_function(col_avoid, 'avoid');"
+         sortDescending="true"
+         width="28">
+         <mx:headerRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:Image
+                     source="@Embed(source='/assets/img/icon_tags_avoid.png')"
+                     toolTip="Avoid blocks with this tag"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:headerRenderer>
+         <mx:itemRenderer>
+            <mx:Component>
+               <mx:Box
+                  width="100%"
+                  horizontalAlign="center"
+                  paddingTop="4">
+                  <mx:RadioButton
+                     toolTip="Avoid"
+                     selected="{this.data.pref_get('avoid')}"
+                     change="this.data.pref_set('avoid');"
+                     borderColor="{this.data.pref_border_color}"/>
+               </mx:Box>
+            </mx:Component>
+         </mx:itemRenderer>
+      </mx:DataGridColumn>
+
+   </mx:columns>
+
+</mx:DataGrid>
+

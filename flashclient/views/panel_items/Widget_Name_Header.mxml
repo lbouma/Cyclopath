@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+   <!--
+   How come other widgets can specify height up here and it's ignored?
+   height="100%"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.utils.UIDUtil;
+
+      import items.Geofeature;
+      import items.Item_Revisioned;
+      import items.Item_User_Access;
+      import utils.geom.Dual_Rect;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.commands.Command_Manager;
+      import views.panel_items.Panel_Item_Versioned;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_NomHdr');
+
+      // *** Instance variables
+
+      [Bindable] public var dirty_reason:int = 0;
+
+      [Bindable] public var cmd_mgr_fcn:Function = null;
+
+      // *** Instance methods
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('Creation Complete: ==== ', UIDUtil.getUID(this));
+         m4_DEBUG('on_creation_complete: dirty_reason:', this.dirty_reason);
+         var multiple_lines:Boolean = false;
+         this.item_name_control.init('name_', multiple_lines);
+         // Leave required false, so that empty names are okay.
+         this.item_name_control.required = false;
+         // Use the label-edit toggler action.
+         this.item_name_control.use_label_toggle = true;
+         // Delay calling super until now. The item_name_control needs to
+         // be inited first, because super calls on_panel_show.
+
+         // It doesn't help to register for resize on ourself. But we can hook
+         // the side_panel, since that's what we set the item_name_control's
+         // width based on. And we should also hook our other controls, since
+         // their widths also affect the item_name_control's Label's with.
+
+         // MAYBE/BUG nnnn: Use change watcher instead of resize where
+         //                 appropriate. like here would be a candidate.
+         G.app.side_panel.addEventListener(ResizeEvent.RESIZE,
+            this.on_resize_name_label, false, 0, true);
+         // Skipping: Doesn't change width: label_viewing_colon.
+         this.item_name_control.addEventListener(ResizeEvent.RESIZE,
+            this.on_resize_name_label, false, 0, true);
+         //this.label_item_stack_id.addEventListener(ResizeEvent.RESIZE,
+         //   this.on_resize_name_label, false, 0, true);
+         // Skipping: Doesn't change width: link_item_lookat.
+
+         super.on_creation_complete(event);
+
+         // Need to call it at least once.
+         this.on_resize_name_label(null);
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+         this.item_name_control.text = 'Nothing selected';
+         this.label_item_stack_id.visible = false;
+         this.label_item_stack_id.includeInLayout = false;
+         this.link_item_lookat.visible = false;
+         this.item_name_control.edit_enabled = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_VERBOSE('repopulate');
+
+         var item_name:*;
+
+         // Attachments don't have this control, just Geofeatures.
+         this.item_name_control.features = this.items_selected;
+         this.item_name_control.labeler.setStyle('fontStyle', 'normal');
+         if ((this.items_selected !== null)
+             && (this.items_selected.length > 0)) {
+            // MAYBE: In CcpV1, we'd call, e.g.,
+            //          SequenceMatcher.diff_html(old_gf.name_, new_gf.name_)
+            //        to get the name change.
+            //        In CcpV2, Item_Revisioned.consensus just returns
+            //        'a -> b', which seems okay for now...
+            item_name = String(Item_Revisioned.consensus(
+                           this.items_selected, 'name_'));
+            if (item_name === undefined) {
+               this.item_name_control.text = '';
+               this.item_name_control.labeler.text = 'Various Names';
+               this.item_name_control.labeler.setStyle('fontStyle', 'italic');
+            }
+            else if (item_name != '') {
+               this.item_name_control.text = item_name;
+            }
+            else {
+               // See also:
+               //   var capitalize_words:Boolean = true;
+               //   Panel_Item_Versioned.items_selected_label(
+               //                            capitalize_words);
+
+               var item_type:String = String(Item_Revisioned.consensus(
+                  this.items_selected, 'get_class_item_type', 'item'));
+
+               this.item_name_control.text = 'Unnamed ' + item_type;
+            }
+         }
+         else {
+            // MAGIC_NUMBER: Move this string to a localization file.
+            this.item_name_control.text = 'Nothing selected';
+         }
+
+         var show_stack_id_label:Boolean = (
+            (G.tabs.settings.show_item_stack_ids_cbox)
+            && (this.items_selected !== null)
+            && (this.items_selected.length >= 1)
+            //// This is always true because of how we're setup...
+            //&& (this.item_name_control.labeler.visible)
+            );
+         //
+         if (this.items_selected !== null) {
+            // For developers, we can embellish the item name with its stack
+            // ID. But only for static labels, not for edit boxes.
+            if (show_stack_id_label) {
+               m4_TALKY('repopulate: showing item stack ID(s)');
+               this.label_item_stack_id.visible = true;
+               this.label_item_stack_id.includeInLayout = true;
+               if (this.items_selected.length == 1) {
+                  this.label_item_stack_id.text
+                     = '(Stk. '
+                       + this.items_selected.one().stack_id
+                       +')';
+               }
+               else {
+                  // This causes width issues:
+                  //  var stk_ids:Array = new Array();
+                  //  var item:Item_User_Access;
+                  //  for each (item in this.items_selected) {
+                  //     stk_ids.push(item.stack_id);
+                  //  }
+                  //  this.label_item_stack_id.text = stk_ids.join(',');
+                  if (this.items_selected.length > 0) {
+                     this.label_item_stack_id.text = String(
+                           this.items_selected.item_get_random().base_id);
+                     if (this.items_selected.length > 1) {
+                        this.label_item_stack_id.text += ', ...';
+                     }
+                  }
+                  else {
+                     this.label_item_stack_id.text = '';
+                  }
+               }
+
+            }
+            else {
+               m4_TALKY('repopulate: hiding item stack ID(s)');
+               this.label_item_stack_id.visible = false;
+               this.label_item_stack_id.includeInLayout = false;
+            }
+         }
+
+         var ipanel:Panel_Item_Versioned = (this.dp as Panel_Item_Versioned);
+         var enable_name_editing:Boolean = (
+            (G.map.rev_workcopy !== null)
+               // 20130503_mode: [mm]'s:
+               //    (G.app.mode.is_allowed(App_Action.item_edit))
+               // but [lb] thinks there should be a soft-edit mode...?
+            && (ipanel.is_action_actionable('item-rename')));
+         m4_DEBUG('repopulate: enable_name_editing:', enable_name_editing);
+         this.item_name_control.edit_enabled = enable_name_editing;
+         // 2013.09.30: Don't make users double-click when in editing mode.
+         this.item_name_control.use_label_toggle = !enable_name_editing;
+
+         m4_VERBOSE('freshnom: this.dp:', this.dp.class_name_tail);
+         if (this.dp.freshnom) {
+            m4_VERBOSE('repopulate: freshnom detected');
+            m4_ASSERT(this.item_name_control.edit_enabled);
+            // Dne: (this.item_name_control.editor as TextInput).required
+            // Dne: (this.item_name_control.labeler as Label).required
+            this.item_name_control.show_name_reminder();
+            this.dp.freshnom = false;
+         }
+
+         var show_locate:Boolean = false;
+         if ((this.dp.feats_selected !== null)
+             && (this.dp.feats_selected.length > 0)) {
+            var mobr_dr:Dual_Rect = Geofeature.mobr_dr_union(
+                                       this.dp.feats_selected);
+            show_locate = mobr_dr.valid;
+         }
+         this.link_item_lookat.visible = show_locate;
+      }
+
+      // ***
+
+      //
+      protected function on_resize_name_label(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize_name_label');
+
+         m4_PPUSH(' .. this.item_name_control:', this.item_name_control);
+         m4_PPUSH2(' .. this.item_name_control.labeler:',
+                   this.item_name_control.labeler);
+         m4_PPUSH(' .. this.dp:', this.dp);
+         m4_PPUSH(' .. this.label_viewing_colon:', this.label_viewing_colon);
+         m4_PPUSH(' .. this.label_item_stack_id:', this.label_item_stack_id);
+         m4_PPUSH(' .. this.link_item_lookat:', this.link_item_lookat);
+
+         if ((this.item_name_control === null)
+             || (this.item_name_control.labeler === null)
+             || (this.dp === null)
+             || (this.label_viewing_colon === null)
+             || (this.label_item_stack_id === null)
+             || (this.link_item_lookat === null)) {
+            m4_PPUSH('on_resize_name_label: returning');
+            return;
+         }
+
+         // For the Label's truncateToFit to work, we have to assign a maximum
+         // width, otherwise the label will be as wide as the text (and then
+         // the whole side panel is widened and clipped).
+         m4_PPUSH('  .. this.width:', this.width);
+         var tmp:int;
+         tmp = this.getStyle('horizontalGap');
+         m4_PPUSH('  .. this.horizontalGap:', tmp);
+         tmp = this.getStyle('paddingLeft');
+         m4_PPUSH('  .. this.paddingLeft:', tmp);
+         tmp = this.getStyle('paddingRight');
+         m4_PPUSH('  .. this.paddingRight:', tmp);
+
+         m4_PPUSH2('  .. this.box_name_header_outer.width:',
+                   this.box_name_header_outer.width);
+         m4_PPUSH2('  .. this.box_name_header_inner.width:',
+                   this.box_name_header_inner.width);
+
+         m4_PPUSH2('  .. label_viewing_colon.width:',
+                   this.label_viewing_colon.width);
+         tmp = this.label_viewing_colon.getStyle('paddingLeft');
+         m4_PPUSH('  .. label_viewing_colon.paddingLeft:', tmp);
+         tmp = this.label_viewing_colon.getStyle('paddingRight');
+         m4_PPUSH('  .. label_viewing_colon.paddingRight:', tmp);
+
+         m4_PPUSH2('  .. label_item_stack_id.visible:',
+                   this.label_item_stack_id.visible);
+         m4_PPUSH2('  .. label_item_stack_id.width:',
+                   this.label_item_stack_id.width);
+         tmp = this.label_item_stack_id.getStyle('paddingLeft');
+         m4_PPUSH('  .. label_item_stack_id.paddingLeft:', tmp);
+         tmp = this.label_item_stack_id.getStyle('paddingRight');
+         m4_PPUSH('  .. label_item_stack_id.paddingRight:', tmp);
+
+         m4_PPUSH2('  .. link_item_lookat.width:',
+                   this.link_item_lookat.width);
+         tmp = this.link_item_lookat.getStyle('paddingLeft');
+         m4_PPUSH('  .. link_item_lookat.paddingLeft:', tmp);
+         tmp = this.link_item_lookat.getStyle('paddingRight');
+         m4_PPUSH('  .. link_item_lookat.paddingRight:', tmp);
+
+         m4_PPUSH2('  .. G.app.side_panel.width:',
+                   G.app.side_panel.width);
+         tmp = G.app.side_panel.getStyle('paddingLeft');
+         m4_PPUSH('  .. G.app.side_panel.paddingLeft:', tmp);
+         tmp = G.app.side_panel.getStyle('paddingRight');
+         m4_PPUSH('  .. G.app.side_panel.paddingRight:', tmp);
+
+         m4_PPUSH2('  .. this.dp.width:',
+                   this.dp.width);
+         tmp = this.dp.getStyle('paddingLeft');
+         m4_PPUSH('  .. this.dp.paddingLeft:', tmp);
+         tmp = this.dp.getStyle('paddingRight');
+         m4_PPUSH('  .. this.dp.paddingRight:', tmp);
+
+         this.item_name_control.labeler.maxWidth =
+            // We cannot use this.width because we'll add to it!
+            G.app.side_panel.width
+            - this.dp.getStyle('paddingLeft')
+            - this.dp.getStyle('paddingRight')
+            - (this.label_viewing_colon.visible
+               ? this.label_viewing_colon.width : 0)
+            - (this.label_item_stack_id.visible
+               ? this.label_item_stack_id.width : 0)
+            - (this.link_item_lookat.visible
+               ? this.link_item_lookat.width : 0)
+            ;
+         m4_PPUSH2('  .. labeler.maxWidth:',
+                   this.item_name_control.labeler.maxWidth);
+      }
+
+      // ***
+
+      //
+      protected function on_click_item_name_control(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_click_filter_by_widget: event:', event);
+         // Because on_click_panel calls this.stage.focus = null.
+         event.stopPropagation();
+      }
+
+      //
+      protected function on_click_link_item_lookat() :void
+      {
+         var mobr_dr:Dual_Rect = Geofeature.mobr_dr_union(
+                                    this.dp.feats_selected);
+         if (mobr_dr.valid) {
+            G.map.lookat_dr(mobr_dr);
+            //G.sl.event('ui/name_header/lookat',
+            //   {gf0_sid: this.dp.feats_selected.item_get_random().stack_id});
+         }
+         else {
+            m4_WARNING('Unexpected: we checked mobr_dr.valid in repopulate.');
+         }
+      }
+
+      // ***
+
+      //
+      public function get_cmd_mgr() :Command_Manager
+      {
+         // C.f. views.panel_items.Widget_Name_Header.get_cmd_mgr
+         //   && views.commands.Text_Field_Editable.record
+         var cmd_mgr:Command_Manager = G.map.cm;
+         if (this.cmd_mgr_fcn !== null) {
+            cmd_mgr = (this.cmd_mgr_fcn() as Command_Manager);
+         }
+         m4_DEBUG('get_cmd_mgr: cm:', cmd_mgr);
+         return cmd_mgr;
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="box_name_header_outer"
+      width="100%"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      verticalGap="4"
+      >
+      <!--
+      resize="this.dp.on_resize(null);"
+      -->
+
+      <mx:HBox
+         id="box_name_header_inner"
+         width="100%"
+         height="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         verticalAlign="middle"
+         horizontalScrollPolicy="off">
+
+         <!-- MEH: [lb] used to think we need to need a label before the item
+                   name. But horizontal space is precious. And "Viewing:" is
+                   long and ugly. For now, trying without. -->
+         <mx:Label
+            id="label_viewing_colon"
+            text="Viewing:"
+            fontSize="14"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.label_viewing_colon.visible}"
+            />
+            <!-- Meh: fontStyle="italic" -->
+
+         <!-- This is a special edit toggle control - click to edit. -->
+         <!-- No longer just a label.
+            <mx:Label
+               id="item_name_control"
+               fontSize="14"
+               fontWeight="bold"
+               textDecoration="underline"
+               />
+         -->
+
+         <!-- NOTE: The name gets ...'ed if too long. -->
+         <views_commands:Text_Field_Editable
+            id="item_name_control"
+            width="100%"
+            height="100%"
+            paddingRight="2"
+            fontSize="14"
+            fontWeight="bold"
+            textDecoration="underline"
+            verticalAlign="middle"
+            click="this.on_click_item_name_control(event);"
+            dirty_reason="{this.dirty_reason}"
+            cmd_mgr_fcn="{this.get_cmd_mgr}"
+            />
+
+         <!-- This is for DEVS who want to see stack IDs. -->
+         <mx:Label
+            id="label_item_stack_id"
+            height="100%"
+            paddingTop="2"
+            paddingRight="0"
+            paddingBottom="0"
+            paddingLeft="1"
+            fontStyle="italic"
+            visible="false"
+            selectable="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            includeInLayout="{this.label_item_stack_id.visible}"
+            />
+
+         <!-- FIXME: This link is new. [lb] likes it for routes.
+                     But is it well placed? Well named?
+                     It's also nice for other geofeatures, but should
+                     we only show it if the selection is not in view?
+            visible="{Conf_Instance.debug_goodies}"
+            -->
+         <views_panel_util:Hyper_Link
+            id="link_item_lookat"
+            height="100%"
+            styleName="labelnormal"
+            paddingLeft="3"
+            paddingTop="2"
+            htmlText="Locate"
+            toolTip="Pan and zoom the map to include the item selection."
+            visible="true"
+            includeInLayout="{this.link_item_lookat.visible}"
+            click="this.on_click_link_item_lookat();"/>
+
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

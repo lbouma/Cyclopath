@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   initialize="init()"
+   >
+
+   <!-- Route Viz Selector: This component allows users to choose how to
+                            visualize a route line and shows a legend for the
+                            currently selected viz.
+                            -->
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+
+      import mx.containers.Box;
+      import mx.collections.ArrayCollection;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+
+      import items.feats.Route;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Rt_Viz_Sel');
+
+      protected static const legend_width:int = 120;
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize');
+         super.on_initialize(ev);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate');
+      }
+
+      //
+      protected function combo_change(event:ListEvent) :void
+      {
+         (this.dp as Panel_Item_Route).route_viz
+            = event.currentTarget.selectedItem;
+         this.refresh();
+      }
+
+      //
+      protected function draw_legend() :void
+      {
+         var viz:Route_Viz = (this.dp as Panel_Item_Route).route_viz;
+
+         // calculate individual rectangle dimensions
+         var rect_width:int = 120 / viz.colors.length;
+         var rect_height:int = 5;
+         var gr:Graphics = legend.graphics;
+
+         gr.clear();
+
+         legend_label_low.text = viz.colors[0].label;
+
+         var offset:int;
+         for (offset = 0; offset < viz.colors.length; offset++) {
+            gr.beginFill(viz.colors[offset].hex);
+            gr.drawRect(rect_width * offset, 18, rect_width, rect_height);
+         }
+
+         legend_label_high.text =
+            (offset > 1) ? viz.colors[offset-1].label : '';
+
+         gr.endFill();
+      }
+
+      //
+      private function init() :void
+      {
+         viz_combo.dataProvider = new ArrayCollection(Conf.route_vizs);
+      }
+
+      //
+      public function refresh() :void
+      {
+         var route:Route = (this.dp as Panel_Item_Route).route;
+         m4_DEBUG('refresh: this.dp:', this.dp);
+         m4_DEBUG('refresh: route:', route);
+
+         var label:String;
+         var viz_index:int;
+         //var viz_id:int = (this.dp as Panel_Item_Route).route_viz.id_;
+         var viz_id:int = route.routes_viz.id_;
+         for (viz_index = 0; viz_index < Conf.route_vizs.length; viz_index++) {
+            if (viz_id == Conf.route_vizs[viz_index].id_) {
+               break;
+            }
+         }
+         viz_combo.selectedIndex = viz_index;
+         if (route !== null) {
+            route.draw();
+         }
+         else {
+            m4_WARNING('refresh: this.dp does not have a route?:', this.dp);
+         }
+
+         this.draw_legend();
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      horizontalAlign="center"
+      verticalAlign="bottom"
+      >
+
+      <mx:VBox
+         height="100%"
+         horizontalAlign="center"
+         verticalAlign="middle"
+         >
+         <mx:Label
+            text="Highlight streets by:"
+            fontWeight="bold"/>
+         <mx:ComboBox
+            id="viz_combo"
+            labelField="name"
+            change="this.combo_change(event);"/>
+      </mx:VBox>
+
+      <mx:HBox
+         width="100%"
+         height="100%"
+         paddingTop="0"
+         horizontalAlign="center"
+         verticalAlign="bottom"
+         >
+         <mx:VBox
+            width="{Route_Viz_Selector.legend_width}">
+            <mx:Canvas
+               id="legend"
+               width="{Route_Viz_Selector.legend_width}">
+               <mx:Label
+                  id="legend_label_low"
+                  left="0"
+                  y="0"
+                  fontWeight="bold"/>
+               <mx:Label
+                  id="legend_label_high"
+                  right="0"
+                  y="23"
+                  fontWeight="bold"/>
+            </mx:Canvas>
+         </mx:VBox>
+      </mx:HBox>
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_util:Fadeawayable_VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_section_toolbar="views.section_toolbar.*"
+   xmlns:utils_misc="utils.misc.*"
+   backgroundColor="0xDDDDDD"
+   borderStyle="none"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   initialize="this.on_initialize()"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.effects.Fade;
+      import mx.effects.Resize;
+      import mx.events.EffectEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ItemClickEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Msg_Mntnnce');
+
+      // *** Instance attributes
+
+      protected var test_accepted:Boolean = false;
+
+      [Bindable] public var msg_real:Message_Maintenance;
+
+      protected var fade_into_requested:Boolean = false;
+      protected var prev_textHeight:int = 0;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize() :void
+      {
+         m4_DEBUG('on_initialize');
+      }
+
+      //
+      override protected function on_effect_resize_fwd_end(ev:EffectEvent)
+         :void
+      {
+         super.on_effect_resize_fwd_end(ev);
+
+         // This is a hack: Tell the Map Key to resize, otherwise when the user
+         // opens it, it'll look funny.
+         G.app.map_key.on_canvas_change_dimensions();
+      }
+
+      // ***
+
+      //
+      override public function component_fade_into(
+         is_later:Boolean=false,
+         force:Boolean=false,
+         height:int=-1) :void
+      {
+         m4_DEBUG3('component_fade_into: visible:', this.visible,
+                   '/ is_later:', is_later, '/ force:', force,
+                   '/ this.msg_real:', this.msg_real);
+
+         // For DEVs:
+         //  this.print_tl3dr_heights('component_fade_into');
+
+         if (this.msg_real !== null) {
+            // This is a hack, either around a Flex bug (the docs says to call
+            // validateNow() and then check textHeight, but the value is
+            // outragesouly large, e.g., 640 when it should be 62, and
+            // TextLineMetrics doesn't work, either), or because we're using
+            // a Canvas and something about that means we have to draw
+            // the widget to get the correct textHeight, e.g., even setting
+            // alpha to 0 and visible to true but includeInLayout to false
+            // didn't work (I know, what's up with that); so our hack is to
+            // hide a sister widget under the map canvas, and we wait for it
+            // to draw to get the real text height.
+            
+            // Our on_text_resize handler to take appropriate action.
+            this.fade_into_requested = true;
+
+            if (force) {
+               this.prev_textHeight = 0;
+               this.pyserver_message_text.invalidateSize();
+            }
+         }
+         else {
+            super.component_fade_into(is_later, force, height);
+         }
+      }
+
+      //
+      protected function on_text_resize(ev:ResizeEvent) :void
+      {
+         m4_DEBUG2('on_text_resize: prev_textHeight:',
+                   this.prev_textHeight);
+         m4_DEBUG2('on_text_resize: pyserver_message_text.textHeight:',
+                   this.pyserver_message_text.textHeight);
+
+         // For DEVs:
+         //  this.print_tl3dr_heights('on_text_resize');
+
+         if (this.msg_real !== null) {
+
+            if ((this.fade_into_requested)
+                 && (this.pyserver_message_text.textHeight
+                     != this.prev_textHeight)) {
+
+               var is_later:Boolean = true;
+               var force:Boolean = false;
+               var height:int = 0
+                  + this.getStyle('paddingTop')
+                  + this.getStyle('paddingBottom')
+                  + this.msg_maint_box.getStyle('paddingTop')
+                  + this.msg_maint_box.getStyle('paddingBottom')
+                  + this.pyserver_message_text.textHeight
+                  + 16 // MAGIC_NUMBER: There's a blank line after htmlText.
+                  ;
+               this.msg_real.component_fade_into(is_later, force, height);
+
+               this.prev_textHeight = this.pyserver_message_text.textHeight;
+
+               this.fade_into_requested = false;
+            }
+         }
+         // else, this is the real text widget; we don't respond to resizes.
+      }
+
+      // ***
+
+      //
+      protected function print_tl3dr_heights(called_by:String='print_tl3dr')
+         :void
+      {
+         m4_DEBUG(called_by, ': this.height:', this.height);
+
+         m4_DEBUG2(called_by, ': msg_maint_box.height:',
+                   this.msg_maint_box.height);
+
+         m4_DEBUG2(called_by, ': pyserver_message_text.htmlText:',
+                   this.pyserver_message_text.htmlText);
+         m4_DEBUG2(called_by, ': pyserver_message_text.height:',
+                   this.pyserver_message_text.height);
+         m4_DEBUG2(called_by, ': pyserver_message_text.percentHeight:',
+                   this.pyserver_message_text.percentHeight);
+
+         // You should call
+         this.pyserver_message_text.validateNow();
+         // after setting text or htmlText in the same frame.
+         // But [lb] tried this and the height was never right.
+         m4_DEBUG2(called_by, ': pyserver_message_text.textHeight:',
+                   this.pyserver_message_text.textHeight);
+         m4_DEBUG2(called_by, ': pyserver_message_text.measuredHeigh:',
+                   this.pyserver_message_text.measuredHeight);
+         // The tlm is also wrong -- it says, like, 16, when it should be 62.
+         var tlm:TextLineMetrics;
+         tlm = this.pyserver_message_text.measureText(
+            this.pyserver_message_text.htmlText);
+         m4_DEBUG2(called_by, ': htmlText tlm.height:', tlm.height,
+                   '/ tlm.width:', tlm.width);
+         tlm = this.pyserver_message_text.measureText(
+            this.pyserver_message_text.text);
+         m4_DEBUG2(called_by, ': text tlm.height:', tlm.height,
+                   '/ tlm.width:', tlm.width);
+
+         // This is to help you figure out how to manually compute the height.
+         // WHATEVER: The calculated height still needs to be fudged. Either
+         //           we're missing another widget's or property's height,
+         //           or the text height is incorrect.
+         m4_DEBUG2(' .. this.getStyle(paddingTop):',
+                   this.getStyle('paddingTop'));
+         m4_DEBUG2(' .. this.getStyle(paddingBottom):',
+                   this.getStyle('paddingBottom'));
+         m4_DEBUG2(' .. this.getStyle(verticalGap):',
+                   this.getStyle('verticalGap'));
+         m4_DEBUG2(' .. this.msg_maint_box.getStyle(paddingTop):',
+                   this.msg_maint_box.getStyle('paddingTop'));
+         m4_DEBUG2(' .. this.msg_maint_box.getStyle(paddingBottom):',
+                   this.msg_maint_box.getStyle('paddingBottom'));
+         m4_DEBUG2(' .. this.msg_maint_box.getStyle(verticalGap):',
+                   this.msg_maint_box.getStyle('verticalGap'));
+         m4_DEBUG2(' .. this.msg_inner_box.getStyle(paddingTop):',
+                   this.msg_inner_box.getStyle('paddingTop'));
+         m4_DEBUG2(' .. this.msg_inner_box.getStyle(paddingBottom):',
+                   this.msg_inner_box.getStyle('paddingBottom'));
+         m4_DEBUG2(' .. this.msg_inner_box.getStyle(verticalGap):',
+                   this.msg_inner_box.getStyle('verticalGap'));
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      id="msg_maint_box"
+      width="100%"
+      height="100%"
+      paddingLeft="6"
+      paddingRight="6"
+      paddingTop="6"
+      paddingBottom="6"
+      verticalAlign="middle"
+      backgroundColor="0xcccccc"
+      horizontalGap="0"
+      verticalGap="3"
+      >
+
+      <mx:HBox
+         id="msg_inner_box"
+         width="100%"
+         height="100%"
+         backgroundColor="0xcccccc"
+         >
+
+         <mx:Text
+            id="pyserver_message_text"
+            condenseWhite="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            width="100%"
+            resize="this.on_text_resize(event)"
+            >
+         </mx:Text>
+
+      </mx:HBox>
+
+      <mx:HBox
+         id="link_dismiss_box"
+         horizontalAlign="right"
+         backgroundColor="0xcccccc"
+         horizontalGap="6"
+         verticalAlign="bottom"
+         height="100%"
+         >
+
+         <views_panel_util:Hyper_Link
+            id="link_dismiss_message"
+            text="Dismiss message"
+            toolTip="Click to hide this message."
+            enabled="true"
+            click="this.component_fade_away();"
+            color="0xffffff"
+            />
+
+      </mx:HBox>
+
+   </mx:HBox>
+
+</views_panel_util:Fadeawayable_VBox>
+

@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME/BUG nnnn: Make this into a panel. It is currently a big, ugly
+                     modal dialog. It doesn't even scroll! ={ -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   creationPolicy="all"
+   layout="vertical"
+   showCloseButton="true"
+   paddingLeft="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   width="567"
+   visible="false"
+   horizontalAlign="right"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+
+   title="Create Revision Feedback Thread"
+   defaultButton="{ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.Text;
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import items.links.Link_Post;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.base.UI;
+      import views.panel_discussions.Panel_Item_Thread;
+
+      // *** Instance variables
+
+      protected var revs:Array;
+      protected var valid:Boolean;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('+Rev_FeedPop');
+
+      // *** Public static class methods
+
+      // Show a Rev_Feedback_Dialog for revisions revs.
+      public static function show_feedback_popup(revs:Array) :void
+      {
+         var o:Object;
+         var t:Text;
+         var username:String;
+         var d:Rev_Feedback_Popup = new Rev_Feedback_Popup();
+
+         d.revs = revs;
+
+         // Here were checks to see if: (a) the user is logged in, (b) if the
+         // selected revisions are done by only one logged-in user, and (c)
+         // no feedback has already been given to any one of the selected
+         // revisions.
+         //
+         // As a part of the fix to bug 1720, these have been removed. Here are
+         // the justifications:
+         //
+         // (a) Anonymous users can post discussions, so they should be
+         //     allowed.
+         // (b) The feedback is about the revisions, and not the users, and so
+         //     a thread can talk about revisions done by multiple users,
+         //     whether logged-in or not. All the logged-in users will
+         //     be notified, but the community can still talk about
+         //     revisions done by anonymous users. For the same reason, the
+         //     username-substitution in the text has been removed too,
+         //     and replaced by generic text, as doing the substitution for
+         //     singular and multiple users together is complex.
+         // (c) This logic is moved to on_write_fb_click() in
+         //     Panel_Recent_Changes.mxml
+
+         // NOTE Since the window is not yet visible, we cannot set the input
+         //      focus quite yet; see below, after d.visible = true
+         UI.popup(d);
+
+         // show now to avoid jumpiness due to above adjustments.
+         d.visible = true;
+
+         // Put the cursor in the text box; this also brings focus to the
+         // window so it can capture special key commands, like <Esc> to close
+         // it.
+         d.input_w.setFocus();
+
+         d.help_text_header.htmlText =
+            "Below, write feedback on the "
+            + Inflector.pluralize('revision', (d.revs.length != 1))
+            + " you selected. "
+            + "Your feedback will enter the public record: We'll start "
+            + "a new Cyclopath discussion that's created by you (and "
+            + "shows your username).";
+
+         // See: Flex's Application.application.height
+         // NOTE: The panel won't resize if the user resizes their browser, but
+         //       who cares.
+         // For whatever reason, setting maxHeight on the popup just gives the
+         // popup scroll bars...
+         //d.maxHeight = G.app.height;
+         if (d.height > G.app.height) {
+            //d.height = G.app.height;
+            var target_height:int = d.scroll_target.height
+                                    - (d.height - G.app.height);
+            m4_DEBUG4('show_feedback_popup: app.hgt', G.app.height,
+                      '/ popup.hgt:', d.height,
+                      '/ scrll.hgt:', d.scroll_target.height,
+                      '/ tgt_hgt:', target_height);
+            d.scroll_target.height = target_height;
+         }
+      }
+
+      // *** Instance methods
+
+      // Validate. If all checks out, submit feedback request.
+      protected function submit_maybe(ok:Boolean) :void
+      {
+         var x:XML;
+         var rev_ids:Array = new Array();
+
+         // BUG nnnn: Don't send usernames to server for server to email!
+         // In CcpV1, the client would assemble the list of usernames to
+         // email. But the usernames should be re-fetched from revision table,
+         // otherwise we could easily be hacked to spam users.
+         // NO:
+         //  var rev_usernames:Array = new Array();
+         //  var ip_address_re:RegExp = /^\d+\.\d+\.\d+\.\d+$/;
+
+         this.valid = true;
+         this.input_v.validate();
+
+         for each (x in this.revs) {
+
+            rev_ids.push(x.@revision_id);
+
+            // See comments above. Why does the client send the list of users
+            // to email when that data should be assembled by the server (such
+            // that it's verified and we're not blindly emailing whomever).
+            // NO:
+            //   // Include each username once, and exclude anons.
+            //   if ((rev_usernames.indexOf(String(x.@username)) == -1)
+            //       && (!ip_address_re.test(x.@username))) {
+            //      rev_usernames.push(String(x.@username));
+            //   }
+         }
+
+         if (ok && this.valid) {
+
+            m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+            // Create a new thread for the revision feedback.
+            var new_thread:Thread = new Thread();
+            new_thread.dirty_set(Dirty_Reason.item_data_oob, true);
+
+            //G.grac.prepare_item(new_thread, Access_Level.viewer);
+            G.grac.prepare_item(new_thread, Access_Level.client);
+            G.map.items_add([new_thread,]);
+
+            // don't need: G.item_mgr.assign_id(new_thread);
+            new_thread.name_ = 'Feedback on rev(s) ' + rev_ids.join(', ');
+
+            // Create the first post containing the feedback.
+            var new_post:Post = new Post();
+            new_post.dirty_set(Dirty_Reason.item_data_oob, true);
+
+            //G.grac.prepare_item(new_post, Access_Level.viewer);
+            G.grac.prepare_item(new_post, Access_Level.client);
+            G.map.items_add([new_post,]);
+
+            //new_post.parent_thread = new_thread;
+            new_thread.register_post(new_post);
+
+            new_post.body = this.input_w.text;
+
+            // Bug 2717: CcpV1 used to send a list of usernames to notify (the
+            // names of the users who created the revisions being discussed)
+            // but that's a security problem (a hacker could send a list of all
+            // users in the system and we'd just email them all). [2012.08.17]
+
+            var tpanel:Panel_Item_Thread = new_thread.thread_panel;
+
+            // Make a new Link_Post-revision for each revision ID.
+            var rid:int;
+            var lpost:Link_Value;
+
+            // MAGIC_NUMBER: '/post/revision' is the name of the
+            //               link_post-revision attribute.
+            var attr:Attribute = Attribute.all_named['/post/revision'];
+            m4_ASSURT(attr !== null);
+
+            m4_DEBUG('submit_maybe: new_thread:', new_thread);
+            m4_DEBUG('submit_maybe: new_post:', new_post);
+
+            for each (rid in rev_ids) {
+
+               var xml:XML = null;
+               var rev:utils.rev_spec.Base = null;
+//               // FIXME: This feels funny. Why not just make the Post?
+//               var lhs_item:Object = null;
+               var lhs_item:Object = new_post;
+               var rhs_item:Object = attr;
+               m4_DEBUG('submit_maybe: new Link_Post');
+               lpost = new Link_Post(xml, rev, lhs_item, rhs_item);
+
+               m4_ASSURT(lpost.rhs_stack_id == attr.stack_id);
+               // Skipping: lpost.gf_name, lpost.gf_xs, lpost.gf_ys
+               lpost.value_integer = x.@revision_id;
+
+               G.item_mgr.assign_id(lpost);
+
+               m4_DEBUG('submit_maybe: adding new:', lpost);
+               m4_ASSERT(tpanel.post_geos_dirty !== null);
+               tpanel.post_geos_dirty.push(lpost);
+
+               // Skipping: Widget_Attachment_Place_Box.pw_add().
+               // We'll refresh after the commit.
+            }
+
+            // Commit the new link_post-revision to the repository.
+            // MAYBE: So a link_revision is the same as a normal discussion
+            //        thread but not as special as a route reaction? Maybe
+            //        we should make a special list for revision feeback so
+            //        we have three separate types of posts -- normal
+            //        discussions, route feedback, and revision feedback.
+            G.tabs.discussions.thread_post_commit(new_thread);
+         }
+
+         PopUpManager.removePopUp(this);
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <!-- Multiple objects to make spacing right. -->
+
+   <mx:Text
+      id="help_text_header"
+      width="100%"
+      condenseWhite="true">
+      <mx:htmlText><![CDATA[
+Below, write feedback on the revision(s) you selected.
+Your feedback will enter the public record: We'll start
+a new Cyclopath discussion that's created by you (and
+will show your username).
+      ]]></mx:htmlText>
+   </mx:Text>
+
+   <mx:VBox
+      id="scroll_target"
+      height="100%"
+      width="100%"
+      verticalScrollPolicy="auto"
+      horizontalScrollPolicy="off"
+      >
+
+      <!-- NOTE: Herein we use a smaller width because of the scroll bar. -->
+
+      <mx:Text
+         width="90%"
+         condenseWhite="true">
+         <mx:htmlText><![CDATA[
+<b>Guidelines:</b>
+
+<li>Assume other users are making a good-faith effort to improve the map.</li>
+
+<li>Please use this tool to educate or thank other users, never to scold.</li>
+
+<li>Be constructive, polite, and friendly.</li>
+
+<li>If you have to, criticize the revisions, not the user(s) who made them.</li>
+
+         ]]></mx:htmlText>
+      </mx:Text>
+
+      <mx:Text
+         width="90%"
+         condenseWhite="true">
+         <mx:htmlText><![CDATA[
+<b>After you click OK, the following will happen:</b>
+
+<li>A new thread will be created under Discussions, where any follow-up
+discussion will happen.</li>
+
+<li>Registered users who made the revisions you're commenting on may be
+notified of this new thread by e-mail.</li>
+         ]]></mx:htmlText>
+      </mx:Text>
+
+      <mx:Text
+         width="90%"
+         condenseWhite="true">
+         <mx:htmlText><![CDATA[
+<b>Please be aware that it is very easy to scare away new users with this
+tool!</b> So, please be as friendly and welcoming as possible in your
+feedback.
+         ]]></mx:htmlText>
+      </mx:Text>
+
+   </mx:VBox>
+
+   <mx:Text
+      width="100%"
+      condenseWhite="true">
+      <mx:htmlText><![CDATA[
+Do not use this tool for any purpose other than giving feedback about
+Cyclopath edits. If you use this tool to send spam, your account will
+be disabled.
+      ]]></mx:htmlText>
+   </mx:Text>
+
+   <mx:HRule
+      width="100%"/>
+   <mx:Label
+      width="100%"
+      fontWeight="bold"
+      text="Your feedback on the revision(s):"/>
+
+   <mx:Form
+      width="100%">
+      <mx:FormItem
+         id="input_fi"
+         width="100%"
+         required="true">
+         <mx:TextArea
+            id="input_w"
+            height="128"
+            width="100%"/>
+      </mx:FormItem>
+   </mx:Form>
+
+   <mx:HBox>
+      <mx:Button
+         id="ok"
+         label="OK"
+         enabled="false"
+         click="this.submit_maybe(true);"/>
+      <mx:Button
+         id="cancel"
+         label="Cancel"
+         click="this.submit_maybe(false);"/>
+   </mx:HBox>
+
+   <mx:Validator
+      id="input_v"
+      source="{input_w}"
+      required="true"
+      property="text"
+      triggerEvent="change"
+      valid="this.ok.enabled=true;"
+      invalid="this.ok.enabled=false;"/>
+
+</mx:TitleWindow>
+

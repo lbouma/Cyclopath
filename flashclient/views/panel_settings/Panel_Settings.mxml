@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- These are old toolTips we've used:
+       toolTip="Configure how the Map Looks"
+       toolTip="Configure the Map Display"
+       -->
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   toolTip="Configure the map display and behavior."
+   icon="@Embed(source='/assets/img/icon_tabs_settings_panel.png')"
+   label="Prefs."
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="auto"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.core.Container;
+      import mx.events.IndexChangedEvent;
+
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Settins');
+
+      // ***
+
+      public var settings_options:Tab_Settings_Options;
+
+      // *** Getters
+
+      //
+      public function get tag_filter_list() :Tag_Filter_Viewer
+      {
+         return this.settings_options.tag_filter_list;
+      }
+
+      // *** Simple base class overrides
+
+      //
+      override public function panel_title_get() :String
+      {
+         // return 'Settings';
+         // return 'Display Settings';
+         return 'Map Settings';
+      }
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+   ]]></mx:Script>
+
+</views_panel_base:Detail_Panel_Base>
+

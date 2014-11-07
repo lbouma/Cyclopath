@@ -1,0 +1,394 @@
+/* Copyright (c) 2006-2013 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE. */
+
+/* Reset CSS */
+
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, font, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td {
+   margin: 0;
+   padding: 0;
+   border: 0;
+   outline: 0;
+   font-size: 100%;
+   vertical-align: baseline;
+   background: transparent;
+}
+body { line-height: 1; }
+ol, ul { list-style: none; }
+:focus { outline: 0; }
+table { border-collapse: collapse; border-spacing: 0; }
+td, th { padding: 0; }
+
+/* Cyclopath Homepage Styles */
+
+html { background: #cacccd; }
+
+body {
+    background: #cacccd url(images/body-background-gradient.png) repeat-x;
+    color: white;
+    font: 100% Verdana, Arial, Helvetica, sans-serif;
+    height: 100%;
+    text-align: center; 
+}
+
+a {
+    color: white;
+    text-decoration: none;
+}
+
+a:hover { color:#CCCCCC; }
+
+h1 { font-size: 26px; }
+h2 { font-size: 26px; }
+h3 { font-size: 20px; }
+h5 { font-size: 16px; }
+
+#container {
+    width: 1000px;
+    border-bottom: 2px solid #4c4c4c;
+    margin: 0 auto;
+    text-align: left;
+}
+
+/* Header */
+#header {
+    background: #DDDDDD url(images/header-background-gradient.png) repeat-x;
+    height: 41px;
+    position: relative;
+}
+
+/* Top Navigation */
+ul#topNav { float: right; line-height: 30px;
+            padding: 0px; }
+ul#topNav li { float: left; }
+ul#topNav a{
+    background: transparent url(images/header-menu-item-separator.png) no-repeat
+                scroll top right;
+    display: block;
+    font-size: 14px;
+    line-height: 41px;
+    padding: 0 1.2em;
+    text-decoration:none;
+}
+
+ul#topNav li.last a { background: none; }
+
+ul#topNav img.twitter { margin-top: 11px; margin-bottom: 8px; }
+
+ul#topNav a:hover{ color: #EEE; }
+
+ul#topNav li:hover{
+    background: transparent url(images/header-menu-item-background-hover.png) 
+                repeat-x;
+}
+
+/* Global Section Paddings */
+
+#main, #featuredContent, #MobileContent {
+    padding: 0 70px;
+}
+
+/* Main Content */
+
+#main {
+    background: #f47421 url(images/banner-background.png) no-repeat; 
+    border-bottom: 1px solid #58595B;
+    height: 500px;
+}
+
+#main h1 { 
+    margin-bottom: 10px;
+    padding-top: 50px; 
+}
+
+
+#overlay { /* Logo Overlay */
+    height: 419px;
+    background: url(images/logo-transparent.png) no-repeat left bottom;
+}
+
+
+/* About Section */
+
+#about { font-size: 20px; padding-top: 45px;}
+#about p { display: block;
+           font-size: 26px;
+           padding-top: 12px;
+           /* width: 355px; */ }
+#about h2 { line-height: 32px; margin: 30px 0 0 50px;  }
+
+a#enterMap { 
+    background: transparent url(images/enter-map-button.png) no-repeat;
+    color: #333333;
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+    height: 40px;
+    line-height: 40px;
+    margin-top: 28px;
+    text-align: center;
+    text-decoration: none;
+    width: 157px;
+}
+
+#enterMap:hover {
+    background: transparent url(images/enter-map-button-hover.png) no-repeat;
+    color: #EEEEEE;
+}
+
+/* Find Route Form */
+#findRoute { 
+    padding-top: 25px;
+    margin-left: 39px;
+    font-size: 20px;
+    width: 392px;
+}
+#findRoute h2 { border-bottom: 2px solid white; padding-bottom: 5px; }
+#findRoute form label { display: none; }
+#findRoute form { padding: 10px 0 0; }
+#findRoute form tr { valign: top; }
+#findRoute form td.label { 
+    width: 60px; 
+}
+#findRoute form td.label label { 
+    display: block;
+    text-align: right;
+}
+#findRoute form tr { height: 55px; }
+#findRoute form input { margin-left: 20px; }
+
+#findRoute form input {
+    border: none;
+    color: white;
+    margin-top: 10px;
+}
+
+#findRoute form input.field {
+    color: #f9d8bc;
+    font-size: 18px;
+    height: 30px;
+    padding: 5px 10px 0;
+}
+
+#findRoute form input.field.changed {
+    color: white;
+}
+
+#findRoute form td.addrwrap {
+    background-image: url(images/address-input-field.png);
+    background-repeat: no-repeat;
+    background-position: 20px 10px;
+    height: 50px;
+    width: 338px;
+}
+
+#findRoute form input.addr.field {
+    background: transparent;
+    border: none;
+    margin-left: 26px;
+    width: 280px;
+}
+
+#findRoute #formError {
+    background-color: #F47421;
+    color: white;
+    display: none;
+    font-size: 16px;
+    margin: 5px 18px 10px 0;
+    padding-right: 10px;
+    text-align: right;
+}
+
+#findRoute #disclaimer {
+    float: left;
+    font-size: 14px;
+    text-align: left;
+    margin-top: 5px;
+    width: 270px;
+}
+
+#findRoute form input.submit {
+    background: transparent url(images/find-route-button.png) no-repeat;
+    border: none;
+    float: left;
+    font-size: 14px;
+    font-weight: bold;
+    height: 40px;
+    margin: 5px 0 0 12px;
+    width: 105px;
+}
+
+#findRoute form input.submit:hover {
+   background-image: url(images/find-route-button-hover.png);
+}
+
+/* Featured Content */
+
+#featuredContent {
+    background: #333333 url(images/bottom-background-gradient.png) repeat-x;
+    border-top: 1px solid #4C4C4C;
+    padding-top: 40px;
+    width: 860px;
+}
+
+#featuredContent p {
+    font-size: 14px;
+}
+
+#MobileContent {
+    background: #333333;
+    border-top: 1px solid #4C4C4C;
+    padding-top: 40px;
+    padding-bottom: 20px;
+    width: 860px;
+}
+
+#MobileContent p{
+    font-size: 14px;
+}
+
+#cyclopathMobile img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#cyclopathHighlights p {
+    margin: 10px 0 30px;
+    width: 375px;
+}
+
+#cyclopathMobileText {
+    margin: 40px 0 20px;
+}
+
+#cyclopathMobileText p {
+    margin: 20px 0 20px;
+    width: 250px;
+}
+
+#cyclopathMobileText li {
+    font-weight: bold;
+    margin: 10px 0 10px;
+}
+
+#featuredBoxes {
+    margin-left: 39px;
+    width: 390px;
+}
+
+#featuredBoxes h3 {
+    margin: 0 0 5px 5px;
+}
+
+#featuredBoxes .box {
+    margin-bottom: 20px;
+}
+
+#featuredBoxes .box dt {
+    font-weight: bold;
+    padding-top: 5px;
+}
+
+#featuredBoxes .box dt.first {
+    padding-top: 0;
+}
+
+#featuredBoxes .box dt.more {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-right: 3px;
+    font-weight: none;
+    text-align: right;
+    text-decoration: underline;
+}
+
+/* Footer */
+
+#footer { 
+    background-color: #4c4c4c;
+    font-size: 11px;
+    height: 90px;
+    line-height: 20px;
+    padding-top: 20px;
+}
+
+#sitemap {
+    border-top: 1px solid white;
+    margin: 0 0 20px 70px;
+    line-height: 14px;
+    padding-top: 10px;
+    width: 400px;    
+}
+
+#cite a {
+    text-decoration: underline;
+}
+
+#sitemap a:hover {
+    color: #CCC;
+    text-decoration: underline;
+}
+
+/* Bottom Navigation */
+
+ul#bottomNav li { float: left; padding: 0 8px; text-transform: uppercase; }
+ul#bottomNav li a{ color: #333333; text-decoration:none; }
+ul#bottomNav li a:hover { color: #BBBBBB; }
+#cite { float: right; padding-right: 10px; }
+
+/* Class Definitions */
+
+/* Box */
+
+.box {
+    background: transparent url(images/box-bottom-border.png) no-repeat scroll
+                bottom left;
+    font-size: 14px;
+    margin: auto;
+    padding-bottom: 5px;
+    width: 382px; /* currently only height is flexible */
+}
+
+.box > h4 {
+    background: transparent url(images/box-header-background.png) no-repeat;
+    font-size: 17px;
+    color: white;
+    height: 23px;
+    line-height: 23px;
+    padding: 5px;
+}
+
+.box > p, .box > dl {
+    background: transparent url(images/box-body-border.png) repeat-y;
+    padding: 5px;
+}
+
+/* Column classes */
+
+.columns { width: 100%; }
+.column { margin-left: -1px; float: left; }
+.two.columns .column { width: 50%; }
+.three.columns .column { width: 33.3333%; }
+
+/* Clearfix hack */
+
+.columns:after, .clearfix:after {
+    content: ".";
+    display: block;
+    clear: both;
+    visibility: hidden;
+    line-height: 0;
+    height: 0;
+}
+ 
+.columns, .clearfix { display: inline-block; } 
+html[xmlns] .columns, html[xmlns] .clearfix { display: block; } 
+* html .columns, *html .clearfix { height: 1%; }

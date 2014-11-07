@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:panel_watchers="views.panel_watchers.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wtc_WgtList');
+
+      // *** Instance variables
+
+      protected var watchers:Array;
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Watched_Item_Entry = (
+            ev.target as Widget_Watched_Item_Entry);
+         if (renderer !== null) {
+            m4_DEBUG('on_added_renderer_maybe: renderer:', renderer);
+            //m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Watched_Item_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+//      public function update_watchers(lvals:Set_UUID) :void
+      public function update_watchers(lvals:Array) :void
+      {
+         m4_DEBUG('update_watchers: lvals.length:', lvals.length);
+         m4_DEBUG('update_watchers: lvals:', lvals);
+
+         /*
+         var lval:Link_Value;
+
+         this.watchers = new Array();
+
+         if (lvals !== null) {
+            for each (lval in lvals) {
+               this.watchers.push(lval)
+            }
+         }
+
+         this.dgrid.dataProvider = this.watchers;
+         this.dgrid.rowCount = this.watchers.length;
+         */
+         this.dgrid.dataProvider = lvals;
+         this.dgrid.rowCount = lvals.length;
+      }
+
+   ]]></mx:Script>
+
+   <mx:Canvas
+      width="100%"
+      height="100%"
+      backgroundColor="white"
+      borderStyle="solid"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="on">
+      <mx:DataGrid
+         id="dgrid"
+         width="100%"
+         borderStyle="none"
+         selectable="false"
+         sortableColumns="false"
+         showHeaders="false"
+         headerHeight="0"
+         mouseWheel="this.dispatchEvent(event)"
+         added="this.on_added_renderer_maybe(event);"
+
+         verticalScrollPolicy="off"
+         draggableColumns="false"
+         rowCount="{Conf.item_watchers_list_size}"
+         allowMultipleSelection="false"
+         resizableColumns="true"
+         variableRowHeight="true"
+         >
+         <mx:columns>
+            <mx:DataGridColumn
+               headerText=""
+               itemRenderer="views.panel_watchers.Widget_Watched_Item_Entry"/>
+         </mx:columns>
+      </mx:DataGrid>
+   </mx:Canvas>
+
+</views_panel_base:Detail_Panel_Widget>
+

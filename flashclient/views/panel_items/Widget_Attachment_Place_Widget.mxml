@@ -1,0 +1,573 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attachment_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   horizontalGap="0"
+   verticalGap="0"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Route_Get_Saved;
+      import items.Geofeature;
+      import items.feats.Route;
+      import items.links.Link_Geofeature;
+      import utils.geom.Dual_Rect;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import views.panel_activity.Tab_Latest_Activity_Base;
+      import views.panel_routes.Panel_Item_Route;
+      import views.panel_util.Filter_Combobo_Widget;
+
+      // *** Class attributes
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_PlceWgt');
+
+      protected static var selected_widget:Widget_Attachment_Place_Widget;
+
+      // *** Instance variables
+
+      public var gfs:Dictionary;
+      public var gf_count:int;
+
+      protected var place_box:Widget_Attachment_Place_Box;
+
+      protected var all_deleted:Boolean = true;
+
+      protected var gf_types:Dictionary;
+
+      protected var gf_values:Dictionary; // Needed to store revision numbers.
+
+      //
+      protected var diff_old:int = 0;
+      protected var diff_new:int = 0;
+
+      // *** Static methods
+
+      //
+      public static function clear_selected() :void
+      {
+         var widget:Widget_Attachment_Place_Widget =
+            Widget_Attachment_Place_Widget.selected_widget;
+         if (widget !== null) {
+            widget.clearStyle('borderColor');
+            widget.clearStyle('borderThickness');
+            widget.clearStyle('paddingTop');
+            widget.clearStyle('paddingLeft');
+            widget.clearStyle('paddingRight');
+            widget.clearStyle('paddingBottom');
+            Widget_Attachment_Place_Widget.selected_widget = null;
+         }
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get geofeature_name() :String
+      {
+         var name_:String;
+         if (this.gfs !== null) {
+            for each (var feat:Geofeature in this.gfs) {
+               name_ = feat.name_;
+               break;
+            }
+            // FIXME/EXPLAIN: Should we use Objutil.consensus?
+            var num_gfs:int = Collection.dict_length(this.gfs);
+            if (num_gfs > 1) {
+               m4_WARNING2('EXPLAIN: geofeature_name: mult. items: num_gfs:',
+                           num_gfs);
+            }
+         }
+         return name_;
+      }
+
+      // *** Instance methods
+
+      //
+      public function add_wppb(
+         place_box:Widget_Attachment_Place_Box,
+         link_gf:Link_Geofeature,
+         read_only:Boolean)
+            :void
+      {
+         // All geofeatures associated with a given place widget should have
+         // the same name.
+         m4_DEBUG2('add_wppb: geofeature_name:', this.geofeature_name,
+                   '/ link_gf.gf_name:', link_gf.gf_name);
+         m4_ASSERT((this.geofeature_name === null)
+                   || (this.geofeature_name == link_gf.gf_name));
+
+         var feat:Geofeature = new Geofeature();
+         feat.stack_id = link_gf.rhs_stack_id;
+         feat.name_ = link_gf.gf_name; // Same as link_gf.rhs_name
+         feat.xs = Collection.array_copy(link_gf.gf_xs);
+         feat.ys = Collection.array_copy(link_gf.gf_ys);
+
+         if (this.gfs === null) {
+            this.gfs = new Dictionary();
+         }
+         this.gfs[feat.stack_id] = feat;
+
+         if (this.gf_types === null) {
+            this.gf_types = new Dictionary();
+         }
+         this.gf_types[link_gf.rhs_stack_id] = link_gf.gf_type;
+
+         if (this.gf_values === null) {
+            this.gf_values = new Dictionary();
+         }
+         this.gf_values[link_gf.rhs_stack_id] =
+            ((link_gf.gf_type == 'revision')
+             ? link_gf.value_integer : 0);
+
+         this.gf_count += 1;
+
+         this.all_deleted = ((this.all_deleted) && (link_gf.gf_deleted));
+
+         if (link_gf.is_vgroup_old) {
+            this.diff_old += 1;
+         }
+         else if (link_gf.is_vgroup_new) {
+            this.diff_new += 1;
+         }
+
+         this.refresh();
+
+         this.place_box = place_box;
+         
+         // Check that caller already called this.register_widgets([this,])
+         m4_ASSERT(this.dp !== null);
+
+         if (read_only) {
+            this.del_place.width = 0;
+            this.del_place.height = 0;
+         }
+      }
+
+      // Remove a geofeature from this widget and return true if there are none
+      // left.
+      public function remove_wppb(link_gf:Link_Geofeature) :Boolean
+      {
+         var gf_to_remove:Geofeature = this.gfs[link_gf.rhs_stack_id];
+         if (gf_to_remove !== null) {
+            delete this.gfs[gf_to_remove.stack_id];
+            delete this.gf_types[gf_to_remove.stack_id];
+            delete this.gf_values[gf_to_remove.stack_id];
+            this.gf_count -= 1;
+
+            if (link_gf.is_vgroup_old) {
+               this.diff_old -= 1;
+            }
+            else if (link_gf.is_vgroup_new) {
+               this.diff_new -= 1;
+            }
+         }
+         else {
+            m4_WARNING('Geofeature not found. Cannot remove.');
+         }
+
+         this.refresh();
+
+         // Signal to caller whether this widget has any geofeatures left.
+         var widget_emptied:Boolean = (this.gf_count == 0);
+         return widget_emptied;
+      }
+
+      /* Neither of these are used.
+
+      //
+      public function contains_gf(id:int) :Boolean
+      {
+         for each (var feat:Geofeature in this.gfs) {
+            if (feat.stack_id == id) {
+               return true;
+            }
+         }
+         return false;
+      }
+
+      //
+      public function contains_gf_by_name(name:String) :Boolean
+      {
+         for each (var feat:Geofeature in this.gfs) {
+            if (feat.name_ == name) {
+               return true;
+            }
+         }
+         return false;
+      }
+
+      */
+
+      //
+      protected function on_place_label_click() :void
+      {
+         m4_ASSERT((this.gfs !== null) && (this.gf_count > 0));
+
+         var feat:Geofeature;
+
+         // FIXME: Fix this
+         //G.sl.event('ui/place/widget/place_click',
+         //           {place: this.gf_stack_id});
+
+         var first_stack_id:int;
+         for each (feat in this.gfs) {
+            first_stack_id = feat.stack_id;
+            break;
+         }
+
+         // If the place is a revision, fetch the revision details.
+         m4_ASSERT(this.gf_types !== null);
+         // FIXME: gf_types is... weird. We're using strings...
+         if (this.gf_types[first_stack_id] == 'revision') {
+
+
+// FIXME: This might be wrong. [lb] sees the reaction list being activated
+//        when other panels are closed, or when the map is reloaded.
+            G.tabs.discussions.discussions_panel_update(/*thread=*/null,
+                                                /*activate_panel=*/true);
+            // Show the Latest Activity panel.
+            m4_DEBUG('on_place_label_click: activating activity_panel');
+            G.panel_mgr.panel_activate(G.app.activity_panel);
+            G.tabs.activity.activities.select_changes();
+
+            // Switch to the revision-IDs filter.
+            var fcw:Filter_Combobo_Widget
+               = G.tabs.changes_panel.filter_by_widget_impl;
+            fcw.selectedId = Tab_Latest_Activity_Base
+                              .filter_by_revision_id_index;
+            fcw.filter_by_text_input.text = this.gf_values[first_stack_id];
+
+            // Run the filter.
+            fcw.filter_by_combo.selectedItem.callback();
+
+            //G.tabs.changes_panel.rev_autoselect = [this.first_stack_id,];
+         }
+
+// FIXME: Statewide UI: Check if route is already loaded.
+         // If the place is a route, fetch it.
+         if (this.gf_types[first_stack_id] == 'route') {
+// MAYBE:
+// if (this.gfs[0] is Route) {
+// but how are revisions handled? the if above doesn't make sense:
+//          this.gf_types[first_stack_id] == 'revision'...
+// lastly, why are we fetching? if a route is on the map it's loaded.
+
+// FIXME: So... the.gfs.length should be 1, right?
+
+            m4_ASSERT_SOFT(this.gfs.length == 1);
+            var route:Route = (feat as Route);
+
+            m4_VERBOSE2('on_place_label_click: getting rte from server:',
+                        first_stack_id);
+            var gwis_cmd:GWIS_Route_Get_Saved =
+               new GWIS_Route_Get_Saved(
+                  first_stack_id,
+                  /*caller_source=*/'place-widget',
+                  /*callback_okay=*/this.on_route_fetched,
+                  /*callback_fail=*/null,
+                  /*as_gpx=*/false,
+                  /*check_invalid=*/false,
+                  // MAYBE: We don't need to use the session ID, do we?
+                  /*gia_use_sessid=*/route.unlibraried,
+                  /*get_steps_and_stops=*/false,
+                  /*compute_landmarks=*/route.show_landmarks);
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_cmd);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+
+         var mobr_dr:Dual_Rect = Geofeature.mobr_dr_union(this.gfs);
+
+         // Look at, but only if no part of the target is out of the current
+         // view (that is, don't just zoom in...).
+         if ((this.targets_outside_vp || this.targets_not_in_cache)
+             && (!this.all_deleted)) {
+
+            // When the geofeatures are drawn next, highlight those that don't
+            // have anything outside of the current view.
+            //
+            // 2013.03.27: [mm] fixed this fcn., which may or may not be broken
+            //             in CcpV1. Here's the CcpV1 code:
+            //
+            //                for each (feat in this.gfs)
+            //                   if (!(feat in this.gfs))
+            //                      G.map.to_be_highlighted.push(feat.id_);
+            //
+            //             [lb] was curious how the if would ever return true,
+            //             but [mm] explains: Naturally, this was confusing
+            //             because how can feat be in this.gfs and not in
+            //             this.gfs at the same time. The for each was looping
+            //             through the items and the if was checking the keys,
+            //             so they weren't really checking the same
+            //             thing. Anywho, that's not the correct if.
+            for each (feat in this.gfs) {
+               if (!feat.highlighted) {
+                  G.map.to_be_highlighted.push(feat.stack_id);
+               }
+            }
+
+            if (mobr_dr.valid) {
+               // FIXME: TEST: [lb] thinks we could zoom to raster mode for
+               //        items far apart -- does that mean we select items,
+               //        too? This would look weird...
+               G.map.lookat_dr(mobr_dr);
+
+               G.sl.event('ui/place_widget/click',
+                          {gf0_id: first_stack_id});
+            }
+            else {
+               // 2012.08.15: Rather than confuse the user with an error
+               // message if the revision has no geometry, use a tooltip to
+               // convery the same information.
+               // NO: Alert.show(
+               //    'Cyclopath could not identify the location of the target.'
+               //    + '\n\n'
+               //    + 'This may be because you do not have permissions to'
+               //    + ' view the target, or because this is a bug. If you'
+               //    + ' think you have received this dialog in error,'
+               //    + ' please contact us by clicking \"Help\" above.',
+               //    'Could not find location');
+            }
+         }
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_remove_event');
+
+         var first_stack_id:int;
+         for each (var feat:Geofeature in this.gfs) {
+            first_stack_id = feat.stack_id;
+            break;
+         }
+
+         if (this.gf_types[first_stack_id] == 'route') {
+            m4_ASSERT((this.gfs !== null) && (this.gf_count == 1));
+            m4_ASSERT_SOFT(this.gfs.length == 1);
+            var route:Route = (this.gfs[0] as Route);
+            m4_DEBUG('on_remove_event: route:', route);
+            route.set_visible_with_panel(this.dp,
+                                         /*panel_attach=*/false,
+                                         /*panel_release=*/true);
+         }
+
+         super.on_remove_event(ev);
+      }
+
+      //
+      protected function on_route_fetched(
+         gwis_cmd:GWIS_Route_Get_Saved, route:Route) :void
+      {
+         m4_DEBUG('on_route_fetched: route:', route);
+
+         // We want the route to draw itself while the discussion is active.
+         route.set_visible_with_panel(this.dp,
+                                      /*panel_attach=*/true,
+                                      /*panel_release=*/false);
+
+         // MAYBE: Calling set_selected will cause links to be lazy loaded,
+         //        but maybe we don't want the route to open and switch to
+         //        its panel...
+         route.set_selected(true);
+
+         //?: route.signal_route_view();
+      }
+
+      //
+      // The rollOver highlight effect. Sets back to selected or normal on
+      // rollOut.
+      protected function place_highlight(highlight:Boolean) :void
+      {
+         m4_ASSERT((this.gfs !== null) && (this.gf_count > 0));
+
+         if (highlight) {
+            this.setStyle('borderColor', Conf.button_highlight);
+            if (this.all_deleted) {
+               this.place_label.toolTip =
+                  this.place_label.text
+                  + ' has been deleted after being attached.';
+            }
+            else if (this.targets_outside_vp) {
+               this.place_label.toolTip =
+                  this.place_label.text
+                  + ' is not currently visible. Click to go there.';
+            }
+            else {
+               this.place_label.toolTip = this.place_label.text;
+            }
+         }
+         else if (Widget_Attachment_Place_Widget.selected_widget === this) {
+            this.setStyle('borderColor', Conf.selection_color);
+         }
+         else {
+            this.clearStyle('borderColor');
+         }
+
+         var feat:Geofeature;
+         var gf_h:Geofeature;
+
+         if (highlight) {
+            Widget_Attachment_Place_Widget.clear_selected();
+            G.map.highlights_clear(Conf.attachment_hover_highlight);
+            for each (feat in this.gfs) {
+               if (feat.stack_id in Geofeature.all) {
+                  gf_h = Geofeature.all[feat.stack_id] as Geofeature;
+                  m4_ASSERT(gf_h !== null);
+                  gf_h.set_highlighted(true, Conf.attachment_hover_highlight);
+               }
+            }
+         }
+         else {
+            Widget_Attachment_Place_Widget.clear_selected();
+            G.map.highlights_clear(Conf.attachment_hover_highlight);
+         }
+      }
+
+      //
+      public function refresh() :void
+      {
+         var name:String;
+
+         // Set deleted style.
+         if (this.all_deleted) {
+            this.place_label.setStyle('color', 0xFF0000);
+         }
+         else {
+            this.place_label.clearStyle('color');
+         }
+
+         // Set name.         
+         if (this.gf_count > 0) {
+            name = this.geofeature_name;
+            if (name == '') {
+               name = 'Unnamed';
+            }
+         }
+         if (this.gf_count == 1) {
+            this.place_label.text = name;
+         }
+         else {
+            this.place_label.text = name + ' (' + this.gf_count + ')';
+         }
+
+         // Set diffing style.
+         if (this.diff_old > this.diff_new) {
+            this.place_label_box.setStyle('backgroundColor', 
+                                          Conf.vgroup_move_old_color);
+         }
+         else if (this.diff_old < this.diff_new) {
+            this.place_label_box.setStyle('backgroundColor', 
+                                          Conf.vgroup_move_new_color);
+         }
+         else if (this.diff_old == this.diff_new && this.diff_old > 0) {
+            this.place_label_box.setStyle('backgroundColor', 
+                                          Conf.vgroup_move_both_color);
+         }
+         else {
+            this.place_label_box.setStyle('backgroundColor', '0xDDDDDD');
+         }
+      }
+
+      //
+      protected function get targets_not_in_cache() :Boolean
+      {
+         var feat:Geofeature;
+         var vector_features_present:Boolean = false;
+
+         for each (feat in this.gfs) {
+            if (!(feat.stack_id in Geofeature.all)) {
+               vector_features_present = true;
+               break;
+            }
+         }
+
+         return vector_features_present;
+      }
+
+      //
+      protected function get targets_outside_vp() :Boolean
+      {
+         m4_ASSERT((this.gfs !== null) && (this.gf_count > 0));
+
+         var mobr_dr:Dual_Rect = Geofeature.mobr_dr_union(this.gfs);
+
+         if (!G.map.view_rect.eq(G.map.view_rect.union(mobr_dr))) {
+            return true;
+         }
+
+         return false;
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      id="place_label_box"
+      paddingTop="0"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingBottom="0"
+      horizontalGap="0"
+      verticalGap="0"
+      cornerRadius="5"
+      borderStyle="solid"
+      borderThickness="1"
+      verticalAlign="middle"
+      maxWidth="135"
+      rollOver="this.place_highlight(true);"
+      rollOut="this.place_highlight(false);"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off">
+
+      <mx:Label
+         id="place_label"
+         text=""
+         maxWidth="115"
+         paddingLeft="2"
+         mouseEnabled="false"
+         click="this.on_place_label_click();"/>
+
+      <mx:LinkButton
+         id="del_place"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         rollOverColor="0xAAAAAA"
+         selectionColor="0x777777"
+         label="X"
+         width="16"
+         height="18"
+         color="0x2B333C"
+         textDecoration="none"
+         toolTip="Detach this place"
+         click="this.place_box.place_remove_smart(this);"
+         />
+
+      <mx:Spacer
+         width="1"/>
+
+   </mx:HBox>
+
+</views_panel_items:Widget_Attachment_Base>
+

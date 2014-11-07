@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.NumericStepper;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+
+      import items.feats.Branch;
+      import utils.misc.Logging;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wg_Cpln_Act');
+
+      // *** Instance variables
+
+      public var widget_shapefiles:Widget_Shapefiles;
+      public var widget_analysis:Widget_Analysis;
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+         var branch:Branch = (this.dp as Panel_Item_Branch).branch;
+         m4_ASSERT(branch !== null);
+         if (branch.can_edit) {
+            this.branch_link_shapefiles.visible = true;
+            this.branch_link_analytics.visible = true;
+         }
+      }
+
+      //
+      protected function on_branch_link_shapefiles() :void
+      {
+         if (this.widget_shapefiles === null) {
+            this.widget_shapefiles = new Widget_Shapefiles();
+            // this.register_widgets([this.widget_shapefiles,]);
+         }
+         G.panel_mgr.panel_activate(this.widget_shapefiles);
+      }
+
+      //
+      protected function on_branch_link_analytics() :void
+      {
+         if (this.widget_analysis === null) {
+            this.widget_analysis = new Widget_Analysis();
+            // this.register_widgets([this.widget_analysis,]);
+         }
+         G.panel_mgr.panel_activate(this.widget_analysis);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="0"
+      paddingTop="-4"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="3"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Cycloplan Features"/>
+
+      <!-- *** "Shapefiles" Tab -->
+      <views_panel_util:Hyper_Link
+         id="branch_link_shapefiles"
+         htmlText="Import and Export Shapefiles"
+         toolTip=""
+         click="this.on_branch_link_shapefiles();"
+         visible="false"
+         includeInLayout="{this.branch_link_shapefiles.visible}"
+         />
+
+      <!-- *** "Analysis" Tab -->
+      <views_panel_util:Hyper_Link
+         id="branch_link_analytics"
+         htmlText="Route Analysis Planner Tool"
+         toolTip=""
+         click="this.on_branch_link_analytics();"
+         visible="false"
+         includeInLayout="{this.branch_link_analytics.visible}"
+         />
+
+      <!-- External link locations -->
+      <mx:HBox
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         >
+         <!-- For the public link to .org/exports, see: Panel_Item_Branch.
+              It's link will line up below this one on the branch panel. -->
+         <views_panel_util:Help_Link
+            text="Daily Route Reports"
+            toolTip="Private Shapefile analyses on requested routes."
+            fontWeight="normal"
+            textDecoration="none"
+            fontSize="14"
+            click="UI.url_open_reports();"/>
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

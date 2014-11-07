@@ -1,0 +1,84 @@
+# The rider profiles are used to tailor route requests using different
+# sets of preferences. They're really quite simple: they just mimic all
+# of the different sorts of routes you can request via flashclient.
+
+# SYNC_ME: services/route_analysis/rider_profiles.yml
+#          services/route_analysis/route_analysis.py
+#          flashclient/views/panel_branch/Widget_Analysis.mxml
+#            The names of the rider profiles match those in the code.
+#            Pyserver reads this yaml directly; flashclient hardcodes
+#            the profile names.
+
+fastest:
+  travel_mode: wayward
+  p1_use_defaults:
+  p2_depart_at:
+  p2_transit_pref:
+  p3_weight_type: len
+  p3_rating_pump:
+  p3_burden_pump:
+  p3_spalgorithm:
+  rating_min:
+  bonus:
+  penalty:
+  avoid:
+
+# SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.rating_pows
+#          services.route_analysis.rider_profiles.yml
+#          flashclient.something.
+rating_spread_02:
+  p3_weight_type: rat
+  p3_rating_pump: 2
+rating_spread_04:
+  p3_weight_type: rat
+  p3_rating_pump: 4
+rating_spread_08:
+  p3_weight_type: rat
+  p3_rating_pump: 8
+rating_spread_16:
+  p3_weight_type: rat
+  p3_rating_pump: 16
+rating_spread_32:
+  p3_weight_type: rat
+  p3_rating_pump: 32
+rating_spread_64:
+  p3_weight_type: rat
+  p3_rating_pump: 64
+rating_spread_128:
+  p3_weight_type: rat
+  p3_rating_pump: 128
+
+# SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.burden_vals
+#          services.route_analysis.rider_profiles.yml
+#          flashclient.something.
+facility_willingness_10:
+  p3_weight_type: fac
+  p3_burden_pump: 10
+facility_willingness_20:
+  p3_weight_type: fac
+  p3_burden_pump: 20
+facility_willingness_40:
+  p3_weight_type: fac
+  p3_burden_pump: 40
+facility_willingness_65:
+  p3_weight_type: fac
+  p3_burden_pump: 65
+facility_willingness_90:
+  p3_weight_type: fac
+  p3_burden_pump: 90
+facility_willingness_95:
+  p3_weight_type: fac
+  p3_burden_pump: 95
+facility_willingness_98:
+  p3_weight_type: fac
+  p3_burden_pump: 98
+
+# Skipping: weight_type 'rac': We could implement some profiles for it, but
+#           since the edge weight is just the average of an edge's rating cost
+#           and facility cost, [lb] can't image that it'd be very interesting.
+
+# Skipping: weight_types 'prat', 'pfac', and 'prac': Using average or
+#           generated rating is sufficient.  We could implement it so we can
+#           run in the context of some user that's rated a lot of roads, but
+#           [lb] doesn't see the utility in that.
+

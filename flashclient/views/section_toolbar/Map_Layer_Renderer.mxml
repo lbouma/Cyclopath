@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Canvas
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   horizontalScrollPolicy="off"
+   creationComplete="on_creation_complete();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.events.ResizeEvent;
+      import mx.utils.ObjectProxy;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctT_MapLRr');
+
+      // *** Instance attributes
+
+      // We should use an ObjectProxy or our MXML generates a Flex warning:
+      //    warning: unable to bind to property 'label' on class 'Object'
+      //             (class is not an IEventDispatcher)
+      // Note that [lb] tried using XML, but you have to wrap this.data in the
+      // MXML, e.g., XML(this.data).@toolTip, and even then Booleans are hard
+      // to figure out because XML is just text, and using Object references is
+      // even harder... so, ObjectProxy to the rescue.
+      [Bindable]
+      protected var data_proxy:ObjectProxy;
+
+      // *** Instance methods
+
+      //
+      protected function on_creation_complete() :void
+      {
+         this.data_proxy = new ObjectProxy(this.data);
+      }
+
+      //
+      protected function on_mouse_down(event:MouseEvent) :void
+      {
+         // FIXME: This should stop the combobox's dropdown from closing, but
+         //        it doesn't. Fix it.
+         // Doesn't work as intented: event.stopPropagation();
+         // FIXME: Statewide UI: [lb] suggests looking at Combo_Box_V2: you
+         //        want to set dropdownFactory of the ComboBox to use our own
+         //        list control, e.g., List_Disableable. We cannot stop
+         //        propagation from here, since this is just the renderer of
+         //        one item in the list; we want the list control itself, so we
+         //        have to set dropdownFactory ourselves. Then we can stop
+         //        propagation so that clicking an item in the list doesn't
+         //        close the list.
+      }
+
+      //
+      protected function on_click_checkbox() :void
+      {
+         // Toggle the checkbox.
+         this.data.selected = !this.data.selected;
+         // Call the callback.
+         m4_DEBUG('on_click_checkbox:', this.data.action_fcn);
+         this.data.action_fcn(this.data);
+      }
+
+      //
+      protected function on_click_settings_option() :void
+      {
+         m4_DEBUG('on_click_settings_option:', this.data.action_fcn);
+         this.data.action_fcn(this.data);
+      }
+
+   ]]></mx:Script>
+
+   <!-- NOTE: This is a little hacky: we define controls for the different
+              types of list items, but we only show one of them. -->
+
+   <!-- CheckBox options. -->
+   <mx:CheckBox
+      visible="{this.data_proxy.is_checkbox}"
+      includeInLayout="{this.data_proxy.is_checkbox}"
+      enabled="{((this.data_proxy.id == Map_Layer_Toggler.map_layer_regions)
+                 || (G.map.zoom_is_vector()))}"
+      label="{this.data_proxy.label}"
+      toolTip="{this.data_proxy.toolTip}"
+      selected="{this.data_proxy.selected}"
+      width="100%"
+      paddingTop="2"
+      left="4"
+      mouseDown="this.on_mouse_down(event);"
+      click="this.on_click_checkbox();"
+      />
+
+   <!-- Hyper_Link options. -->
+   <views_panel_util:Hyper_Link
+      visible="{!(this.data_proxy.is_checkbox)}"
+      includeInLayout="{!(this.data_proxy.is_checkbox)}"
+      text="{this.data_proxy.label}"
+      toolTip="{this.data_proxy.toolTip}"
+      width="100%"
+      paddingTop="4"
+      left="4"
+      click="this.on_click_settings_option();"
+      />
+
+</mx:Canvas>
+

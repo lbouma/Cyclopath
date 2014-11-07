@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   dataChange="this.on_data_change(event);"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Br_Etry');
+
+      // *** Event handlers
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+      }
+
+      //
+      protected function on_active_branch_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_active_branch_change: event:', event);
+         this.label_text_set();
+      }
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_data_change: ev:', ev);
+         this.label_text_set();
+      }
+
+      //
+      protected function on_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click: ev:', ev);
+      }
+
+      //
+      protected function on_double_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_double_click: ev:', ev);
+         // G.app.my_maps_panel.on_branch_checkout();
+         m4_DEBUG2('on_double_click: parentDocument',
+                   String(this.parentDocument));
+         var legend_widget:Widget_Maps_Branch_List =
+            (this.parentDocument as Widget_Maps_Branch_List);
+         m4_DEBUG2('on_double_click: legend_widget.parentDocument',
+                   String(legend_widget.parentDocument));
+         var legend_widget2:Widget_Maps_Available =
+            (legend_widget.parentDocument as Widget_Maps_Available);
+         legend_widget2.on_branch_checkout();
+      }
+
+      //
+      public function label_text_set() :void
+      {
+         m4_VERBOSE('label_text_set');
+         var label_text:String = this.data.name_;
+         var label_formatting:String = 'normal';
+         // STYLE: [lb] wrote = instead of == and the compiler caught it.
+         // So in Flex you don't have to write code defensively like in C.
+         // E.g., You don't have to (1 == x) to catch (1 = x), in Flex.
+         m4_VERBOSE('this.data:', this.data);
+         m4_VERBOSE('G.item_mgr.active_branch:', G.item_mgr.active_branch);
+         // If the active branch isn't set yet, well, we're here because it
+         // wants to be set, so let it set.
+         if ((G.item_mgr.active_branch !== null)
+             && (this.data.stack_id == G.item_mgr.active_branch.stack_id)) {
+            label_text += ' (Active)';
+            label_formatting = 'italic';
+         }
+         m4_VERBOSE('label_text_set:', label_text);
+         this.branch_entry_label.text = label_text;
+         this.branch_entry_label.setStyle('fontStyle', label_formatting);
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="4"
+      click="this.on_click(event);"
+      doubleClickEnabled="true"
+      doubleClick="this.on_double_click(event);"
+      >
+
+      <mx:Label
+         id="branch_entry_label"
+         width="100%"
+         minWidth="0"
+         text="{this.data.branch_list_label}"
+         toolTip="{this.data.branch_list_label}"/>
+      <!-- This crashes because item.version is not set on these half-items.
+         toolTipShown="this.on_entry_tooltip_shown();"/>   -->
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

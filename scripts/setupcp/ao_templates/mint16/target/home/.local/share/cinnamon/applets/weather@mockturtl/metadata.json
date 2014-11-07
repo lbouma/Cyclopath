@@ -1,0 +1,8 @@
+{
+    "last-edited": "1389274722", 
+    "max-instances": 3, 
+    "uuid": "weather@mockturtl", 
+    "name": "Weather", 
+    "version": "1.8.8", 
+    "description": "View your local weather forecast"
+}

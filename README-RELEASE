@@ -1,0 +1,173 @@
+
+2014.08.09 Release steps
+
+PYSERVER_HOME=/ccp/dev/cycloplan_work/pyserver
+CCP_WORKING=/ccp/dev/cycloplan_work
+
+cd /ccp/dev/cycloplan_work/scripts
+./schema-upgrade.py
+
+psql -U cycling ccpv3_live \
+  < /ccp/dev/cycloplan_work/scripts/dev/convenience_views.sql  
+
+# See: /ccp/dev/cp/scripts/setupcp/greatermn/fix_statewide_import.py
+#      I ran the commands at the top of the file to fix some
+#      line segment data issues and to import Statewide regions.
+
+CCP_DATABASE=ccpv3_live
+SHP_SOURCE_DIR=/ccp/var/shapefiles/mn_cleanup
+FIRST_SUSPECT_SID=2539702
+
+cd ${CCP_WORKING}/scripts/setupcp
+./hausdorff_import.py \
+  --database ${CCP_DATABASE} \
+  --branch "Mpls-St. Paul" \
+  --source-dir "${SHP_SOURCE_DIR}" \
+  --init-importer \
+  --known-point-xy 480292.5 4980909.8 \
+  --first-suspect ${FIRST_SUSPECT_SID} \
+  --fix-silent-delete-issue \
+  --use-old-stack-IDs-when-possible \
+  | tee ${SHP_SOURCE_DIR}/log-010-init-importer.log 2>&1
+
+./hausdorff_import.py \
+  --database ${CCP_DATABASE} \
+  --branch "Mpls-St. Paul" \
+  --instance-master \
+  --has-revision-lock \
+  -m "Fix Statewide import" \
+  > ${SHP_SOURCE_DIR}/log-020-master.log 2>&1 &
+# Get the process ID of the last command (last/lastest pid)
+MASTER_PID=$!
+echo "Started master script: PID: $MASTER_PID"
+
+nohup ./hausdorff_import.py \
+  --database ${CCP_DATABASE} \
+  --branch "Mpls-St. Paul" \
+  --source-dir "${SHP_SOURCE_DIR}" \
+  --try-matching \
+  --first-suspect ${FIRST_SUSPECT_SID} \
+  --has-revision-lock \
+  --instance-worker \
+  | tee ${SHP_SOURCE_DIR}/log-030-try-matching.log 2>&1 &
+
+# I didn't make writing to the target shapefile multi-thread aware,
+# so run blocks of imports consecutively. I'm running this off my
+# dev machine, anyway, and it doesn't have enough memory to process
+# more than about 50,000 items at a time.
+
+fst_offset=0
+seq_offset=0
+seq_limit=50000
+#consecutive_import () {
+#  for seq_offset in $(seq $fst_offset $seq_limit 500000); do
+#    #echo $seq_offset
+    nohup ./hausdorff_import.py \
+      --database ${CCP_DATABASE} \
+      --branch "Mpls-St. Paul" \
+      --source-dir "${SHP_SOURCE_DIR}" \
+      --process-edits \
+      --merge-names \
+      --friendly-names \
+      --fix-gravel-unpaved-issue \
+      --check-everything \
+      --has-revision-lock \
+      --instance-worker \
+      --items-limit $seq_limit \
+      --items-offset $seq_offset \
+      | tee ${SHP_SOURCE_DIR}/log-040-process-edits-$seq_offset.log 2>&1 &
+#  done
+#}
+
+#consecutive_import
+
+# WAIT!
+#
+# and then:
+kill -s 2 $master_proc_pid
+
+# FIXME: We update ratings for the basemap branch in the script,
+#        so the basemap *should* be up to date.
+#        But do we have to create generic ratings for **all**
+#         descendant branches? Probably... maybe just copy all
+#         the values from the parent branch?
+
+cd ${CCP_WORKING}/scripts/setupcp
+LOG_FILE=/ccp/var/log/release/60.0/byway_ratings_populate-mstp.log
+nohup \
+   ${CCP_WORKING}/scripts/setupcp/byway_ratings_populate.py \
+      --database ccpv3_live                                 \
+      --branch "Mpls-St. Paul"                              \
+      | tee ${LOG_FILE} 2>&1 &
+
+LOG_FILE=/ccp/var/log/release/60.0/byway_ratings_populate-metc.log
+nohup \
+   ${CCP_WORKING}/scripts/setupcp/byway_ratings_populate.py \
+      --database ccpv3_live                                 \
+      --branch "Metc Bikeways 2012"                         \
+      | tee ${LOG_FILE} 2>&1 &
+
+/ccp/dev/cycloplan_work/scripts/litemaint.sh 0
+
+# I also imported regions:
+
+CCP_DATABASE=ccpv3_live
+CCP_WORKING=/ccp/dev/cycloplan_live
+PYSERVER_HOME=/ccp/dev/cycloplan_live/pyserver
+SHP_SOURCE_DIR=/ccp/var/shapefiles/statewide_regions
+cd ${CCP_WORKING}/scripts/setupcp
+./hausdorff_import.py \
+  --database ${CCP_DATABASE} \
+  --branch "Mpls-St. Paul" \
+  --source-dir "${SHP_SOURCE_DIR}" \
+  --import --item-type region \
+  --check-everything \
+  --changenote "Statewide counties, townships, and cities." \
+  -U landonb --no-password
+
+# I also fixed a data bug and fixed the data:
+
+psql -U cycling ccpv3_live -c "UPDATE group_item_access AS gia SET name = iv.name FROM item_versioned AS iv WHERE gia.item_id = iv.system_id;"
+
+##############################################################
+##############################################################
+
+
+
+
+
+MAYBE?:
+# Recache the node tables.
+
+YES: remake tiles
+
+
+^D
+sss runic
+# ...
+cd /ccp/dev/cycloplan_live/scripts/setupcp/greatermn
+PYSERVER_HOME=/ccp/dev/cycloplan_live/pyserver \
+CCP_DATABASE=ccpv3_live \
+  ./fix_node_tables.sh \
+  > /ccp/var/log/daily/`date +%Y.%m.%d`.fix_node_tables.log 2>&1 &
+
+
+
+
+
+# After going live: Update mediawiki home page
+
+* FIXME: These checkouts are so old they still use frost!:
+
+ cd /web/research/mediawiki/cyclopath
+ svn switch svn+ssh://runic/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk/mediawiki/home
+ #svn update
+ 
+ cd /web/research/mediawiki/cyclopath/mediawiki/extensions/cyclopath-svn
+ svn switch svn+ssh://runic/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk/mediawiki/extensions
+ #svn update
+
+
+Tell Fernando about p3.
+
+

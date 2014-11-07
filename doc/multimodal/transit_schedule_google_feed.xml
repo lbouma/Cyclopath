@@ -1,0 +1,232 @@
+<?xml version="1.0"?>
+<metadata>
+	<idinfo>
+		<citation>
+			<citeinfo>
+				<origin>Metropolitan Council - Metro Transit</origin>
+				<pubdate>Unpublished material</pubdate>
+				<title>Metro Transit Schedule Data - Google Transit Feed Format</title>
+				<mgmg1cid>N/A</mgmg1cid>
+				<pubinfo>
+					<publish>Metropolitan Council</publish>
+				</pubinfo>
+				<onlink>ftp://gisftp.metc.state.mn.us/google_transit.zip</onlink>
+			</citeinfo>
+		</citation>
+		<descript>
+			<abstract>The Metro Transit schedule data includes bus and LRT schedules for the Twin Cities metropolitan area. This includes data for all public transit companies in the Minneapolis / St. Paul metropolitan area except the Minnesota Valley Transit Authority. The data uses the Google Transit Feed Specification. This specification can be found at http://code.google.com/transit/spec/transit_feed_specification.html.
+
+This data feed no longer includes data for the Minnesota Valley Transit Authority (MVTA). MVTA data can downloaded here. http://www.datafinder.org/metadata/mvtaschedule.htm</abstract>
+			<purpose>To provide schedule data for public transit services in the Minneapolis / St. Paul metropolitan area.</purpose>
+			<supplinf>Twin Cities seven county metropolitan area.  This includes the counties of Anoka, Carver, Dakota, Hennepin, Ramsey, Scott and Washington in Minnesota.</supplinf>
+		</descript>
+		<timeperd>
+			<timeinfo>
+				<sngdate>
+					<caldate>20110129</caldate>
+				</sngdate>
+			</timeinfo>
+			<current>Schedule data is accurate as of the above date.</current>
+		</timeperd>
+		<status>
+			<progress>Complete</progress>
+			<update>Quarterly</update>
+		</status>
+		<spdom>
+			<bounding>
+				<westbc>-94.012</westbc>
+				<eastbc>-92.732</eastbc>
+				<northbc>45.415</northbc>
+				<southbc>44.471</southbc>
+			</bounding>
+		</spdom>
+		<keywords>
+			<theme>
+				<themekt>None</themekt>
+				<themekey>transit, buses, nodes, transportation, lrt, light rail, schedules</themekey>
+			</theme>
+			<place>
+				<placekey>Minneapolis, Saint Paul, Twin Cities, Anoka County, Carver County, Dakota County, Hennepin County, Ramsey County, Scott County, Washington County</placekey>
+			</place>
+		</keywords>
+		<accconst>None</accconst>
+		<useconst>By acceptance of this data, the user agrees to include a copy of this metadata record, including the liability disclaimer, whenever the user transmits or provides this data to another user.
+
+We recommend that other interested parties download this dataset from the Data Finder web site (www.datafinder.org) to ensure that the most current data is obtained.</useconst>
+		<ptcontac>
+			<cntinfo>
+				<cntperp>
+					<cntper>Arthur Brakob</cntper>
+					<cntorg>Metropolitan Council - Metro Transit</cntorg>
+				</cntperp>
+				<cntpos>Business Systems Analyst</cntpos>
+				<cntaddr>
+					<addrtype> mailing and physical address </addrtype>
+					<address>560 6th Ave N</address>
+					<city>Minneapolis</city>
+					<state>Minnesota</state>
+					<postal>55411</postal>
+				</cntaddr>
+				<cntvoice>612-349-7423</cntvoice>
+				<cntfax></cntfax>
+				<cntemail>art.brakob@metc.state.mn.us</cntemail>
+			</cntinfo>
+		</ptcontac>
+		<browse>
+			<browsen>None available</browsen>
+			<browsed></browsed>
+		</browse>
+		<native>Google Transit Feed Specification</native>
+		<crossref>
+			<citeinfo>
+				<title>bus routes, bus segments, bus service, bus shelters, park &amp; rides, bus stops
+For information comparing the different transit GIS datasets distributed by the Met. Council, please see http://www.datafinder.org/metadata/transit_data_overview.pdf .</title>
+			</citeinfo>
+		</crossref>
+	</idinfo>
+	<dataqual>
+		<attracc>
+			<attraccr>Attributes are assumed to be accurate on the effective date</attraccr>
+		</attracc>
+		<logic></logic>
+		<complete>Entire seven county geographic area is covered.</complete>
+		<posacc>
+			<horizpa>
+				<horizpar>Positional accuracy of bus stops are georeferenced based on The Lawrence Group street centerline data. Route lines are based on points along The Lawrence Group street centerline data.</horizpar>
+			</horizpa>
+			<vertacc>
+				<vertaccr></vertaccr>
+			</vertacc>
+		</posacc>
+		<lineage>
+			<srcinfo>
+				<srcscale></srcscale>
+			</srcinfo>
+			<procstep><procdesc></procdesc></procstep>
+		</lineage>
+	</dataqual>
+	<spdoinfo>
+		<indspref>None</indspref>
+		<direct></direct>
+		<mgmg3obj></mgmg3obj>
+		<mgmg3til></mgmg3til>
+	</spdoinfo>
+	<spref>
+		<horizsys>
+			<geograph>
+				<latres></latres>
+				<longres></longres>
+				<geogunit></geogunit></geograph>
+			<planar>
+				<mapproj>
+					<mapprojn></mapprojn>
+					<mgmg4par></mgmg4par>
+					<otherprj></otherprj>
+				</mapproj>
+				<gridsys>
+					<gridsysn>UTM</gridsysn>
+					<utm>
+						<utmzone>15</utmzone>
+					</utm>
+					<spcs>
+						<spcszone></spcszone>
+					</spcs>
+					<mgmg4coz></mgmg4coz>
+					<mgmg4adj></mgmg4adj>
+				</gridsys>
+				<planci>
+					<coordrep>
+						<absres></absres>
+						<ordres></ordres>
+					</coordrep>
+					<distbrep>
+						<distres></distres>
+					</distbrep>
+					<plandu>Meters</plandu>
+				</planci>
+			</planar>
+			<geodetic>
+				<horizdn>NAD83</horizdn>
+				<ellips>GRS80</ellips>
+			</geodetic>
+		</horizsys>
+		<vertdef>
+			<altsys>
+				<altdatum></altdatum>
+				<altunits></altunits>
+			</altsys>
+			<depthsys>
+				<depthdn></depthdn>
+				<depthdu></depthdu>
+			</depthsys>
+		</vertdef>
+	</spref>
+	<eainfo>
+		<overview>
+			<eaover>http://code.google.com/transit/spec/transit_feed_specification.html</eaover>
+			<eadetcit></eadetcit>
+		</overview>
+	</eainfo>
+	<distinfo>
+		<distrib>
+			<cntinfo>
+				<cntperp>
+					<cntper>Mark Kotz</cntper>
+					<cntorg>Metropolitan Council</cntorg>
+				</cntperp>
+				<cntpos>GIS Database Administrator</cntpos>
+				<cntaddr>
+					<addrtype> mailing and physical address </addrtype>
+					<address>390 Robert Street North</address>
+					<city>St. Paul</city>
+					<state>Minnesota</state>
+					<postal>55101-1805</postal>
+				</cntaddr>
+				<cntvoice>651-602-1644</cntvoice>
+				<cntfax>651-602-1674</cntfax>
+				<cntemail>mark.kotz@metc.state.mn.us</cntemail>
+			</cntinfo>
+		</distrib>
+		<resdesc></resdesc>
+		<distliab>NOTICE:  The Geographic Information System (GIS) Data to which this notice is attached are made available pursuant to the Minnesota Government Data Practices Act (Minnesota Statutes Chapter 13).  THE GIS DATA ARE PROVIDED TO YOU AS IS AND WITHOUT ANY WARRANTY AS TO THEIR PERFORMANCE, MERCHANTABILITY, OR FITNESS FOR ANY PARTICULAR PURPOSE.  The GIS Data were developed by the Metropolitan Council for its own internal business purposes.  The Metropolitan Council does not represent or warrant that the GIS Data or the data documentation are error-free, complete, current, or accurate.  You are responsible for any consequences resulting from your use of the GIS Data or your reliance on the GIS Data.  You should consult the data documentation for this particular GIS Data to determine the limitations of the GIS Data and the precision with which the GIS Data may depict distance, direction, location, or other geographic features.  If you transmit or provide the GIS Data (or any portion of it) to another user, it is recommended that the GIS Data include a copy of this disclaimer and this metadata.</distliab>
+		<stdorder>
+			<digform>
+				<digtinfo>
+					<formname>Google Transit Feed Specification</formname>
+					<formvern></formvern>
+					<transize>18 MB</transize>
+				</digtinfo>
+			</digform>
+			<ordering>This dataset is distributed on the internet by clicking below after 'Online Linkage'.  Doing so will tell your browser to download a 'ZIP' file which will contain the following:
+
+- Minneapolis / St. Paul metropolitan area transit schedule data in the Google Transit Feed Specification format.</ordering>
+		</stdorder>
+	</distinfo>
+	<metainfo>
+		<metd>20110126</metd>
+		<metc>
+			<cntinfo>
+				<cntperp>
+					<cntper>Art Brakob</cntper>
+					<cntorg>Metropolitan Council - Metro Transit</cntorg>
+				</cntperp>
+				<cntpos>Business Systems Analyst</cntpos>
+				<cntaddr>
+					<addrtype> mailing and physical address </addrtype>
+					<address>560 6th Ave N</address>
+					<city>Minneapolis</city>
+					<state>Minnesota</state>
+					<postal>55411</postal>
+				</cntaddr>
+				<cntvoice>612-349-7423</cntvoice>
+				<cntfax></cntfax>
+				<cntemail>art.brakob@metc.state.mn.us</cntemail>
+			</cntinfo>
+		</metc>
+		<metstdn>Minnesota Geographic Metadata Guidelines</metstdn>
+		<metstdv>1.2</metstdv>
+		<metextns>
+			<onlink>http://www.gis.state.mn.us/stds/metadata.htm</onlink>
+		</metextns>
+	</metainfo>
+	<Esri><ModDate>20110126</ModDate><ModTime>16171500</ModTime></Esri><mdDateSt Sync="TRUE">20110126</mdDateSt></metadata>

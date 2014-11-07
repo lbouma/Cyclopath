@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- SIMILAR_TO: Floating_Tool_Palette.mxml -->
+
+<utils_misc:Combo_Box_V2
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   xmlns:cp="*"
+   padding_icon_right="2"
+   paddingTop="0"
+   paddingBottom="0"
+   height="19"
+   enable_text_field_label="false"
+   x="10"
+   y="10"
+   styleName="comboBoxV2"
+   dropdownStyleName="comboDropdown"
+   dataProvider="{tools_advanced..item}"
+   iconFunction="tools_advanced_get_icon"
+   labelField="@label"
+   change="this.on_tool_change(event);"
+   creationComplete="handle_on_creation_complete()"
+   >
+
+
+   <mx:Script><![CDATA[
+
+// FIXME: Cleanup this class. Rename (it's generic). Get rid of 'tool' words.
+
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.effects.Fade;
+      import mx.events.DropdownEvent;
+      import mx.events.EffectEvent;
+      import mx.events.ListEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Cfx_Sel');
+
+      // *** Instance variables
+
+      public var selection_none:Boolean = true;
+      public var selection_some:Boolean = false;
+      public var selection_all:Boolean = false;
+
+      // The class keeps track of the current tool by a special index value
+      // which represents the combination of the basic and advanced collections
+      // I.e., for basic tools, the tool index is the index into the basic
+      // tools collection; for advanced tools, the tool index is the index
+      // into the advanced tools collection plus the size of the basic
+      // collection.
+
+      private var tool_by_index_:int = -1;
+
+      // Map Editing tool icons
+
+      // FIXME: The *_h icons are just copies of their complements
+
+      [Embed(source="/assets/img/checkbox_checked.png")]
+      public const checkbox_checked:Class;
+      [Embed(source="/assets/img/checkbox_checked_h.png")]
+      public const checkbox_checked_h:Class;
+
+      [Embed(source="/assets/img/checkbox_unchecked.png")]
+      public const checkbox_unchecked:Class;
+      [Embed(source="/assets/img/checkbox_unchecked_h.png")]
+      public const checkbox_unchecked_h:Class;
+
+      [Embed(source="/assets/img/checkbox_halfchecked.png")]
+      public const checkbox_halfchecked:Class;
+      [Embed(source="/assets/img/checkbox_halfchecked_h.png")]
+      public const checkbox_halfchecked_h:Class;
+
+      // XML Tool Lookups
+
+      // Three support classes, Combo_Box_V2, List_Disableable, and
+      // List_Item_Renderer_Disableable, expect dataProvider to be XML and for
+      // each item to contain certain XML elements, like icon, enabled, etc.
+
+      // NOTE The 'id's below need to match the keys in G.map.tool_dict
+
+      //
+      private var tools_advanced:XML = new XML(
+         <items>
+            <item
+               id="entry_checked"
+               label="Select All"
+               icon="checkbox_checked"
+               icon_selected="checkbox_checked_h"
+               enabled="true" />
+            <item
+               id="entry_unchecked"
+               label="Select None"
+               icon="checkbox_unchecked"
+               icon_selected="checkbox_unchecked_h"
+               enabled="true" />
+         </items>
+      );
+            //<item
+            //   id="entry_halfchecked"
+            //   label="Half Checked"
+            //   icon="checkbox_halfchecked"
+            //   icon_selected="checkbox_halfchecked_h"
+            //   enabled="false" />
+
+      // Determine the height of the shaded window by subtracting the height
+      // of the save box and also subtracting the VBox padding-top
+
+      protected var tool_palette_vbox_padding:int = 6;
+
+      // It's tricky to determine when the tool is changing and when the
+      // ComboBox is just getting initialized, etc. So we use a boolean that
+      // gets set when the user clicks a basic button or interacts with the
+      // dropdown.
+
+      // *** Event handles
+
+      protected function handle_on_creation_complete() :void
+      {
+         // HACK
+         this.update_by_index(0, true);
+         this.update_by_index(1, true);
+         // Default is none selected
+         this.selectedIndex = 1;
+      }
+
+      // Listens for dropdown close and updates the current tool.
+      protected function handle_on_dropdown_close(event:DropdownEvent) :void
+      {
+         // If the user used the dropdown but didn't change the selection,
+         // we still want to change to the current tool
+         //G.map.tool_choose(
+         //   this.tools_advanced.children()[this.selectedIndex].@id);
+      }
+
+      // Callback for advanced tool combobox changes
+      public function on_tool_change(event:ListEvent) :void
+      {
+         if (this.tools_advanced.children()[
+               event.target.selectedIndex].@enabled) {
+            //G.map.tool_choose(
+            //   this.tools_advanced.children()[event.target.selectedIndex].@id);
+         }
+      }
+
+      // *** Getters and setters
+
+      // Returns the tool index of the currently selected tool;
+      // similar to G.map.tool_cur, which is the tool's string id
+      public function get tool_by_index() :int
+      {
+         return this.tool_by_index_;
+      }
+
+      // Sets the current tools using the tool index. Manually deselects the
+      // old tool and highlights the new tool.
+      public function set tool_by_index(idx:int) :void
+      {
+         var old_index:int = this.tool_by_index_;
+         this.tool_by_index_ = idx;
+         // Clear the old tool selected highlight
+         if (old_index >= 0) {
+            this.setStyle("borderColor", "0xAAB3B3");
+            this.setStyle(
+               "fillColors",
+               [Conf.button_fill_light, Conf.button_fill_dark]);
+         }
+         // Set the new tool selected highlight
+         this.selectedIndex = idx;
+         this.setStyle("borderColor", Conf.button_highlight);
+         // NOTE This is a kludge -- I can't where in the code that this is
+         //      how the basic buttons behave, but they turn flat 0xCCCCCC
+         //      when selected
+         this.setStyle(
+            "fillColors", [Conf.button_fill_dark, Conf.button_fill_dark]);
+         // Reset the combobox highlight
+         //if (old_index >= 0) {
+         //   this.selectedIndex = this.selectedIndex;
+         //}
+      }
+
+      // *** Instance methods
+
+      // NOTE: Hacky override. Ignoring data item.
+      override public function item_to_icon(data:Object) :Class
+      {
+         var icon_class:Class = null;
+         if (this.selection_none) {
+            icon_class = this.checkbox_unchecked;
+         }
+         else if (this.selection_some) {
+            icon_class = this.checkbox_halfchecked;
+         }
+         else if (this.selection_all) {
+            icon_class = this.checkbox_checked;
+         }
+         m4_ASSERT_ELSE_SOFT;
+         m4_DEBUG('item_to_icon:', data, '/', icon_class);
+         return icon_class;
+      }
+
+      // Called by the ComboBox to get the list item icon. Returns either the
+      // selected or unselected icon.
+      protected function tools_advanced_get_icon(
+         item:Object, selected:Boolean = false) :Class
+      {
+         m4_DEBUG('tools_advanced_get_icon:', item, '/', selected);
+         // selected means the item is selected in the list during drop-down.
+         return this[item.@icon];
+      }
+
+      // FIXME: Move this fcn. to base class, and move advanced button to own
+      // class that also uses base class
+
+      // Called by the client to tell us which basic buttons and advanced list
+      // items are enabled or not. This way, we can update toolTips to reflect
+      // a tool's status, we can disable basic buttons, and we can grey-out
+      // and ignore disabled list items
+      public function update_by_index(idx:int, useable:Boolean) :void
+      {
+         this.tools_advanced.children()[idx].@enabled = useable;
+         this.dataProvider = this.tools_advanced..item;
+         if ((this.dataProvider.length > 0)
+               && (this.selectedIndex >= 0)
+               && (this.index_is_disabled(
+                           this.dataProvider[this.selectedIndex])) ) {
+            var forward:Boolean = false;
+            this.select_next_enabled(forward);
+            // FIXME I don't think this handles the case when all list items
+            // are disabled -- but the region create tool is always
+            // available, so this won't be known unless that's ever not the
+            // case.
+         }
+      }
+
+   ]]></mx:Script>
+
+</utils_misc:Combo_Box_V2>
+

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="432"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   borderAlpha="1"
+   layout="vertical"
+   title="Revert Selected Revisions"
+   defaultButton="{ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+      import mx.validators.StringValidator;
+
+      import gwis.GWIS_Revert;
+
+      // *** Instance variables
+
+      public var revs:Array;
+
+      protected var valid:Boolean;
+
+      // *** Init methods
+
+      //
+      public function init(revs:Array) :void
+      {
+         this.revs = revs;
+      }
+
+      // *** Instance methods
+
+      // Validate. If all checks out, submit revert request.
+      protected function submit_maybe(ok:Boolean) :void
+      {
+         this.valid = true;
+
+         summary_v.validate();
+
+         if (ok && this.valid) {
+            (new GWIS_Revert(this.revs, this.summary.text)).fetch();
+            PopUpManager.removePopUp(this);
+         }
+
+         if (!ok) {
+            PopUpManager.removePopUp(this);
+         }
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <!-- Multiple objects here because putting it all in one htmlText screws up
+        the spacing. -->
+
+   <mx:Text
+      width="100%"
+      condenseWhite="true">
+      <mx:htmlText><![CDATA[
+<b>Reverting a revision means:</b>
+
+<br>
+
+<li>Map features affected by the revision will be returned to the state they
+were in before the revision was made.</li>
+
+<li>Changes made to these features in revisions following the selected
+revisions will also be removed.</li>
+
+<li>Other parts of the map will be unaffected.</li>
+      ]]></mx:htmlText>
+   </mx:Text>
+
+   <mx:Text
+      width="100%"
+      text="Revert is saved as a normal revision: revision reverts can also be reverted. Reverting a revert is the same as doing nothing at all."/>
+
+   <mx:Label
+      fontWeight="bold"
+      text="Explain why you are reverting these {this.revs.length} revisions (required):"/>
+
+   <mx:TextInput
+      id="summary"
+      width="100%"/>
+
+   <mx:HBox
+      width="100%"
+      horizontalAlign="right">
+      <mx:Button
+         label="Cancel"
+         click="this.submit_maybe(false);"/>
+      <mx:Button
+         id="ok"
+         label="Revert Revisions"
+         click="this.submit_maybe(true);"/>
+   </mx:HBox>
+
+   <mx:StringValidator
+      id="summary_v"
+      required="true"
+      source="{summary}"
+      property="text"
+      invalid="this.valid = false;"/>
+
+</mx:TitleWindow>
+

@@ -1,0 +1,430 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- SIMILAR_TO: Floating_Tool_Palette.mxml -->
+
+<views_panel_base:Floating_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   xmlns:cp="*"
+   layout="absolute"
+   enable_left_right="false"
+   enable_up_down="false"
+   enable_close="false"
+   enable_resize="false"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   initialize="this.on_initialize(event)"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Alert;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Landmark_Exp_Fam_Put;
+      import gwis.GWIS_Landmark_Exp_Rt_Done;
+      import gwis.GWIS_Route_Get_Saved;
+      import items.Geofeature;
+      import items.feats.Route;
+      import items.utils.Landmark;
+      import utils.geom.Dual_Rect;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_routes.Landmark_Experiment_Feedback;
+      import views.panel_routes.Landmark_Experiment_Instructions;
+      import views.panel_routes.Panel_Routes_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Flt_Pnl');
+
+      //
+
+      protected static const header_hint_get_started:String =
+         '<b>Tip:</b> '
+         + 'Click the "Go to Next Route" button to get started.';
+
+      protected static const header_hint_locate_lmark:String =
+         '<b>Tip:</b> '
+         + 'In the list of Directions, click "Locate" '
+         + 'to go to that step on the map. '
+         + 'When you are done rating landmarks, click "Go to Next Route".';
+
+      protected static const header_hint_final_route:String =
+         '<b>Tip:</b> '
+         + "You're on the last route. "
+         + 'When you are done rating landmarks, click "Finish Experiment".';
+
+      protected static const header_hint_locate_route:String =
+         '<b>Tip:</b> '
+         + 'Click "Locate" next to the route name above to center '
+         + 'the route on the map and to open its details panel so '
+         + 'you can rate its landmarks.';
+
+      // *** Instance variables
+
+      public var active_route:Route;
+      public var active_route_user_id:Number;
+
+      // ***
+
+      //
+      protected function finish_experiment() :void
+      {
+         m4_DEBUG('finish_experiment: hide landmark exp floating panel');
+         G.map.landmark_exp_validation_active = false;
+         // Same as: G.app.landmark_experiment_panel.visible = false;
+         this.visible = false;
+         UI.popup(new Landmark_Experiment_Feedback());
+      }
+
+      //
+      protected function lookat_and_activate_route() :void
+      {
+         // Pan and zoom the map.
+         var mobr_dr:Dual_Rect = this.active_route.mobr_dr;
+         if (mobr_dr.valid) {
+            G.map.lookat_dr(mobr_dr);
+         }
+         else {
+            m4_WARNING2('lookat_and_activate_route: no mobr_dr?:',
+                        this.active_route);
+         }
+
+         // Activate the details panel/select the item.
+         this.active_route.set_filter_show_route(true, /*force=*/true);
+         m4_DEBUG2('lookat_and_activate_route: toggle active_route:',
+                   this.active_route);
+         this.active_route.set_selected(false);
+         this.active_route.set_selected(true, /*nix=*/false, /*solo=*/true);
+
+         // Later, we'll activate the cue sheet tab.
+         this.active_route.route_panel.tab_route_cue_sheet.addEventListener(
+            FlexEvent.CREATION_COMPLETE, this.set_tab, false, 0, true);
+
+         // As appropriate, we'll update the hint depending on the panel state.
+         // FIXME: [lb] wants to show the hint about getting the route panel
+         //        and cue sheet back if you navigate away or close it, but
+         //        the hide event isn't signaling. Is there another way to do
+         //        this? Maybe listen on items_selected changes, or something?
+         this.active_route.route_panel.addEventListener(FlexEvent.SHOW,
+                                             this.on_route_panel_show);
+         this.active_route.route_panel.addEventListener(FlexEvent.HIDE,
+                                             this.on_route_panel_hide);
+      }
+
+      //
+      protected function next_route() :void
+      {
+         if (G.map.landmark_exp_routes.length == 0) {
+            m4_DEBUG('next_route: no routes; returning');
+            return;
+         }
+
+         if (this.active_route !== null) {
+            m4_DEBUG('next_route: active route: sending landmark_exp_rt_done');
+            var gwis_done:GWIS_Landmark_Exp_Rt_Done =
+               new GWIS_Landmark_Exp_Rt_Done(this.active_route.system_id,
+                                             this.active_route_user_id);
+            G.map.update_supplemental(gwis_done);
+
+            // Discard the route so the new one is loaded (other clone_update
+            // skips, e.g., reloading route_steps (assuming it already has
+            // them for this route version)).
+            m4_DEBUG2('route_fetch_callback: disable active_route:',
+                      this.active_route);
+            this.active_route.set_filter_show_route(false, /*force=*/true);
+            this.active_route.set_selected(false, /*nix=*/true);
+            G.map.item_discard(this.active_route);
+            m4_ASSERT_SOFT(!(this.active_route.stack_id in Geofeature.all));
+            m4_ASSERT_SOFT(!(this.active_route.stack_id in Route.all));
+            this.active_route = null;
+         }
+
+         var route_system_id:int = G.map.landmark_exp_routes.pop();
+         this.active_route_user_id = G.map.landmark_exp_route_users.pop();
+         m4_TALKY2('next_route: active_route_user_id:',
+                   this.active_route_user_id);
+         var gwis_cmd:GWIS_Route_Get_Saved =
+            new GWIS_Route_Get_Saved(
+               /*route_stack_id=*/0,
+               /*caller_source=*/'landmark_exp',
+               /*callback_okay=*/this.route_fetch_callback,
+               /*callback_fail=*/null,
+               /*as_gpx=*/false,
+               /*check_invalid=*/false,
+               /*gia_use_sessid=*/false,
+               /*get_steps_and_stops=*/true,
+               /*compute_landmarks=*/true,
+               /*exp_landmarks_uid=*/this.active_route_user_id);
+         gwis_cmd.query_filters.only_system_id = route_system_id;
+
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_cmd);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function on_click(ev:MouseEvent) :void
+      {
+         // Stop panel from stealing focus.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_click_link_item_lookat() :void
+      {
+         if (this.active_route !== null) {
+            this.lookat_and_activate_route();
+         }
+         else {
+            // This might not be an error, but until we're sure, log a warn.
+            m4_WARNING('on_click_link_item_lookat: called early? no route');
+         }
+      }
+
+      // Callback for familiarity combobox changes
+      public function on_fam_change(obj:Object) :void
+      {
+         var selected:Object = this.familiarity_box.selectedItem;
+         var val:int = selected.value;
+         var gwis_cmd:GWIS_Landmark_Exp_Fam_Put =
+            new GWIS_Landmark_Exp_Fam_Put(this.active_route.system_id, val);
+         G.map.update_supplemental(gwis_cmd);
+      }
+
+      //
+      protected function on_initialize(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+      }
+
+      //
+      protected function on_route_panel_show(event:FlexEvent=null) :void
+      {
+         m4_DEBUG('on_route_panel_show: active_route:', this.active_route);
+         //m4_DEBUG5('on_route_panel_show: active_route:',
+         //        ((this.active_route !== null) ? this.active_route : 'null'),
+         //        '/ route_panel_:',
+         //        ((this.active_route !== null)
+         //          ? this.active_route.route_panel_ : 'null'));
+         this.instructions_text_box.htmlText =
+            Landmark_Experiment_Floating_Panel.header_hint_locate_lmark;
+      }
+
+      //
+      protected function on_route_panel_hide(event:FlexEvent=null) :void
+      {
+         m4_DEBUG('on_route_panel_hide: active_route:', this.active_route);
+         //m4_DEBUG5('on_route_panel_hide: active_route:',
+         //        ((this.active_route !== null) ? this.active_route : 'null'),
+         //        '/ route_panel_:',
+         //        ((this.active_route !== null)
+         //          ? this.active_route.route_panel_ : 'null'));
+         this.instructions_text_box.htmlText =
+            Landmark_Experiment_Floating_Panel.header_hint_locate_lmark;
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         if ((G.map.landmark_exp_validation_active) && (!G.user.logged_in)) {
+            m4_DEBUG('on_user_change: hide landmark exp floating panel');
+            G.map.landmark_exp_validation_active = false;
+            // Same as: G.app.landmark_experiment_panel.visible = false;
+            this.visible = false;
+         }
+         // else, since this floating panel always exists (though sometimes
+         //       it's not visible), just ignore user events otherwise.
+         // MAYBE: We could all addEventListener when the experiment is
+         //        enabled and removeEventListener when it's disabled,
+         //        or we could just not worry about it.
+      }
+
+      //
+      public function route_fetch_callback(gwis_req:GWIS_Route_Get_Saved,
+                                           route:Route) :void
+      {
+         if (route !== null) {
+
+            // [ft]: This was supposed to be set somewhere else, but during
+            // the code merge it stopped working and I'm not sure why
+            route.show_landmarks = true;
+            route.update_route_stats();
+            
+            m4_ASSERT_SOFT(route.stack_id in Route.all);
+            this.active_route = route;
+
+            this.lookat_and_activate_route();
+
+            // Show the title for this route and enable the familiarity
+            // drop-down.
+            this.route_title.htmlText =
+               '<b>' + this.active_route.name_ + '</b>';
+            this.route_info.visible = true;
+
+            this.set_next_rt_btn();
+
+            // MAGIC_NUMBER: Hack for part 2 - 
+            //                Only change when we change to a new route.
+            if (G.map.landmark_exp_routes.length % 3 == 2) {
+               this.familiarity_box.selectedIndex = 0;
+            }
+         }
+      }
+
+      //
+      public function set_next_rt_btn() :void
+      {
+
+         m4_DEBUG2('set_next_rt_btn: landmark_exp_routes.len:',
+                   G.map.landmark_exp_routes.length);
+
+         if (G.map.landmark_exp_routes.length > 0) {
+            // Landmark.experiment_count is, e.g., 5.
+            this.next_rt_btn.label =
+               'Go to Next Route ('
+               + ((Landmark.experiment_count + 1)
+                  - G.map.landmark_exp_routes.length)
+               + ' of ' + Landmark.experiment_count + ')';
+            if (this.active_route !== null) {
+               if (this.active_route.route_panel_ !== null) {
+                  this.instructions_text_box.htmlText =
+                     Landmark_Experiment_Floating_Panel
+                        .header_hint_locate_lmark;
+               }
+               else {
+                  this.instructions_text_box.htmlText =
+                     Landmark_Experiment_Floating_Panel
+                        .header_hint_locate_route;
+               }
+            }
+            else {
+               this.instructions_text_box.htmlText =
+                  Landmark_Experiment_Floating_Panel.header_hint_get_started;
+            }
+         }
+         else {
+            this.next_rt_btn.enabled = false;
+            this.instructions_text_box.htmlText =
+               Landmark_Experiment_Floating_Panel.header_hint_final_route;
+         }
+      }
+
+      //
+      public function set_tab(ev:FlexEvent):void
+      {
+         this.active_route.route_panel.route_tabs.selectedChild =
+            this.active_route.route_panel.tab_route_cue_sheet;
+         this.active_route.route_panel.tab_route_cue_sheet.removeEventListener(
+            FlexEvent.CREATION_COMPLETE, this.set_tab);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="195"
+      paddingLeft="3"
+      paddingTop="6"
+      paddingRight="3"
+      paddingBottom="2"
+      verticalGap="3"
+      horizontalAlign="center">
+
+      <mx:VBox
+         id="route_info"
+         width="100%"
+         paddingBottom="5"
+         visible="false"
+         includeInLayout="{this.route_info.visible}">
+
+         <mx:HBox
+            width="100%"
+            horizontalGap="3"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            verticalAlign="bottom">
+            <mx:Text
+               width="100%"
+               id="route_title"/>
+            <views_panel_util:Hyper_Link
+               id="link_item_lookat"
+               paddingLeft="0"
+               paddingTop="0"
+               htmlText="Locate"
+               toolTip="Click to find the route on the map and open its panel."
+               styleName="labelminor"
+               visible="true"
+               includeInLayout="{this.link_item_lookat.visible}"
+               click="this.on_click_link_item_lookat();"/>
+         </mx:HBox>
+         <mx:Text
+            width="100%"
+            id="familiarity_text"
+            htmlText="How familiar are you with this route?"/>
+
+         <!-- MAGIC_NUMBER: rowCount="6" matches what's in Array, belower. -->
+         <mx:ComboBox
+            id="familiarity_box"
+            width="100%"
+            rowCount="6"
+            click="this.on_click(event);"
+            fontWeight="normal"
+            change="this.on_fam_change(event);">
+            <mx:dataProvider>
+               <mx:Array>
+                  <mx:Object
+                     value="-1"
+                     label="Unsure"/>
+                  <mx:Object
+                     value="2"
+                     label="A lot"/>
+                  <mx:Object
+                     value="1"
+                     label="Somewhat"/>
+                  <mx:Object
+                     value="0"
+                     label="Not at all"/>
+               </mx:Array>
+            </mx:dataProvider>
+         </mx:ComboBox>
+
+      </mx:VBox> <!-- end: route_info -->
+
+      <mx:Text
+         id="instructions_text_box"
+         width="100%"
+         htmlText=
+            "{Landmark_Experiment_Floating_Panel.header_hint_get_started}">
+      </mx:Text>
+
+      <mx:Button
+         id="next_rt_btn"
+         width="100%"
+         label="Go to Next Route"
+         click="this.next_route();"/>
+
+      <mx:Button
+         width="100%"
+         label="Instructions"
+         click="UI.popup(new Landmark_Experiment_Instructions());"/>
+
+      <mx:Button
+         width="100%"
+         label="Finish Experiment"
+         click="this.finish_experiment();"/>
+
+   </mx:VBox>
+
+</views_panel_base:Floating_Panel_Base>
+

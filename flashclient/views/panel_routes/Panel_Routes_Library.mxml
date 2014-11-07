@@ -1,0 +1,625 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Panel_Routes_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.TextEvent;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Button;
+      import mx.containers.VBox;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.IndexChangedEvent;
+
+      import gwis.GWIS_Checkout_Base;
+      import gwis.utils.Query_Filters;
+      import items.feats.Route;
+      import utils.misc.Data_Change_Event;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.panel_base.Detail_Panel_Base;
+      // Not necessary: import views.panel_routes.Route_List;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rts_Lib');
+
+      // *** Instance variables
+
+      protected var searched_on_text:String = null;
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(ev);
+      }
+
+      // *** Base class overrides
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         // this.register_widgets([
+         //   ]);
+
+         this.dp.addEventListener(FlexEvent.HIDE, this.on_hide_event_,
+                                  false, 0, true);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         if (G.user.logged_in) {
+            this.search_label.text = 'Search In:';
+            this.search_my_routes.visible = true;
+            this.search_my_routes.includeInLayout = true;
+            this.search_other_routes.visible = true;
+            this.search_other_routes.includeInLayout = true;
+         }
+         else {
+            this.search_label.text = 'Search:';
+            this.search_my_routes.selected = true;
+            this.search_my_routes.visible = false;
+            this.search_my_routes.includeInLayout = false;
+            this.search_other_routes.selected = true;
+            this.search_other_routes.visible = false;
+            this.search_other_routes.includeInLayout = false;
+         }
+      }
+
+      //
+      override public function get route_list_pager() :Paginator_Widget
+      {
+         return this.routes_list_pager;
+      }
+
+      //
+      override public function get_route_list_key() :Route_List_Key
+      {
+         return this.route_list_key;
+      }
+
+      //
+      override public function get_route_list_widget() :Route_List
+      {
+         return this.search_routes;
+      }
+
+      //
+      override public function get_uncheck_all_btn() :Button
+      {
+         return this.uncheck_all_btn;
+      }
+
+      // ***
+
+      //
+      override protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching routes list');
+         this.fetch_list();
+      }
+
+      //
+      override public function on_filter_cbox_changed(
+         at_least_one_checked:Boolean=false)
+            :Array
+      {
+         var arr:Array = super.on_filter_cbox_changed(at_least_one_checked);
+         return arr;
+      }
+
+      //
+      // Named as such, with underscore, to differentiate from base class fcn.
+      protected function on_hide_event_(ev:FlexEvent) :void
+      {
+         m4_DEBUG2('on_hide_event_: effectively_active_panel:',
+                   G.panel_mgr.effectively_active_panel);
+         // This doesn't make sense... [lb] wants not to deselect the route
+         // when changing to its details panel.
+         //var force_reset:Boolean = true;
+         //var dont_deselect:* = this.dp.items_selected;
+         //this.dp.panel_selection_clear(force_reset, dont_deselect);
+      }
+
+
+      //
+      override protected function rte_results_load(
+         rte_results:ArrayCollection)
+            :void
+      {
+         super.rte_results_load(rte_results);
+
+         this.search_result_title.visible = true;
+         this.search_result_title.includeInLayout = true;
+
+         if (rte_results.length > 0) {
+            if (this.searched_on_text !== null) {
+               this.search_result_title.htmlText
+                  = '<b>Results for:</b> '
+                    + '"' + this.searched_on_text + '"';
+               this.search_result_title.visible = true;
+               this.search_result_title.includeInLayout = true;
+            }
+            else if ((this.search_my_routes.selected)
+                  && (!this.search_other_routes.selected)) {
+               this.search_result_title.htmlText
+                  = '<b>Found all your routes</b>';
+            }
+            else if ((!this.search_my_routes.selected)
+                  && (this.search_other_routes.selected)) {
+               this.search_result_title.htmlText
+                  = "<b>Found other people's routes</b>";
+            }
+            else {
+               this.search_result_title.htmlText
+                  = "<b>Found everyone's routes</b>";
+            }
+         }
+         else {
+            if (this.searched_on_text !== null) {
+               this.search_result_title.htmlText
+                  = '<b>Nothing found for:</b> '
+                    + '"' + this.searched_on_text + '"';
+               this.search_result_title.visible = true;
+               this.search_result_title.includeInLayout = true;
+            }
+            else {
+               this.search_result_title.htmlText
+                  = "<b>No routes found</b>";
+            }
+            this.route_list_pager.records_total_count = 0;
+            this.route_list_pager.update_pagination_text();
+         }
+      }
+
+      //
+      override public function fetch_list() :void
+      {
+         // Not calling: super.fetch_list();
+
+         this.reset_find.enabled = false;
+
+         // Annoying that we disable the search button:
+         //  this.search_routes_find.enabled = false;
+
+         var qfs:Query_Filters = new Query_Filters();
+
+         /*/ NOTE: Instead of using creator_include or creator_exclude, you can
+                   get very similar (or the same) search results using
+                   Access_Level restrictions, e.g.,
+                     if (this.search_my_routes.selected) {
+                        qfs.min_access_level = Access_Level.arbiter;
+                     }
+                     if (this.search_other_routes.selected) {
+                        qfs.max_access_level = Access_Level.editor;
+                     }
+                   but this is rather hokey.
+         /*/
+         var nothing_to_search:Boolean = false;
+         if (!G.map.basics_loaded) {
+            m4_DEBUG('fetch_list: called early: not basics_loaded');
+            nothing_to_search = true;
+         }
+         else if (G.user.logged_in) {
+            if ((this.search_my_routes.selected)
+                && (!this.search_other_routes.selected)) {
+               qfs.filter_by_creator_include = G.user.username;
+               this.reset_find.enabled = true;
+            }
+            else if ((!this.search_my_routes.selected)
+                && (this.search_other_routes.selected)) {
+               qfs.filter_by_creator_exclude = G.user.username;
+               this.reset_find.enabled = true;
+            }
+            else if ((!this.search_my_routes.selected)
+                && (!this.search_other_routes.selected)) {
+               nothing_to_search = true;
+               this.reset_find.enabled = true;
+            }
+            // else, both selected, so don't filter on created_user.
+         }
+         // else, doesn't matter what's selected, user is anoymous.
+
+         if (!nothing_to_search) {
+            this.fetch_list_really(qfs);
+         }
+         else {
+            this.route_list_pager.records_total_count = 0;
+            this.rte_results_load(new ArrayCollection());
+         }
+      }
+
+      //
+      override public function fetch_list_really(qfs:Query_Filters) :void
+      {
+         // BUG nnnn: Search by route length.
+         //             var min_len:String;
+         //             var max_len:String;
+
+         if (this.search_text.text != '') {
+            qfs.filter_by_text_smart = this.search_text.text;
+            this.searched_on_text = this.search_text.text;
+            this.reset_find.enabled = true;
+         }
+         else {
+            this.searched_on_text = null;
+         }
+
+         if (Conf_Instance.debug_goodies) {
+            if (this.fbil_ignore.selected) {
+               qfs.findability_ignore = true;
+               if (this.fbil_ignore_include_deleted.selected) {
+                  qfs.findability_ignore_include_deleted = true;
+               }
+            }
+         }
+
+         super.fetch_list_really(qfs);
+      }
+
+      // ***
+
+      //
+      protected function on_change_search_filters() :void
+      {
+         m4_DEBUG('on_change: my_routes:', search_my_routes.selected);
+         m4_DEBUG('on_change: other_routes:', search_other_routes.selected);
+      }
+
+      //
+      protected function on_hide_all_routes_click() :void
+      {
+         this.search_routes.toggle_all_check(/*filter=*/false);
+      }
+
+      //
+      protected function on_click_search_filters() :void
+      {
+         m4_DEBUG('on_click: my_routes:', search_my_routes.selected);
+         m4_DEBUG('on_click: other_routes:', search_other_routes.selected);
+         // I think we can use the change event... but I'm curious about
+         // timing. Also, flashclient usually hooks a CheckBox's click event,
+         // which seems weird -- does that fire before or after selected
+         // changes?
+         this.query_filters = null; // Trick self in2 call'g fetch_count_really
+         this.route_list_pager.current_page_number = 1;
+         this.fetch_list();
+      }
+
+      //
+      protected function on_search_change(event:Event) :void
+      {
+         m4_DEBUG('on_search_change: event:', event.toString());
+         m4_DEBUG('on_search_change: type:', event.type);
+         m4_DEBUG('on_search_change: target:', event.target);
+         m4_DEBUG('on_search_change: text:', this.search_text.text);
+         var is_enabled:Boolean = false;
+         if ((   (!G.user.logged_in)
+              || (this.search_my_routes.selected)
+              || (this.search_other_routes.selected))
+             && (this.search_text.text != '')) {
+            is_enabled = true;
+         }
+         m4_DEBUG('on_search_change: find is_enabled:', is_enabled);
+         // Twiddle the Find button.
+         this.search_routes_find.enabled = is_enabled;
+      }
+
+      //
+      protected function reset_routes_list() :void
+      {
+         m4_VERBOSE('reset_routes_list');
+         if (this.reset_find.enabled) {
+            // Reset all fields to query all routes.
+            if (G.user.logged_in) {
+               this.search_my_routes.selected = true;
+            }
+            this.search_other_routes.selected = true;
+            this.search_text.text = '';
+            this.search_result_title.htmlText = '';
+            this.search_result_title.visible = false;
+            this.search_result_title.includeInLayout = false;
+            //
+            this.fetch_list();
+         }
+         else {
+            m4_WARNING('reset_routes_list: reset_find not enabled');
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="library"
+      width="100%"
+      height="100%"
+      horizontalScrollPolicy="off">
+
+      <mx:VBox
+         width="100%"
+         horizontalGap="0"
+         verticalGap="0">
+         <mx:Text
+            mouseChildren="false"
+            mouseEnabled="false"
+            condenseWhite="true"
+            width="100%"
+            visible="{!G.user.logged_in}"
+            includeInLayout="{!G.user.logged_in}"
+            >
+            <mx:htmlText><![CDATA[
+               Search for routes saved by you and other users.
+               Login to share your own routes.
+            ]]></mx:htmlText>
+         </mx:Text>
+      </mx:VBox>
+
+      <mx:HRule
+         width="100%"
+         strokeWidth="1"/>
+
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle"
+         visible="{G.user.logged_in}"
+         includeInLayout="{G.user.logged_in}"
+         >
+         <mx:Label
+            id="search_label"
+            text="Search In:"
+            fontWeight="bold"/>
+         <mx:CheckBox
+            id="search_my_routes"
+            label="My routes"
+            toolTip="Search routes I've made and saved, private and shared."
+            selected="true"
+            change="this.on_change_search_filters();"
+            click="this.on_click_search_filters();"
+            />
+         <mx:CheckBox
+            id="search_other_routes"
+            label="Everyone's routes"
+            toolTip=
+               "Search everyone else's shared routes, not including my routes."
+            selected="true"
+            change="this.on_change_search_filters();"
+            click="this.on_click_search_filters();"
+            />
+      </mx:HBox>
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle">
+         <!-- dataChange fires on enter, but not on typing. And
+         <    textInput fires when the user enters text, before the text
+         <    property is updated. So use the change event. -->
+         <mx:TextInput
+            id="search_text"
+            width="100%"
+            enter="this.fetch_list();"
+            change="this.on_search_change(event);"
+            />
+         <!-- Statewide UI: UI2: Changes:
+         <views_panel_util:Button_Small
+            id="search_routes_find"
+            label="Find"
+            click="this.fetch_list();"
+            enabled="false"
+            />
+         -->
+         <views_panel_util:Button_Small
+            id="search_routes_find"
+            icon="@Embed(source='/assets/img/icon_tabs_search_small.png')"
+            height="25"
+            width="25"
+            paddingLeft="-1"
+            cornerRadius="0"
+            click="this.fetch_list();"
+            enabled="false"
+            />
+      </mx:HBox>
+      <mx:HBox
+         width="100%">
+         <mx:HBox
+            width="{this.search_text.width}">
+            <mx:HBox
+               width="100%">
+               <mx:Text
+                  selectable="false"
+                  styleName="labelminor"
+                  width="100%"
+                  condenseWhite="true">
+                  <mx:htmlText><![CDATA[
+                     e.g. <i>hilly</i> or <i>luce line</i>
+                  ]]></mx:htmlText>
+                  <!--
+                     e.g. <i>hilly</i> or <i>leisurely and scenic</i>
+                  -->
+               </mx:Text>
+            </mx:HBox>
+            <mx:HBox
+               horizontalAlign="right"
+               paddingRight="4"
+               >
+               <views_panel_util:Hyper_Link
+                  id="reset_find"
+                  htmlText="&lt;i&gt;Reset Search&lt;/i&gt;"
+                  toolTip="Reset the search operation and look for all routes."
+                  enabled="false"
+                  visible="{this.reset_find.enabled}"
+                  includeInLayout="{this.reset_find.visible}"
+                  click="this.reset_routes_list();"/>
+            </mx:HBox>
+         </mx:HBox>
+      </mx:HBox>
+
+      <!-- BUG nnnn: [ml] Add custom filters, such as length, by-user,
+                          start/end/pass through a specific region. -->
+
+      <mx:HBox
+         width="100%"
+         horizontalGap="0"
+         verticalAlign="bottom"
+         horizontalAlign="right"
+         paddingLeft="0"
+         paddingRight="7"
+         paddingTop="0"
+         paddingBottom="0"
+         >
+         <mx:Text
+            id="search_result_title"
+            selectable="false"
+            styleName="labelminor"
+            width="100%"
+            condenseWhite="true"
+            visible="false"
+            includeInLayout="true"
+            />
+         <!--
+         Using a spacer competes with the Text object.
+         The "problem" is that the checkbox is left-aligned until the Text is
+         included in the Layout... so either always include in the layout, or
+         use horizontalAlign="right".
+            includeInLayout="{this.search_result_title.visible}"
+         <mx:Spacer
+            width="100%"/>
+         -->
+
+<!-- BUG_JUL_2014/FIXME: Make opt. to enable debug_goodies via settings panels.
+                         Also: The "Include archived" and "and deleted" options
+                               don't work. -->
+
+         <mx:CheckBox
+            id="fbil_ignore"
+            label="Include archived"
+            toolTip="Include routes that are normally hidden."
+            selected="false"
+            change="this.on_change_search_filters();"
+            click="this.on_click_search_filters();"
+            visible="{Conf_Instance.debug_goodies}"
+            includeInLayout="{this.fbil_ignore.visible}"
+            />
+         <mx:CheckBox
+            id="fbil_ignore_include_deleted"
+            label="and deleted"
+            toolTip="Include routes that are deleted, too."
+            selected="false"
+            change="this.on_change_search_filters();"
+            click="this.on_click_search_filters();"
+            visible="{this.fbil_ignore.selected}"
+            includeInLayout="{this.fbil_ignore.selected}"
+            />
+      </mx:HBox>
+
+      <!-- BUG nnnn: [lb] Better Search: Show suggestions and results while
+                          user types. -->
+
+      <!-- MAYBE: Better route search options. Use Filter_Combobo_Widget? -->
+
+      <views_panel_routes:Route_List
+         id="search_routes"
+         width="100%"
+         height="100%"
+         added="this.on_added_renderer_maybe(event);"
+         />
+
+      <mx:HBox
+         width="100%"
+         horizontalGap="0"
+         verticalAlign="middle"
+         >
+
+         <views_panel_util:Button_Small
+            id="uncheck_all_btn"
+            label="Uncheck All"
+            enabled="false"
+            click="this.on_hide_all_routes_click();"
+            toolTip=
+   "Uncheck all routes in the list. Checked routes are shown on the map."/>
+
+<!-- FIXME/BUG nnnn: When searching routes, paginator not always updated. -->
+         <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                        and Panel_Routes_Looked_At. -->
+         <views_panel_util:Paginator_Widget
+            id="routes_list_pager"
+            width="100%"
+            horizontalAlign="right"
+            paddingLeft="0"
+            paddingRight="1"
+            paddingTop="3"
+            paddingBottom="1"
+            horizontalGap="0"
+            visible="true"
+            includeInLayout="{this.routes_list_pager.visible}"
+            />
+         
+      </mx:HBox>
+
+      <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                     and Panel_Routes_Looked_At. -->
+      <mx:HBox
+         width="100%"
+         horizontalGap="0"
+         horizontalAlign="left"
+         >
+         <mx:CheckBox
+            id="uncheck_on_panel_close"
+            label="{Panel_Routes_Base.uncheck_on_panel_close_label}"
+            toolTip=
+   "When you close a route panel, Cyclopath will also remove the route from the map. If this is unchecked, after closing the route panel, if the route is in the list above and its checkbox is checked, Cyclopath will continue to show the route on the map."
+            selected="{Panel_Routes_Base.hide_routes_on_panel_closed}"
+            click="this.on_uncheck_on_panel_close_click(event);"
+            />
+         <!--
+         <mx:Spacer
+            width="100%"/>
+         -->
+         <mx:Spacer
+            width="7"/>
+         <mx:CheckBox
+            id="recalculate_stale_routes"
+            label="{Panel_Routes_Base.recalculate_routes_on_fetch_label}"
+            toolTip=
+   "If the roads that a route uses have been edited, we'll update the route when you load it. We'll run the route finder on the segments that have changed using the settings that were originally used to find the route. Note that this can slow down route checkout, so uncheck this option if you'd like to manually update each route -- just look for the Update Route button on the route's details panel."
+            selected="{Panel_Routes_Base.recalculate_routes_on_fetch}"
+            click="this.on_recalculate_routes_on_fetch_click(event);"
+            />
+      </mx:HBox>
+
+      <!-- Key -->
+      <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                     and Panel_Routes_Looked_At. -->
+      <mx:HRule
+         width="100%"
+         strokeWidth="1"/>
+      <views_panel_routes:Route_List_Key
+         id="route_list_key"/>
+
+   </mx:VBox>
+
+</views_panel_routes:Panel_Routes_Base>
+

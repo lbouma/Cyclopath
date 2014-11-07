@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# This script should be auto-started on boot. See /etc/init.d/cyclopath-mr_do.
+
+DEBUG_TRACE=false
+#DEBUG_TRACE=true
+
+IGNORE_ME="""
+
+# You bash scripts should set these: httpd_user, PYTHONPATH, PYSERVER_HOME
+
+# New Cycloplan demo:
+INSTANCE=minnesota___cycloplan_live
+
+# [lb]'s dev service:
+INSTANCE=minnesota___cp_2628
+
+svccmd=restart
+cd $cp/services
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $cp/services/mr_doctl \
+  $svccmd
+
+
+
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $cp/services/mr_doctl \
+  stop
+
+# FIXME: What about the /etc/init.d/ service?
+
+# Test TERM:
+
+ps aux | grep mr_do.py | grep /usr/bin/python | awk '{print $2}' | xargs sudo kill -s 15
+
+"""
+
+if [[ -z "$PYSERVER_HOME" ]]; then
+  echo "ERROR: Please set the PYSERVER_HOME environment variable."
+  exit 1
+fi
+
+# Load the common Cyclopath service script.
+$DEBUG_TRACE && echo "Loading: ${PYSERVER_HOME}/../services/ccpctl"
+. $PYSERVER_HOME/../services/ccpctl
+
+# Daemon path and action
+DAEMON_PATH=$PYSERVER_HOME/../services/mr_do.py
+DAEMON_CMD=""
+
+if [[ ! -x "$DAEMON_PATH" ]]; then
+  echo "can't find mr_do or it's not executable"
+  exit 1
+fi
+
+# Arguments for mr_do
+ARGS=""
+
+# FIXME: Specify $INSTANCE and $PYSERVER_HOME this way?
+
+while [[ "$1" != "" ]]; do
+   case $1 in
+      --no-daemon)
+         ARGS="$ARGS --no-daemon"
+         shift
+         ;;
+      --listen_port)
+         ARGS="$ARGS --listen_port=${LISTEN_PORT}"
+         shift 2
+         ;;
+      --listen_port=?*)
+         LISTEN_PORT=${1#--listen_port=}
+         ARGS="$ARGS --listen_port=${LISTEN_PORT}"
+         shift
+         ;;
+      --help)
+         echo "$0: Usage: mr_doctl [opts] {daemon-command}"
+         echo ""
+         echo "Where [opts] is one or more of the following switches:"
+         echo "  --listen_port=[port_num]"
+         echo ""
+         echo "And {daemon-command} is one of [start, stop, restart, status]"
+         echo
+         ${DAEMON_PATH} --help
+         echo
+         exit 1
+         ;;
+      *)
+         if [[ "$DAEMON_CMD" != "" ]]; then
+            echo "$0: Usage: mr_doctl [opts] {daemon-command}"
+            echo "Error: Two or more cmds specified: '$DAEMON_CMD' and '$1'."
+            echo "Try 'mr_doctl --help' for more."
+            exit 1
+         else
+            DAEMON_CMD=$1
+            shift
+         fi
+         ;;
+   esac
+done
+
+if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+   if [[ "$DAEMON_CMD" == "" ]]; then
+      DAEMON_CMD=$LAST_SPLIT_ARG
+   else
+      echo "Error: Two+ cmds specified: '$DAEMON_CMD' and '$LAST_SPLIT_ARG'."
+   fi
+   LAST_SPLIT_ARG=""
+fi
+
+# mr_do_pid_dir is defined in pyserver/CONFIG, generally as /tmp.
+PIDDIR=`grep mr_do_pid_dir $PYSERVER_HOME/CONFIG | cut -d' ' -f2`
+
+# SYNC_ME: Search: mr_do PID filename.
+PIDFILE="$PIDDIR/mr_do-pid-$INSTANCE"
+
+# Arguments to add
+ARGS="$ARGS"
+
+# FIXME: Remove this trace output
+$DEBUG_TRACE && echo "mr_doctl: PIDFILE: $PIDFILE"
+$DEBUG_TRACE && echo "mr_doctl: DAEMON_PATH: $DAEMON_PATH"
+$DEBUG_TRACE && echo "mr_doctl: PYSERVER_HOME: $PYSERVER_HOME"
+$DEBUG_TRACE && echo "mr_doctl: INSTANCE: $INSTANCE"
+$DEBUG_TRACE && echo "mr_doctl: ARGS: $ARGS"
+$DEBUG_TRACE && echo "mr_doctl: DAEMON_CMD: $DAEMON_CMD"
+
+max_wait_seconds=10
+
+ccpctl_go $max_wait_seconds
+
+exit 0
+

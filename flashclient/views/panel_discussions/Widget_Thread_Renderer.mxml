@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="4"
+   paddingRight="4"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   click="this.on_open_click();"
+   dataChange="this.on_data_change(event);"
+   toolTip="Click to open this discussion.">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import grax.User;
+      import items.attcs.Thread;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Thr_Ren');
+
+      // *** Instance variables
+
+      protected var thread:Thread;
+
+      // *** Instance methods
+
+      protected static var debug_counter:int = 0;
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         m4_ASSERT(G.app !== null);
+         if ((this.data === null) || (G.app === null)) {
+            m4_DEBUG('on_data_change: EARLY!');
+            return;
+         }
+
+         // Player session terminated
+         // 2013.02.01: Error: Error #1502: A script has executed for longer
+         //                    than the default timeout period of 15 seconds.
+
+         this.thread = this.data as Thread;
+
+         m4_DEBUG('on_data_change: thread:', this.thread);
+
+         Widget_Thread_Renderer.debug_counter += 1;
+         if (Widget_Thread_Renderer.debug_counter == 95) {
+            //G.break_here();
+            // break Widget_Thread_Renderer.mxml:64
+            Widget_Thread_Renderer.debug_counter += 0;
+            //m4_ASSERT(false);
+         }
+
+         this.thread_title.text = this.thread.name_;
+
+         var post_s_:String = Inflector.pluralize(
+            'post', this.thread.count_posts_total != 1);
+
+         var last_poster:String;
+         if (!this.thread.last_post_username) {
+            //m4_ASSERT_SOFT(false);
+            last_poster = 'anonymous';
+         }
+         else if (!User.is_anonymous(this.thread.last_post_username)) {
+            // Note that, for posts, we'd use edited_host or edited_addr, but
+            // for threads, the server sends a friendly munged name-or-host/ip.
+            last_poster = this.thread.last_post_username;
+         }
+         else {
+            last_poster = 'anonymous';
+         }
+
+         this.whowhen.text =
+            this.thread.count_posts_total
+            + ' ' + post_s_ + ', '
+            + this.thread.count_posts_unread
+            //+ ' unread, last post by '
+            + ' unread, latest by '
+            //+ this.thread.last_post_username
+            + last_poster
+            + ' on '
+            + this.thread.last_post_timestamp
+            ;
+
+         this.toolTip = '"' + this.thread.name_ + '": '
+                        + this.whowhen.text
+                        + '. Click to open this discussion.';
+
+         if (this.thread.count_posts_unread) {
+            this.thread_title.setStyle('fontWeight', 'bold');
+         }
+         else {
+            this.thread_title.clearStyle('fontWeight');
+         }
+
+         // FIXME: What about this.thread.last_post_body ??
+
+         if ((this.thread.likes > 0) || (this.thread.dislikes > 0)) {
+            if (this.thread.likes >= this.thread.dislikes) {
+               this.like.visible = true;
+               this.like.includeInLayout = true;
+               this.dislike.visible = false;
+               this.dislike.includeInLayout = false;
+            }
+            else {
+               this.like.visible = false;
+               this.like.includeInLayout = false;
+               this.dislike.visible = true;
+               this.dislike.includeInLayout = true;
+            }
+         }
+         else {
+            this.like.visible = false;
+            this.like.includeInLayout = false;
+            this.dislike.visible = false;
+            this.dislike.includeInLayout = false;
+         }
+
+         // FIXME: Can we delete reset_datagrid_height? This is never needed?
+         //   this.thread.detail_panel.reset_datagrid_height();
+      }
+
+      //
+      protected function on_open_click() :void
+      {
+         G.tabs.discussions.thread_open(this.thread);
+         // Debold the title.
+         this.thread_title.clearStyle('fontWeight');
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      verticalAlign="middle"
+      horizontalGap="2"
+      paddingBottom="1"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:Image
+         id="like"
+         visible="false"
+         includeInLayout="{this.like.visible}"
+         source="@Embed('/assets/img/icon_tags_bonus.png')"/>
+      <mx:Image
+         id="dislike"
+         visible="false"
+         includeInLayout="{this.dislike.visible}"
+         source="@Embed('/assets/img/icon_tags_penalty.png')"
+         />
+
+      <!-- NOTE: Default text to a space for the height of the itemRenderer is
+      <          calculated properly. -->
+      <mx:Label
+         id="thread_title"
+         text=" "
+         width="100%"
+         minWidth="0"
+         paddingTop="-2"
+         paddingBottom="-3"
+         />
+
+   </mx:HBox>
+
+   <mx:HBox
+      width="100%"
+      horizontalGap="0"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+      <!-- NOTE: Default text to a space for the height of the itemRenderer is
+      <          calculated properly. -->
+      <mx:Label
+         id="whowhen"
+         text=" "
+         width="100%"
+         styleName="small"
+         paddingLeft="6"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

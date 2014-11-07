@@ -1,0 +1,288 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+<!-- This makes Facebook sharing work right. -->
+<meta name="title" content="Cyclopath" />
+<meta name="description" content="Find bike routes that match the way you ride. Share your cycling knowledge with the community. Discover your path at cyclopath.org." />
+<link rel="image_src" href="http://cyclopath.org/images/logo-icon.png" />
+
+<title>Cyclopath</title>
+
+<!-- Description and Tags -->
+
+<!-- Stylesheets -->
+<link rel="stylesheet" type="text/css" href="index.css" />
+
+<!--[if IE 7]>
+<style type="text/css">
+  td.label label{ position: relative; top: -8px; }
+</style>
+<![endif]-->
+
+<!-- JavaScripts -->
+<!-- see http://encosia.com/2008/12/10/3-reasons-why-you-should-let-google-host-jquery-for-you/ -->
+<script type="text/javascript" 
+        src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js"></script>
+</head>
+
+<body>
+<!-- SYNC_ME: Search hostname. -->
+<div id="container">
+  <div id="header">
+    <ul id="topNav">
+      <li><a id="exploreMap" href="http://cycloplan.cyclopath.org">map</a></li>
+      <li><a href="/wiki/Thanks">our team</a></li>
+      <li><a href="/wiki/User_Agreement">
+          privacy</a></li>
+      <li><a href="/wiki/Geowiki_Help">
+          help & demos</a></li>
+      <!-- Disabled 2014.02.21: Looks tacky, and we haven't sold a single shirt
+                                expect those bought for the team back in 2010.
+      <li><a href="http://cyclopath.spreadshirt.com">
+          buy goodies</a></li>
+      -->
+      <li><a href="https://market.android.com/details?id=org.cyclopath.android">
+          android app</a></li>
+      <li><a href="http://www.twitter.com/cyclopath_hq">
+          <img class="twitter"
+               src="http://twitter-badges.s3.amazonaws.com/t_small-c.png" 
+               alt="Follow cyclopath on Twitter"/></a></li>
+    </ul>
+  </div>
+  <div id="main">
+    <h1><img src="images/logo.png" alt="Cyclopath"/></h1>  
+    <div class="two columns">
+      <div id="about" class="column one">
+        <p>
+        Find bike routes that match<br/>
+        the way you ride.</p>
+        <p>Share your cycling knowledge<br/>
+        with the community.</p>
+        <a id="enterMap" title="explore the map" href="http://cycloplan.cyclopath.org" >
+        explore the map</a>
+      </div>
+      <div id="findRoute" class="column  two">
+        <h2>find a route in Minnesota</h2>
+        <form id="routeForm" action="http://cycloplan.cyclopath.org?source=homepage#route?">
+        <input type="hidden" name="auto_find" value="true" />
+        <table summary="Find a route with cyclopath.">
+          <tr><td class="label"><label for="begin-address" >begin</label></td>
+              <td class="addrwrap">
+                  <label for="from_addr">address, intersection, point</label>
+                  <input class="required addr field" name="from_addr" 
+                         title="The start point for the route." />
+              </td></tr>
+          <tr><td class="label"><label for="end-address">end</label></td>
+              <td class="addrwrap">
+                  <label for="to_addr">address, intersection, point</label>
+                  <input class="required addr field" name="to_addr" 
+                         title="The end point for the route." />
+              </td></tr>
+          <tr>
+            <td colspan="2">
+            <div id="formError">please enter a begin and end address</div>
+            <!--
+            <div id="disclaimer">Cyclopath is available<br/>
+                                 for the State of Minnesota.</div>
+            -->
+            <input class="submit" type="submit" 
+                   value="Find Route" title="Find a route with cyclopath."/>
+          </td></tr>
+        </table>
+      </form>
+    </div>
+  </div></div>
+  <div id="featuredContent" class="two columns">
+    <div id="cyclopathHighlights" class="column">
+      <h3>personalized bikeability</h3>
+      <p>
+      Cyclopath lets you enter personal bikeability ratings for roads and
+      trails. This unique rating system helps find the best routes for you,
+      while also supporting the community with your individual knowledge.</p>
+      <h3>geowiki what?</h3>
+      <p>
+      Cyclopath is a geowiki: an editable map where anyone can share notes
+      about roads and trails, enter tags about special locations, and fix
+      map problems - like missing trails. Hundreds of Minnesota cyclists 
+      are already doing this, making Cyclopath the most comprehensive and 
+      up-to-date bicycle information resource in the world.</p>
+    </div>
+    <div id="featuredBoxes" class="column">
+      <div class="box">
+        <h4>new features</h4>
+        <dl>
+          <dt class="first">Greater MN!</dt>
+          <dd>We've added the MnDOT road network to the map!
+              Please help us &mdash; and MnDOT! &mdash; improve
+              the data by marking bicycle facilities (like bike
+              lanes and cycle routes) and adding bike trails.
+          </dd>
+          <br/>
+          <dt class="first">Redesigned Interface</dt>
+          <dd>We've redesigned the user interface to be more welcoming
+              to new users and easier for existing users. We hope you
+              like the changes! Feel free to let us know what you think.
+          </dd>
+          <br/>
+          <!--
+          <dt class="first">Route sharing</dt>
+          <dd>Edit, save, and share bike routes with other Cyclopath users. 
+              You can browse through routes shared by others and save your own 
+              private routes. Routes can now have mulitple destinations.
+          </dd>
+          <br/>
+          -->
+          <!--
+          <dt class="first">Android App</dt>
+          <dd>Cyclopath has a great Android app. You can find it at
+      <u><a href="https://market.android.com/details?id=org.cyclopath.android">
+	           Android Marketplace</a></u>.
+		    </dd>
+          -->
+          <!--
+          <dt class="more">
+            <a href="/wiki/Release_Notes">more</a>
+          </dt>
+          -->
+        </dl>
+      </div>
+      <!--
+      <div class="box">
+        <h4>coming soon</h4>
+        <dl>
+          <dt class="first">Secret plans</dt>
+          <dd>We have a lot cool, exciting, and big plans for Cyclopath that 
+              will be upcoming this year. There's so much work left to do, 
+              though, that we don't want to spoil the surprise.
+          </dd>
+        </dl>
+      </div>
+      -->
+    </div>
+  </div>
+  <div id="MobileContent" class="two columns">
+    <div id="cyclopathMobile" class="column">
+	   <img src="images/android_screenshot.png" width="220px" />
+    </div>
+    <div id="cyclopathMobileText" class="column">
+      <h3>Cyclopath for Android</h3>
+      <p>Cyclopath Mobile is available for Android devices!
+         The mobile version allows you to:</p>
+	   <ul>
+		  <li>Find your location on our map</li>
+		  <li>Find routes</li>
+		  <li>Record GPS tracks</li>
+	   </ul>
+      <p>You can downlad the app from the 
+         <u><a 
+            href="https://market.android.com/details?id=org.cyclopath.android">
+         Android Marketplace</a></u>.
+      </p>
+    </div>
+  </div>
+  <div id="footer" class="two columns">
+    <div id="sitemap" class="column three columns">
+      <div class="column">
+        <ul>
+          <li><a href="/wiki/Geowiki_Help">Help</a></li>
+          <li><a href="/wiki/Video_Tutorials">Video Tutorials</a></li>
+          <li><a href="/wiki/Frequently_Asked_Questions">FAQ</a></li>
+          <li><a href="/wiki/User_Manual">Reference Manual</a></li>
+        </ul>
+      </div>
+      <div class="column">
+        <ul>
+          <li><a href="/wiki/User_Agreement"">
+              User Agreement &nbsp;&nbsp;&nbsp;&amp;&nbsp;Privacy Policy</a></li>
+          <li><a href="/wiki/Publications">Scholarly Publications</a></li>
+          <li><a href="/wiki/Tech:Source_Code">Source Code</a></li>
+        </ul>
+      </div> 
+      <div class="column">
+        <ul>
+          <li>Contact Us:</li>
+          <li>info@cyclopath.org</li>
+        </ul>
+      </div>
+    </div> 
+    <div class="column">
+      <p id="cite">
+      Cyclopath is operated by <a href="http://www.grouplens.org/" 
+      title="GroupLens Research">GroupLens Research</a>
+      at the <a href="http://www.umn.edu/" title="University of Minnesota">
+      University of Minnesota</a></p>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+(function() {
+
+$(document).ready(function() {
+  var hostcurrent = window.location.hostname;
+  if (hostcurrent == 'cyclopath.org')
+    // SYNC_ME: Search hostname (Py); hostcurrent (MW); ServerName (Apache).
+    //hostcurrent = 'magic.' + hostcurrent;
+    hostcurrent = 'cycloplan.' + hostcurrent;
+
+  // urlsub replaces %{h} with the current hostname
+  var urlsub = function(url) { return url.replace('%{h}', hostcurrent); }
+
+  $('#exploreMap').attr('href', urlsub('http://%{h}/'));
+  $('#enterMap').attr('href', urlsub('http://%{h}/'));
+  $('#routeForm').attr('action', urlsub('http://%{h}?source=homepage#route?'));
+});
+
+/*** FORM LABELING ***/
+var addLabelMaybe = function() { 
+  if ($(this).attr('value')=='') {
+    $(this).removeClass('changed')
+           .attr('value',$(this).prev().attr('innerHTML'));
+  }
+};
+var removeLabelMaybe = function() {
+  if ($(this).attr('value')==$(this).prev().attr('innerHTML')) {
+    $(this).addClass('changed').attr('value','');
+  }
+};
+$('input.field').focus(removeLabelMaybe);
+$('input.field').blur(addLabelMaybe);
+$(document).ready(function(){$('input.field').each(addLabelMaybe);});
+
+/*** FORM SUBMISSION ***/
+var filterLabel = function(){
+  if($(this).attr('value')==$(this).prev().attr('innerHTML')) 
+    $(this).attr('value','');
+}
+$('#findRoute form').submit(function() {
+  var valid = true;
+  $('#findRoute input.field').each(filterLabel);
+  $('#findRoute input.required.field').each(function(){
+    if($(this).attr('value')=='') valid = false;
+  });
+  if (valid) {
+    document.location = $(this).attr('action') + $(this).serialize();
+  } else {
+    $('input.field').each(addLabelMaybe);
+    $('#formError').show();
+  }
+ 
+  return false; 
+});})();
+</script>
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+try {
+var pageTracker = _gat._getTracker("UA-13096484-1");
+pageTracker._trackPageview();
+} catch(err) {}</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="bike_facil"
+   attr_key_name="rdway_shared"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_ProLane');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         //
+         var html_hint:String = (
+            'A shared roadway is good for biking, may or may not be '
+            + 'signed, and has no on-road markings (like sharrows). '
+            + 'Use this setting discriminately: If the roadway is not '
+            + 'signed and you consider this roadway to be bike-friendly, '
+            + 'consider using the Bikeability Rating to give the road a '
+            + 'thumbs-up. Only agency employees (like traffic planners '
+            + 'and traffic engineers) should use this value for non-signed '
+            + 'roadways. Specifically, smaller communities without '
+            + 'dedicated cycling infrastructure can use this setting '
+            + 'to indicate roads that the local government considers best '
+            + 'for biking.'
+          //+ 'Everyday Cyclopath users should use the '
+          //+ 'Bikeability Rating to indicate what roads are best for biking.'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

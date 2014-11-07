@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Label
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   minWidth="0"
+   >
+   <!--
+   styleName="labelminor"
+   color="0x0000ff"
+   textDecoration="underline"
+   buttonMode="true"
+   useHandCursor="true"
+   mouseChildren="false"
+   click="this.on_click(event);"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Lbl_Tgt');
+
+      // *** Instance methods
+
+   ]]></mx:Script>
+
+</mx:Label>
+

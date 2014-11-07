@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- The entire user control. -->
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   showCloseButton="true"
+   dropShadowEnabled="false"
+   backgroundColor="0x000000"
+   borderColor="0x000000"
+   cornerRadius="2"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   paddingTop="0"
+   borderThicknessBottom="2"
+   borderThicknessLeft="1"
+   borderThicknessRight="1"
+   borderThicknessTop="1"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   horizontalAlign="center"
+   close="this.on_close();">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+
+      import mx.containers.HBox;
+      import mx.controls.Alert;
+      import mx.controls.Button;
+      import mx.controls.LinkButton;
+      import mx.core.UIComponent;
+      import mx.events.ItemClickEvent
+      import mx.managers.PopUpManager;
+      import flash.display.DisplayObject;
+      import flash.events.TimerEvent;
+      import flash.events.MouseEvent;
+      import flash.utils.Timer;
+
+      import gwis.GWIS_Landmark_Exp_Val_Put;
+      import items.Geofeature;
+      import items.feats.Region;
+      import items.utils.Landmark;
+      import utils.misc.Logging;
+      import views.base.Paint;
+      import views.map_widgets.Item_Sprite;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LmrkRtngWdgt');
+
+      public static var widget:Landmark_Rating_Widget = null;
+
+      // *** Instance variables
+
+      [Bindable] protected var button_padding:int = 6;
+      [Bindable] protected var color:int;
+      [Bindable] protected var width_:Number;
+      [Bindable] protected var height_:Number;
+      [Bindable] protected var text_height:Number;
+
+      protected var border_color:int;
+      protected var pointer:UIComponent;
+      protected var timer:Timer;
+      protected var target:DisplayObject;
+
+      public var is_closed:Boolean; // [READ-ONLY]
+      public var landmark:Landmark;
+      public var step_number:int;
+      public var callback:Function;
+
+      // *** Static class methods
+
+      // timeout is in seconds
+      public static function show_pointer(x:int,
+                                          y:int,
+                                          landmark:Landmark,
+                                          step_number:int,
+                                          callback:Function)
+                                             :Landmark_Rating_Widget
+      {
+         if (Landmark_Rating_Widget.widget !== null) {
+            Landmark_Rating_Widget.widget.on_close();
+         }
+
+         var lw:Landmark_Rating_Widget = new Landmark_Rating_Widget();
+         lw.landmark = landmark;
+         lw.callback = callback;
+         lw.step_number = step_number;
+
+         G.app.parent.addChild(lw);
+
+         lw.title = "Is this landmark useful?";
+         //lw.message.text = "Is this landmark useful?";
+
+         lw.setStyle("color", 0xFFFFFF);
+         //pw.message.setStyle("color", msg_color);
+
+         //lw.color = Conf.point_widget_bgcolor;
+         //lw.border_color = Conf.point_widget_border_color;
+         lw.is_closed = false;
+         //pw.target = target;
+         lw.place(x, y);
+         lw.visible = true;
+
+         lw.addEventListener(MouseEvent.ROLL_OUT, lw.on_roll_out,
+                             false, 0, true);
+
+         if (landmark.rating == 0) {
+            lw.rate_no_btn.selected = true;
+         }
+         else if (landmark.rating == 1) {
+            lw.rate_yes_btn.selected = true;
+         }
+         return lw;
+      }
+
+      // *** Event handlers
+
+      //
+      public function on_click_no() :void
+      {
+         this.rate_yes_btn.selected = false;
+         if (this.rate_no_btn.selected) {
+            this.landmark.rating = 0;
+         }
+         else {
+            this.landmark.rating = -1;
+         }
+         this.landmark.moused_over = false;
+         this.save_rating();
+         if (this.callback !== null) {
+            this.callback();
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      public function on_click_yes() :void
+      {
+         this.rate_no_btn.selected = false;
+         if (this.rate_yes_btn.selected) {
+            this.landmark.rating = 1;
+         }
+         else {
+            this.landmark.rating = -1;
+         }
+         this.landmark.moused_over = false;
+         this.save_rating();
+         if (this.callback !== null) {
+            this.callback();
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      public function on_close(ev:Event=null) :void
+      {
+         this.landmark.moused_over = false;
+         if (this.callback !== null) {
+            this.callback();
+         }
+         m4_ASSERT_ELSE_SOFT;
+         if (!this.is_closed) {
+            this.is_closed = true;
+            this.callback = null;
+            G.app.parent.removeChild(this);
+            widget = null;
+         }
+      }
+
+      //
+      public function on_roll_out(ev:MouseEvent) :void
+      {
+         this.on_close();
+      }
+
+      // *** Instance methods
+
+      // Place the widget and make the pointer point.
+      public function place(x:int, y:int) :void
+      {
+         var height:int = 53;
+         var width:int = 160;
+         this.x = x - G.app.parent.x - width/2;
+         this.y = y - height - 20 - G.app.parent.y;
+         var color:int = 0x000000;
+         var border_color:int = Conf.point_widget_border_color;
+
+         this.graphics.beginFill(color);
+         this.graphics.moveTo(width/2, height + 20);
+         this.graphics.lineStyle(1, border_color, 1);
+         this.graphics.lineTo(width/2 - 10, height);
+         this.graphics.lineStyle(1, color, 1);
+         this.graphics.lineTo(width/2 + 10, height);
+         this.graphics.lineStyle(1, border_color, 1);
+         this.graphics.lineTo(width/2, height + 20);
+      }
+
+      //
+      private function save_rating() :void
+      {
+         var gwis_cmd:GWIS_Landmark_Exp_Val_Put =
+            new GWIS_Landmark_Exp_Val_Put(
+               G.app.landmark_experiment_panel.active_route.system_id,
+               this.landmark,
+               this.step_number);
+         G.map.update_supplemental(gwis_cmd);
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      horizontalGap="0">
+   <mx:Button
+      id="rate_yes_btn"
+      width="80"
+      icon="@Embed(source='/assets/img/icon_tags_bonus.png')"
+      toggle="true"
+      click="on_click_yes()"/>
+   <mx:Button
+      id="rate_no_btn"
+      width="80"
+      icon="@Embed(source='/assets/img/icon_tags_penalty.png')"
+      toggle="true"
+      click="on_click_no()"/>
+   </mx:HBox>
+
+</mx:TitleWindow>
+

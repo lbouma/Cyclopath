@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   layout="vertical"
+   horizontalAlign="center"
+   resize="PopUpManager.centerPopUp(this);"
+   defaultButton="{ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      // *** Instance variables
+
+      protected var on_close_callback:Function;
+
+      // *** Init methods
+
+      // FIXME: would be nice if this could be done in the constructor, but
+      // mxmlc won't allow constructors?
+      public function init(title:String,
+                           img_url:String,
+                           on_close:Function=null) :void
+      {
+         this.title = title;
+         this.img.source = img_url;
+         this.on_close_callback = on_close;
+      }
+
+      // *** Event handlers
+
+      // Call the on_close callback if there is one.
+      protected function on_close() :void
+      {
+         if (this.on_close_callback !== null) {
+            this.on_close_callback();
+         }
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+         (evt.target as Image_Popup).on_close();
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Image
+      id="img"/>
+
+   <mx:Button
+      label="OK"
+      id="ok"
+      click="PopUpManager.removePopUp(this); this.on_close();"/>
+
+</mx:TitleWindow>
+

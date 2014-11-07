@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2010 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Diffing: Reimplement this file. -->
+
+<!-- FIXME: Rename to conform to, i.e., Panel_Item_Route,
+            maybe Panel_Item_Route_Historic. Or is this more
+            like Tab_Geofeature_Details? -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}">
+
+   <mx:Script><![CDATA[
+
+      import utils.difflib.*;
+
+      import items.feats.Route;
+      import utils.difflib.SequenceMatcher;
+      import utils.misc.Logging;
+      import utils.misc.Strutil;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@RtDtPnlHi');
+
+      // *** Instance variables
+
+      protected var routes:Array;
+
+      // *** Instance methods
+
+      protected function length_change_text(old_rt:Route, new_rt:Route) :String
+      {
+         var old_len:String = Strutil.meters_to_miles_pretty(old_rt.rsn_len);
+         var new_len:String = Strutil.meters_to_miles_pretty(new_rt.rsn_len);
+
+         if (old_len == new_len) {
+            return new_len;
+         }
+         else {
+            return '<font color="#ff0000">' + old_len + '</font> -&gt; '
+                   + '<font color="#0000ff">' + new_len + '</font>';
+         }
+      }
+
+// FIXME: This is wrong. Should be repopulate...
+      override public function on_panel_show() :void
+      {
+         var old_rt:Route;
+         var new_rt:Route;
+         var rt:Route;
+
+//         this.routes = G.map.selectedset.as_Array();
+         this.routes = this.items_selected.as_Array();
+         m4_ASSERT((this.routes.length > 0) && (this.routes[0] is Route));
+
+         if ((this.routes.length == 2)
+             && (this.routes[0].counterpart == this.routes[1])) {
+            // diff mode
+            if (this.routes[0].is_vgroup_new) {
+               m4_ASSERT(this.routes[1].is_vgroup_old);
+               new_rt = this.routes[0];
+               old_rt = this.routes[1];
+            }
+            else {
+               m4_ASSERT(this.routes[0].is_vgroup_old
+                         && this.routes[1].is_vgroup_new);
+               new_rt = this.routes[1];
+               old_rt = this.routes[0];
+            }
+
+            this.name_.htmlText = SequenceMatcher.diff_html(
+                                    old_rt.name_, new_rt.name_);
+
+            this.from.htmlText = SequenceMatcher.diff_html(
+                                    old_rt.from_canaddr, new_rt.from_canaddr);
+            this.to.htmlText = SequenceMatcher.diff_html(
+                                    old_rt.to_canaddr, new_rt.to_canaddr);
+
+            this.rlength.htmlText = this.length_change_text(old_rt, new_rt);
+            this.descr.htmlText = SequenceMatcher.diff_html(
+                                    old_rt.details, new_rt.details);
+
+            rt = new_rt;
+        }
+        else {
+            // normal (historic) mode
+            rt = this.routes[0];
+            this.name_.text = rt.name_;
+            this.from.text = rt.from_canaddr;
+            this.to.text = rt.to_canaddr;
+            this.rlength.text = Strutil.meters_to_miles_pretty(rt.rsn_len);
+            this.descr.text = rt.details;
+         }
+
+         // at this point, rt is either the single route or the new route
+//         this.access_public.selected = (rt.is_public
+//                                        && (rt.visibility == Visibility.all));
+//         this.access_shared.selected = (rt.is_shared
+//                                        && (rt.visibility == Visibility.all));
+//         this.access_private.selected = ((rt.is_shared || rt.is_private)
+//                                       && (rt.visibility == Visibility.owner));
+/* FIXME: Use rt.access_infer_id...
+         this.access_public.selected = rt.is_public;
+         this.access_shared.selected = rt.is_shared;
+// FIXME: The (rt.is_shared || rt.is_private) is for stealth_secret,
+//        i.e., you can share a link but it's still shown as private.
+         this.access_private.selected = rt.is_private;
+         this.access_public.enabled = this.access_public.selected;
+         this.access_shared.enabled = this.access_shared.selected;
+         this.access_private.enabled = this.access_private.selected;
+*/
+      }
+
+   ]]></mx:Script>
+
+   <mx:Grid
+      id="summary"
+      width="100%"
+      verticalGap="0">
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Name:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <mx:Label
+               id="name_"
+               width="100%"
+               minWidth="0"/>
+         </mx:GridItem>
+      </mx:GridRow>
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="From:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <mx:Label
+               id="from"
+               width="100%"
+               minWidth="0"/>
+         </mx:GridItem>
+      </mx:GridRow>
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="To:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <mx:Label
+               id="to"
+               width="100%"
+               minWidth="0"/>
+         </mx:GridItem>
+      </mx:GridRow>
+      <mx:GridRow width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Length:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <mx:Label
+               id="rlength"
+               width="100%"
+               minWidth="0"/>
+         </mx:GridItem>
+      </mx:GridRow>
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Access:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem
+            width="100%">
+            <mx:RadioButtonGroup
+               id="access"/>
+               <mx:RadioButton
+                  id="access_public"
+                  label="Public"
+                  groupName="access"/>
+               <mx:RadioButton
+                  id="access_shared"
+                  label="Shared"
+                  groupName="access"/>
+               <mx:RadioButton
+                  id="access_private"
+                  label="Private"
+                  groupName="access"/>
+         </mx:GridItem>
+      </mx:GridRow>
+   </mx:Grid>
+
+   <mx:Label
+      text="Route Description:"
+      fontWeight="bold"/>
+
+   <mx:Text
+      id="descr"
+      width="100%"
+      height="100%"
+      mouseEnabled="false"
+      mouseChildren="false"/>
+
+</views_panel_base:Detail_Panel_Base>
+

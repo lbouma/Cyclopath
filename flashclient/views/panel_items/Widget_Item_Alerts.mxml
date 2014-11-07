@@ -1,0 +1,530 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Other_Delayed_Saver
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import grax.Grac_Manager;
+      import gwis.GWIS_Commit;
+      import items.Item_User_Access;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.utils.Watcher_Frequency;
+      import utils.misc.Collection;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.App_Action;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_ItmAlrt');
+
+      // *** Class variables
+
+      protected const alert_attr_name:String = '/item/alert_email';
+
+      protected static const wfreq_opts:Array = [
+         Watcher_Frequency.never,
+         Watcher_Frequency.immediately,
+         Watcher_Frequency.nightly,
+         Watcher_Frequency.morningly,
+         Watcher_Frequency.weekly,
+         // Skipping:
+         //  Watcher_Frequency.daily,
+         ];
+
+      // *** Instance variables
+
+      protected var vals_prev:Array;
+
+      // *** Instance methods
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         super.on_preinitialize(ev);
+
+         this.value_future = -1;
+         this.value_current = -1;
+      }
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         // this.register_widgets([
+         //    ]);
+      }
+
+      //
+      override protected function do_delayed_save_do() :void
+      {
+         var item:Item_User_Access;
+         var attr:Attribute;
+         var link:Link_Value;
+
+         m4_DEBUG('do_delayed_save_do');
+
+         // CcpV1: Changing item watchers is part of map saving and the map
+         // undo/redo stack. In CcpV2: The CcpV1 behaviour feels awkward but we
+         // also don't have a better idea for a mechanism for a non-map
+         // undo/redo/save/reset, so for now watchers and ratings are OOB.
+         // Out-of-band. And here's, e.g., the map cmd avenue:
+         //    var gwis_cmd:Watcher_Edit;
+         //    gwis_cmd = new Watcher_Edit(
+         //       this.items_selected.clone(),
+         //       this.checkbox_item_watcher.selected);
+         //    done = G.map.cm.do_(gwis_cmd);
+
+         var wfreq:int = Widget_Item_Alerts.wfreq_opts[this.value_future];
+         m4_ASSERT(Watcher_Frequency.is_defined(wfreq));
+
+         var to_save:Set_UUID = new Set_UUID();
+         this.vals_prev = new Array();
+
+         attr = Attribute.all_named[this.alert_attr_name];
+         if (attr !== null) {
+            // MAYBE: We could support watching any item type, but currently
+            // only the Geofeature class has link_values implemented, i.e., by
+            // way of Geofeature.attrs and Geofeature.tags.
+            var is_prepared:Boolean = true;
+            for each (item in this.items_selected) {
+               if (!item.fresh) {
+                  link = Link_Value.items_get_link_value(attr, item);
+                  if (link !== null) {
+                     this.vals_prev.push(
+                        {'the_link': link,
+                         'old_value': attr.value_get(link),
+                         'was_dirty': link.dirty_get(Dirty_Reason.item_watcher)
+                         });
+                  }
+                  else {
+                     link = new Link_Value(null, null, attr, item);
+                     this.vals_prev.push(
+                        {'the_link': link,
+                         'old_value': null,
+                         'was_dirty': null});
+                  }
+                  attr.value_set(link, wfreq);
+                  link.dirty_set(Dirty_Reason.item_watcher, true);
+
+                  var prepare_items_access_min:int = Access_Level.client;
+                  var prepare_items_must_exist:Boolean = false;
+                  is_prepared = G.grac.prepare_item(
+                                          link,
+                                          prepare_items_access_min,
+                                          prepare_items_must_exist);
+                  if (!is_prepared) {
+                     // An error dialog is queued to be displayed. Just bail.
+                     // FIXME: At least those are the comments from
+                     //        Command_Base.
+                     //        [lb] isn't really quite sure what to expect for
+                     //        this widget.
+                     break;
+                  }
+                  to_save.add(link);
+                  G.map.items_add([link,]);
+               }
+               else {
+                  m4_DEBUG2('do_delayed_save_do: skipping fresh item:',
+                            item);
+               }
+            }
+
+            if ((is_prepared) && (to_save.length > 0)) {
+
+               // Flashclient doesn't know about acl_grouping. Pyserver will
+               // manage them on our behalf when we send schanges or watchers
+               // via Commit.
+
+               var commit:GWIS_Commit = new GWIS_Commit(
+                  to_save,
+                  /*changenote=*/'Change item alerts',
+// FIXME: silent is not working: throbber still throbbering
+                  /*silent=*/true,
+                  /*callback_load=*/this.on_commit_alerts_ehok,
+                  /*callback_fail=*/this.on_commit_alerts_fail,
+                  /*callback_payload=*/null,
+                  /*anon_coward=*/false,
+                  // So that we don't save map items:
+                  /*restrict_dirty=*/Dirty_Reason.item_watcher,
+                  /*alert_on_activity=*/false,
+                  /*command_mgr=*/null);
+
+               commit.fetch();
+
+               this.value_current = this.value_future;
+
+               this.gwis_outstanding = true;
+            }
+            else {
+               m4_WARNING('do_delayed_save: prepare_item says otherwise');
+               // FIXME: Do something like on_commit_alerts_fail and cleanup
+               //        and self.repopulate()?
+            }
+         }
+         else {
+            // This won't happen except maybe for new installations of
+            // Cyclopath that haven't defined the same attributes as the
+            // Minnesota Cyclopath installation.
+            m4_ERROR('do_delayed_save: Missing attr:', alert_attr_name);
+         }
+      }
+
+      //
+      protected function on_commit_alerts_ehok(gwis_req:GWIS_Commit,
+                                               rset:XML, payload:*=null)
+         :void
+      {
+         m4_DEBUG('on_commit_alerts_ehok');
+         // This fcn. is a little overkill- it cleans up after map save, so
+         // it'll try clearing the link_values from the map command stack
+         // and it'll update the map editing tool palette, which are both
+         // no-ops for us.
+         // GWIS_Commit calls this:
+         //   G.item_mgr.update_items_committed(gwis_req.client_id_map);
+         var link:Link_Value;
+         for each (link in gwis_req.changed_items) {
+            m4_DEBUG(' .. link:', link.toString());
+            link.dirty_set(Dirty_Reason.item_watcher, false);
+         }
+         // This happens when you change the alert setting while a commit is
+         // outstanding.
+         m4_ASSERT_SOFT(this.value_current == this.value_future);
+         this.vals_prev = null;
+         this.gwis_outstanding = false;
+      }
+
+      //
+      protected function on_commit_alerts_fail(gwis_req:GWIS_Commit,
+                                               rset:XML, payload:*=null)
+         :void
+      {
+         m4_WARNING('on_commit_alerts_fail: We doooo we do?');
+         m4_ASSERT(this.vals_prev !== null);
+         if (this.vals_prev.length > 0) {
+            var attr:Attribute;
+            attr = Attribute.all_named[alert_attr_name];
+            m4_ASSERT(attr !== null);
+            for each (var val_prev:Object in this.vals_prev) {
+               var link:Link_Value = val_prev.the_link;
+               if (val_prev.old_value !== null) {
+                  attr.value_set(link, val_prev.old_value);
+                  link.dirty_set(Dirty_Reason.item_watcher,
+                                 val_prev.was_dirty);
+               }
+               else {
+                  // We had to create a new link for the rating...
+                  // we could delete it, but then when the user
+                  // re-rates, we'd create a new link (or we could
+                  // go digging for the deleted one). Maybe we can
+                  // just reset the link like it existed all along.
+                  attr.value_set(link, Watcher_Frequency.never);
+                  link.dirty_set(Dirty_Reason.item_watcher, false);
+               }
+            }
+            this.vals_prev = null;
+         }
+         else {
+            m4_ASSERT(false);
+         }
+
+         // Can we just repopulate??
+/*
+         // NOTE: The value_the_past might be -1 if Varies.
+         this.value_future = this.value_the_past;
+         this.value_current = this.value_the_past;
+         var wfreq:int = Widget_Item_Alerts.wfreq_opts[this.value_future];
+         this.set_setting_label(wfreq);
+*/
+         this.repopulate();
+
+         this.gwis_outstanding = false;
+      }
+
+      //
+      protected function on_click_alert_change_button() :void
+      {
+         // Change the alert setting. We just loop around the array.
+         this.value_future += 1;
+         if (this.value_future == Widget_Item_Alerts.wfreq_opts.length) {
+            if (this.value_current != -1) {
+               this.value_future = 0;
+            }
+            else {
+               // There are multiple items selected which various values, so
+               // return to this setting until at least our first save.
+               this.value_future = -1;
+            }
+         }
+         var wfreq:* = null;
+         if (this.value_future != -1) {
+            wfreq = Widget_Item_Alerts.wfreq_opts[this.value_future];
+            m4_DEBUG('on_click_alert_change_button: wfreq:', wfreq);
+            m4_ASSERT(Watcher_Frequency.is_defined(wfreq));
+         }
+         // Set the label and child visibilties.
+         this.set_setting_label(wfreq);
+
+         var attr:Attribute;
+         attr = Attribute.all_named[this.alert_attr_name];
+         if (attr !== null) {
+            var do_reset_timer:Boolean = false;
+            for each (var item:Item_User_Access in this.items_selected) {
+               // We can't immediately commit fresh items, since the server
+               // won't have any clue. But fresh items indicate the map is
+               // being edited, so we'll commit fresh item watchers when the
+               // user saves the map.
+               if (item.fresh) {
+                  // This is somewhat similar to code in do_delayed_save_do.
+                  var link:Link_Value;
+                  link = Link_Value.items_get_link_value(attr, item);
+                  if (link === null) {
+                     link = new Link_Value(null, null, attr, item);
+                  }
+                  attr.value_set(link, wfreq);
+                  link.dirty_set(Dirty_Reason.item_watcher, true);
+                  // FIXME: Is this right?
+                  var prepare_items_access_min:int = Access_Level.client;
+                  var prepare_items_must_exist:Boolean = false;
+                  var is_prepared:Boolean = G.grac.prepare_item(
+                     link, prepare_items_access_min, prepare_items_must_exist);
+                  if (!is_prepared) {
+                     m4_ERROR2('on_click_alert_change_button: !is_prepared:',
+                               link);
+                  }
+                  else {
+                     G.map.items_add([link,]);
+                  }
+               }
+               else {
+                  do_reset_timer = true;
+               }
+            }
+            if (do_reset_timer) {
+               // One or more existing items' watchers was changed, and we can
+               // commit these immediately (or after a brief pause so the user
+               // can cycle through the watcher options and we don't waste time
+               // sending unnecessary commits).
+               this.timer_reset();
+            }
+
+         }
+         else {
+            m4_ERROR('on_click_alert_change_button: Missing attr:',
+                     alert_attr_name);
+         }
+      }
+
+      //
+      protected function set_setting_label(wfreq:*) :void
+      {
+         if (wfreq === null) {
+            this.setting_label.text = 'Varies';
+            this.setting_label.setStyle('fontStyle', 'italic');
+            this.setting_label.clearStyle('textDecoration');
+
+            // MAGIC_NUMBER: When user clicks, it'll go to index 0.
+            this.value_future = -1;
+
+         }
+         else {
+            this.setting_label.text = Watcher_Frequency.lookup[wfreq];
+            this.setting_label.clearStyle('fontStyle');
+            this.setting_label.setStyle('textDecoration', 'underline');
+
+            this.value_future = Collection.array_index(wfreq,
+                              Widget_Item_Alerts.wfreq_opts);
+         }
+
+         if (wfreq == Watcher_Frequency.never) {
+            this.summary_enabled.htmlText =
+               //'You will <u>not</u> be notified of changes.';
+               'Click "Change" to be notified of changes.';
+            this.setting_label.visible = false;
+         }
+         else {
+            this.summary_enabled.htmlText =
+               'When edited, email me:';
+            this.setting_label.visible = true;
+         }
+      }
+
+      // *** *populate()
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         // Item alerts are just for saved items.
+         // If you try to commit a new link on a fresh item, pyserver
+         // will send back a funny stack ID -- the next one in the
+         // sequence, and then it'll tell ya you you don't have access
+         // to that item. Half-ha.
+
+         var are_fresh:* = Objutil.consensus(this.items_selected,
+                                             'fresh', undefined);
+
+         var pluralize:Boolean = (this.items_selected.length > 1);
+         var type_phrase:String = '';
+         if (this.items_selected.length > 0) {
+            type_phrase = this.items_selected.item_get_random().friendly_name;
+            // E.g., 'this route', 'these waypoints', etc.
+            type_phrase = Inflector.pluralize('this', pluralize)
+                          + Inflector.pluralize(type_phrase, true);
+
+            var item:Item_User_Access = (this.items_selected.item_get_random()
+                                         as Item_User_Access);
+            m4_VERBOSE('repopulate: whatis:', item);
+            m4_VERBOSE('repopulate: item.fresh:', item.fresh);
+         }
+
+         m4_VERBOSE('repopulate: are_fresh:', are_fresh);
+
+         if (are_fresh != false) {
+            this.summary_disabled.text =
+               'You can watch for changes after saving items.';
+            this.visible = false;
+            this.includeInLayout = false;
+         }
+         else if (!G.app.mode.is_allowed(App_Action.item_watcher_edit)) {
+            this.summary_disabled.text =
+               'You are not allowed to watch ' + type_phrase + '.';
+            // Okay, so the text we just wrote doesn't actually show.
+            //this.summary_disabled.visible = false;
+            this.visible = false;
+            this.includeInLayout = false;
+         }
+         else {
+            this.visible = true;
+            this.includeInLayout = true;
+            if (!G.user.logged_in) {
+               this.summary_disabled.visible = true;
+               this.summary_enabled.visible = false;
+
+               this.summary_disabled.text = 'Please login to create alerts.';
+            }
+            else if (this.items_selected.length == 0) {
+               this.summary_disabled.visible = true;
+               this.summary_enabled.visible = false;
+
+               this.summary_disabled.text = 'Nothing is selected.';
+            }
+            else {
+               this.summary_disabled.visible = false;
+               this.summary_enabled.visible = true;
+
+               var wfreq:* = Objutil.consensus(this.items_selected,
+                                               'watcher_freq', null);
+               m4_VERBOSE('repopulate: wfreq:', wfreq);
+               if (wfreq === null) {
+                  this.set_setting_label(null);
+               }
+               else {
+                  this.set_setting_label(wfreq);
+               }
+               this.value_current = this.value_future;
+               this.vals_prev = null;
+            }
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Item Alerts"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:HBox
+            width="100%"
+            horizontalGap="4"
+            verticalAlign="middle"
+            horizontalScrollPolicy="off"
+            paddingTop="4"
+            >
+
+            <mx:Label
+               id="summary_disabled"
+               text="Please login to create alerts."
+               includeInLayout="{this.summary_disabled.visible}"
+               toolTip=
+"Cyclopath can send you emails when items are edited, but only if you have a registered email address. Please login or create an account to setup item alerts."
+               />
+
+            <mx:Label
+               id="summary_enabled"
+               includeInLayout="{this.summary_enabled.visible}"
+
+               click="this.on_click_alert_change_button();"
+               />
+
+            <mx:Label
+               id="setting_label"
+               textDecoration="underline"
+               includeInLayout="{this.setting_label.visible}"
+               toolTip=
+"This indicates when Cyclopath will send you an email if this item is edited by other users."
+
+               click="this.on_click_alert_change_button();"
+               />
+
+            <mx:Spacer
+               width="100%"/>
+
+            <views_panel_util:Button_Small
+               id="alert_change_button"
+               label="Change"
+               visible="{!this.summary_disabled.visible}"
+               includeInLayout="{!this.summary_disabled.visible}"
+               toolTip=
+         "Click to change when Cyclopath alerts you about item changes."
+               click="this.on_click_alert_change_button();"
+               />
+
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Other_Delayed_Saver>
+

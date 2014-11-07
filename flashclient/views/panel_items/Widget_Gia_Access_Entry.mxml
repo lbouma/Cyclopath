@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   dataChange="this.on_data_change(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import grax.Access_Level;
+      import grax.Access_Scope;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.commands.UI_Wrapper_Group_Item_Access;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Gia_Ent');
+
+      // *** Instance variables
+
+      protected var gao:Widget_Gia_Access_Object;
+
+      // *** Instance methods
+
+      //
+      protected function on_click_delete() :void
+      {
+      }
+
+      // BUG nnnn: Diff mode. For any item, Clone item to working copy, or
+      // something.
+
+      //
+      // FIXME: See: http://docs.joomla.org/Access_Control_List
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete: this.data:', this.data);
+      }
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_data_change: this.data:', this.data);
+
+         m4_ASSERT(G.app !== null);
+         if (this.data === null || G.app === null) {
+            m4_DEBUG('  >> Early!');
+            m4_ASSERT(false); // delete this block
+            return;
+         }
+         // this.data is Widget_Gia_Access_Object... we want this.dp...
+         //   if (this.data.items_selected.length == 0) {
+         if (this.dp.items_selected.length == 0) {
+            // EXPLAIN: Why does this happen?
+            // [lb] 2012.05.11: Happened to be on log out.
+            m4_WARNING('on_data_change: nothing selected, no data_change');
+            // FIXME: Should we, um, reset anything here?
+            // FIXME: Short-circuit return
+            return;
+         }
+
+         //this.setup_dp();
+      }
+
+      //
+      override public function set data(value:Object) :void
+      {
+         m4_DEBUG('set data: object:', value);
+         super.data = value;
+         this.gao = (value as Widget_Gia_Access_Object);
+         this.setup_dp();
+      }
+
+      //
+      protected function setup_dp() :void
+      {
+         m4_DEBUG('setup_dp: gao:', this.gao.toString());
+
+         //this.access_control_level.visible = false;
+         this.access_control_level_box.visible = false;
+         this.access_control_level_box.includeInLayout = false;
+         //this.access_control_label.text = '';
+         //this.access_control_label.visible = false;
+         this.access_control_label_box.visible = false;
+         this.access_control_label_box.includeInLayout = false;
+
+         if (this.gao.is_settable) {
+            //this.access_control_level.visible = true;
+            this.access_control_level_box.visible = true;
+            this.access_control_level_box.includeInLayout = true;
+            if ((Access_Level.can_own(this.gao.dp.access_level_id_least))
+                && (this.gao.group.access_scope_id
+                    != Access_Scope.scope_public)) {
+               this.access_control_level.dataProvider
+                  = Access_Level.access_level_data_provider_owner;
+            }
+            else if (Access_Level.can_arbit(
+                                          this.gao.dp.access_level_id_least)) {
+               this.access_control_level.dataProvider
+                  = Access_Level.access_level_data_provider_arbiter;
+            }
+            else {
+               m4_ASSERT(false); // Invalid code path.
+            }
+
+            // NOTE: this.data is a Group_Item_Access object, which is a
+            //       lightweight Item_User_Access object, basically.
+
+   // BUG nnnn: 2011.08.24: Fired when making point in branch. Making point in
+   // basemap works. Fired after naming the point and okaying the dialog.
+   // 20110926/20111227: warning: unable to bind to property 'group' on class
+   //                             'Object' (class is not an IEventDispatcher)
+            m4_DEBUG('on_data_change: this.data:', this.data);
+            m4_DEBUG('on_data_change: group_id:', this.data.group.stack_id);
+
+// BUG nnnn: When you delete an item, change panel...
+
+            // 2012.05.11: If you delete an item by pressing the button on the
+            // Extra tab, the panel stays, and then you hit the Groups tab and
+            // there's nothing selected.
+            if (this.gao.dp.items_selected.length > 0) {
+               views.commands.UI_Wrapper_Group_Item_Access.wrap(
+                  this.access_control_level, // ComboBox control
+                  this.gao.dp.items_selected,// Array of Item_Versioned targets
+                  'groups_access_fcn',       // Name of Item_Versioned callback
+                  this.gao.group.stack_id    //  to change access_level_id
+                  );
+            }
+         }
+         else {
+            //this.access_control_label.visible = true;
+            this.access_control_label_box.visible = true;
+            this.access_control_label_box.includeInLayout = true;
+            var acl_id:int = Objutil.consensus_fcn(this.gao.dp.items_selected,
+                                                   'groups_access_fcn',
+                                                   this.gao.group.stack_id);
+            if (acl_id == -1) {
+               this.access_control_label.text = 'Varies';
+            }
+            else {
+               this.access_control_label.text = Access_Level.lookup[acl_id];
+            }
+            m4_DEBUG('setup_dp: label:', this.access_control_label.text);
+         }
+
+         this.invalidateSize();
+         this.validateNow();
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      paddingLeft="4"
+      paddingRight="4"
+      paddingTop="2"
+      paddingBottom="2"
+      horizontalGap="4">
+      <mx:HBox
+         horizontalAlign="left"
+         verticalAlign="middle">
+         <mx:Label
+            minWidth="0"
+            text="{this.data.group.name_}"
+            toolTip="{this.data.group.description}"/>
+            <!-- toolTipShown="this.on_entry_tooltip_shown();" -->
+      </mx:HBox>
+      <!-- The layout is a bit tricky to get correct. This is the best way to
+      <    get it to work: use an empty 100%-wide HBox to force formatting. -->
+      <mx:HBox
+         width="100%"
+         >
+      </mx:HBox>
+      <mx:HBox
+         horizontalAlign="right"
+         verticalAlign="middle"
+         >
+         <!-- MAGIC NUMBER: Set rowCount="99" so the ComboBox has no scroll -->
+         <!-- NOTE: Usually, we set visible to false if the control is one of a
+         <    set of mutually exclusive controls. But if we set visible="false"
+         <    here, for whatever reason the bottom of the ComboBox is clipped.
+         <    -->
+         <mx:HBox
+            id="access_control_level_box"
+            horizontalAlign="right"
+            paddingLeft="0"
+            paddingRight="7"
+            visible="true"
+            includeInLayout="{this.access_control_level_box.visible}"
+            >
+            <mx:ComboBox
+               id="access_control_level"
+               toolTip="Change this group's access."
+               fontWeight="normal"
+               rowCount="99"
+               />
+         </mx:HBox>
+         <!-- NOTE: If we don't set visible to true initially, the last label
+         <    (the first HBox) extends 100% and our label doesn't show. Maybe
+         <    after setting .text = we have to tell it to redraw? Whatever,
+         <    setting visible to true here works, too. -->
+         <mx:HBox
+            id="access_control_label_box"
+            horizontalAlign="right"
+            paddingLeft="0"
+            paddingRight="17"
+            visible="true"
+            includeInLayout="{this.access_control_label_box.visible}"
+            >
+            <mx:Label
+               id="access_control_label"
+               fontStyle="italic"
+               toolTip="You cannot downgrade this access."
+               />
+         </mx:HBox>
+      </mx:HBox>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

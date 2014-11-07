@@ -1,0 +1,1288 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Attachment
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   horizontalAlign="center"
+   resize="this.on_resize(event)"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Alert;
+      import mx.controls.Button;
+      import mx.controls.Text;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+      import mx.utils.UIDUtil;
+
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.utils.Query_Filters;
+      import items.Attachment;
+      import items.Geofeature;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import items.links.Link_Geofeature;
+      import items.links.Link_Post;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import utils.rev_spec.*;
+      import views.base.App_Action;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Thread');
+
+      // *** Instance variables
+
+      [Bindable] public var posts:ArrayCollection;
+
+      public var post_geos:Array = new Array();
+      public var post_geos_dirty:Array = new Array();
+
+      // See also items_selected and get/set branch().
+      protected var thread_:Thread;
+
+      // The last_thread is simply used to reset verticalScrollPosition.
+      protected var last_thread:Thread;
+
+      public var fetched_posts:Boolean = false;
+
+      // If the thread was fresh or if a new post was saved, remember that, so
+      // when we close, we can tell the Latest_Activity_Manager to check out a
+      // fresh thread list.
+      public var thread_or_post_saved:Boolean = false;
+
+      protected var watcher_height:ChangeWatcher;
+
+      // See comments below, in get dirty_post_or_places.
+      // While the user writes a new post, it's just UI widgets, i.e., we
+      // haven't made a Post() item yet. So we can't check an item's
+      // dirtishness but have to maintain it ourselves.
+      protected var dirty_post_:Boolean;
+
+      // 2013.06.04: These are moved from having been static class variables in
+      //             Post. Blech.
+      public var unwired_post:Post = null;
+
+      // The post being edited, if user editing an already saved post.
+      protected var post_editing:Post = null;
+
+      // *** Getters and Setters
+
+      //
+      override public function get can_close() :Boolean
+      {
+         var can_close:Boolean = false;
+
+         if (this.dirty_post) {
+            Alert.show('You have unposted changes in this discussion. '
+                       + 'If you close the panel, those changes will be lost. '
+                       + 'Is this okay?',
+                       'Close this discussion',
+                       Alert.CANCEL | Alert.OK,
+                       null,
+                       this.on_close_alert,
+                       null,
+                       Alert.OK);
+            can_close = false;
+         }
+         else {
+            // Nothing dirty, close.
+
+            // [mm] thinks the discussions panel should get automatically 
+            // refreshed whenever the user switches to it, i.e. on_panel_show.
+            // This is just like how Facebook does it: you navigate away from
+            // its tab, then come back, it auto-refreshes.
+            /*
+            // Return to and maybe refresh the discussion list (we'll
+            // refresh if we saved a new post or thread, in which case
+            // Latest_Activity_Manager previously set thread_or_post_saved
+            // true.
+            var force_refresh:Boolean = this.thread_or_post_saved;
+            // This is a little hacky... negative one thread ID and all...
+            var thread_sid:int = -1;
+            G.tabs.discussions.discussions_panel_update(thread_sid,
+                                                        force_refresh);
+            G.tabs.discussions.discussions_panel_update(null, force_refresh);
+            this.thread_or_post_saved = false;
+            */
+            // expect the [lb] notes that a panel being activated is marked
+            // dirty and its repopulate() is called... at least that's what's
+            // suppose to happen.
+
+         // BUG nnnn: Audit G.sl.event usage. Should we always use this when
+         // user is navigating panels? What's the point? Can we track how
+         // users use our application? E.g., we have multiple Get Route
+         // buttons; which one do users use most?
+            G.sl.event('ui/thread/close', {id: this.thread.stack_id});
+
+            can_close = true;
+         }
+
+         return can_close;
+      }
+
+      // 2013.06.03: [lb] changed a silly Thread.dirty global to a per-panel
+      //             dirty indicator.
+      // FIXME: See comments in Widget_Thread_Base.discussion_new: we should
+      //        maybe make a base class fcn. for widgets or just the item
+      //        panels to see if the panel contains dirty stuff and needs to
+      //        be saved or discarded before the panel can be closed.
+      public function get dirty_post() :Boolean
+      {
+         // Note that we _could_ go through the thread and post, but the post
+         // item isn't created until the users submits their post and we make
+         // a new Post() to GWIS_Commit. So, skipping: this.thread. Using a
+         // shared variable instead, kind of like Thread.dirty but per-thread
+         // panel, rather than one global one.
+         return this.dirty_post_;
+      }
+
+      //
+      public function set dirty_post(dirty:Boolean) :void
+      {
+         this.dirty_post_ = dirty;
+      }
+
+      // ***
+
+      //
+      protected function on_close_alert(event:CloseEvent) :void
+      {
+         m4_DEBUG('on_close_alert');
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         if (event.detail == Alert.OK) {
+
+            this.thread.dirty_set(
+               Dirty_Reason.item_data_oob, false);
+
+            if (this.thread.active_post !== null) {
+               this.thread.active_post.dirty_set(
+                  Dirty_Reason.item_data_oob, false);
+               //this.thread.active_post = null;
+            }
+
+            // Clear dirty place attachments.
+            this.post_geos_dirty = new Array();
+
+            // Clear thread dirty variable.
+            this.dirty_post = false;
+
+            // Close this panel, i.e. try again. This will call can_close().
+            this.close_panel();
+         }
+      }
+
+      // ***
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching posts list');
+         //???? this.jobs_list_refresh();
+      }
+
+      //
+      protected function thread_commit_cleanup() :void
+      {
+         // 2014.07.04: [lb] not seeing this fire.
+         m4_DEBUG('thread_commit_cleanup');
+         // No-op.
+// FIXME_2013_06_11
+// FIXME: Is this right? What about the dirty flag?
+      }
+
+      // *** Base class overrides
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         m4_DEBUG2('on_change_height: w:', this.posts_grid.width,
+                   '/ h:', this.posts_grid.height);
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this.posts_grid, 'height', this.on_change_height);
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+
+         this.widget_name_header.item_name_control.dirty_reason
+            = Dirty_Reason.item_revisionless;
+
+         this.register_widgets([
+            this.widget_name_header,
+            this.placebox,
+            this.widget_item_alerts,
+            ]);
+
+         // FIXME: See shapeio_list_pager. I don't think post_list_pager is
+         //        totally implemented.
+         this.post_list_pager.type_plural = 'discussions';
+         this.post_list_pager.list_control_callback =
+            this.list_control_callback;
+         this.post_list_pager.records_per_page = 10;
+         //this.post_list_pager.current_page_number = 0;
+
+         this.placebox.places_init_post(/*post=*/null, /*read_only=*/true);
+      }
+
+      //
+      override protected function on_remove_event(event:FlexEvent) :void
+      {
+         super.on_remove_event(event);
+         m4_ASSERT(this.items_selected === null);
+         this.thread.thread_panel = null;
+         m4_ASSERT(this.thread === null);
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Discussion';
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         super.depopulate();
+         //this.title.text = '';
+         //this.label_item_stack_id.visible = false;
+         //this.label_item_stack_id.includeInLayout = false;
+         this.stats.visible = false;
+         this.stats.includeInLayout = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate: this.thread:', this.thread);
+
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         if (!this.thread.fresh) {
+
+            if (!this.fetched_posts) {
+
+               this.change_state(this.panel_default_state);
+               //this.title.text = this.thread.name_;
+               //this.title.clearStyle("fontStyle");
+
+               var qfs:Query_Filters = new Query_Filters();
+
+               // Checkout a particular thread.
+               qfs.context_stack_id = this.thread.stack_id;
+
+               // Set the count and offset of the posts in the thread.
+               this.post_list_pager.configure_query_filters(qfs);
+
+               // Checkout the thread's post(s).
+               var callback_load:Function = this.consume_post_list_okay;
+               var callback_fail:Function = this.consume_post_list_fail;
+
+               // MEH: Is this coupled funny? [lb] is okay with this: this is
+               // the only place we fetch a thread's posts. Seems a little
+               // weird that it happens from the thread details panel, but
+               // it also makes sense since there's a 1-1 relationship between
+               // threads and their panels... so why can't the panel manage
+               // some things for the thread, like fetching posts?
+               var gwis_req:GWIS_Base = new GWIS_Checkout_Versioned_Items(
+                  Post.class_item_type,         // item_type
+                  new utils.rev_spec.Current(), // rev
+                  null,                         // buddy_ct
+                  qfs,                          // query_filters
+                  null,                         // update_req
+                  null,                         // resp_items
+                  callback_load,                // callback_load
+                  callback_fail);               // callback_fail
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(gwis_req);
+               m4_ASSERT_SOFT(!found_duplicate);
+
+               // If we fail, user has to close the thread panel and try again.
+               this.fetched_posts = true;
+
+               this.placebox.mark_for_reinit();
+            }
+            // else, this.fetched_posts, so we're good.
+         }
+         else if (this.unwired_post === null) {
+
+            // Awesome! This assert is from [mm], and [lb] is happy to see
+            //          others get on the assert bandwagon! =)
+            // Obviously, we should have checked that the user can create posts
+            // and threads before we create a panel for a new thread.
+            m4_ASSERT(   G.item_mgr.create_allowed_get(Post)
+                      && G.item_mgr.create_allowed_get(Thread)
+                      && G.app.mode.is_allowed(App_Action.post_create));
+
+            this.change_state('NewThread');
+
+            this.unwired_post = new Post();
+            this.unwired_post.first_post = true;
+            this.posts = new ArrayCollection([this.unwired_post,]);
+
+            m4_DEBUG('repopulate: unwired_post:', this.unwired_post);
+
+            // Wait until the user decides to post to wire the post:
+            //   this.thread.register_post(post);
+            //   G.map.items_add([post,]);
+
+            this.posts_grid.dataProvider = this.posts;
+            this.post_list_pager.p_collect = this.posts_grid.dataProvider;
+            this.post_list_pager.update_pagination_text();
+            //this.title.text = "New Thread";
+            //this.title.setStyle("fontStyle", "italic");
+
+            this.title_header.visible = false;
+            this.title_header.includeInLayout = false;
+         }
+         // else, this.unwired_post !== null, so we're already setup.
+         //
+         // MAYBE: Do we still need to refresh the panel widgets,
+         //        if this.unwired_post !== null.
+
+         // See Bug 1918: Only reset scroll position on a new thread.
+         if ((this.last_thread === null)
+             || (this.last_thread.stack_id != this.thread.stack_id)) {
+            this.dg_box.verticalScrollPosition = 0;
+         }
+
+         this.last_thread = this.thread;
+
+         // MAYBE: Make the thread post list pageable. For very long
+         //        conversations.
+         // Show our paginator.
+         //  this.post_list_pager.visible = true;
+
+         if (G.map.rev_workcopy !== null) {
+            this.widget_item_alerts.visible = true;
+            this.widget_item_alerts.includeInLayout = true;
+         }
+         else {
+            this.widget_item_alerts.visible = false;
+            this.widget_item_alerts.includeInLayout = false;
+         }
+
+         //if (G.tabs.settings.show_item_stack_ids_cbox) {
+         //   m4_TALKY('repopulate: showing thread stack ID');
+         //   this.label_item_stack_id.visible = true;
+         //   this.label_item_stack_id.includeInLayout = true;
+         //   this.label_item_stack_id.text
+         //      = '(Stk. '
+         //        + this.thread.stack_id
+         //        +')';
+         //}
+         //else {
+         //   m4_TALKY('repopulate: hiding thread stack ID');
+         //   this.label_item_stack_id.visible = false;
+         //   this.label_item_stack_id.includeInLayout = false;
+         //}
+
+         if (this.thread.likes || this.thread.dislikes) {
+            this.set_stats(this.thread.likes,
+                           this.thread.dislikes,
+                           this.thread.comments);
+            this.stats.visible = true;
+            this.stats.includeInLayout = true;
+         }
+         else {
+            this.stats.visible = false;
+            this.stats.includeInLayout = false;
+         }
+
+         G.sl.event('ui/thread/open', {id: this.thread.stack_id});
+      }
+
+      // *** Getters and setters
+
+      //
+      override public function get attc() :Attachment
+      {
+         return this.thread;
+      }
+
+      //
+      override public function set attc(at:Attachment) :void
+      {
+         m4_ASSERT(false);
+         this.thread = (at as Thread);
+      }
+
+      //
+      public function get nposts() :int
+      {
+         if (this.posts === null) {
+            return 0;
+         }
+         else {
+            return this.posts.length;
+         }
+      }
+
+      //
+      public function get thread() :Thread
+      {
+         return this.thread_;
+      }
+
+      //
+      public function set thread(td:Thread) :void
+      {
+         this.thread_ = td;
+         this.attachment = td;
+         if (this.thread_ !== null) {
+            this.items_selected = new Set_UUID([this.thread_,]);
+         }
+         else {
+            this.items_selected = null;
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      override public function attachment_highlights_update() :Array
+      {
+         // NOTE: Not calling super.attachment_highlights_update();
+
+         var gf_dirty:Geofeature;
+         var to_h_set:Set_UUID = new Set_UUID();
+
+         var thread:Thread = null;
+         m4_DEBUG2('attachment_highlights_update: effectively_active_panel:',
+                   G.panel_mgr.effectively_active_panel);
+         m4_DEBUG2('attachment_highlights_update: this.attachment:',
+                   this.attachment);
+         // MAYBE: Is this fcn. special or are there other places this
+         //        happens? We don't do any highlighting unless we are
+         //        the active panel. This smells a little weird: normally
+         //        we're deliberate about objects doing things, but here
+         //        every attachment panel checks for work, rather being
+         //        told to work.
+         if (G.panel_mgr.effectively_active_panel === this) {
+            m4_DEBUG('attachment_highlights_update: I am the one');
+            thread = this.thread;
+         }
+
+         // Highlight all geofeatures attached to the posts within the
+         // thread, since nothing is attached to the thread itself.
+         if (thread !== null) {
+            for each (var post:Post in thread.posts) {
+               to_h_set.add_all(Link_Value.items_for_attachment(post));
+            }
+            // Add dirty attached places as well.
+            var tpanel:Panel_Item_Thread = (thread.thread_panel
+                                            as Panel_Item_Thread);
+            m4_ASSERT(tpanel !== null);
+            for each (var lg:Link_Geofeature in tpanel.post_geos_dirty) {
+               m4_DEBUG('Dirty Link_Geofeature', lg);
+               gf_dirty = Geofeature.all[lg.rhs_stack_id];
+               if (gf_dirty !== null) {
+                  to_h_set.add(gf_dirty);
+               }
+               else {
+                  // FIXME: Should this happen? Perhaps, geofeature is
+                  //        outside the viewport?
+                  m4_WARNING('Geofeature not found. Cannot highlight.');
+               }
+            }
+         }
+         // else, EXPLAIN: Why is G.item_mgr.active_thread (or this.attachment)
+         //                null?
+
+         var to_h:Array;
+         to_h = to_h_set.as_Array();
+
+         return to_h;
+      }
+
+      //
+      public function consume_post_list_fail(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_WARNING('consume_post_list_fail');
+
+         this.fetched_posts = false;
+      }
+
+      //
+      public function consume_post_list_okay(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_DEBUG('consume_post_list_okay');
+
+         // 2014.07.22: I closed the thread panel and when the posts were
+         // returned, this.thread was already cleared.
+         if (this.thread !== null) {
+            this.consume_post_list_okay_(gwis_req, xml);
+         }
+      }
+
+      //
+      protected function consume_post_list_okay_(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_DEBUG('consume_post_list_okay_');
+
+         // In CcpV1, the panel could change while a thread was being saved, so
+         // we always had to check that the thread that was saved is still the
+         // thread that's active. But now this code is managed by the panel
+         // that manages the thread, so really all we have to worry about is
+         // whether the panel was closed.
+// FIXME/BUG nnnn: When the panel is closed, canceling outstanding GWIS request.
+
+         var thread_sid:int = xml.items[0].@thread_stack_id;
+         m4_ASSURT(thread_sid == gwis_req.query_filters.context_stack_id);
+         m4_ASSURT(thread_sid > 0);
+
+         var target_id:int = this.thread.stack_id;
+         m4_ASSURT(target_id > 0);
+
+         m4_ASSERT(thread_sid == target_id);
+
+         // NOTE: This is probably wrong. gwis_req.resp_items contains newly
+         //       created items. But we're just doing a design by contract
+         //       assertion... so who cares.
+         if (gwis_req.resp_items.length > 0) {
+            var post_:Post = gwis_req.resp_items[0];
+            //m4_ASSERT(post_.parent_thread === this.thread);
+            m4_ASSERT(post_.parent_thread === null);
+         }
+
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         // Reinit the thread details panel.
+
+         this.posts_grid.dataProvider = null;
+         this.posts = new ArrayCollection();
+         this.post_geos = new Array();
+         this.post_geos_dirty = new Array();
+
+         // Set the thread title.
+
+         // We might already know the thread title -- but only if the thread
+         // was existing and isn't a new thread that we just saved. So
+         // this.thread.text might already equal this, or it might still be
+         // "New Thread". Also, see comments in consume_post_list for the
+         // format of xml.
+
+         ////m4_DEBUG('consume_post_list_: this.title:', this.title);
+         ////m4_DEBUG('consume_post_list_: xml.items:', xml.items);
+         ////m4_DEBUG('consume_post_list_: xml.items[0]:', xml.items[0]);
+         ////m4_DEBUG2('consume_post_list_: thread_title:',
+         ////          xml.items[0].@thread_title);
+         //this.title.text = xml.items[0].@thread_title;
+         ////m4_DEBUG('consume_post_list_:  set title:', this.title.text);
+
+         // Load the Posts from the item list that GWIS_Commit made.
+
+         // 2013.05.31: The posts now wire themselves, um, themselves.
+         // See Post.gml_consume, for starters. If this code was going
+         // to be more like other code, rather than parse XML, it would wait
+         // for a callback and just repopulate based on thread.posts, which is
+         // the Thread's Array of its Posts. Super simple, that one is.
+         m4_DEBUG('consume_post_list: received:', gwis_req.resp_items.length);
+
+         // We're the only place that loads a thread's posts.
+         //m4_ASSERT(this.thread.posts.length == 0);
+         if (this.thread.posts.length > 0) {
+            m4_WARNING('FIXME: Do not call checkout redundantly.');
+            // FIXME: Store the posts and the link_posts and just
+            //        rehydrate using the thread. This is almost
+            //        ready, except [lb] isn't sure where if the
+            //        link_posts are stored w/ the thread.
+            //        NOTE: We might want a discard heuristic, anyway:
+            //        not that we except users to open a lot of threads,
+            //        but being deliberate about managing items makes
+            //        for more robust code. And this code here is a little
+            //        sloppy.
+            this.thread.psids = new Dictionary();
+            this.thread.posts = new Array();
+         }
+
+         var obj:Object;
+         var post:Post;
+         var thread:Thread;
+         var link_post:Link_Post;
+         var link_feat:Link_Geofeature;
+         for each (obj in gwis_req.resp_items) {
+            if (obj is Post) {
+               post = (obj as Post);
+               this.posts.addItem(post);
+
+               this.thread.register_post(post);
+
+               // Since we sent a GWIS_Checkout without an Update_Base,
+               // we have to add the item to Attachment.all ourselves.
+
+               //m4_DEBUG2('cons_post_list: Attachment.all[post.stack_id]:',
+               //          UIDUtil.getUID(Attachment.all[post.stack_id]));
+               //m4_DEBUG2('cons_post_list: post:',
+               //          UIDUtil.getUID(post));
+
+               // Not true: m4_ASSERT_SOFT(!(post.stack_id in Attachment.all));
+               G.map.items_add([post,]);
+               // Make sure we're using the resident post and not the
+               // one created for the GWIS response.
+               post = Attachment.all[post.stack_id];
+
+               m4_DEBUG2('consume_post_list_: added post:',
+                         Strutil.snippet(post.body));
+            }
+            else if (obj is Thread) {
+               // 2012.08.17: We don't get Threads, only Posts and Link_Posts.
+               m4_ASSURT(false);
+               thread = (obj as Thread);
+               //this.title.text = thread.name_;
+            }
+            //
+            // NOTE: Check the leafier class first -- Link_Geofeature first,
+            //       then Link_Post, since a Link_Geofeature is both.
+            else if (obj is Link_Geofeature) {
+               link_feat = (obj as Link_Geofeature);
+               m4_DEBUG('cons_plist: lv_feat:', link_feat.toString());
+               this.post_geos.push(link_feat);
+               G.map.items_add([link_feat,]);
+            }
+            else if (obj is Link_Post) {
+               // MAYBE: Are Link_Posts stored with each Post?
+               //        Or do we just store them? It'd be nice if the Thread,
+               //        Post, Link_Post, and Link_Geofeature objects were
+               //        all cross wired.
+               link_post = (obj as Link_Post);
+               this.post_geos.push(link_post);
+               m4_DEBUG('cons_plist: lv_post:', link_post.toString());
+               G.map.items_add([link_post,]);
+               // or try this
+               //Link_Value.stranded_link_values.add(link_post);
+               //link_post.update_link_value_cache();
+            }
+            else {
+               m4_ERROR('Unrecognized item type:', obj);
+            }
+         }
+
+         m4_ASSERT(this.unwired_post === null);
+         // Add the reply post only if the user is allowed to create a post.
+         if ((G.item_mgr.create_allowed_get(Post))
+             && (G.app.mode.is_allowed(App_Action.post_create))) {
+            this.unwired_post = new Post();
+            this.unwired_post.reply_post = true;
+            m4_DEBUG('consume_post_list_: unwired_post:', this.unwired_post);
+            this.posts.addItem(this.unwired_post); // addItem
+         }
+
+         // Update like/dislike display in thread title.
+         if ((this.thread.likes > 0)
+             && (this.thread.likes >= this.thread.dislikes)) {
+            this.like.includeInLayout = true;
+         }
+         else {
+            this.like.includeInLayout = false;
+         }
+         if ((this.thread.likes > 0)
+             && (this.thread.likes < this.thread.dislikes)) {
+            this.dislike.includeInLayout = true;
+         }
+         else {
+            this.dislike.includeInLayout = false;
+         }
+
+         // Hack to get around weird stuff Flex does with recycling item
+         // renderers in the datagrid and the awkward row heights that
+         // happen because of that.
+         this.posts_grid.dataProvider = this.posts;
+         this.post_list_pager.p_collect = this.posts_grid.dataProvider;
+         this.post_list_pager.update_pagination_text();
+         this.reset_datagrid_height();
+
+         // This part of the code is trying to automatically scroll to the
+         // desired post. But it is not working. So, FIXME.
+         var post_index:int = -1;
+         var contains_post:Boolean = false;
+         if (G.tabs.discussions.post_sid_auto_select > 0) {
+            for each (post in this.posts) {
+               post_index += 1;
+               if (post.stack_id == G.tabs.discussions.post_sid_auto_select) {
+                  contains_post = this.posts.contains(post);
+                  break;
+               }
+            }
+
+            if (contains_post) {
+               this.posts_grid.verticalScrollPosition = post_index;
+               G.tabs.discussions.post_sid_auto_select = 0;
+            }
+         }
+
+         m4_DEBUG2('consume_post_list: places_init_post:', this,
+                   '/ thread:', this.thread);
+
+         this.reset_panel();
+
+         this.placebox.places_reset();
+         this.placebox.mark_for_reinit();
+         this.placebox.places_init_post(/*post=*/null, /*read_only=*/true);
+         // See also similar code in Panel_Item_Thread/Widget_Post_Renderer.
+         var show_places:Boolean;
+         show_places = (this.placebox.link_geofeature_count > 0);
+         this.thread_places_grid_box.visible = show_places;
+         this.thread_places_grid_box.includeInLayout = show_places;
+
+         // Typically, this is done on_panel_show, but when the thread panel is
+         // opened for the first time, the posts haven't been fetched yet. So,
+         // redo this once the posts have been fetched.
+         UI.attachment_highlights_update();
+
+         if ('@reac_data' in xml) {
+            this.set_stats(
+               int(xml.reac_data[0].@likes),
+               int(xml.reac_data[0].@dislikes),
+               int(xml.reac_data[0].@comments));
+         }
+
+         this.link_attributes_fetch();
+      }
+
+      //
+      protected function link_attributes_fetch() :void
+      {
+         var qfs:Query_Filters = new Query_Filters();
+
+         var internal_name:String = '/item/alert_email';
+         // It seems hokey, but Flex lets us reference a derived child's class.
+         var alert_attr:Attribute = Attribute.all_named[internal_name];
+
+         qfs.only_lhs_stack_ids = new Stack_Id_Array();
+         qfs.only_lhs_stack_ids.push(alert_attr.stack_id);
+
+         qfs.only_rhs_stack_ids = new Stack_Id_Array();
+         qfs.only_rhs_stack_ids.push(this.thread.stack_id);
+
+         var callback_load:Function = this.link_attributes_fetch_load;
+         var callback_fail:Function = this.link_attributes_fetch_fail;
+
+         var gwis_req:GWIS_Checkout_Versioned_Items =
+            new GWIS_Checkout_Versioned_Items(
+               Link_Value.class_item_type,      // item_type
+               new utils.rev_spec.Current(),    // rev
+               null,                            // buddy_ct
+               qfs,                             // query_filters
+               null,                            // update_req
+               null,                            // resp_items
+               callback_load,                   // callback_load
+               callback_fail);                  // callback_fail
+
+         gwis_req.attc_type = 'attribute';
+
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_req);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function link_attributes_fetch_fail(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_WARNING('link_attributes_fetch_fail');
+      }
+
+      //
+      protected function link_attributes_fetch_load(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         if (gwis_req.resp_items.length > 0) {
+
+            m4_ASSERT_SOFT(gwis_req.resp_items.length == 1);
+
+            var lval:Link_Value = gwis_req.resp_items[0];
+
+            m4_DEBUG('link_attributes_fetch_load: lval:', lval);
+
+            G.map.items_add([lval,]);
+
+            G.panel_mgr.panels_mark_dirty([this,]);
+         }
+         // else, e.g., there's no /item/alert_email link_value for
+         // this thread (we checked out link_values with lhs of
+         // the /item/alert_email attribute and rhs of this thread,
+         // and none were returned).
+      }
+
+      // ***
+
+      //
+      override public function is_action_actionable(
+         action:String, loosey:Boolean=false) :Boolean
+      {
+         var is_actionable:Boolean = false;
+         is_actionable = super.is_action_actionable(action, /*loosey=*/true);
+         // Only allow name editing when user is actively editing a post.
+         is_actionable &&= (this.post_editing !== null);
+         return is_actionable;
+      }
+
+      //
+      protected function on_added_renderer_maybe(event:Event) :void
+      {
+         // FIXME: Now that we know about this.parentDocument, can we 
+         //        delete all on_added_renderer_maybe callbacks and make
+         //        the widget's this.dp walk the parentDocument chain?
+         //
+         //m4_DEBUG('on_added_renderer_maybe: target:', event.target);
+         var renderer:Widget_Post_Renderer = (
+            event.target as Widget_Post_Renderer);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Post_Renderer can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this;
+
+            // Not any good here: this.reset_datagrid_height();
+         }
+
+      }
+
+// FIXME: Statewide UI: Tie this to closing a tab bar button. Sariously.
+// [mm] thinks that we should get rid of this close button. There's already a
+// close button on the tab button and to switch to the threads list, the user
+// can just easily click the Activity tab. This just seems like duplication.
+/*
+      //
+      protected function on_back_click() :void
+      {
+         m4_DEBUG('on_back_click');
+         if (this.dirty_post) {
+            Alert.show('You have unposted changes in this discussion. '
+                       + 'If you close the panel, those changes will be lost. '
+                       + 'Is this okay?',
+                       'Close this discussion',
+                       Alert.CANCEL | Alert.OK,
+                       null,
+                       this.on_close_alert,
+                       null,
+                       Alert.OK);
+         }
+         else {
+            this.on_close_alert(null);
+         }
+      }
+*/
+
+      //
+      protected function on_resize_placebox_grid_item(event:ResizeEvent) :void
+      {
+         // MAYBE: Remove this fcn. Unless there's a width problem, because we
+         //        have hack_height_reset to fix the height problem.
+         m4_VERBOSE('on_resize: resized placebox_grid_item:', event.target);
+         m4_ASSERT(this.placebox_grid_item !== null);
+         m4_VERBOSE(' >> target.width:', event.target.width);
+         m4_VERBOSE2(' >> placebox_grid_item.width:',
+                     this.placebox_grid_item.width);
+         if (event.target.width != this.placebox_grid_item.width) {
+            m4_WARNING2('Unexpected width diff: target:', event.target.width,
+                        'grid_item.width:', this.placebox_grid_item.width);
+         }
+         /*/
+         if (!this.placebox.num_places) {
+            var txt:Text
+               = (this.placebox.place_list.getChildByName('none_text_text')
+                  as Text);
+            txt.width = event.target.width;
+         }
+         /*/
+      }
+
+      //
+      public function post_editing_active(the_post:Post) :void
+      {
+         m4_DEBUG('post_editing_active: the_post:', the_post);
+         m4_DEBUG('post_editing_active: this.thread:', this.thread);
+         m4_DEBUG2('post_editing_active: thread.posts.length:',
+                   this.thread.posts.length);
+         if (this.thread.posts.length > 0) {
+            m4_DEBUG2('post_editing_active: thread.posts[0]:',
+                      this.thread.posts[0]);
+            if (this.thread.posts[0] === the_post) {
+               m4_DEBUG('post_editing_active: edit_enabled = true');
+               this.widget_name_header.item_name_control.edit_enabled = true;
+               this.widget_name_header.item_name_control.use_label_toggle
+                  = false;
+            }
+         }
+         this.post_editing = the_post;
+      }
+
+      //
+      public function post_editing_inactive(the_post:Post) :void
+      {
+         m4_DEBUG('post_editing_inactive');
+         if (!this.thread.fresh) {
+            this.title_header.visible = true;
+            this.title_header.includeInLayout = true;
+         }
+         this.widget_name_header.item_name_control.edit_enabled = false;
+         this.widget_name_header.item_name_control.use_label_toggle = false;
+         this.post_editing = null;
+      }
+
+      //
+      public function reset_panel() :void
+      {
+         m4_DEBUG('resetting: this.first_post/reply_post, dirty_post, etc.');
+         m4_DEBUG('reset_panel: unwired_post: null');
+         this.post_geos_dirty = new Array();
+         this.dirty_post = false;
+      }
+
+      //
+      public function reset_datagrid_height(scroll_down:Boolean=false) :void
+      {
+         //m4_DEBUG('reset_datagrid_height: old:', this.posts_grid.height);
+
+         var height_hack:int = this.posts_grid.hack_height_reset(true);
+
+         //m4_DEBUG('reset_datagrid_height: height_hack2:', height_hack);
+         //m4_DEBUG('reset_datagrid_height: new:', this.posts_grid.height);
+
+         if (scroll_down) {
+            m4_DEBUG_CLLL('>callLater: scroll_down_below [set_correct_hghts]');
+            G.app.callLater(this.scroll_down_below);
+         }
+      }
+
+      //
+      public function scroll_down_below() :void
+      {
+         //m4_DEBUG2('scroll_down_below: posts_grid.height:',
+         //          this.posts_grid.height);
+         //m4_DEBUG2('this.dg_box.maxVerticalScrollPosition:',
+         //          this.dg_box.maxVerticalScrollPosition);
+
+         this.dg_box.verticalScrollPosition =
+            this.dg_box.maxVerticalScrollPosition;
+      }
+
+      //
+      protected function set_stats(likes:int, dislikes:int, comments:int) :void
+      {
+         m4_DEBUG2('set_stats: likes:', likes, '/ dislikes:', dislikes,
+                   '/ comments:', comments);
+         this.likes_count.text =
+            String(likes) + ' '
+            + Inflector.pluralize('like', (likes != 1));
+         this.dislikes_count.text =
+            String(dislikes) + ' '
+            + Inflector.pluralize('dislike', (dislikes != 1));
+         this.comments_count.text =
+            String(comments) + ' '
+            + Inflector.pluralize('comment', (comments != 1));
+      }
+
+   ]]></mx:Script>
+
+   <!-- *** View states -->
+
+   <views_panel_items:states>
+
+      <!-- This states collection replace the base class', so be sure to
+           re-include the two conventional states. -->
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+      </mx:State>
+      <mx:State
+         name="{this.panel_default_state}"
+         basedOn="{this.panel_base_state}"
+         enterState="this.on_enter_state_default();"
+         >
+      </mx:State>
+
+      <mx:State
+         name="NewThread">
+         <mx:RemoveChild
+            target="{thread_places_grid}"/>
+      </mx:State>
+
+   </views_panel_items:states>
+
+   <!-- *** Default state -->
+
+<!-- BUG nnnn: Make thread panel have the same feel as the new item details
+               panel, e.g., use looknfeelCleanOuter/Inner
+               -->
+
+   <mx:VBox
+      width="100%"
+      height="100%">
+
+      <!-- Title -->
+      <mx:HBox
+         id="title_header"
+         width="100%"
+         horizontalScrollPolicy="off"
+         verticalAlign="middle">
+         <mx:Image
+            id="like"
+            includeInLayout="false"
+            visible="{this.like.includeInLayout}"
+            source="@Embed('/assets/img/icon_tags_bonus.png')"/>
+         <mx:Image
+            id="dislike"
+            includeInLayout="false"
+            visible="{this.dislike.includeInLayout}"
+            source="@Embed('/assets/img/icon_tags_penalty.png')"/>
+
+         <views_panel_items:Widget_Name_Header
+            id="widget_name_header"
+            width="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="2"
+            />
+         <!--
+         <mx:Label
+            id="title"
+            styleName="labelmajor"
+            width="100%"
+            minWidth="0"
+
+            paddingTop="-4"
+            />
+         -->
+         <!-- This is for DEVS who want to see stack IDs. -->
+         <!--
+         <mx:Label
+            id="label_item_stack_id"
+            height="100%"
+
+            paddingTop="-4"
+
+            paddingRight="0"
+            paddingBottom="0"
+            paddingLeft="0"
+            fontStyle="italic"
+            visible="false"
+            selectable="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            includeInLayout="{this.label_item_stack_id.visible}"
+            />
+         -->
+      </mx:HBox>
+
+      <mx:HBox
+         id="stats"
+         visible="false"
+         includeInLayout="{this.stats.visible}"
+         borderStyle="solid"
+         backgroundColor="{Conf.reac_bar_bgcolor}"
+         borderColor="{Conf.reac_bar_border_color}"
+         width="100%"
+         horizontalScrollPolicy="off"
+         >
+         <mx:HBox
+            width="100%"
+            horizontalGap="0"
+            paddingTop="{G.app.pad - 1}"
+            paddingLeft="{G.app.pad}"
+            paddingRight="2"
+            paddingBottom="2">
+            <mx:Image
+         source="@Embed(source='/assets/img/icon_tags_bonus.png')"
+               />
+            <mx:Text
+               id="likes_count"
+               paddingLeft="2"
+               paddingTop="-3"
+               paddingRight="{G.app.pad}"
+               fontWeight="bold"/>
+            <mx:Image
+         source="@Embed(source='/assets/img/icon_tags_penalty.png')"
+               />
+            <mx:Text
+               id="dislikes_count"
+               paddingTop="-3"
+               paddingRight="2"
+               fontWeight="bold"/>
+            <mx:Spacer
+               width="100%"/>
+            <mx:Text
+               id="comments_count"
+               paddingTop="-3"
+               fontWeight="bold"/>
+         </mx:HBox>
+      </mx:HBox>
+
+      <!-- Attached places -->
+      <mx:HBox
+         id="thread_places_grid_box"
+         width="100%"
+         horizontalScrollPolicy="off">
+         <mx:Grid
+            id="thread_places_grid"
+            width="100%"
+            verticalGap="1"
+            horizontalGap="0"
+            borderStyle="solid"
+            paddingLeft="4"
+            paddingTop="4"
+            paddingBottom="2">
+
+            <mx:GridRow
+               horizontalAlign="left"
+               width="{this.posts_grid.width}">
+               <mx:GridItem
+                  verticalAlign="top"
+                  paddingTop="2">
+                  <mx:Label
+                     text="Places: "
+                     fontWeight="bold" />
+               </mx:GridItem>
+               <mx:GridItem
+                  id="placebox_grid_item"
+                  width="100%"
+                  resize="this.on_resize_placebox_grid_item(event);"
+                  verticalAlign="top">
+<!--
+noneText="&lt;i&gt;None.&lt;/i&gt; (You can add a link to a place by attaching it to a new post.)"
+-->
+                  <views_panel_items:Widget_Attachment_Place_Box
+                     id="placebox"
+                     link_value_class="Link_Post"
+noneText="&lt;i&gt;None.&lt;/i&gt; You can add places by attaching them to a new post. Scroll down and click &quot;Attach New Places&quot; to get started."
+                     />
+               </mx:GridItem>
+            </mx:GridRow>
+         </mx:Grid>
+      </mx:HBox>
+
+      <!-- Posts -->
+      <mx:HBox
+         width="100%"
+         height="100%"
+         horizontalScrollPolicy="off">
+         <mx:HBox
+               id="dg_box"
+            width="100%"
+            height="100%"
+               borderStyle="solid"
+            horizontalScrollPolicy="off">
+            <mx:Canvas
+               width="100%"
+               height="100%"
+               horizontalScrollPolicy="off"
+               verticalScrollPolicy="on">
+               <views_panel_util:Data_Grid_2
+                  id="posts_grid"
+                  width="100%"
+                  borderStyle="none"
+                  minHeight="0"
+                  verticalScrollPolicy="off"
+                  alternatingItemColors="{Conf.grid_alt_colours}"
+                  allowMultipleSelection="false"
+                  variableRowHeight="true"
+                  useRollOver="false"
+                  selectable="false"
+                  draggableColumns="false"
+                  resizableColumns="true"
+                  sortableColumns="false"
+                  showHeaders="false"
+                  headerHeight="0"
+                  mouseWheel="this.dg_box.dispatchEvent(event)"
+                  added="this.on_added_renderer_maybe(event);"
+                  >
+                  <views_panel_util:columns>
+                     <mx:DataGridColumn
+                        itemRenderer=
+                           "views.panel_discussions.Widget_Post_Renderer"/>
+                  </views_panel_util:columns>
+               </views_panel_util:Data_Grid_2>
+            </mx:Canvas>
+         </mx:HBox>
+      </mx:HBox>
+
+      <!-- This paginator is originally not visible - and ever if it were
+           visible, it'd be hidden by Latest_Activity_Panels' paginator widget.
+           -->
+      <!-- [mm]: Why is this present in the first place? Posts shouldn't be
+           paginated, unless we figure out what to do with the 'new post'
+           renderer. It cannot be on page N > 1. So, this is currently hidden.
+
+           2013.05.30: [lb] wonders if, BUG nnnn: Make the New Post entry
+           sticky on the bottom of the thread panel, so it's not hidden
+           in the scrolling list. I.e., move it outside of the scrollbar
+           content.
+           -->
+      <mx:HBox
+         width="{this.posts_grid.width}">
+         <views_panel_util:Paginator_Widget
+            id="post_list_pager"
+            width="100%"
+            horizontalAlign="right"
+            paddingRight="1"
+            paddingTop="3"
+            paddingBottom="1"
+            horizontalGap="0"
+            visible="false"
+            includeInLayout="{this.post_list_pager.visible}"
+            />
+      </mx:HBox>
+
+      <views_panel_items:Widget_Item_Alerts
+         id="widget_item_alerts"
+         width="100%"
+         visible="true"
+         includeInLayout="{this.widget_item_alerts.visible}"
+         />
+
+   </mx:VBox>
+
+</views_panel_items:Panel_Item_Attachment>
+

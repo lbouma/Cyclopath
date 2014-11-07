@@ -1,0 +1,196 @@
+
+These are just some notes, writ around September 2011, to help with debugging
+MapServer and Cyclopath skinning. These are against MapServer 5.6.7.
+
+== Mapserver Caveats/Gotchas/Bugbugs? ==
+
+=== Be careful with newlines === a/k/a/ Don't split FROM [table] ===
+
+MAPSERVER BUGBUG: Don't split the FROM and the table name.
+
+E.g., if you do this:
+                     
+   FROM 
+      %schema%.geofeature AS b
+
+instead of this:
+                     
+   FROM %schema%.geofeature AS b
+
+then MapServer doesn't see the table name and complains:
+
+   msPostGISLayerWhichShapes(): Query error. Error (ERROR: find_srid() - 
+   couldnt find the corresponding SRID - is the geometry registered in the 
+   GEOMETRY_COLUMNS table?  Is there an uppercase/lowercase missmatch?
+
+If you look at the Psql log, you'll see that 
+
+   find_srid('','','geometry'))
+
+I.e., there's no schema (which is okay, 'cause there's a default) but there's
+no table name (not okay, 'cause the name 'geometry' is ambiguous).
+
+=== About %schema% parameter ===
+
+The %schema% value comes from the url, as does any %key%.
+
+=== About EXPRESSION syntax ===
+
+The MapServer syntax cannot be split across newlines, so coding and debugging 
+in MapServer is ugly (since everything is on one line). As such, we recommend 
+that EXPRESSION be used just to test a single boolean value that's computed 
+elsewhere and stored in a cache table (i.e., from tilecache_update.py into 
+the table, tiles_cache_byway_attcs).
+
+Also, MapServer's comparison operators are different and seemingly unique. For
+example, the =~ /t/ is MapServer shorthand for True; to test a boolean value, 
+it's not 
+
+   EXPRESSION (my_value)
+
+or 
+
+   EXPRESSION (my_value IS TRUE)
+
+but instead, it's
+
+   EXPRESSION (my_value =~ /t/)
+
+Thanks =~ /to/ Dave Potts:
+
+  http://postgis.refractions.net/pipermail/postgis-users/2008-March/018781.html
+
+== Mapserver Debugging ==
+
+If you fiddle with the Mapserver config or skins, you can re-generate tiles
+using the tilecache_update.py script. You can also hit up Mapserver directly 
+for specific tiles, which makes quickly visualizing changes easy.
+
+Circa Fall 2011, Flashclient uses tiles for zoom levels 9 through 13; mobile
+uses tiles for zoom levels 9 through 15; and flashclient using the skins config
+for rendering vectors at zoom levels 14 through 19.
+
+Note that http://ccpv3/tilec? is the TileCache server and won't automatically
+rebuild tiles. We want to test against Mapserver instead, at http://ccpv2/wms?
+
+E.g., this is a TileCache request for a tile at zoom 13:
+
+  http://ccpv2/tilec?&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=minnesota&SRS=EPSG:26915&WIDTH=256&HEIGHT=256&FORMAT=image/png&BBOX=489472,4980736,491520,4982784
+
+=== Zoom 10 ===
+
+http://ccpv3/wms?schema=minnesota&map.projection=EPSG:26915&layer_skin=bikeways&layers=standard&styles=&service=WMS&width=768&format=image%2Fpng&request=GetMap&height=768&srs=EPSG%3A26915&version=1.1.1&bbox=442368.0%2C4964352.0%2C491520.0%2C5013504.0
+
+=== Zoom 13 ===
+
+# Uptown showing Midtown Greenway, Lake St, North Calhoun, and South Isles:
+http://ccpv3/wms?schema=minnesota&map.projection=EPSG:26915&layer_skin=bikeways&layers=standard&styles=&service=WMS&width=256&format=image%2Fpng&request=GetMap&height=256&srs=EPSG%3A26915&version=1.1.1&bbox=475136.0%2C4976640.0%2C477184.0%2C4978688.0
+
+http://ccpv3/wms?schema=minnesota&map.projection=EPSG:26915&layer_skin=bikeways&layers=standard&styles=&service=WMS&width=256&format=image%2Fpng&request=GetMap&height=256&srs=EPSG%3A26915&version=1.1.1&bbox=473088.0%2C4980736.0%2C475136.0%2C4982784.0
+
+http://ccpv3/wms?schema=minnesota&map.projection=EPSG:26915&layer_skin=bikeways&layers=standard&styles=&service=WMS&width=256&format=image%2Fpng&request=GetMap&height=256&srs=EPSG%3A26915&version=1.1.1&bbox=489472.0%2C4980736.0%2C491520.0%2C4982784.0
+
+== Zoom Cache Debugging ==
+
+The cache table, tiles_cache_byway_attcs, stores the names and IDs of byways a
+particular group has access to at a particular branch. It also stores a host of
+calculated attributes about said byways to assist in drawing the map.
+
+SELECT 
+   system_id AS system_id
+   , stack_id AS stack_id
+   , version AS version
+   -- from rating table
+   , generic_rating AS rat
+   -- hack: computer from name
+   , tag_trail_cooridor AS t_tco
+   -- real tags:
+   , tag_bike_lane AS t_bln
+   , tag_prohibited AS t_pro
+   , tag_bike_path AS t_bph
+   , tag_bike_boulevard AS t_bvd
+   -- metc attrs:
+   , attr_metc_bikelane AS a_bln
+   , attr_metc_class AS a_cls
+   , attr_metc_type AS a_typ
+FROM 
+   minnesota.tiles_cache_byway_attcs
+   ;
+
+SELECT COUNT(tag_bike_lane)      AS t_bln FROM tiles_cache_byway_attcs WHERE tag_bike_lane is TRUE;         -- 1822
+SELECT COUNT(tag_prohibited)     AS t_pro FROM tiles_cache_byway_attcs WHERE tag_prohibited is TRUE;        -- 140
+SELECT COUNT(tag_bike_path)      AS t_bph FROM tiles_cache_byway_attcs WHERE tag_bike_path is TRUE;         -- 192
+SELECT COUNT(tag_bike_boulevard) AS t_bvd FROM tiles_cache_byway_attcs WHERE tag_bike_boulevard is TRUE;    -- 164
+
+SELECT COUNT(attr_metc_bikelane) AS a_bln FROM tiles_cache_byway_attcs WHERE attr_metc_bikelane is TRUE;    -- 1786
+
+class?
+
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Paved Trail';             -- 20659
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Bike Lane';               -- 8584
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Shoulder >= 5''';         -- 3192
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'One-way Shoulder >= 5'''; -- 803
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Other';                   -- 477
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'One Way Bike Lane';       -- 469
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'One Way Paved Trail';     -- 320
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Non-paved Trail';         -- 241
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Low Volume Road with Shoulder < 5'''; -- 33
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'US/State Road with Shoulder >= 5''';  -- 13
+SELECT COUNT(attr_metc_type) FROM tiles_cache_byway_attcs WHERE attr_metc_type = 'Sub-Standard';            -- 3
+
+   attr_lookup_CLASS = (
+      'GAPs', # only 10 of these
+      'Paved Trail', 
+      'Road', 
+      'Trail', 
+      )
+   attr_lookup_Type = {
+      'Bike Lane'                : byway.Geofeature_Layer.Unknown,
+      "Low Volume Road with Shoulder < 5'"
+                                 : byway.Geofeature_Layer.Local_Road,
+      'Non-paved Trail'          : byway.Geofeature_Layer.Unknown,
+      "One-way Shoulder >= 5'"   : byway.Geofeature_Layer.Unknown,
+      'One Way Bike Lane'        : byway.Geofeature_Layer.Unknown,
+      'One Way Paved Trail'      : byway.Geofeature_Layer.Bicycle_Path,
+      'Other'                    : byway.Geofeature_Layer.Other,
+      'Paved Trail'              : byway.Geofeature_Layer.Bicycle_Path,
+      "Shoulder >= 5'"           : byway.Geofeature_Layer.Unknown,
+      'Sub-Standard'             : byway.Geofeature_Layer.Unknown, # only 3
+      "US/State Road with Shoulder >= 5'"
+                                 : byway.Geofeature_Layer.Highway,
+      }
+
+== Mapserver Tracing ==
+
+== The Projection Config ==
+
+To use Mercator, you need to edit <tt>/usr/share/proj/epsg</tt> (note that the
+Cyclopath ccp_install script should take care of this for you already).
+
+ # [Cyclopath] Mercator projection (for MapServer)
+ <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>
+
+You'll also want to check the epsg file permissions, especially if you get
+errno 13:
+
+ msProcessProjection(): Projection library error. no system list, errno: 13
+
+E.g., [lb] found this 2013.01.04 that his epsg is not the correct permissions:
+
+ pee@pluto:mapserver$ ll /usr/share/proj/epsg 
+ -rw-r-----. 1 pee pee 539K May  9  2012 /usr/share/proj/epsg
+
+because the file is not readable by apache!
+
+Try
+
+ chmod 664 /usr/share/proj/epsg
+
+=== Random CxPx ===
+
+//http://localhost:8088/tilec?&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=minnesota-2500677-bikeways&SRS=EPSG:26915&BBOX=557056,5177344,589824,5210112&WIDTH=256&HEIGHT=256&FORMAT=image/png
+
+//http://localhost:8088/tilec?&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=minnesota-2500677-bikeways&SRS=EPSG:26915&BBOX=557056,5210112,589824,5242880&WIDTH=256&HEIGHT=256&FORMAT=image/png
+
+//http://localhost:8088/tilec?&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=minnesota-2500677-bikeways&SRS=EPSG:26915&BBOX=458752,4947968,491520,4980736&WIDTH=256&HEIGHT=256&FORMAT=image/png
+

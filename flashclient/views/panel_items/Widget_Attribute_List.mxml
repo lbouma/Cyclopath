@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import items.attcs.Attribute;
+      import utils.misc.Logging;
+      import views.base.App_Action;
+      import views.commands.Attribute_Create;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_Lst');
+
+      protected static var hint_text:String =
+         "Hint: To indicate 'unknown' or 'not applicable',"
+         + " delete the entry or click the down arrow until it becomes blank.";
+
+      // *** Instance variables
+
+      // Some item panels use their own attribute widget. We maintain a pointer
+      // to the actual widget being used.
+      public var widget_attrs:Widget_Attributes_Assign;
+
+      // *** Base class overrides
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_initialize');
+         super.on_initialize(ev);
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         if ((G.app !== null) && (G.app.mode !== null)) {
+            var dummy_event:Event = null;
+            this.on_mode_change(dummy_event);
+         }
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_TALKY('depopulate: this.dp:', this.dp.class_name_tail);
+         this.link_new_attribute_none.visible = false;
+         this.link_new_attribute_some.visible = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_VERBOSE('repopulate');
+
+         super.repopulate();
+
+         m4_TALKY2('repopulate: populate widget_attrs_assign: selected.len:',
+                   this.items_selected.length);
+
+         this.show_or_hide_attr_box();
+      }
+
+      // *** Base class getters and setters
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         this.register_widgets([
+            this.widget_attrs_assign,
+            ]);
+         m4_ASSERT(this.widget_attrs === null);
+         this.widget_attrs = this.widget_attrs_assign;
+      }
+
+      // *** Instance functions
+
+      //
+      // Similar: Widget_Field/Widget_Attributes: on_click_attribute_new.
+      protected function on_click_attribute_new() :void
+      {
+         // Create a new Attribute
+         var attr:Attribute = new Attribute();
+         // Create a command to do/undo adding the attribute to the system
+         // NOTE The new Attribute is just that: new. We can fiddle with it all
+         //      we want until we call do_().
+         attr.name_ = 'My New Attribute';
+         attr.value_type = 'integer'; // FIXME Magic string
+         var item_type_id:int = this.dp.shows_type.class_item_type_id;
+         m4_TALKY('on_click_attribute_new: item_type_id:', item_type_id);
+         attr.applies_to_type_id = item_type_id;
+         var cmd:Attribute_Create = new Attribute_Create(attr);
+         G.map.cm.do_(cmd);
+         // The attr(s) being created are automatically considered hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         // Skipping: Widget_Attributes.attribute_list.update();
+         //   (It'll get updated when that panel is activated.)
+      }
+
+      //
+      protected function on_click_link_field_hints() :void
+      {
+         m4_TALKY('on_click_link_field_hints');
+         // Toggle the hints text visibility.
+         this.gf_attrs_hint.visible = !this.gf_attrs_hint.visible;
+         this.update_link_field_hints();
+      }
+
+      //
+      protected function on_mode_change(ev:Event) :void
+      {
+         this.update_link_field_hints();
+      }
+
+      //
+      protected function update_link_field_hints() :void
+      {
+         m4_TALKY('update_link_field_hints');
+         if (!this.gf_attrs_hint.visible) {
+            this.link_field_hints.htmlText = 'Show hints &#187;';
+         }
+         else {
+            this.link_field_hints.htmlText = 'Hide hints &#171;';
+         }
+      }
+
+      //
+      public function show_or_hide_attr_box() :void
+      {
+         // Hide the attribute box if there are not attributes defined for this
+         // geofeature/item type.
+
+         // m4_VERBOSE2('show_or_hide_attr_box: grid_attrs:',
+         //             this.widget_attrs.grid_attrs);
+         if (this.widget_attrs.grid_attrs !== null) {
+            m4_VERBOSE2('show_or_hide_attr_box: grid_attrs.length:',
+                        this.widget_attrs.grid_attrs.length);
+         }
+
+         if ((this.widget_attrs.grid_attrs !== null)
+             && (this.widget_attrs.grid_attrs.length > 0)) {
+            m4_TALKY('show_or_hide_attr_box: Showing widget_attrs');
+            this.box_attributes_empty.visible = false;
+            this.box_attributes_exist.visible = true;
+         }
+         else {
+            m4_TALKY('show_or_hide_attr_box: Hiding widget_attrs');
+            this.box_attributes_empty.visible = true;
+            this.box_attributes_exist.visible = false;
+         }
+
+         if (G.app.mode.is_allowed(App_Action.item_edit)) {
+            this.link_field_hints.visible = true;
+            if (G.item_mgr.create_allowed_get(Attribute)) {
+               m4_TALKY('show_or_hide_attr_box: Attributes okay');
+               this.link_new_attribute_none.visible = true;
+               this.link_new_attribute_some.visible = true;
+            }
+            else {
+               m4_TALKY('show_or_hide_attr_box: Attributes nok');
+               this.link_new_attribute_none.visible = false;
+               this.link_new_attribute_some.visible = false;
+            }
+         }
+         else {
+            this.link_field_hints.visible = false;
+            this.link_new_attribute_none.visible = false;
+            this.link_new_attribute_some.visible = false;
+         }
+
+         m4_TALKY2('show_or_hide_attr_box: can_edit:',
+                   this.dp.access_level_can_edit);
+         if ((G.map.rev_workcopy !== null)
+             && (this.dp.access_level_can_edit)) {
+             this.box_link_hints_and_new_attr.visible = true;
+         }
+         else {
+             this.box_link_hints_and_new_attr.visible = false;
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Attributes"
+         />
+
+      <!-- Not using the style that similar widgets use:
+            styleName="looknfeelCleanInner"
+           -->
+      <mx:VBox
+         paddingLeft="{G.app.pad}"
+         paddingTop="4"
+         paddingRight="{G.app.pad}"
+         paddingBottom="0"
+         width="100%"
+         verticalGap="2"
+         >
+
+         <mx:HBox
+            id="box_attributes_empty"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            horizontalGap="0"
+            verticalAlign="bottom"
+            visible="false"
+            includeInLayout="{this.box_attributes_empty.visible}">
+            <mx:Label
+               text="None."
+               />
+            <mx:Spacer
+               width="100%"/>
+
+<!-- FIXME_2013_06_11
+FIXME: PERMISSIONS: Only show if editing on and user can create attrs. -->
+
+<!-- FIXME: Show in the map legend, on the branch manage panel. -->
+
+               <views_panel_util:Hyper_Link
+                  id="link_new_attribute_none"
+                  htmlText="Create a new attribute"
+                  toolTip=
+               "Click to create a new attribute that you can apply to items."
+                  styleName="labelminor"
+                  includeInLayout="{this.link_new_attribute_none.visible}"
+                  click="this.on_click_attribute_new();"/>
+         </mx:HBox> <!-- end: link_posts_empty -->
+
+         <mx:VBox
+            id="box_attributes_exist"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            horizontalGap="0"
+            visible="false"
+            includeInLayout="{this.box_attributes_exist.visible}">
+
+            <mx:VBox
+               id="tab_gf_attr_box"
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0">
+               <views_panel_items:Widget_Attributes_Assign
+                  id="widget_attrs_assign"
+                  width="100%"
+                  />
+            </mx:VBox>
+
+            <mx:HBox
+               id="box_link_hints_and_new_attr"
+               width="100%"
+               visible="true"
+               includeInLayout="{this.box_link_hints_and_new_attr.visible}">
+
+               <views_panel_util:Hyper_Link
+                  id="link_field_hints"
+                  htmlText="Show hints &#187;"
+                  click="this.on_click_link_field_hints();"
+                  visible="true"
+                  includeInLayout="{this.link_field_hints.visible}"/>
+
+               <mx:Spacer
+                  width="100%"/>
+
+<!-- FIXME: PERMISSIONS: Only show if editing on and user can create attrs. -->
+<!-- FIXME: Maybe this is group-based? Basemap and MetC editors? -->
+               <views_panel_util:Hyper_Link
+                  id="link_new_attribute_some"
+                  htmlText="Create a new attribute"
+                  toolTip=
+               "Click to create a new attribute that you can apply to items."
+                  styleName="labelminor"
+                  visible="true"
+                  includeInLayout="{this.link_new_attribute_some.visible}"
+                  click="this.on_click_attribute_new();"/>
+
+            </mx:HBox>
+
+            <!-- EXPLAIN: Is 'leading' undocumented?
+                          Are we even using it correctly?
+                          -->
+            <mx:Text
+               id="gf_attrs_hint"
+               width="100%"
+               paddingTop="0"
+               paddingBottom="0"
+               fontStyle="italic"
+               leading="0"
+               text="{Widget_Attribute_List.hint_text}"
+               visible="false"
+               includeInLayout="{this.gf_attrs_hint.visible}"
+               />
+
+         </mx:VBox> <!-- end: box_attributes_exist -->
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

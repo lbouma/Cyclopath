@@ -1,0 +1,741 @@
+'''Ready to deploy?'''
+
+If you've read these instructions before and want to get started, jump to [[#Releasing_Cyclopath|Releasing Cyclopath]].
+
+Otherwise, you might want to glance at the introductory blather.
+<br/><br/>
+
+== Deploying Cyclopath ==
+
+'''NOTE:''' ''This file can be found both in the (private) Cyclopath GroupLens Wiki, and also in the (public) Cyclopath source (at <tt>./deploy.wp</tt>). The latter is consider canonical.''
+
+=== The Servers ===
+
+==== Production server ====
+
+The current production server, since late 2013, is <tt>runic.cs</tt>.
+* With much respek to the first production server, <tt>itamae.cs</tt>, online from 2008 through 2013.
+** (Yeah, yeah, I know: ''we only have one server.'' But it's a beast of a machine. And our server code isn't writ as a distributed app.)
+
+The world finds the server at <tt>http://cycloplan.cyclopath.org</tt>.
+
+* The production server also hosts the Bugzilla ticketing system, <tt>http://bugs.cyclopath.org</tt>.
+* The production server is also (reluctantly) the test server, since we don't have another machine with adequate resources to use to test without maxxing out its RAM and making it thrash.
+* Coming soon: SSL Certificates. E.g.,
+** <tt>https://cycloplan.cyclopath.org</tt>
+** <tt>https://bugs.cyclopath.org</tt>
+
+'''Important services on the production server'''
+
+The apache and postgres services should be familiar to all Cyclopath developers.
+
+* Apache
+** We've modified files under <tt>/etc/apache2</tt>
+** We store the templates in the source:
+*** <tt>/ccp/dev/cp/scripts/setupcp/ao_templates/mint16/target/etc/apache2</tt>
+* Postgres
+** We've modified files under <tt>/etc/postgresql/*/main</tt>
+** We store the templates in the source:
+*** <tt>/ccp/dev/cp/scripts/setupcp/ao_templates/mint16/target/etc/postgresql/*/main</tt>
+
+The production server uses additional services that may not be familiar to Cyclopath developers (most devs don't need to run these services on their dev machines).
+
+* Cron
+** Cron jobs run for both the apache and branch manager users, currently <tt>www-data</tt> and <tt>landonb</tt>.
+** You can find the scripts in the (private) directory, <tt>/ccp/bin/ccpdev/daily</tt>
+*** Offsite devs: our cron jobs run nightly backups, create 'lite' databases for developers, create Shapefile exports, calculate various statistics, etc.
+* Logcheck
+** Logcheck runs frequently and emails us when it finds suspicious output in any of the logs we're watching (like the apache and postgres logs, as well as the pyserver, route finder, etc. logs).
+** See the (private) rules file in its usual location, <tt>/etc/logcheck/ignore.d.server</tt> and also in the source:
+*** <tt>/ccp/bin/ccpdev/private/runic/etc/logcheck/ignore.d.server/local-CYCLOPATH</tt>
+* Logrotate
+** We've configured logrotate to archive log files frequently so that we can maintain historical logs forever and also not run out of disk space.
+
+You'll find all the gritty details in the developer guide:
+
+* http://cyclopath.org/wiki/Tech:CcpV2/Developer_Guide#System_file_configuration
+
+'''Important directories on the production server'''
+
+* <tt>/ccp/dev/cycloplan_live</tt>
+** This is where the Cyclopath source running on [http://cycloplan.cyclopath.org] lives.
+** It's really just a symbolic link from either <tt>/ccp/dev/cycloplan_sib1</tt> or <tt>/ccp/dev/cycloplan_sib2</tt>, so that we can update source code and restart the route finders without having to take the site offline.
+*** There's also the symbolic link, <tt>/ccp/dev/cycloplan_idle</tt>, which points to the opposite of <tt>cycloplan_live</tt>.
+* <tt>/ccp/var</tt>
+** This is where you'll find user-generated data, backup data, logs, tilecache tiles, and other data that's created by Cyclopath (and is generally recreateable by running scripts).
+** If you run out of disk space, look here first.
+*** ''Note:'' On <tt>runic.cs</tt>, there are two logical hard drives. The source is stored on the smaller drive, <tt>/export/scratch</tt>, and the Very Large <tt>/ccp/var</tt> directory is stored on the second, larger drive, <tt>/export/scratch2</tt>. (But you shouldn't ever have to type <tt>/export/scratch</tt>, because we've got <tt>/ccp</tt> setup using symbolic links to the appropriate scratch spaces.)
+* <tt>/ccp/bin/ccpdev</tt>
+** This contains developer support scripts (non-public, Grouplens-only scripts).
+** Most of these files have been moved into the Cyclopath source so that community developers can use them. The only files we've kept private are the cron job scripts, which tend to be very machine-specific.
+
+NOTE: We've done our best to include lots of documentation in the source. You'll also find some information that lives exclusively in the [http://cyclopath.org/wiki public Cyclopath text Wiki] or in the [http://wiki.grouplens.org/index.php/Main_Page Grouplens Wiki], but generally the most useful and up-to-date information is in the source.
+
+* Read more about the Cyclopath directory structure and more in the developer guide:
+** http://cyclopath.org/wiki/Tech:CcpV2/Developer_Guide#Cyclopath_development_directory
+
+==== [http://wikipedia.org/wiki/Quality_assurance QA] (Test) server ====
+
+The testing server, circa 2006-2011, was <tt>unagi.cs</tt>. But that machine is inadequate for testing modern day Cyclopath.
+
+Landon tests on his own developer machine(s), but the software isn't exactly the same as on the server (slightly different versions of Postgres and Python, because of slightly different versions of OSes, etc.).
+
+So Landon also does a Big No No and just tests on the production server, using <tt>ssh -L</tt> to tunnel to a server that is not worldly visible... this is probably okay so long as you don't hose the production server while you're testing against it....
+* FIXME: In late 2013, the machine, <tt>pants.cs</tt>, which has 8 GBs of RAM, was acquired from a graduate; we could/should set up this machine as the test server.
+** We should also use this machine to run route finders for devs, since each route finder requires a substantial amount of memory, and many a dev laptop would be crushed trying to fire up a finder.
+** Alternatively, we could make a database from scratch and import a much smaller road network...
+
+=== Releasing Cyclopath ===
+
+==== Prepare SVN ====
+
+* Does this release merit a blurb on the home page?
+** If so, update <tt>/ccp/dev/cp/htdocs/main.html</tt>, and check the new file into the trunk.
+
+* Determine the next release number.
+** If you're releasing a new major release, you can use Bash magic to figure out the release number.
+
+ # Wrap the chained command within expr, which increments the number.
+ # - First get the list of paths, e.g., one line of output is like "57.1/".
+ # - Strip the decimal portion and trailing path separator.
+ # - Sort the list numerically.
+ # - Choose the last line of input.
+ # - Feed to expr with + 1 to increment by one.
+ # - Append a ".0" to the end of the release number, so it looks cool.
+ 
+ CCP_VERSION=$( \
+  expr `svn list svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases \
+        | sed 's/^([0-9]*)\.?[0-9]*\/$/\1/' \
+        | sort -n \
+        | tail -1` + 1).0
+  
+ echo $CCP_VERSION
+  
+
+:* But if you're releasing a bugfix, figure it out manually.
+
+ # Sniff the releases directory for the latest release number.
+ svn list svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases
+  
+ # Make a convenience variable, e.g.,
+ CCP_VERSION="58.1"
+ 
+
+* Make the new release branch.
+
+ # Create a branch in releases/.
+ svn copy -m "Release $CCP_VERSION." \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases/$CCP_VERSION
+ 
+
+* It's not uncommon to need to re-release the release when you find bugs testing the release.
+
+ svn rm -m "Need to rerelease the release." \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases/$CCP_VERSION
+  
+ svn copy -m "Release $CCP_VERSION." \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases/$CCP_VERSION
+  
+
+See also [[CP:Release Notes|release notes]].
+
+===== Update mobile source =====
+
+The true mobile source is kept separate from the trunk. So you'll want to merge every once in a while:
+
+ $ cd /ccp/dev/cp_trunk_v3
+ $ svn merge svn+ssh://runic/project/Grouplens/svn/cyclingproject/br/mobile/android android
+ $ svn ci -m "Update android project source."
+
+If you want to build and deploy the Android app, see [[#How_to_make_an_Android_release]].
+
+==== Prerequisites ====
+
+If you have not made a release before, you need to assume ownership of the project directories.
+
+On runic, run:
+
+ sudo chown -R $USER /ccp/dev/cycloplan_sib2
+ sudo chown -R $USER /ccp/dev/cycloplan_sib1
+ sudo chown -R $USER /ccp/bin/ccpdev
+
+NOTE: Hopefully, the SVN path of the checked out code does not include a username.
+* If it does, you'll have to move the existing directories, checkout the directories again (this time, omitting the username, e.g., instead of <tt>svn+ssh://your_name@the_server.cs.umn.edu/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk</tt>, use <tt>svn+ssh://runic/project/Grouplens/svn/cyclingproject/public/ccpv3_trunk</tt>), and then re-install or re-configure the Cyclopath configuration files (see the Bash helper command, <tt>cpconf copy</tt>).
+
+===== ''Zero'' Downtime for ''Most'' Updates  =====
+
+Generally, you'll be able to update source code and the database without taking the production site offline -- so long as you're not making drastic changes to the database.
+
+For some changes, your update scripts will complete quickly.
+* For instance, when adding a new table or columns to support a new feature,
+
+But for other changes, your update scripts might take longer to complete.
+* For instance, when recreating cache tables or importing lots of data.
+
+For quick updates, you can usually run them without users ever knowing. But for longer updates, such as those that use the 'revision' table lock (like the 'commit' command), you'll want to notify users who are editing the map (using the <tt>litemaint.sh</tt> script, which we'll discuss in a sec).
+
+CAVEAT: The route finder(s) and both the live Cyclopath instance and the updated one that you'll be staging use the same database.
+* Whatever database updates you apply while staging the update will be applied to the live database, and might be visible to the clients (e.g., flashclient and android).
+** This is why it's a good idea to at least disable map editing while updating the database.
+* This isn't the best strategy, but it's better than taking the whole site offline to update the database (which used to be the old model).
+** Ideally, we'd, what? setup a second database and somehow magically apply any changes to the live database to the staging database? Or update the code to write to both the live database and to the staging database? The idea being, we haven't solved the problem of what to do about the database while updating. It'd be nice to have source A and database A running while we stage source B and database B, and then switch from A to B all at once. But while staging B, database A is being changed by users, and there's not an easy way to keep database B in sync.
+* As for the route finder(s), you shouldn't need to worry about updating the database. The finders load the road network into memory and then only access the database to record new routes and to update the road network when someone saves the map. So you should be fine during the update; whatever routes are requested will use the last revision of the map, and the route finder won't update until the commit is completed (at which point you'll probably have fired up new finders and will kill the old ones, so the update is a wash).
+
+Decide if you want to disable editing during the update process.
+* You'll definitely want to disable editing if you're mucking around with the item tables.
+* You can use the <tt>litemaint.sh</tt> script to tell the server when to start restricting editing and to tell the clients to tell the users that the site will be going into maintenance mode at some point and for some amount of time.
+
+To indicate forthcoming maintenance, decide when you want to start said maintenance, and make a guess about when maintenance will be completed.
+* To make an accurate guess, run your update scripts on the test database and note how long it takes.
+
+The <tt>litemaint.sh</tt> script uses ''time intervals'' from the current time. So you don't use clock time, but rather you specify some amount of time from now.
+
+For instance, let's suppose you want to start maintenance in one half an hour, and you think it'll take two and a half hours. Run the following:
+
+ cd /ccp/dev/cycloplan_work/scripts
+ ./litemaint.sh '30 mins' '2.5 hours'
+
+When a user tries to enter edit mode using their client, they'll see a message indicating the clock time at which the site will be in read-only mode for maintenance, and the time at which we expect maintenance to be complete.
+* During maintenance, users can still request routes and do a few other things, like setup watchers and rate items, but users will not be able to save map changes or posts or threads.
+* You'll notice that the client displays clock time and not the interval that you specified for the script. This is simply to make working with time zones easier -- the server just sends to the client the number of milliseconds until the event is set to occur (or the number of milliseconds after the event occurred, if the value is negative). This doesn't account for network lag, obviously, but it's good enough (and was simple to implement).
+** As such, the client-side clock time won't always be a nice, round number (like "3:00 PM", or "6:30 AM").
+
+When the maintenance "window" begins (e.g., at 2:43 PM), the server won't accept external commits (specifically, client requests that require locking the 'revision' table will fail). At this time you'll want to start the update process.
+* Note that if you run <tt>scripts/schema-update.py</tt> and the maintenance window is not active, you'll be warned and asked specifically if you want to proceed.
+* Note also that the server doesn't tell you otherwise that the window is active (i.e., by emailing you). It's up to you to manage the window and the update.
+** So set it, and don't forget it.
+* If things are not going according to schedule, you can always extend the maintenance window. E.g., if you guessed 2-1/2 hours for maintenance, but it's been 2 hours and you think you need another hour, re-run the maintenance script and reset users' expectations. Specify '0 secs' for the time-until-maintenance, since you're already doing the maintenance, and then set how much time you think remains. E.g.,
+ ./litemaint.sh '0 secs' '1 hour'
+* Finally, after updating the server, you'll want to close the maintenance window. To disable the maintenance mode feature, just run the same script with a zero argument.
+ ./litemaint.sh 0
+
+===== ''Some'' Downtime for ''Major'' Updates =====
+
+If you've got major SQL changes planned that cannot be run with keeping the site live, you'll want to take the site offline during maintenance. Follow these instructions to take the site offline.
+
+(It should be easy to know if you have to take the Web site offline: if your upgrade includes changes to the database that cannot happen in parallel with the public continuing to access the same database, like, if you do a major database redesign, take the site offline.)
+
+NOTE: These are the original, CcpV1 instructions. Ideally, we'd alert users through the application itself rather than tweeting that we're going down for maintenance...
+
+* First, [[How To/GroupLens Twitter | Tweet]], either that Cyclopath will be going down soon (if you're starting to test) or right now (if you're done testing and are ready to push to production).
+* Reload apache with the maintenance site enabled and Cyclopath not.
+ cd /ccp/dev/cycloplan_live
+ ./scripts/maint.sh maint
+* Since you took the Web site offline anyway, stop Cyclopath services. (We used to have to do this on the old production server because it only had 4 Gb of RAM, and that didn't leave any room for running update scripts.)
+ sudo /etc/init.d/cyclopath-mr_do stop
+ sudo /etc/init.d/cyclopath-routed stop
+
+==== Back up the database ====
+
+Always back up the database, whether the Web site needs to be taken offline or not.
+* If you're taking the Web site offline, take it offline first and then back it up.
+* If you're disabling editing, wait for the maintenance window to open and then back it up.
+
+The backup instructions depend on what version of PostGIS you run. Most devs should be running PostGIX 2.x.
+
+To back up the database for PostGIS 2.x, run:
+
+ pg_dump -U cycling -Fc -b -v -f \
+   "/ccp/var/.dbdumps.daily/`date +%Y.%m.%d`.ccpv3_live.dump" \
+   ccpv3_live
+
+For PostGIS 1.x, run instead: <tt>pg_dump -U cycling ccpv1_live -Fc -E UTF8 > "/ccp/var/.dbdumps.daily/`date +%Y.%m.%d`.ccpv3_live.dump"</tt>
+
+A cron job dumps and mirrors the database every night. Copy our latest dump to the same place, in case things sour before then (like, we completely bork the whole machine).
+
+ cp "/ccp/var/.dbdumps.daily/`date +%Y.%m.%d`.ccpv3_live.dump" \
+   /project/gl15/landonb/itamae-export-scratch-reid.bak/pg_backup.manual/
+
+Note: If you are ''not'' user <tt>landonb</tt>, you may have to <tt>sudo su - landonb</tt> the <tt>cp</tt> to make it work. Or just backup to your own dirn darectory.
+
+Note: Copying the database to /project takes a number of minutes.
+* But you can let it run while continuing to stage the new Cyclopath. Just switch to another terminal and keep working.
+
+'''A note about the production database'''
+
+It's important to mention that you should rarely touch the production database.
+
+That is, always be afraid that you'll accidentally drop the database or clobber lots of data.
+
+For that reason, use <tt>scripts/db_load.sh</tt> when loading databases, since it won't let you drop the production database.
+
+Also, if you ever find yourself connecting directly to the production database, e.g., with <tt>psql</tt>, remember to use <tt>BEGIN;</tt> ... <tt>ROLLBACK;</tt>. Or, try to find another way to do what you're doing, perhaps by loading a copy of the database and playing around with the copy.
+
+You can find nightly dumps of the production database on <tt>runic.cs</tt>.
+* This is the location of the full database, which includes the Very Large apache log tables (as of 2014, this dump is over 3 GBs):
+** <tt>/scratch/runic2/ccp/var/dbdumps/ccpv3_live.dump</tt>
+* This is the location of the so-called 'lite' database, which only includes the 'minnesota' schema (it excludes 'colorado') and which excludes the log tables (so, if you're doing research, don't use this database, but if you're just developing, by all means use this dump; it's currently, as of Nov. 2013, around 600 MB):
+** <tt>/scratch/runic2/ccp/var/dbdumps/ccpv3_live-mn-lite.dump</tt>
+
+==== Run Through #1: Testing/Dry Run ====
+
+We'll go through the update steps twice:
+* First, to test everything and to become acquainted with the update procedure; and
+* Second, to update the live, production site, for reals.
+
+===== Reload the test database =====
+
+First, load the production database for testing.
+
+Obviously, you won't reload the database when pushing to production, since the database is already live.
+
+Do this just for the initial dry run, so that we're running upgrade code against a current cut of the database.
+
+NOTE: Loading the database takes a while; you might want to start this operation the night before you want to cut release, and then go to bred, and then start the release in the mron.
+
+ cd /ccp/dev/cp_cron/scripts
+ ./db_load.sh \
+   /ccp/var/.dbdumps.daily/`date +%Y.%m.%d`.ccpv3_live.dump \
+   ccpv3_test
+ 
+===== Setup Bash vars for testing_ =====
+
+Start be setting a variable that we'll change later when we deploy the production site.
+
+This is so the rest of the code can just be copy-pasted for either the test or the live server.
+
+ CCP_STAGING="test"
+  
+
+Now, [[#Shared_Release_Instructions|follow the shared release instructions]].
+
+===== Start yer testing demons =====
+
+You'll jump back here after running the shared release instructions.
+
+NOTE: If you're missing any of the enviornment variables referenced herein (like <tt>PYTHONPATH</tt> or <tt>INSTANCE</tt>), see the Bash scripts in the source.
+* <tt>/ccp/dev/cp/scripts/setupcp/ao_templates/common/home/user</tt>
+
+ svccmd=restart
+ 
+ sudo -v
+ 
+ sudo -u $httpd_user \
+   INSTANCE=$INSTANCE___CCP_INSTANCE \
+   PYTHONPATH=$PYTHONPATH \
+   PYSERVER_HOME=$PYSERVER_HOME \
+   $PYSERVER_HOME/../services/mr_doctl \
+   $svccmd
+ 
+ sudo -u $httpd_user \
+   INSTANCE=$INSTANCE___CCP_INSTANCE \
+   PYTHONPATH=$PYTHONPATH \
+   PYSERVER_HOME=$PYSERVER_HOME \
+   $PYSERVER_HOME/../services/routedctl \
+   --routed_pers=p1 \
+   --purpose=general \
+   $svccmd
+  
+
+===== Test, test, test =====
+
+If you've tunneled to the server, e.g.,
+
+ ssh -L 8084:localhost:8084 yourname@${CS_PRODUCTION}
+  
+You can enable the test site,
+
+ #sudo a2ensite cycloplan_${CCP_PROD_NEXT_LIVE}_test
+ sudo a2ensite cycloplan.test
+ sudo /etc/init.d/apache2 reload
+  
+and log on to the test site, e.g., <tt>[http://localhost:8084 http://localhost:8084]</tt>.
+
+Tets it thoroughly.
+
+==== Run Through #2: Production/Wet Run ====
+
+Once you're happy with the test site, run most of the same commands a second time, but on the production site.
+
+===== Verify or Update config files =====
+
+As you did previously, for the test site, make sure your Cyclopath configuration files are current.
+
+You can either do this using <tt>cpconf-get</tt> and <tt>cpconf-put</tt>, as described earlier, or you can use the similarly named <tt>cpconf</tt> tool.
+
+This is handy if you know the live server has up-to-date config files. If it doesn't, you'll need to install them manually.
+
+You can compare the config files of two different installations by diffing them with a Cyclopath command.
+
+ cpconf diff /ccp/dev/cycloplan_live /ccp/dev/cycloplan_idle
+
+You can copy the config of one installation to another installation easily. For instance, if your live site's config is up-to-date but not the idle one's, you can just replace the config from the latter with that from the former.
+
+ cd /ccp/dev
+ cpconf copy cycloplan_live cycloplan_idle
+
+No matter how you do it, make sure you've [[#Double-check_configuration_files|double checked]] your configuration files. The best way to tell is to diff each config against its <tt>*.template</tt>. You can also keep track of things to do for each release in a file in the source that you update as you develop, and that you read and abide by when you release.
+
+===== Do it all again =====
+
+Do everything again what we just did for the test site.
+
+====== Setup Bash vars for production ======
+
+Redeclare the staging variable, and then just cxpx what you ran for the test site.
+
+ CCP_STAGING="live"
+  
+
+Now, [[#Shared_Release_Instructions|follow the shared release instructions]].
+
+===== (Re-)Start Cyclopath services =====
+
+After following the shared release instructions, you'll jump back here.
+
+NOTE: The machine's <tt>/etc/init.d</tt> scripts reference the symlinked <tt>/ccp/dev/cycloplan_live</tt> installation. But here we use one of the other symlinks, <tt>cycloplan_sib1</tt> or <tt>cycloplan_sib2</tt>. The difference won't affect anything, but it might catch you unawares.
+
+Restart the Mr. Do! work item daemon and the route finder.
+
+ sudo -v
+ sudo /etc/init.d/cyclopath-mr_do-${CCP_PROD_NEXT_LIVE} restart
+ sudo /etc/init.d/cyclopath-routed-${CCP_PROD_NEXT_LIVE} restart
+ 
+
+Test the new site while the route daemons load, and then test a few routes.
+
+You can enable the test Web site thusly.
+* You'll need to know the port number it's running on to setup an SSH tunnel.
+** Our examples assume apache serves the test site on port 8084:
+
+ sudo a2ensite cycloplan_${CCP_PROD_NEXT_LIVE}_test
+ sudo /etc/init.d/apache2 reload
+ 
+
+If you want to tunnel over ssh, i.e., load flashclient at <tt>http://localhost:8084</tt>, you can map the remote port to a local port by running a command like:
+
+ ssh -L 8084:localhost:8084 yourname@server
+
+To cleanup,
+
+ sudo a2dissite cycloplan_${CCP_PROD_NEXT_LIVE}_test
+ sudo /etc/init.d/apache2 reload
+
+===== Go Live! =====
+
+Once the services are loaded and you've tested to your satisfaction, go live.
+
+The <tt>maint.sh</tt> command manages files in <tt>/etc/apache2/sites-enabled/</tt> and updates symlinks in <tt>/ccp/dev</tt>.
+
+ cd /ccp/dev/cycloplan_${CCP_PROD_NEXT_LIVE}/scripts
+ ./maint.sh ${CCP_PROD_NEXT_LIVE}
+ ./litemaint.sh 0
+ 
+
+Wait a few minutes and watch the logs (perhaps using <tt>logs</tt>) until the new route finders finish loading. Then, wait a few minutes more for the old finders to finish any outstanding requests, and then kill 'em all.
+* We could add a feature so that the route finders can tell us if they're crunching a route, but for now, just wait, then kill.
+* We mentioned earlier that there are scripts in <tt>/etc/init.d</tt> to start up services via <tt>/ccp/dev/cycloplan_live</tt>, so kill those, too.
+
+ sudo -v
+ sudo /etc/init.d/cyclopath-mr_do-${CCP_PROD_NEXT_IDLE} stop
+ sudo /etc/init.d/cyclopath-routed-${CCP_PROD_NEXT_IDLE} stop
+ 
+ # Also kill what the boot loader runs, which points to the one or the other.
+ sudo /etc/init.d/cyclopath-mr_do stop
+ sudo /etc/init.d/cyclopath-routed stop
+
+====== Test, test, test!! ======
+
+Now, thoroughly test the live site, at <tt>http://cycloplan.cyclopath.org</tt>
+
+Bueno!?
+
+==== Wrap-up/Post-release Steps ====
+
+'''Announcement!'''
+
+# Update the [http://cyclopath.org/wiki/Release_Notes release notes].
+* Create a new section at the top of the page.
+** Use another section as a template and just copy-paste it.
+** You'll notice each section includes the build number and the build data.
+** You could run <tt>svn log</tt> and just copy the recent changes as listed in the log, but the log is usually verbose and ''very techie'', so you might just use it for reference and then write better summarized, more user-friendly text for the release notes.
+# Send announcements. You may wish to copy-n-paste the new section you just wrote for the release notes, or maybe just send a shorter message.
+** Email the Cyclopath Users Google group, <tt>cyclopath-users@googlegroups.com</tt>.
+** Logon to Twitter and send a tweet.
+*** Note: the Twitter message is automatically copied to the Facebook page... by some undocumented magical fairy (EXPLAIN: Katie set up the Twitter-Facebook app, but Landon cannot documentation anywhere... except a reference to it during one of our team meetings ([http://wiki.grouplens.org/index.php/Cyclopath/Meetings/20100129#Katie one reference]); really, I have no idea how the process works, i.e., if we manage the app ourselves, how to disable it, etc.).
+
+'''Update the home page and MediaWiki Stuff'''
+
+Update two locations on the CS server that mirror portions of the trunk.
+
+Since CS runs our Mediawiki wiki, we just drop a few files on top of what Systems installed for us.
+
+ cd /web/research/mediawiki/cyclopath
+ svn update
+
+We also drop our own authentication module, which uses the Cyclopath database to store usernames and passwords rather than the Mediawiki database (such that, when a new user creates an account for the Mediawiki site, they'll immediately have access to Cyclopath with the same credentials).
+
+ cd /web/research/mediawiki/cyclopath/mediawiki/extensions/cyclopath-svn
+ svn update
+
+===== Miscellaneous notes =====
+
+* If you're testing and you find major problems, you can usually switch back to the old live code (unless database changes preclude it). Just run the <tt>maint.sh</tt> script in reverse (and maybe reload the backup database if the old code can't run against the new database).
+* Sometimes you'll want to diff the two production folders to make sure there aren't non-SVN items missing from one of them.
+** Start by making sure the source code is the same as what's live:
+ cd /ccp/dev/cycloplan_idle
+ svn switch svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases/$CCP_VERSION
+** And then diff the two folders. Be sure to ignore generated files from svn and python et al.:
+ diff -r -x ".svn" -x "*.pyc" -x "tags" -x "report.xml" \
+  /ccp/dev/cycloplan_sib1/ /ccp/dev/cycloplan_sib2/
+* At some point in 2013, [lb] tried using pgbouncer, because <tt>itamae.cs</tt> was complaining a lot about running out of connections. But running pgbouncer seemed to make the problem worse... obviously, I was probably doing something wrong, but I was also following all of the instructions! =)
+** I also tried running pgbouncer on the new server and had the same problems.
+** So I finally relented and increased postgres' <tt>max_connections</tt> from 100 to 133... which feels like a band-aid, but we stopped getting server complaints about being out of connections.
+
+=== Making an Android release ===
+
+Android updates follow a different release process than Flash and server updates.
+
+# Increase the versionCode in AndroidManifest.xml by one.
+# Update the versionName in AndroidManifest.xml.
+#* The first number corresponds to big, new versions, especially if there is a significant server change.
+#* The second number corresponds to new UI features.
+#* The third number corresponds to bug fixes.
+#* '''NOTE:''' ''The versionName definition can be changed if needed. These are just guidelines.''
+# Make sure android:debuggable is set to false.
+# If there are server changes that require users to update their app, update the gwis_version in Constants.java accordingly.
+# Update changelog.txt with any changes that you want to appear in the ''What's New'' Dialog.
+# Using Eclipse, export the application.
+#* '''NOTE:''' ''You will need the keystore, keystore password, and key password in order to sign the application while exporting.''
+# Upload the signed apk file to the [https://market.android.com/publish/Home Android Market].
+# Update the Recent Changes section for the Android Market.
+# Publish the new apk file.
+# Update the [[CP:Android Release Notes|Android release notes]].
+# Send announcements via email and Twitter (optional).
+
+=== Shared Release Instructions ===
+
+These are cut-n-paste instructions for both the test and the production sites.
+
+After setting <tt>CCP_STAGING</tt> for either [[#Setup_Bash_vars_for_testing|testing]] or deploying to [[#Setup_Bash_vars_for_production|production]], you'll jump here.
+
+==== Setup staging variables ====
+
+First, figure out what's live now. We'll prepare the test or the idle directory as we continue.
+
+ pushd /ccp/dev/cycloplan_live
+ CCP_ACTIVE=$(basename `pwd -P /ccp/dev/cycloplan_live`)
+ if &#91;&#91; $CCP_ACTIVE == "cycloplan_sib2" &#93;&#93;; then
+   CCP_PROD_NEXT_LIVE="sib1"
+   CCP_PROD_NEXT_IDLE="sib2"
+ elif &#91;&#91; $CCP_ACTIVE == "cycloplan_sib1" &#93;&#93;; then
+   CCP_PROD_NEXT_LIVE="sib2"
+   CCP_PROD_NEXT_IDLE="sib1"
+ else
+   echo "ERROR: Confused by /ccp/dev/cycloplan_live"
+   read # Just to stop flow.
+ fi
+ popd
+ 
+ if &#91;&#91; ${CCP_STAGING} == "test" &#93;&#93;; then
+   CCP_INSTANCE=cycloplan_test
+ else
+   CCP_INSTANCE=cycloplan_${CCP_PROD_NEXT_LIVE}
+ fi
+ 
+ # Create a symlink to our working code.
+ if &#91;&#91; -h /ccp/dev/cycloplan_work &#93;&#93;; then
+   /bin/rm -f /ccp/dev/cycloplan_work
+ fi
+ ln -s /ccp/dev/${CCP_INSTANCE} /ccp/dev/cycloplan_work
+ 
+ # Either ccpv3_test or ccpv3_live.
+ DEPLOY_TO_DB=ccpv3_${CCP_STAGING}
+ 
+ INSTANCE___CCP_INSTANCE=minnesota___${CCP_INSTANCE}
+ 
+ cp=/ccp/dev/cycloplan_${CCP_INSTANCE}
+ 
+ PYSERVER_HOME=/ccp/dev/cycloplan_work/pyserver
+  
+
+==== Update your source code ====
+
+Change to the source code root and update to the latest release.
+
+ cd /ccp/dev/cycloplan_work
+ svn switch \
+   svn+ssh://runic/project/Grouplens/svn/cyclingproject/releases/$CCP_VERSION
+ ./fixperms.sh
+  
+
+CAVEAT: <tt>svn switch</tt> does not always work. Sometimes you have to checkout anew and use <tt>cpconf copy</tt> to install your config files into the new checkout. And sometimes you fantasize about switching to <tt>git</tt>....
+
+You should also check that all files were update -- if you have any local changes, svn might have ignored what's on the server.
+
+ svn status
+  
+
+Resolve conflicts, either using <tt>svn revert ''path/to/file''</tt> or understanding why the conflict is acceptable.
+
+Tell apache to reload.
+
+ sudo /etc/init.d/apache2 reload
+  
+
+==== Run scripts to update generated files ====
+
+Check for internal reminders in release notes. See also <tt>/ccp/dev/cp/README-RELEASE</tt>, which is used to coalesce commands you need to run on the server between releases. Run any commands you've told yourself to run.
+
+Some files you might occasionally run include:
+* <tt>/ccp/dev/cycloplan_work/scripts/dev/Config_Logging-make.py</tt>
+* <tt>psql -U cycling ${DEPLOY_TO_DB} \</tt>
+: <tt>  &lt; /ccp/dev/cycloplan_work/scripts/dev/convenience_views.sql</tt>
+* <tt>/ccp/dev/cycloplan_work/scripts/dev/flashclient_macros-make.py</tt>
+* <tt>/ccp/dev/cycloplan_work/scripts/setupcp/db_load_add_constraints.sql</tt>
+* <tt>/ccp/dev/cycloplan_work/scripts/setupcp/node_cache_maker.py</tt>
+* <tt>/ccp/dev/cycloplan_work/scripts/setupcp/greatermn/fix_node_tables.sh</tt>
+
+==== Run scripts to update database data ====
+
+If any new scripts were added to <tt>/ccp/dev/cp/scripts/schema</tt>, you'll want to run them against the database. You can run this command either way; if it's got nothing to do, it does just that.
+
+NOTE: You'll want to scan the script output and make sure it succeeds; you might also have to hit 'y' or 'n' occasionally.
+
+ cd /ccp/dev/cycloplan_work/scripts
+ ./schema-upgrade.py
+ 
+
+If the database was updated, or if the constraints file was updated, or, just to be safe, you can always just remake table constraints and indices.
+
+ # NOTE: You'll have to enter maintenance mode to run this script:
+ #       otherwise it'll die on deadlock errors, unless maybe you
+ #       run it in the middle of the night.
+ cd /ccp/dev/cycloplan_work/scripts/setupcp
+ psql -U cycling ${DEPLOY_TO_DB} < db_load_add_constraints.sql
+  
+
+===== Vacuum the database =====
+
+Sometimes, you'll want to run the [http://www.postgresql.org/docs/9.1/interactive/sql-vacuum.html VACUUM] command to garbage collect, and also the [http://www.postgresql.org/docs/9.1/interactive/sql-analyze.html ANALYSIS] command collect database statistics to help the query planner.
+
+Vacuuming is slow but it doesn't block other connections from committing to the database. So run this is another window and move on with deployment.
+
+If you want to process every table, including the log event and apache event tables, be prepared to wait.
+* This command vacuums every table; it can take a long time: <tt> psql -U postgres --no-psqlrc -d ${DEPLOY_TO_DB} -c "VACUUM VERBOSE ANALYZE;"</tt>
+
+But if you just want to index non-log tables, try instead:
+
+ /ccp/dev/cycloplan_work/scripts/vacuum.sh
+  
+
+NOTE/FIXME/EXPLAIN: Indexing route_step table is slow. It is a big table, but it's not ''that'' big.
+
+==== Double-check configuration files ====
+
+Check if the config files need updating.
+
+We only store templates of these files in the source repository.
+* So you can diff, but you'll always have dirty diffs.
+** Using just diff, try:
+ cd /ccp/dev/cycloplan_work
+ diff -u pyserver/CONFIG pyserver/CONFIG.template | less
+ diff -u flashclient/Conf_Instance.as flashclient/Conf_Instance.as.template | less
+ diff -u mapserver/database.map mapserver/database.map.template | less
+** If you like meld, try
+ cd /ccp/dev/cycloplan_work
+ meld pyserver/CONFIG pyserver/CONFIG.template &
+ meld flashclient/Conf_Instance.as flashclient/Conf_Instance.as.template &
+ meld mapserver/database.map mapserver/database.map.template &
+
+Another method is to keep all the config files in a specific directory, e.g., <tt>/ccp/etc/cp_confs/server-cycloplan_prod</tt>, and then to use a few Cyclopath Bash functions to do the dirty work.
+
+For instance, if you know your development installation's config files are up-to-date, you can copy them to a single directory, then copy the server config files to another directory, merge any changes, and then push back the edits.
+
+E.g., assuming I'm on my dev machine, I want to copy the server's config files, fix them, and then push them back.
+
+ # Get the server files.
+ mkdir -p /ccp/etc/cp_confs/server-cycloplan_prod
+ cd /ccp/etc/cp_confs/server-cycloplan_prod
+ # This assumes you've setup your Bash scripts and told them the CS domain
+ # (server is the name of the server machine on the corporate network).
+ cpconf-get cycloplan_prod -r server
+ 
+ # Get your local development config. This assumes they're in /ccp/dev/cp.
+ mkdir -p /ccp/etc/cp_confs/local-cp
+ cd /ccp/etc/cp_confs/local-cp
+ cpconf-get cp
+ 
+ # Check for changes.
+ meld /ccp/etc/cp_confs/server-cycloplan_prod /ccp/etc/cp_confs/local-cp &
+ 
+ ... edit your server config files ...
+ 
+ # Push your edits back to the server.
+ cd /ccp/etc/cp_confs/server-cycloplan_prod
+ cpconf-put cycloplan_prod -r server
+
+You can also make yourself simple wrapper commands for each config file set.
+
+ echo '#!/bin/bash
+ . ~/.bashrc-cyclopath >& /dev/null
+ cpconf-get cycloplan_live -r server' > get.sh
+ 
+ echo '#!/bin/bash
+ . ~/.bashrc-cyclopath >& /dev/null
+ cpconf-put cycloplan_live -r server' > put.sh
+
+And then just <tt>./get.sh</tt>, <tt>meld</tt>, and <tt>./put.sh</tt>.
+
+==== Rebuild flashclient ====
+
+You must rebuild flashclient, even if you didn't touch its source.
+
+This is because <tt>make</tt> creates <tt>pyserver/VERSION.py</tt> based on the SVN release you just made, and it's what the server and client indicate as their version.
+* And flashclient will complain at the user if its version differs from pyserver's. So keep them both in sync.
+** Fortunately, the android client is not as strict. It only worries if the GWIS <tt>protocol_version</tt> changes (which almost never happens).
+
+ # Be sure to exclude trace messages from flashclient.
+ cd /ccp/dev/cycloplan_work/flashclient
+ /bin/cp -f macros_production.m4 macros.m4
+ 
+ # Run the special Cyclopath command to build flashclient.
+ remake
+ 
+ # Make the PDF maker library.
+ make -f Makefile-pdf
+ # And again and again.
+ make -f Makefile-pdf
+ make -f Makefile-pdf
+ 
+ # Kill the fcsh process. We don't need it anymore.
+ ./fcsh-wrap killall
+ 
+ # Fix permissions on the Cyclopath installation.
+ cd .. && ./fixperms.sh
+ 
+
+Some notes:
+
+The <tt>m4</tt> file is run by <tt>make</tt>. Most m4 macros are used to make development easier. But for production builds, most m4 macros are simply stripped from the source before compilation.
+* It's sophomoric to flood an unspecting user's Flash client with trace messages.
+** While most users don't run the Flash debug plugin, those that do will laugh at us.
+** And those that don't might notice diminished performance because building trace strings is costly.
+
+The <tt>remake</tt> command kills any running <tt>fcsh</tt> or <tt>fcsh-wrap</tt> process, calls <tt>make clean</tt> to remove old compilation objects, and then runs make over and over again until it succeeds.
+* The <tt>fcsh</tt> shell, or <tt>mxmlc</tt> compiler (or maybe it's fcsh-wrap) is flaky and won't complete the build the first (few) time(s) it runs. It'll complain about non-issues that it'll forget about the next time you run it. The `remake` command is basically its nurse.
+
+Note: After the first `remake`, if you're developing, you can sometimes edit source files and then just call <tt>make</tt> like a normal human, and sometimes it'll work and you'll get a binary. But other times -- sometimes all the othertimes -- `make` bombs time after time until you give up and just call <tt>remake</tt>.
+
+The PDF maker library code is is separate to keep the main Cyclopath swf less bloated. (Ideally, it should make bootstrap quicker, but it still gets downloaded ''during'' bootstrap, so who knows.)
+* Circa 2013, <tt>flashclient/build/main.mxml</tt> weighs in at 1.7Mb and <tt>flashclient/build-print/main.swf</tt> at 95K, so, yeah, there's not really a real benefit. Other than knowing how to ship swfs as separate packages.
+* You'll also notice that you have to run <tt>make</tt> more than once. Even the simpler PDF swf cannot be built in one pass. What's up, <tt>mxmlc</tt>?!
+
+Adobe's <tt>fcsh</tt>, or flash compiler shell, is a Java application that smells of a resource hog.
+* After building flashclient but not killing the flex compiler, Landon has seen unexpected memory and CPU usage used by <tt>fcsh</tt> or <tt>mxmlc</tt>. Best just to whack 'em.
+
+The permissions fixer is a pretty basic script: all files are set to <tt>0664</tt> or <tt>0775</tt>, and all directories to <tt>2775</tt>.
+* So that not everyone can edit the files, we've set the group ownership to <tt>www-data</tt>, which is generally a privileged group to which to belong.
+** Nonetheless, the data is still world-readable.
+*** This really only matters for unpublished, customized files. For instance, <tt>pyserver/CONFIG</tt> contains a few keys... albeit, the most important key is just our Bing geocoder account ID.
+** Ideally, the production folder would be owned by a Cyclopath-specific user account, would be grouped by Apache, and would not be world-anything.
+*** Currently, the production folder is owned by the team lead, it's grouped by <tt>www-data</tt>, and it's world-readable because we haven't tested to figure out if other processes need access to the installation (probably not).
+
+==== Back to After the Jump ====
+
+If you're just testing and running through this procedure for the first time, [[#Start_yer_testing_demons|fire up and test]] the route finder and work item daemons on the test code.
+
+If you're going through these instructions a second time, i.e., for the actual release and not for testing, jump to [[#.28Re-.29Start_Cyclopath_services|restart the production services]].
+

@@ -1,0 +1,1581 @@
+<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
+<qgis projectname="" version="0.8.1-Titan" >
+    <title></title>
+    <units>meters</units>
+    <extent>
+        <xmin>474534.462198</xmin>
+        <ymin>4977202.250989</ymin>
+        <xmax>474945.000885</xmax>
+        <ymax>4977536.306696</ymax>
+    </extent>
+    <projectlayers layercount="30" >
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk84575520070917163933199</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk845755.tif</datasource>
+            <layername>15tvk845755</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk84572520070917164151124</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk845725.tif</datasource>
+            <layername>15tvk845725</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83078520070917163729411</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830785.tif</datasource>
+            <layername>15tvk830785</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83077020070917163653422</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830770.tif</datasource>
+            <layername>15tvk830770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83075520070917163848127</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830755.tif</datasource>
+            <layername>15tvk830755</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83074020070917164018842</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830740.tif</datasource>
+            <layername>15tvk830740</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83072520070917164101881</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830725.tif</datasource>
+            <layername>15tvk830725</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk83071020070917164254317</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk830710.tif</datasource>
+            <layername>15tvk830710</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk81578520070917163529973</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk815785.tif</datasource>
+            <layername>15tvk815785</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk81577020070917163622206</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk815770.tif</datasource>
+            <layername>15tvk815770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk80080020070917160652460</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk800800.tif</datasource>
+            <layername>15tvk800800</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk80078520070917163435351</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk800785.tif</datasource>
+            <layername>15tvk800785</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk80077020070917164643287</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk800770.tif</datasource>
+            <layername>15tvk800770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk78581520070907151832461</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk785815.tif</datasource>
+            <layername>15tvk785815</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>true</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk78580020070907153924881</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk785800.tif</datasource>
+            <layername>15tvk785800</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk78577020070917164736370</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk785770.tif</datasource>
+            <layername>15tvk785770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk77081520070917175405415</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk770815.tif</datasource>
+            <layername>15tvk770815</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk77080020070917165329967</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk770800.tif</datasource>
+            <layername>15tvk770800</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk77077020070917164848957</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk770770.tif</datasource>
+            <layername>15tvk770770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk75580020070917165342262</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk755800.tif</datasource>
+            <layername>15tvk755800</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk75577020070917164938130</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk755770.tif</datasource>
+            <layername>15tvk755770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk75578520070917165232932</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk755785.tif</datasource>
+            <layername>15tvk755785</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk74078520070917165214038</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk740785.tif</datasource>
+            <layername>15tvk740785</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk74077020070917165007087</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk740770.tif</datasource>
+            <layername>15tvk740770</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk74075520070917165053683</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk740755.tif</datasource>
+            <layername>15tvk740755</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="0" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" type="raster" showInOverviewFlag="0" >
+            <id>15tvk72575520070917165116828</id>
+            <datasource>/export/scratch2/maps/ortho-2004/tiffs/15tvk725755.tif</datasource>
+            <layername>15tvk725755</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider></provider>
+            <rasterproperties>
+                <showDebugOverlayFlag boolean="false" />
+                <drawingStyle>MULTI_BAND_COLOR</drawingStyle>
+                <invertHistogramFlag boolean="false" />
+                <stdDevsToPlotDouble>0</stdDevsToPlotDouble>
+                <redBandNameQString>1 : Red</redBandNameQString>
+                <greenBandNameQString>2 : Green</greenBandNameQString>
+                <blueBandNameQString>3 : Blue</blueBandNameQString>
+                <grayBandNameQString>Not Set</grayBandNameQString>
+            </rasterproperties>
+        </maplayer>
+        <maplayer minScale="1" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" geometry="Line" type="vector" showInOverviewFlag="0" >
+            <id>bikeways20070919125323164</id>
+            <datasource>/export/scratch/reid/maps/bikeways/bikeways.shp</datasource>
+            <layername>bikeways</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>127</transparencyLevelInt>
+            <provider>ogr</provider>
+            <encoding>System</encoding>
+            <displayfield>OBJECTID</displayfield>
+            <label>0</label>
+            <attributeactions/>
+            <singlesymbol>
+                <symbol>
+                    <lowervalue></lowervalue>
+                    <uppervalue></uppervalue>
+                    <label></label>
+                    <pointsymbol>hard:circle</pointsymbol>
+                    <pointsize>6</pointsize>
+                    <outlinecolor red="170" blue="127" green="0" />
+                    <outlinestyle>SolidLine</outlinestyle>
+                    <outlinewidth>1</outlinewidth>
+                    <fillcolor red="0" blue="0" green="0" />
+                    <fillpattern>NoBrush</fillpattern>
+                </symbol>
+            </singlesymbol>
+            <labelattributes>
+                <label field="" text="Label" />
+                <family field="" name="Sans Serif" />
+                <size field="" units="pt" value="12" />
+                <bold field="" on="0" />
+                <italic field="" on="0" />
+                <underline field="" on="0" />
+                <color field="" red="0" blue="0" green="0" />
+                <x field="" />
+                <y field="" />
+                <offset x="0" y="0" yfield="" xfield="" units="pt" />
+                <angle field="" value="0" />
+                <alignment field="" value="center" />
+                <buffercolor field="" red="255" blue="255" green="255" />
+                <buffersize field="" units="pt" value="1" />
+                <bufferenabled field="" on="" />
+            </labelattributes>
+        </maplayer>
+        <maplayer minScale="1" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" geometry="Polygon" type="vector" showInOverviewFlag="0" >
+            <id>minneapolis_index20070907150157245</id>
+            <datasource>/export/scratch2/maps/ortho-2004/index001/minneapolis_index.shp</datasource>
+            <layername>minneapolis_index</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>true</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider>ogr</provider>
+            <encoding>System</encoding>
+            <displayfield>AREA</displayfield>
+            <label>1</label>
+            <attributeactions/>
+            <singlesymbol>
+                <symbol>
+                    <lowervalue></lowervalue>
+                    <uppervalue></uppervalue>
+                    <label></label>
+                    <pointsymbol>hard:circle</pointsymbol>
+                    <pointsize>6</pointsize>
+                    <outlinecolor red="170" blue="0" green="85" />
+                    <outlinestyle>SolidLine</outlinestyle>
+                    <outlinewidth>1</outlinewidth>
+                    <fillcolor red="233" blue="86" green="51" />
+                    <fillpattern>NoBrush</fillpattern>
+                </symbol>
+            </singlesymbol>
+            <labelattributes>
+                <label field="TILENAME" text="" />
+                <family field="" name="Serif" />
+                <size field="" units="pt" value="14" />
+                <bold field="" on="1" />
+                <italic field="" on="0" />
+                <underline field="" on="0" />
+                <color field="" red="170" blue="0" green="85" />
+                <x field="" />
+                <y field="" />
+                <offset x="0" y="0" yfield="" xfield="" units="pt" />
+                <angle field="" value="0" />
+                <alignment field="" value="center" />
+                <buffercolor field="" red="255" blue="255" green="255" />
+                <buffersize field="" units="pt" value="1" />
+                <bufferenabled field="" on="" />
+            </labelattributes>
+        </maplayer>
+        <maplayer minScale="1" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" geometry="Line" type="vector" showInOverviewFlag="0" >
+            <id>_public___mndot_bikeways_tweaked___geometry__sql_20070907151421515</id>
+            <datasource>host=localhost dbname=cycling port=5432 user=cycling password= table=public.mndot_bikeways_tweaked (geometry) sql=type LIKE '%Trail' AND proposed ='N'</datasource>
+            <layername>mndot_bikeways_tweaked</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>true</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider>postgres</provider>
+            <encoding>System</encoding>
+            <displayfield>name_mb</displayfield>
+            <label>1</label>
+            <attributeactions/>
+            <singlesymbol>
+                <symbol>
+                    <lowervalue></lowervalue>
+                    <uppervalue></uppervalue>
+                    <label></label>
+                    <pointsymbol>hard:circle</pointsymbol>
+                    <pointsize>6</pointsize>
+                    <outlinecolor red="170" blue="0" green="0" />
+                    <outlinestyle>SolidLine</outlinestyle>
+                    <outlinewidth>2</outlinewidth>
+                    <fillcolor red="0" blue="0" green="0" />
+                    <fillpattern>NoBrush</fillpattern>
+                </symbol>
+            </singlesymbol>
+            <labelattributes>
+                <label field="name_mb" text="" />
+                <family field="" name="Sans Serif" />
+                <size field="" units="pt" value="7" />
+                <bold field="" on="1" />
+                <italic field="" on="0" />
+                <underline field="" on="0" />
+                <color field="" red="170" blue="0" green="0" />
+                <x field="" />
+                <y field="" />
+                <offset x="0" y="0" yfield="" xfield="" units="pt" />
+                <angle field="" value="0" />
+                <alignment field="" value="center" />
+                <buffercolor field="" red="255" blue="255" green="255" />
+                <buffersize field="" units="pt" value="1" />
+                <bufferenabled field="" on="" />
+            </labelattributes>
+        </maplayer>
+        <maplayer minScale="1" maxScale="1e+08" scaleBasedVisibilityFlag="0" visible="1" geometry="Line" type="vector" showInOverviewFlag="0" >
+            <id>_public___mndot_basemap_tweaked___geometry__sql_20070907150423495</id>
+            <datasource>host=localhost dbname=cycling port=5432 user=cycling password= table=public.mndot_basemap_tweaked (geometry) sql=</datasource>
+            <layername>mndot_basemap_tweaked</layername>
+            <coordinatetransform>
+                <sourcesrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>true</geographicflag>
+                    </spatialrefsys>
+                </sourcesrs>
+                <destinationsrs>
+                    <spatialrefsys>
+                        <proj4>+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</proj4>
+                        <srsid>1473</srsid>
+                        <srid>26915</srid>
+                        <epsg>26915</epsg>
+                        <description>NAD83 / UTM zone 15N</description>
+                        <projectionacronym>utm</projectionacronym>
+                        <ellipsoidacronym>GRS80</ellipsoidacronym>
+                        <geographicflag>false</geographicflag>
+                    </spatialrefsys>
+                </destinationsrs>
+            </coordinatetransform>
+            <transparencyLevelInt>255</transparencyLevelInt>
+            <provider>postgres</provider>
+            <encoding>System</encoding>
+            <displayfield>countyname</displayfield>
+            <label>1</label>
+            <attributeactions/>
+            <singlesymbol>
+                <symbol>
+                    <lowervalue></lowervalue>
+                    <uppervalue></uppervalue>
+                    <label></label>
+                    <pointsymbol>hard:circle</pointsymbol>
+                    <pointsize>6</pointsize>
+                    <outlinecolor red="0" blue="255" green="0" />
+                    <outlinestyle>SolidLine</outlinestyle>
+                    <outlinewidth>2</outlinewidth>
+                    <fillcolor red="0" blue="0" green="0" />
+                    <fillpattern>NoBrush</fillpattern>
+                </symbol>
+            </singlesymbol>
+            <labelattributes>
+                <label field="street_nam" text="" />
+                <family field="" name="Sans Serif" />
+                <size field="" units="pt" value="7" />
+                <bold field="" on="1" />
+                <italic field="" on="0" />
+                <underline field="" on="0" />
+                <color field="" red="0" blue="255" green="0" />
+                <x field="" />
+                <y field="" />
+                <offset x="0" y="0" yfield="" xfield="" units="pt" />
+                <angle field="" value="0" />
+                <alignment field="" value="center" />
+                <buffercolor field="" red="255" blue="255" green="255" />
+                <buffersize field="" units="pt" value="1" />
+                <bufferenabled field="" on="" />
+            </labelattributes>
+        </maplayer>
+    </projectlayers>
+    <legend>
+        <legendlayer open="false" checked="Qt::Checked" name="mndot_basemap_tweaked" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="_public___mndot_basemap_tweaked___geometry__sql_20070907150423495" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="mndot_bikeways_tweaked" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="_public___mndot_bikeways_tweaked___geometry__sql_20070907151421515" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="minneapolis_index" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="minneapolis_index20070907150157245" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="true" checked="Qt::Checked" name="bikeways" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="bikeways20070919125323164" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk725755" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk72575520070917165116828" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk740755" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk74075520070917165053683" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk740770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk74077020070917165007087" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk740785" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk74078520070917165214038" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk755785" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk75578520070917165232932" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk755770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk75577020070917164938130" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk755800" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk75580020070917165342262" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk770770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk77077020070917164848957" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk770800" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk77080020070917165329967" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk770815" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk77081520070917175405415" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk785770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk78577020070917164736370" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk785800" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk78580020070907153924881" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk785815" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk78581520070907151832461" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk800770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk80077020070917164643287" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk800785" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk80078520070917163435351" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk800800" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk80080020070917160652460" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk815770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk81577020070917163622206" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk815785" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk81578520070917163529973" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830710" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83071020070917164254317" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830725" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83072520070917164101881" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830740" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83074020070917164018842" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830755" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83075520070917163848127" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830770" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83077020070917163653422" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk830785" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk83078520070917163729411" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk845725" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk84572520070917164151124" />
+            </filegroup>
+        </legendlayer>
+        <legendlayer open="false" checked="Qt::Checked" name="15tvk845755" >
+            <filegroup open="false" hidden="true" >
+                <legendlayerfile layerid="15tvk84575520070917163933199" />
+            </filegroup>
+        </legendlayer>
+    </legend>
+    <properties>
+        <SpatialRefSys>
+            <ProjectSRSProj4String type="QString" >+proj=utm +zone=15 +ellps=GRS80 +datum=NAD83 +units=m +no_defs</ProjectSRSProj4String>
+            <ProjectionsEnabled type="int" >0</ProjectionsEnabled>
+            <ProjectSRSID type="int" >1473</ProjectSRSID>
+        </SpatialRefSys>
+        <Gui>
+            <SelectionColorBluePart type="int" >0</SelectionColorBluePart>
+            <SelectionColorGreenPart type="int" >255</SelectionColorGreenPart>
+            <SelectionColorRedPart type="int" >255</SelectionColorRedPart>
+            <CanvasColorBluePart type="int" >255</CanvasColorBluePart>
+            <CanvasColorGreenPart type="int" >255</CanvasColorGreenPart>
+            <CanvasColorRedPart type="int" >255</CanvasColorRedPart>
+        </Gui>
+        <PositionPrecision>
+            <DecimalPlaces type="int" >2</DecimalPlaces>
+            <Automatic type="bool" >true</Automatic>
+        </PositionPrecision>
+        <Digitizing>
+            <Tolerance type="QString" >3</Tolerance>
+            <LineWidth type="int" >1</LineWidth>
+            <LineColorGreenPart type="int" >0</LineColorGreenPart>
+            <LineColorBluePart type="int" >0</LineColorBluePart>
+            <LineColorRedPart type="int" >255</LineColorRedPart>
+        </Digitizing>
+    </properties>
+</qgis>

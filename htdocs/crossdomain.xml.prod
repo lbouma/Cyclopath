@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE cross-domain-policy SYSTEM "http://www.macromedia.com/xml/dtds/cross-domain-policy.dtd">
+
+<!-- This file convinces the client's Flashclient player that
+     it's not a security violation to use us, even though the
+     domain might not match. -->
+
+<cross-domain-policy>
+  <allow-access-from domain="*.cs.umn.edu" secure="false"/>
+  <allow-access-from domain="*.cyclopath.org" secure="false"/>
+  <!-- DEVS: Uncomment for cross-domain developing (but don't checkin): -->
+  <!-- <allow-access-from domain="*"/> -->
+</cross-domain-policy>
+

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_discussions:Tab_Discussions_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   horizontalScrollPolicy="off"
+   label=""
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import mx.collections.ArrayCollection;
+      import mx.controls.TextInput;
+      import mx.core.Container;
+      import mx.events.ChildExistenceChangedEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.events.StateChangeEvent;
+      import mx.states.*;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Checkout_Base;
+      import gwis.utils.Query_Filters;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import utils.misc.Logging;
+      import views.base.App_Action;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##TbDsc-Post');
+
+      // *** Base class getters and setters
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         m4_DEBUG('get pnl_owng_pnl: returning not activating activity_panel');
+         return G.app.activity_panel;
+      }
+
+      // ***
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize');
+
+         super.on_initialize(ev);
+
+         this.change_state('state_discussions_posts');
+
+         this.thread_list_pager.type_plural = 'discussions';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+
+         super.repopulate();
+
+         if (G.item_mgr.create_allowed_get(Post)
+             && G.item_mgr.create_allowed_get(Thread)
+             && G.app.mode.is_allowed(App_Action.post_create)) {
+            this.new_thread.visible = true;
+            // this.new_thread.enabled = true;
+            // this.new_thread.toolTip =
+            // 'Click to create a new discussion about the selected items.';
+         }
+         else {
+            // Don't show the start new discussion link.
+            this.new_thread.visible = false;
+            // this.new_thread.enabled = false;
+            // this.new_thread.toolTip =
+            //    'You do not have permissions to create new discussions.';
+         }
+      }
+
+      // ***
+
+      //
+      override protected function consume_thread_list(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         super.consume_thread_list(gwis_req, xml);
+      }
+
+      //
+      override public function fetch_list(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         if (qfs === null) {
+            qfs = this.qfs;
+         }
+
+         // FIXME: Replace with only_rhs_stack_ids?
+         qfs.filter_by_thread_type = 'general';
+
+         super.fetch_list(update_paginator_count, qfs);
+      }
+
+      //
+      override protected function get_filter_by_data_provider(
+         subject_plural:String='',
+         subject_abbrev:String='') :ArrayCollection
+      {
+         var subject_plural:String = 'user discussions';
+         var subject_abbrev:String = 'discussions';
+         return super.get_filter_by_data_provider(subject_plural,
+                                                  subject_abbrev);
+      }
+
+      //
+      protected function on_enter_state_discussions_posts() :void
+      {
+         m4_DEBUG('on_enter_state_discussions_posts');
+      }
+
+      //
+      public function on_new_thread_click() :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+         var new_thread:Thread = new Thread();
+         new_thread.dirty_set(Dirty_Reason.item_data_oob, true);
+
+         //G.grac.prepare_item(new_thread, Access_Level.viewer);
+         G.grac.prepare_item(new_thread, Access_Level.client);
+         G.map.items_add([new_thread,]);
+
+         // We manage a per-panel dirty indicator to prevent the panel from
+         // being closed without prompting the user to save or discard.
+         // Not yet: new_thread.thread_panel.dirty_post = true;
+         
+         G.tabs.discussions.thread_open(new_thread);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_panel_discussions:states>
+
+      <mx:State
+         name="state_discussions_posts"
+         enterState="this.on_enter_state_discussions_posts();"
+         >
+
+         <mx:AddChild
+            relativeTo="{this.mar_nt_box}"
+            position="lastChild">
+            <mx:target>
+
+               <mx:HBox
+                  id="new_thread_box"
+                  horizontalAlign="right"
+                  horizontalGap="0"
+                  horizontalScrollPolicy="off"
+                  paddingTop="0"
+                  paddingLeft="0"
+                  paddingRight="0"
+                  paddingBottom="0"
+                  visible="{this.thread_type == 'general'}"
+                  includeInLayout="{this.new_thread.visible}"
+                  >
+
+                  <mx:Button
+                     id="new_thread"
+                     label="Start New Thread"
+                     toolTip=
+                  "Click to create a new discussion about the selected items."
+                     click="this.on_new_thread_click();"/>
+
+               </mx:HBox>
+
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_discussions:states>
+
+</views_panel_discussions:Tab_Discussions_Base>
+

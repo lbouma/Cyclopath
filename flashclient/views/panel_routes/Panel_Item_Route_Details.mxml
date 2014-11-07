@@ -1,0 +1,1127 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- BUG nnnn: Route Recent Changes.
+               Basically, see a list of edits (version numbers, dates, users,
+               etc.) and be able to fetch earlier versions of a route.
+               Also implement route revert. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_utils="views.utils.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   verticalGap="6"
+   label="Overview"
+   >
+   <!-- Formerly:
+   label="Details"
+   label="Route Overview"
+   label="Overview"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.controls.Alert;
+      import mx.controls.Button
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+
+      import grax.Access_Infer;
+      import grax.Access_Level;
+      import gwis.GWIS_Route_Get_Saved;
+      import items.feats.Route;
+      import items.utils.Travel_Mode;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import utils.misc.Timeutil;
+      import views.commands.Command_Manager;
+      import views.commands.Route_Conflict_Resolve_Command;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_items.Panel_Item_Versioned;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rte_Dtl');
+
+      // *** Instance variables
+
+      protected var watcher_width:ChangeWatcher;
+
+      // *** Base class overrides
+
+      //
+      public function on_change_width(event:Event=null) :void
+      {
+         m4_DEBUG2('on_change_width: route_tabs.width:',
+                   (this.dp !== null) ? this.dp.route_tabs.width : 'none');
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         this.item_name_control.init('name_', false);
+         // Set required to true so that we don't have unnamed routes.
+         this.item_name_control.required = true;
+         // Use the label-edit toggler action.
+         this.item_name_control.use_label_toggle = true;
+         // Delay calling super until now. The item_name_control needs to
+         // be inited first, because super calls on_panel_show.
+         super.on_creation_complete(ev);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize');
+         super.on_initialize(ev);
+
+         this.descr.init('details', true);
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // Don't call super, which just calls repopulate,
+         // and our repopulate expects there are items_selected.
+         // Skipping: super.depopulate();
+
+         m4_DEBUG('depopulate: this.route:', this.route);
+
+         this.item_name_control.text = 'Nothing selected';
+         this.item_name_control.edit_enabled = false;
+
+         this.widget_item_alerts.visible = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate: this.route:', this.route);
+
+         m4_ASSERT(this.route !== null);
+
+         // Update the tab button label and toolTip.
+         this.dp.label = 'Route';
+         // Use the generated name or the user name of the route.
+         // MAYBE: Include the from and to address.
+         this.dp.toolTip = this.route.name_;
+
+         this.rstops.update(this.route);
+
+         this.route.compute_smart_name();
+
+         // MAYBE: Do we really need a secondary, editable name control?
+         //        We've already got one (Widget_Name_Header).
+         this.repopulate_item_name_control();
+
+         this.descr.text = this.route.details;
+         this.descr.features = new Set_UUID([this.route,]);
+         if ((!this.route.can_edit) && (this.route.details == '')) {
+            this.descr_box.visible = false;
+            this.descr_box.includeInLayout = false;
+         }
+
+         if (Route_Editor_UI.new_stop === null) {
+            this.add_dest_link.htmlText = 'Add Destination';
+         }
+         else {
+            this.add_dest_link.htmlText = 'Cancel';
+         }
+
+         this.display_route_stats();
+
+         // Change state as appropriate.
+         if (!this.route.can_edit) {
+            if (!this.route.can_view) {
+               m4_DEBUG('display_route_stats: change_state: Generated');
+               this.change_state('Generated');
+               // Anonymous users have access to new routes via session ID.
+               m4_DEBUG('display_route_stats: route.access_infer_id:',
+                        this.route.access_infer_id);
+               m4_ASSERT_SOFT(this.route.access_infer_id
+                              == Access_Infer.sessid_arbiter);
+               m4_DEBUG('display_route_stats: route.groups_access:',
+                        this.route.groups_access);
+            }
+            else {
+               m4_SERVED(this.route.access_level_id == Access_Level.viewer);
+               m4_DEBUG('display_route_stats: change_state: Locked');
+               this.change_state('Locked');
+            }
+            this.widget_item_alerts.visible = false;
+         }
+         else {
+            if (this.route.rstop_editing_enabled) {
+               m4_DEBUG('repopulate: change_state: SelectedRouteStop');
+               this.change_state('SelectedRouteStop');
+               if (this.route.edit_stops.length > 2) {
+                  this.delete_selected_rstops_link.enabled = true;
+                  this.delete_selected_rstops_link.toolTip =
+                    "Click to delete the destination you selected on the map.";
+                  this.delete_selected_rstops_link.visible = true;
+               }
+               else {
+                  this.delete_selected_rstops_link.enabled = false;
+                  this.delete_selected_rstops_link.toolTip =
+                    "There are only two destinations in this route. "
+                    + "Add another destination to remove the selected "
+                    + "destination. You can also move the selected "
+                    + "destination by dragging it around the map, "
+                    + "and you can also enter a new address above.";
+                  //this.delete_selected_rstops_link.visible = false;
+               }
+               this.delete_selected_rstops_link.htmlText =
+                  'Remove Selected Destination';
+               if (this.route.num_rstops_selected != 1) {
+                  this.delete_selected_rstops_link.htmlText += 's';
+               }
+            }
+            else if (Route_Editor_UI.new_stop !== null) {
+               m4_DEBUG('repopulate: change_state: AddRouteStop');
+               this.change_state('AddRouteStop');
+            }
+            else {
+               m4_DEBUG('display_route_stats: change_state: ""');
+               this.change_state('');
+            }
+            this.widget_item_alerts.visible = true;
+         }
+
+         // FORMER: MAGIC NUMBER: You can only have 26 route_stops.
+         //         Except now we'll double-up on the letters.
+         this.add_dest_link.visible = (
+            ////(this.route.num_dests < 26) &&
+            //(this.route.num_dests < Strutil.letters_uc.length) &&
+            (!this.route.is_multimodal)
+            && (this.route.can_edit)
+            );
+         this.adjust_biking_preferences.visible = this.add_dest_link.visible;
+
+         if (this.route.alternate_steps !== null) {
+            this.update_warning.includeInLayout = true;
+            this.update_action.includeInLayout =
+               (this.route.can_edit);
+            this.stale_nodes_fix_link.visible = false;
+            this.stale_nodes_fix_link.includeInLayout = false;
+         }
+         else {
+            this.update_warning.includeInLayout = false;
+            this.update_action.includeInLayout = false;
+         }
+
+         this.time_row.visible = this.route.is_multimodal;
+         if (this.route.is_multimodal) {
+            this.rlength.text = this.rlength.text
+                                //+ " (does not include transit rides)";
+                                + " (cycling time only)";
+         }
+         // else, a normal routed_p1 bicycle route.
+
+         this.no_path_edit.includeInLayout = this.route.is_multimodal;
+
+         if (this.route.alternate_steps === null) {
+            if (this.route.stale_nodes > 0) {
+               this.stale_nodes_fix_link.visible = true;
+               this.stale_nodes_fix_link.includeInLayout = true;
+               this.stale_nodes_fix_link.toolTip =
+                  "The roads that this byway uses have been edited. "
+                  + "Click here to see what a recalculated version of "
+                  + "this route looks like. "
+                  + "(Edges edited: " + this.route.stale_steps + " / "
+                  + "Nodes edited: " + this.route.stale_nodes + ")";
+            }
+            else {
+               this.stale_nodes_fix_link.visible = false;
+               this.stale_nodes_fix_link.includeInLayout = false;
+            }
+         }
+
+         this.viz_selector.refresh();
+
+         this.on_change_width(null);
+      }
+
+      //
+      protected function repopulate_item_name_control() :void
+      {
+// 2013.03.20: FIXME: Statewide UI: Firing when messing around with routes.
+//             Clicked route in library, then went back
+//             to library and clicked 'Look At'.
+// 2013.05.30: Fires on delete route. I also had edited but unedit a bunch of 
+// rating and item alert widget changes.
+         // 2013.08.22: Was firing on open route, then switch back to rte list.
+         if ((this.items_selected === null)
+             || (this.items_selected.length != 1)
+             || (this.items_selected.one() !== this.route)) {
+            m4_WARNING('repopulate_item_name_control: unexpected selection');
+            m4_WARNING(' .. items_selected.len:', this.items_selected.length);
+            m4_WARNING(' .. this.items_selected:', this.items_selected);
+            m4_WARNING(' .. this.route:', this.route);
+            m4_WARNING(' .. route.route_panel:', this.route.route_panel);
+            m4_WARNING2(' .. selected.route_panel:',
+                        (this.items_selected.one() as Route).route_panel);
+            m4_WARNING(' .. this:', this);
+         }
+         m4_ASSERT(this.items_selected.length == 1);
+
+         // 2014.02.05: Is this firing? Let's just not assert.
+         var testrt:Route = (this.items_selected.item_get_random() as Route);
+         if (testrt !== this.route) {
+            m4_WARNING('repopulate_item_name_control: not a route?:', testrt);
+         }
+         else {
+            // this.item_name_control.features = new Set_UUID([this.route,]);
+            this.item_name_control.features = this.items_selected;
+
+            if (this.route.name_ != '') {
+               this.item_name_control.text = this.route.name_;
+            }
+            else {
+               this.item_name_control.text = 'Unnamed route';
+            }
+         }
+
+         // MAYBE: Use this.dp.is_action_actionable('edit-name')
+         var enable_name_editing:Boolean;
+         var ipanel:Panel_Item_Versioned = (this.dp as Panel_Item_Versioned);
+         enable_name_editing = ipanel.is_action_actionable('item-rename');
+         this.item_name_control.edit_enabled = enable_name_editing;
+         m4_VERBOSE2(' .. item_name_control.edit_enabled:',
+                     enable_name_editing);
+
+         m4_VERBOSE2('repopulate_item_name_control: G.app.side_panel.width:',
+                     G.app.side_panel.width);
+         // If you want an idea of the container hierarchy, try this:
+         m4_VERBOSE(' item_name_label:', String(this.item_name_label));
+         m4_VERBOSE(' item_name_control:', String(this.item_name_control));
+
+// FIXME: This is still too wide. Make verboses for everything... argh.
+// you are forgetting the scroll bar width, for one.
+// TESST: Can we just use Destinations width???
+//
+// 1573288...   Central Eagan to UMN West Bank Office Building
+//
+         this.item_name_control.labeler.maxWidth =
+            // We cannot use this.width because we'll add to it!
+            G.app.side_panel.width
+            - this.dp.getStyle('paddingLeft')
+            - this.dp.getStyle('paddingRight')
+            - this.getStyle('paddingLeft')
+            - this.getStyle('paddingRight')
+            - this.summary.getStyle('paddingLeft')
+            - this.summary.getStyle('paddingRight')
+            - this.item_name_grid_row.getStyle('paddingLeft')
+            - this.item_name_grid_row.getStyle('paddingRight')
+            - this.item_name_label_grid_item.width
+            //- this.item_name_label.getStyle('paddingLeft')
+            //- this.item_name_label.getStyle('paddingRight')
+            //- this.item_name_label.width
+            - this.item_name_control_grid_item.getStyle('paddingLeft')
+            - this.item_name_control_grid_item.getStyle('paddingRight')
+            - this.item_name_control.getStyle('paddingLeft')
+            - this.item_name_control.getStyle('paddingRight')
+            // MAGIC_NUMBER: [lb] is missing something above. Maybe also the
+            // vertical scrollbar but also something else, it seems.
+            - 42
+            ;
+         // 251... 168... 224...
+         m4_PPUSH2('repopulate_item_name_control: labeler.maxWidth:',
+                   this.item_name_control.labeler.maxWidth);
+         m4_PPUSH2('repopulate_item_name_control: route_tabs.width:',
+                   (this.dp !== null) ? this.dp.route_tabs.width : 'none');
+      }
+
+      // *** Base class getters and setters
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         this.register_widgets([
+            this.rstops,
+            this.viz_selector,
+            this.widget_item_alerts,
+            ]);
+
+         // Hook the TabNavigator's width so we can resize our smart label.
+         m4_DEBUG2('on_creation_complete: route_tabs.width:',
+                   this.dp.route_tabs.width);
+         this.watcher_width = ChangeWatcher.watch(
+            this.dp.route_tabs, 'width', this.on_change_width);
+      }
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         return this.dp;
+      }
+
+      // *** Instance methods
+
+      //
+      protected function display_route_stats() :void
+      {
+         var orig_len:String = Strutil.meters_to_miles_pretty(
+                                          this.route.rsn_len);
+         var alt_len:String = Strutil.meters_to_miles_pretty(
+                                          this.route.alternate_length);
+         var total_time:String = Timeutil.total_time_to_pretty_string(
+                                          this.route.total_time);
+
+         m4_DEBUG2('display_route_stats: orig_len:', orig_len,
+                   '/ alt_len:', alt_len, '/ total_time:', total_time);
+
+         var gpx_button:Button;
+         gpx_button = (this.dp as Panel_Item_Route).tab_route_cue_sheet.gpx;
+
+         if (this.route.alternate_steps === null) {
+            // Simple route display.
+            this.rlength.text = orig_len;
+            this.rtime.text = total_time;
+            //
+            gpx_button.enabled = true;
+         }
+         else {
+            // Select regular or alternate to display.
+            if (this.conflict_old.selected) {
+               this.rlength.text = orig_len;
+               this.rtime.text = total_time;
+            }
+            else if (this.conflict_diff.selected) {
+               this.rlength.text
+                  = orig_len + ' (old) or ' + alt_len + ' (suggested)';
+            }
+            else if (this.conflict_new.selected) {
+               this.rlength.text = alt_len;
+               this.rtime.text = total_time;
+            }
+
+            gpx_button.enabled = false;
+         }
+
+         if (this.route.avg_cost > 0) {
+            // 2014.09.08: BUG nnnn/FIXME: [lb] not seeing the edge cost value;
+            //  I even enabled "Show source and confidence of geocoder results"
+            this.rlength.toolTip =
+               this.rlength.text
+               + ' <i>(average edge cost: '
+               + String(this.route.avg_cost) + ')</i>';
+         }
+         else {
+            this.rlength.toolTip = '';
+         }
+      }
+
+      //
+      public function get_cmd_mgr() :Command_Manager
+      {
+         return this.dp.cmd_mgr;
+      }
+
+      //
+      protected function on_choose_fix(use_suggested_fix:Boolean) :void
+      {
+         m4_DEBUG('on_choose_fix: use_suggested_fix', use_suggested_fix);
+         var cmd:Route_Conflict_Resolve_Command;
+         cmd = new Route_Conflict_Resolve_Command(
+            this.route, use_suggested_fix)
+         //G.map.cm.do_(cmd);
+         this.route.route_panel.cmd_mgr.do_(cmd);
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+      }
+
+      //
+      protected function on_click_ignore_action() :void
+      {
+         this.route.alternate_steps = null;
+         this.route.alternate_xs = null;
+         this.route.alternate_ys = null;
+         this.route.draw();
+         G.panel_mgr.panels_mark_dirty([this,]);
+      }
+
+      //
+      protected function on_click_item_name_control(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click_item_name_control');
+         // Because on_click_panel calls this.stage.focus = null.
+         ev.stopPropagation();
+      }
+
+      //
+      public function on_add_dest_link_click(disable_only:Boolean=false) :void
+      {
+         if (Route_Editor_UI.new_stop === null) {
+            if (!disable_only) {
+               // Add a new route stop.
+               Route_Editor_UI.route_destination_add(this.route);
+               this.add_dest_link.htmlText = 'Cancel';
+               m4_DEBUG('on_add_dest_link_click: change_state: AddRouteStop');
+               this.change_state('AddRouteStop');
+            }
+         }
+         else {
+            // Cancel the current route stop.
+            Route_Editor_UI.cancel_destination_add();
+            this.add_dest_link.htmlText = 'Add Destination';
+            m4_DEBUG('on_add_dest_link_click: change_state: ""');
+            this.change_state('');
+         }
+         this.rstops.update(this.route);
+
+         m4_DEBUG('on_add_dest_link_click: resize_stop_list');
+         G.app.callLater(this.rstops.resize_stop_list);
+      }
+
+      //
+      protected function on_adjust_biking_preferences_click() :void
+      {
+         G.panel_mgr.panel_activate(G.tabs.route.find_panel);
+      }
+
+      //
+      protected function on_dests_reroute_link_click() :void
+      {
+         G.tabs.route.find_panel.find_route_recreate(this.route);
+      }
+
+      //
+      protected function on_printer_friendly() :void
+      {
+         G.tabs.route.printer_friendly_show(
+            this.route,
+            ((this.route.alternate_steps === null)
+             || this.conflict_old.selected));
+      }
+
+      //
+      protected function on_delete_selected_rstops_link_click() :void
+      {
+         m4_ASSERT_SOFT(this.route.is_route_stop_selection_deleteable);
+         Route_Editor_UI.selected_rstops_delete(this.route);
+      }
+
+      //
+      protected function on_stale_nodes_fix_link_click() :void
+      {
+         var gwis_cmd:GWIS_Route_Get_Saved;
+         gwis_cmd = new GWIS_Route_Get_Saved(
+            this.route.stack_id,
+            /*caller_source=*/'on_stale_nodes_fix_link_click',
+            /*callback_okay=*/this.on_updated_state_route,
+            /*callback_fail=*/null,
+            /*as_gpx=*/false,
+            /*check_invalid=*/true,
+            /*gia_use_sessid=*/this.route.unlibraried,
+            /*get_steps_and_stops=*/true,
+            /*compute_landmarks=*/route.show_landmarks);
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_cmd);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function on_updated_state_route(
+         gwis_cmd:GWIS_Route_Get_Saved, route:Route) :void
+      {
+         m4_DEBUG('on_updated_state_route');
+// Nothing needed to do, right? The route and its panel
+// are updated by other callbacks... right?
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_panel_routes:states>
+
+      <!-- State representing a locked detail panel that can't be edited
+           by the current user -->
+
+      <!-- FIXME: Statewide UI: Replace name control with Text_Field_Editable.
+                  -->
+
+      <mx:State
+         name="Locked">
+
+         <mx:SetStyle
+            target="{this.item_name_control.editor}"
+            name="borderStyle"
+            value="none"/>
+         <mx:SetProperty
+            target="{this.item_name_control}"
+            name="mouseEnabled"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.item_name_control}"
+            name="mouseChildren"
+            value="false"/>
+
+         <mx:RemoveChild
+            target="{this.add_dest_link}" />
+
+         <mx:SetStyle
+            target="{this.descr.editor}"
+            name="borderStyle"
+            value="none"/>
+         <mx:SetProperty
+            target="{this.descr}"
+            name="mouseEnabled"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.descr}"
+            name="mouseChildren"
+            value="false"/>
+
+         <!--
+         <mx:SetProperty
+            target="{this.add_dest_link}"
+            name="enabled"
+            value="False"/>
+         -->
+
+      </mx:State>
+
+      <!-- State for routes that aren't in the library yet -->
+      <mx:State
+         name="Generated">
+
+         <mx:SetStyle
+            target="{this.item_name_control.editor}"
+            name="borderStyle"
+            value="none"/>
+         <mx:SetProperty
+            target="{this.item_name_control}"
+            name="mouseEnabled"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.item_name_control}"
+            name="mouseChildren"
+            value="false"/>
+
+      </mx:State>
+
+      <!-- State for adding route stop -->
+      <mx:State
+         name="AddRouteStop">
+
+         <mx:RemoveChild
+            target="{this.dests_reroute_box}" />
+
+         <mx:RemoveChild
+            target="{this.unnamed_stops_hint_box}" />
+
+         <mx:AddChild
+            relativeTo="{this.add_dest_wrapper}"
+            position="lastChild">
+            <mx:target>
+               <mx:HBox
+                  width="100%"
+                  horizontalAlign="left">
+                  <mx:Label
+                     id="add_dest_hint"
+                     width="100%"
+                     condenseWhite="true"
+                     toolTip="You can enter a new destination by clicking on the map, or you can search for one by entering its name above. If you don't want to add a new destinaction, click Cancel. After you're finished, click the alphabetic label in the list to drag the destination to another position in the route."
+                     >
+                     <!--
+         <i>Hint:</i> Click the map to add a stop.
+                     -->
+                     <mx:htmlText><![CDATA[
+                        <i>Hint:</i> Type an address or click the map.
+                     ]]></mx:htmlText>
+                  </mx:Label>
+               </mx:HBox>
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+      <!-- State for selected route stop state -->
+      <mx:State
+         name="SelectedRouteStop">
+
+         <mx:SetProperty
+            target="{this.dests_reroute_link}"
+            name="visible"
+            value="false"/>
+
+         <!-- Hide the delete button if more stops are
+              selected than can be deleted without reducing
+              the route line to a point, or to nothing. -->
+         <mx:SetProperty
+            target="{this.delete_selected_rstops_link}"
+            name="visible"
+            value="{this.route.is_route_stop_selection_deleteable}"
+            />
+
+         <mx:RemoveChild
+            target="{this.unnamed_stops_hint_box}" />
+
+      </mx:State>
+
+   </views_panel_routes:states>
+
+   <!-- Route name and Length -->
+
+   <mx:HBox
+      width="100%"
+      horizontalGap="0"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalAlign="bottom"
+      >
+      <mx:Label
+         styleName="labelmajor"
+         text="Route Info"
+         />
+      <mx:HBox
+         width="100%"
+         horizontalGap="0"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="9"
+         paddingBottom="0"
+         horizontalAlign="right"
+         verticalAlign="bottom"
+         >
+         <views_panel_util:Hyper_Link
+            id="stale_nodes_fix_link"
+            htmlText="Repair Route"
+            visible="false"
+            includeInLayout="{this.stale_nodes_fix_link.visible}"
+            click="this.on_stale_nodes_fix_link_click();"
+            />
+      </mx:HBox>
+   </mx:HBox>
+
+   <mx:Grid
+      id="summary"
+      width="100%"
+      paddingLeft="{G.app.pad}"
+      paddingTop="-4"
+      paddingRight="{G.app.pad}"
+      paddingBottom="5"
+      verticalGap="0">
+
+      <!-- MAYBE: Statewide UI: Do we want to use Text_Field_Editable here, and
+                  in the Cyclopath header area? -->
+      <mx:GridRow
+         width="100%"
+         id="item_name_grid_row"
+         >
+         <mx:GridItem
+            id="item_name_label_grid_item"
+            height="100%"
+            verticalAlign="middle"
+            >
+            <mx:Label
+               id="item_name_label"
+               text="Name:"
+               fontWeight="bold"
+               width="100%"
+               />
+         </mx:GridItem>
+         <mx:GridItem
+            id="item_name_control_grid_item"
+            width="100%"
+            height="100%"
+            verticalAlign="middle"
+            paddingTop="2"
+            >
+            <views_commands:Text_Field_Editable
+               id="item_name_control"
+               width="100%"
+               click="this.on_click_item_name_control(event);"
+               cmd_mgr_fcn="{this.get_cmd_mgr}"
+               />
+         </mx:GridItem>
+      </mx:GridRow>
+
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Length:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem
+            width="100%">
+            <mx:Label
+               id="rlength"
+               width="100%"/>
+         </mx:GridItem>
+      </mx:GridRow>
+
+      <mx:GridRow
+         id="time_row"
+         width="100%"
+         visible="false"
+         includeInLayout="{this.time_row.visible}"
+         >
+         <mx:GridItem>
+            <mx:Label
+               text="Total Time:"
+               fontWeight="bold"/>
+         </mx:GridItem>
+         <mx:GridItem
+            width="100%">
+            <mx:Label
+               id="rtime"
+               width="100%"/>
+         </mx:GridItem>
+      </mx:GridRow>
+
+   </mx:Grid>
+
+   <!-- Repair route feature -->
+
+   <mx:VBox
+      id="update_warning"
+      width="100%"
+      includeInLayout="false"
+      visible="{this.update_warning.includeInLayout}"
+      horizontalGap="0"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      >
+      <mx:Label
+         styleName="labelmajor"
+         text="Route Repair"
+         />
+      <mx:VBox
+         width="100%"
+         paddingTop="0"
+         paddingBottom="4"
+         paddingLeft="4"
+         paddingRight="9"
+         >
+         <mx:Text
+            width="100%"
+            condenseWhite="true"
+            mouseEnabled="false"
+            mouseChildren="false">
+            <mx:htmlText>
+               <![CDATA[
+               <font color="#dd0000">
+               <u><b>Please be aware:</b></u>
+               The roads used by this route have been edited.
+               A suggested fix is loaded.
+               </font>
+               ]]>
+            </mx:htmlText>
+         </mx:Text>
+         <mx:HBox
+            width="100%">
+            <mx:Label
+               text="Show:"
+               fontWeight="bold"/>
+            <!-- Displayed when route is in the library -->
+            <mx:RadioButtonGroup
+               id="conflict"
+               change="
+                  this.route.draw();
+                  this.display_route_stats();"
+                  />
+            <mx:RadioButton
+               id="conflict_old"
+               label="Old"
+               groupName="conflict"/>
+            <mx:RadioButton
+               id="conflict_diff"
+               label="Comparison"
+               groupName="conflict"
+               selected="true"/>
+            <mx:RadioButton
+               id="conflict_new"
+               label="Suggested"
+               groupName="conflict"/>
+         </mx:HBox>
+         <mx:HBox
+            id="update_action"
+            width="100%"
+            paddingRight="3"
+            horizontalGap="7"
+            horizontalAlign="center"
+            visible="{this.update_action.includeInLayout}">
+            <mx:Button
+               label="Use Suggested Fix"
+               click="this.on_choose_fix(true);"/>
+            <!--
+               label="I'll Fix it Myself"
+            -->
+            <mx:Button
+               label="No, Thanks, I'll Fix It"
+               click="this.on_choose_fix(false);"/>
+         </mx:HBox>
+         <mx:HBox
+            id="ignore_action"
+            width="100%"
+            paddingRight="3"
+            horizontalGap="7"
+            horizontalAlign="center"
+            verticalAlign="bottom"
+            visible="{this.ignore_action.includeInLayout}"
+            includeInLayout="{!this.update_action.includeInLayout}">
+            <!--
+            <mx:Spacer
+               width="100%"/>
+            -->
+            <mx:HBox
+               width="100%"
+               horizontalAlign="left">
+               <mx:Text
+                  condenseWhite="true"
+                  toolTip="You can find the Recreate Route Request button below. To hide the suggested route fix, click Hide this warning."
+                  width="100%"
+                  >
+                  <mx:htmlText><![CDATA[
+   You can only view this route. Click
+   Recreate Route Request to copy it.
+                  ]]></mx:htmlText>
+               </mx:Text>
+            </mx:HBox>
+            <!--
+            <mx:Button
+               label="Ignore Fix"
+               click="this.on_click_ignore_action();"/>
+            -->
+            <views_panel_util:Hyper_Link
+               htmlText="Hide repairs"
+               click="this.on_click_ignore_action();"/>
+         </mx:HBox>
+      </mx:VBox>
+   </mx:VBox>
+
+   <!-- Route destinations. -->
+
+   <mx:HBox
+      width="100%"
+      horizontalGap="0"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalAlign="bottom"
+      >
+      <mx:Label
+         styleName="labelmajor"
+         text="Destinations"
+         paddingTop="6"
+         />
+   </mx:HBox>
+
+   <mx:VBox
+      width="100%"
+      verticalGap="0"
+      paddingLeft="{G.app.pad}"
+      paddingTop="-2"
+      paddingRight="{G.app.pad}"
+      paddingBottom="0"
+      >
+
+      <!-- Destinations -->
+
+      <mx:Label
+         id="no_path_edit"
+         text="Note: Editing paths with transit is not supported"
+         paddingBottom="-2"
+         paddingTop="3"
+         visible="{this.no_path_edit.includeInLayout}"
+         includeInLayout="false"/>
+
+      <views_panel_routes:Route_Stop_List
+         id="rstops"
+         paddingTop="0"
+         />
+
+      <mx:HBox
+         width="100%"
+         id="add_dest_wrapper"
+         paddingTop="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         >
+         <views_panel_util:Hyper_Link
+            id="add_dest_link"
+            styleName="labelnormal"
+            htmlText="Add Destination"
+            click="this.on_add_dest_link_click();"
+            visible="false"
+            includeInLayout="{this.add_dest_link.visible}"
+            />
+         <mx:HBox
+            id="dests_reroute_box"
+            width="100%"
+            horizontalAlign="right">
+            <views_panel_util:Hyper_Link
+               id="dests_reroute_link"
+               styleName="labelnormal"
+               htmlText="Recreate Route Request"
+               click="this.on_dests_reroute_link_click();"
+               visible="true"
+               includeInLayout="{this.dests_reroute_link.visible}"/>
+            <views_panel_util:Hyper_Link
+               id="delete_selected_rstops_link"
+               styleName="labelnormal"
+               htmlText="Remove Selected Destination"
+               click="this.on_delete_selected_rstops_link_click();"
+               visible="false"
+               includeInLayout="{this.delete_selected_rstops_link.visible}"/>
+         </mx:HBox>
+         <!-- MAGIC_NUMBER: This matches the width of address_container
+                            in Address_Resolver (or addr_crazyclear_btn). -->
+         <mx:Spacer
+            width="16"/>
+      </mx:HBox> <!-- end: add_dest_wrapper -->
+
+      <mx:HBox
+         id="unnamed_stops_hint_box"
+         width="100%"
+         paddingTop="0"
+         paddingRight="11"
+         horizontalAlign="center"
+         visible="true"
+         includeInLayout="{this.unnamed_stops_hint_box.visible}">
+         <mx:Label
+            id="unnamed_stops_hint"
+            width="100%"
+            textAlign="right"
+            condenseWhite="true"
+            toolTip="In the list above, you'll see the first and last destination, and any other destinations that have names. On the map, you'll see all destinations: named destinations are drawn with a larger circle and also identified by a letter, and unnamed destinations are drawn with a smaller circle. You can click destinations on the map, and they'll appear in the list above. You can delete destinations by selecting them and pressing Backspace, or you can use the 'x' buttons in the list above. You can also rename destinations in the list above. Be sure to save your work."
+            >
+            <!--
+               <i>Click unnamed stops on the map to edit them.</i>
+            -->
+            <mx:htmlText><![CDATA[
+               <i>Tip: Drag the map line to add route stops.</i>
+            ]]></mx:htmlText>
+         </mx:Label>
+      </mx:HBox>
+      <mx:HBox
+         width="100%"
+         id="adjust_preferences_wrapper"
+         paddingTop="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         >
+         <views_panel_util:Hyper_Link
+            id="adjust_biking_preferences"
+            styleName="labelnormal"
+            htmlText="Adjust Biking Preferences"
+            click="this.on_adjust_biking_preferences_click();"
+            visible="false"
+            includeInLayout="{this.adjust_biking_preferences.visible}"
+            toolTip=
+"When you add and remove route destinations, Cyclopath uses the Biking Preferences from the Get Directions panel to calculate the new route segments."
+            />
+      </mx:HBox>
+
+   </mx:VBox>
+
+   <!-- Route visualization. -->
+
+   <mx:Label
+      styleName="labelmajor"
+      text="Visualization"
+      paddingTop="6"
+      />
+
+   <mx:VBox
+      id="export_and_viz"
+      includeInLayout="{this.export_and_viz.visible}"
+      paddingLeft="{G.app.pad}"
+      paddingRight="{G.app.pad}"
+      paddingTop="-4"
+      paddingBottom="7"
+      width="100%"
+      >
+      <!-- Viz -->
+      <mx:HBox
+         width="100%">
+         <views_panel_routes:Route_Viz_Selector
+            id="viz_selector"
+            width="100%"/>
+      </mx:HBox>
+   </mx:VBox>
+
+   <!-- Route description. -->
+
+   <!-- BUG nnnn: If you undo/redo a Description edit, we should activate
+                  the tab if it's not visible, and ideally scroll to it.
+                  -->
+   <mx:VBox
+      id="descr_box"
+      visible="true"
+      includeInLayout="{this.descr_box.visible}"
+      width="100%"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      >
+      <mx:Label
+         styleName="labelmajor"
+         text="Description"
+         paddingTop="6"
+         />
+      <mx:VBox
+         width="100%"
+         paddingLeft="{G.app.pad}"
+         paddingTop="0"
+         paddingRight="{G.app.pad * 2}"
+         paddingBottom="0"
+         >
+         <views_commands:Text_Field_Editable
+            id="descr"
+            width="100%"
+            height="100%"
+            cmd_mgr_fcn="{this.get_cmd_mgr}"
+            />
+      </mx:VBox>
+   </mx:VBox>
+
+   <!-- Route item alerts. -->
+
+   <views_panel_items:Widget_Item_Alerts
+      id="widget_item_alerts"
+      width="96%"
+      visible="true"
+      includeInLayout="{this.widget_item_alerts.visible}"
+      />
+
+</views_panel_routes:Route_Widget_Base>
+

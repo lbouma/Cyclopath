@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   verticalGap="6"
+   label="Changes"
+   >
+   <!-- Formerly:
+   label="History"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rte_His');
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         m4_TALKY('set detail_panel: dp:', dp);
+
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         // NOTE: Wait until on_creation_complete to register_widgets,
+         //       since this fcn. is called before our children are
+         //       created and ready.
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_TALKY('on_creation_complete');
+         super.on_creation_complete(ev);
+
+         this.register_widgets([
+            this.widget_version_history,
+            ]);
+
+         // A teeny bit hacky: when our parent panel creates us, it has to wait
+         // for the Flex framework to make our GUI widgets. One way to notify
+         // it is from here, now, though this kind of couples us to our parent.
+         // Meh.
+         (this.dp as Panel_Item_Route).on_view_history_widget_ready();
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_TALKY('on_initialize');
+         super.on_initialize(ev);
+      }
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         m4_TALKY('set panel_owning_panel: dp:', this.dp);
+         return this.dp;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_TALKY('repopulate');
+         super.repopulate();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      verticalGap="0"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      width="100%"
+      height="100%"
+      >
+
+      <views_panel_items:Widget_Version_History
+         id="widget_version_history"
+         width="100%"
+         height="100%"
+         verticalScrollPolicy="off"
+         visible="true"
+         includeInLayout="{this.widget_version_history.visible}"
+         version_history_page_size="20"
+         />
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

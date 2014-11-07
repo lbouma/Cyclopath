@@ -1,0 +1,2 @@
+      CONNECTIONTYPE POSTGIS
+      CONNECTION "dbname=cycling user=cycling"

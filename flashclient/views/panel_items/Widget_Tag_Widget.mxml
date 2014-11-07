@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   backgroundColor="0xDDDDDD"
+   horizontalGap="0"
+   cornerRadius="5"
+   borderStyle="solid"
+   borderThickness="1"
+   verticalAlign="middle"
+   maxWidth="250"
+   rollOver="this.on_roll_over(true);"
+   rollOut="this.on_roll_over(false);"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off">
+
+   <mx:Script><![CDATA[
+
+      import items.Geofeature;
+      import items.Link_Value;
+      import items.attcs.Tag;
+      import items.feats.Byway;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.UI;
+      import views.commands.Item_Delete;
+      import views.panel_items.Widget_Tag_List;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Tag_Wgt');
+
+      protected static var selected_widget:Widget_Tag_Widget;
+
+      // *** Instance variables
+
+      public var tg:Tag;
+      protected var gf_class:Class;
+
+      // *** Static methods
+
+      //
+      public static function clear_selected() :void
+      {
+         if (Widget_Tag_Widget.selected_widget !== null) {
+            Widget_Tag_Widget.selected_widget.clearStyle('borderColor');
+            Widget_Tag_Widget.selected_widget.clearStyle('borderThickness');
+            Widget_Tag_Widget.selected_widget.clearStyle('paddingTop');
+            Widget_Tag_Widget.selected_widget.clearStyle('paddingLeft');
+            Widget_Tag_Widget.selected_widget.clearStyle('paddingRight');
+            Widget_Tag_Widget.selected_widget.clearStyle('paddingBottom');
+            Widget_Tag_Widget.selected_widget = null;
+         }
+      }
+
+      // *** Init methods
+
+      //
+      public function init_tag_widget(tg:Tag, gf_class:Class,
+                                      user_can_edit:Boolean) :void
+      {
+         this.gf_class = gf_class;
+         this.tag_label.text = tg.blurb;
+         this.tag_label.toolTip = tg.text_;
+         this.tg = tg;
+//         // FIXME: [lb] G.map.selectedset.item_get_random() matches gf_class?
+         // FIXME: [lb] this.items_selected.item_get_random() matches gf_class?
+         if ((tg.text_ in Tag.avoid_named) && (this.gf_class is Byway)) {
+            this.setStyle('color', 0xcc0000);
+         }
+         if (!user_can_edit) {
+            widget_tag_delete.includeInLayout = false;
+            widget_tag_delete.visible = false;
+         }
+      }
+
+      // *** Instance methods
+
+      // rollOver highlight effect (sets back to selected or normal on rollOut)
+      protected function on_roll_over(over:Boolean) :void
+      {
+         if (over) {
+            this.setStyle('borderColor', Conf.button_highlight);
+         }
+         else if (Widget_Tag_Widget.selected_widget === this) {
+            this.setStyle('borderColor', Conf.selection_color);
+         }
+         else {
+            this.clearStyle('borderColor');
+         }
+      }
+
+      // Select the tag and unselect any other tag.
+      protected function tag_click() :void
+      {
+         G.sl.event('ui/tag/widget/tag_click', {tag: this.tg.text_});
+
+         var toggle_off:Boolean = (Widget_Tag_Widget.selected_widget === this);
+
+         Widget_Tag_Widget.clear_selected();
+
+         if (!toggle_off) {
+
+            Widget_Tag_Widget.selected_widget = this;
+
+            this.setStyle('borderColor', Conf.selection_color);
+            this.setStyle('borderThickness', 2);
+            this.setStyle('paddingTop', -1);
+            this.setStyle('paddingLeft', -1);
+            this.setStyle('paddingRight', -1);
+            this.setStyle('paddingBottom', -1);
+
+            UI.tag_highlights_update(this.tg);
+         }
+         else {
+            G.map.highlights_clear(Conf.attachment_highlight);
+         }
+
+         G.map.highlight_manager.set_layer_visible(
+            Conf.attachment_highlight, true);
+      }
+
+      //
+      public function tag_delete() :void
+      {
+         var feat:Geofeature;
+         var geos:Array;
+         var selected_set:Set_UUID = new Set_UUID();
+         var selected_byway_set:Set_UUID = new Set_UUID();
+
+         // SPEED: Does this get all tagged byways? What about 'hill'? Just in
+         // viewport, but, still, usually user just has one byway selected in
+         // the map. BUG nnnn. And is this a regression, or not?
+         geos = Link_Value.items_for_attachment(this.tg, this.gf_class);
+         for each (feat in geos) {
+            if (feat.selected) {
+               selected_set.add(Link_Value.items_get_link_value(
+                                                   this.tg, feat));
+               if (this.gf_class == Byway) {
+                  selected_byway_set.add(feat as Byway);
+               }
+            }
+         }
+
+         if (selected_set.length > 0) {
+            var cmd:Item_Delete = new Item_Delete(selected_set);
+            // FIXME: If we wire tags to routes, make sure we somehow call
+            //        this.PARENT_PANEL.get_cmd_mgr.do_(cmd);
+            //        which we don't do because we don't have
+            //        a handle to the Panel_Item_Versioned..
+            G.map.cm.do_(cmd);
+            // The item(s) being deleted should already be hydrated.
+            m4_ASSERT_SOFT(cmd.is_prepared !== null);
+            if (cmd.is_prepared) {
+               m4_DEBUG('tag_delete: success');
+               for each (feat in selected_byway_set) {
+                  feat.draw_all();
+               }
+            }
+            else {
+               m4_WARNING('tag_delete: failed');
+            }
+            // This is... sort of a hack. But maybe not. Who's to say a child
+            // can't tickle it's parent?
+            var tag_list:Widget_Tag_List;
+            tag_list = (this.parentDocument as Widget_Tag_List);
+            tag_list.force_repopulate = true;
+         }
+         else {
+            // This can happen if you manage the tag widgets properly. E.g., if
+            // the user deletes a tag but you forget to remove the widget, if
+            // the user clicks the 'X' again, there's nothing to delete.
+            m4_WARNING('tag_delete: nothing to delete');
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Label
+      id="tag_label"
+      text=""
+      maxWidth="215"
+      paddingLeft="2"
+      click="tag_click();"/>
+
+   <mx:LinkButton
+      id="widget_tag_delete"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0"
+      rollOverColor="0xAAAAAA"
+      selectionColor="0x777777"
+      label="X"
+      width="16"
+      height="18"
+      color="0x2B333C"
+      textDecoration="none"
+      click="this.tag_delete();"/>
+
+   <mx:Spacer
+      width="1"/>
+
+</mx:HBox>
+

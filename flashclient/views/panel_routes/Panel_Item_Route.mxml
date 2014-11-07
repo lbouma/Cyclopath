@@ -1,0 +1,874 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- This class derives from Panel_Item_Geofeature so that it plays well with
+     the other item panels. But it's just a tab navigator, and it removes the
+     Tab_Geofeature_Details widget, so it doesn't share much with the other
+     geofeature details panels except for some interface functions. -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   label="Route"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.events.IndexChangedEvent;
+
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Commit;
+      import items.Geofeature;
+      import items.feats.Route;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.commands.Command_Base;
+      import views.commands.Command_Manager;
+      import views.commands.Item_Delete;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_items.Widget_Version_History;
+      import views.panel_routes.Route_Viz;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Itm_Rte');
+
+      // SYNC_ME/MAGIC_NUMBER: Rte Ver Hist Tab Index = 2.
+      public static const route_history_tab_index:int = 2;
+
+      // *** Instance variables
+
+      // See also items_selected and get/set route().
+      protected var route_:Route;
+
+      // 2013.12.11: Move route-editing commands to the panel itself to further
+      //             delineate map editing and map viewing and route editing.
+      public var cmd_mgr:Command_Manager = new Command_Manager();
+
+      // 2014.05.12: Route Version History. We create this container ourself,
+      // because the TabNavigator creates one tab for each child, and disabling
+      // a child's visibility doesn't hide the tab (just the tab contents).
+      public var tab_route_version_history:Panel_Item_Route_History = null
+
+      // 2014.07.21: Because of how deleting works (the item is marked deleted,
+      // which clears/closes its panel, and normally an Item_Delete command is
+      // do_()ed and we add a command to the command stack and wait for the
+      // user to hit "Save", but for routes we automatically send the commit),
+      // whether or not the delete works, the act of deleting an item
+      // disconnects it and the panel, so we gotta remember the item.
+      protected var route_deleting:Route;
+
+      // *** Event handlers
+
+      //
+      override protected function on_preinitialize(event:FlexEvent) :void
+      {
+         super.on_preinitialize(event);
+
+         m4_DEBUG('on_initialize: on_preinitialize');
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+
+         m4_DEBUG('on_initialize: change_state:', this.panel_default_state);
+         this.change_state(this.panel_default_state);
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         super.on_creation_complete(event);
+
+         m4_DEBUG('on_creation_complete');
+
+         G.app.side_panel.addEventListener(ResizeEvent.RESIZE,
+            this.on_resize_side_panel, false, 0, true);
+         this.widget_route_footer.addEventListener(ResizeEvent.RESIZE,
+            this.on_resize_route_footer, false, 0, true);
+      }
+
+      //
+      override protected function on_remove_event(event:FlexEvent) :void
+      {
+         var the_route:Route = this.route;
+
+         m4_DEBUG2('on_remove_event: clearing route:',
+                   (this.route !== null) ? this.route : 'null');
+
+         super.on_remove_event(event);
+
+         // The parent calls items_selected = null, which causes us to cleanup
+         // the route.
+
+         if (the_route !== null) {
+            the_route.keep_showing_while_paneled.remove(this);
+         }
+         else {
+            m4_WARNING('on_remove_event: EXPLAIN: else, what?');
+         }
+      }
+
+      //
+      protected function on_tab_change(event:IndexChangedEvent) :void
+      {
+         // MAYBE: See comments in another on_tab_change: In CcpV1 we called
+         //        G.sl.event to record user UI interactions. But it wasn't
+         //        wholly implemented nor did we have an easy way to analyze
+         //        the data...
+
+         // FIXME: Fetch a route, from new panel, close panel, you are
+         //        returned to the Explore Routes tab and not the
+         //        Get Directions tab.
+         m4_DEBUG2('on_tab_change: newIndex:', event.newIndex,
+                   '/ oldIndex:', event.oldIndex);
+         m4_DEBUG(' .. event.target:', event.target);
+         m4_DEBUG(' .. event.relatedObject:', event.relatedObject);
+      }
+
+      //
+      override public function on_view_history_click() :void
+      {
+         // Not calling base class fcn.: it soft asserts to alert it's a noop.
+         //  No: super.on_view_history_click();
+
+         if (!this.route.has_history) {
+            m4_DEBUG('on_view_history_click: fetching item version history');
+         }
+         else {
+            // If user choose View History action again while still fetching.
+            m4_DEBUG('on_view_history_click: re-fetching version history?');
+         }
+
+         if (this.tab_route_version_history === null) {
+            m4_DEBUG('on_view_history_click: creating version history tab');
+            this.tab_route_version_history = new Panel_Item_Route_History();
+
+            this.tab_route_version_history.detail_panel = this;
+
+            this.tab_route_version_history.percentWidth = 100;
+            this.tab_route_version_history.percentHeight = 100;
+
+            // SYNC_ME/MAGIC_NUMBER: Rte Ver Hist Tab Index = 2.
+            this.route_tabs.addChildAt(this.tab_route_version_history,
+                           Panel_Item_Route.route_history_tab_index);
+
+            // We'll get a callback when the widget is ready.
+         }
+         else if (!this.route.has_history) {
+            if (this.widget_version_history.history_cmd == null) {
+               // This happens if the server has a problem: we'll have created
+               // the tab and sent the history command, but the command failed
+               // (and flashclient alerted the user of a server error).
+               // This is so the user can try again, which is hopefully the dev
+               // fixing things.
+               this.widget_version_history.fetch_history(
+                           this.on_view_history_fetch_okay);
+            }
+            // else, the view history command is still outstanding (it's
+            //       not until we get a good response that we remove the
+            //       View History command, since the tab will exist and be
+            //       populated then).
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      override public function on_view_history_widget_ready() :void
+      {
+         m4_DEBUG('on_view_history_widget_ready');
+
+         this.widget_version_history.fetch_history(
+                     this.on_view_history_fetch_okay);
+      }
+
+      //
+      override public function on_view_history_fetch_okay() :void
+      {
+         // Not calling: Geofeature's super.on_view_history_fetch_okay.
+         m4_DEBUG('on_view_history_fetch_okay');
+
+         // Make the new tab the active tab.
+         this.route_tabs.selectedIndex =
+            Panel_Item_Route.route_history_tab_index;
+      }
+
+      // ***
+
+      //
+      override public function get widget_version_history()
+         :Widget_Version_History
+      {
+         var the_widget:Widget_Version_History = null;
+         if (this.tab_route_version_history !== null) {
+            the_widget = this.tab_route_version_history.widget_version_history;
+         }
+         return the_widget;
+      }
+
+      //
+      override public function get widget_version_history_show() :Boolean
+      {
+         var version_history_show:Boolean;
+         version_history_show = (super.widget_version_history_show
+                                 || (this.widget_version_history !== null));
+         return version_history_show
+      }
+
+      //
+      override public function item_version_load(old_feat:Geofeature) :void
+      {
+         var old_route:Route = (old_feat as Route);
+         m4_TALKY('item_version_load: old_route:', old_route);
+         m4_ASSERT_SOFT((old_route !== null) || (old_feat === null));
+         super.item_version_load(old_route);
+      }
+
+      //
+      override public function item_version_revert(item_version:int,
+                                                   reason:int=0) :void
+      {
+         reason = Dirty_Reason.item_revisionless;
+         super.item_version_revert(item_version, reason);
+      }
+
+      // ***
+
+      //
+      override public function is_action_actionable(
+         action:String, loosey:Boolean=false) :Boolean
+      {
+         var is_actionable:Boolean = false;
+         is_actionable = super.is_action_actionable(action, /*loosey=*/true);
+         return is_actionable;
+      }
+
+      //
+      override public function set items_selected(items_selected:Set_UUID)
+         :void
+      {
+         // 2013.12.11: [lb] opened a route from the library and this fcn.
+         //             doesn't seem to have been called.
+         super.items_selected = items_selected;
+         m4_DEBUG4('set items_selected:',
+                   ((items_selected !== null) ?
+                     ((items_selected.length > 0) ? items_selected : 'empty')
+                     : 'null'));
+         var was_our_route:Route = this.route_;
+         var the_next_route:Route = null;
+         if (this.items_selected.length == 1) {
+            the_next_route = (this.items_selected.one() as Route);
+            m4_DEBUG('set items_selected: the_next_route:', the_next_route);
+         }
+         if (was_our_route !== null) {
+            // We'll be caught in a loop if we use Route's set route_panel,
+            // so just access the value directly. This is cheating, really,
+            // but that fcn. doesn't do anything other than try to twiddle
+            // this object... it's robust design gone crazy.
+            m4_DEBUG('set items_selected: clear rte_pnl:', this, '/', route);
+
+            // Skipping: this.route_.keep_showing_while_paneled.remove(this);
+
+            // This seems a little hacky... but it feels right, too.
+            if ((Panel_Routes_Base.hide_routes_on_panel_closed)
+                && (was_our_route !== the_next_route)) {
+               m4_DEBUG('set items_selected: clear filter_show_route:', route);
+               this.route_.filter_show_route = false;
+            }
+
+            // This is a little hacky...
+            if (this.route_.route_panel_ !== null) {
+               // This removes the commandStackChanged event listener.
+               this.widget_route_footer.save_footer.unwire_cmd_mgr();
+            }
+            // 
+            this.route_.route_panel_ = null;
+            m4_DEBUG('set items_selected: clear route_');
+            this.route_ = null;
+         }
+         // Note that the last if block means we might unwire from and rewire
+         // to the same route.
+         if (this.items_selected.length == 1) {
+            this.route_ = the_next_route;
+            m4_DEBUG('set items_selected: set route_', this.route_);
+            // Should we set the route's panel to us? There's a one-to-one
+            // mapping of routes to panels, so this shouldn't hurt.
+            m4_DEBUG('set items_selected: set rte_pnl:', this, '/', route);
+            this.route_.route_panel_ = this;
+            //? this.route_.geofeature_added_to_map_layer();
+            // This is a little hacky...
+            if (this.route_.route_panel_ !== null) {
+               // This path can happen before on_enter_state_base, so we may
+               // not initialized our widgets yet.
+               m4_ASSERT_SOFT((this.widget_route_footer.detail_panel === null)
+                          || (this.widget_route_footer.detail_panel === this));
+               this.widget_route_footer.detail_panel = this;
+               // This sets the commandStackChanged event listener.
+               m4_DEBUG('items_selected: rewire_cmd_mgr');
+               this.widget_route_footer.save_footer.rewire_cmd_mgr();
+            }
+            // The Route checks for the route panel specially, ignoring the
+            // while-paneled lookup.
+            // No: this.route_.keep_showing_while_paneled.add(this);
+         }
+         else {
+            m4_ASSERT(this.items_selected.length == 0);
+            if (was_our_route !== null) {
+               m4_DEBUG('set items_selected: was_our_route');
+               // We reset the route's panel, so now it has none, so now
+               // it'll only draw if one of its Route_List entry's checkbox
+               // is selected.
+               was_our_route.draw_all();
+            }
+         }
+      }
+
+      //
+      override protected function delete_alert_handler(event:CloseEvent) :void
+      {
+         // Most items do not show the delete option in the actions dropdown
+         // unless the user is in editing mode. But routes are special -- the
+         // delete always appears, since one shouldn't have to be in edit mode
+         // to play around with routes.
+
+         // Don't call the base class: for map items, we wait for the user to
+         // hit save and then we send the commit, but for routes the response
+         // is immediate.
+         // Not calling: super.delete_alert_handler(event);
+
+         m4_DEBUG('delete_alert_handler: route:', this.route);
+
+         // Send the commit. Ideally, only close the route panel if success,
+         // but marking an item deleted invariably closes its panel... so...
+         // well?
+         if (event.detail == Alert.OK) {
+            m4_DEBUG2('delete_alert_handler: items_selected.length:',
+                      this.items_selected.length);
+            if (this.route !== null) {
+               this.route_deleting = this.route;
+               this.route.deleted = true;
+               m4_ASSERT_SOFT(this.route === null);
+               this.route_deleting.dirty_set(Dirty_Reason.item_revisionless,
+                                             true);
+               m4_DEBUG2('delete_alert_handler: route_deleting:',
+                         this.route_deleting);
+               var gwis_commit:GWIS_Commit = new GWIS_Commit(
+                  new Set_UUID([this.route_deleting,]),
+                  /*changenote=*/'',
+                  /*silent=*/true,
+                  /*callback_load=*/this.on_save_route_okay,
+                  /*callback_fail=*/this.on_save_route_fail,
+                  /*callback_payload=*/null,
+                  /*anon_coward=*/false,
+                  // So that we don't save map items:
+                  /*restrict_dirty=*/Dirty_Reason.item_revisionless,
+                  /*alert_on_activity=*/false,
+                  this.cmd_mgr);
+
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(gwis_commit);
+               m4_ASSERT_SOFT(!found_duplicate);
+            }
+            m4_ASSERT_ELSE_SOFT;
+         }
+      }
+
+      //
+      protected function on_save_route_fail(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         m4_WARNING('on_save_route_fail');
+
+         if (this.route_deleting !== null) {
+            this.route_deleting.deleted = false;
+            // [lb] isn't sure what happens to the panel at this point,
+            // since this.route === null.
+            // TESTME: Make pyserver fail and find out what happens...
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      protected function on_save_route_okay(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         m4_DEBUG('on_save_route_okay: route_deleting:', this.route_deleting);
+         m4_DEBUG('on_save_route_okay: cli_id_map:', gwis_req.client_id_map);
+
+         // Unwire the route and close its panel, and remove it from lists.
+         if (this.route_deleting !== null) {
+            G.map.item_discard(this.route_deleting);
+            this.route_deleting = null;
+
+            // A little hack to tell the route_list to update, maybe.
+            G.app.routes_panel.routes_library.force_fetch_list_next_maybe();
+            // A little hack to force the route_list to maybe refresh itself.
+            G.app.routes_panel.routes_looked_at.force_fetch_list_next_maybe();
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      // ***
+
+      //
+      override protected function get on_delete_click_warning() :String
+      {
+         return 'The selected route will be deleted. Are you sure?\n'
+                + 'If this is a shared or public route, '
+                + 'it will become unavailable to other users.';
+      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_DEBUG('on_enter_state_base');
+         super.on_enter_state_base();
+         this.register_widgets([
+            this.widget_name_header,
+            this.widget_feedback,
+            this.tab_route_details,
+            this.tab_route_cue_sheet,
+            // Created programmatically: this.tab_route_version_history,
+            this.tab_route_sharing,
+            this.widget_route_footer,
+            ]);
+         m4_DEBUG2('.. : this.panel_item_details.parent:',
+                   this.panel_item_details.parent);
+         m4_DEBUG2('.. : this.route_tabs.parent:',
+                   this.route_tabs.parent);
+      }
+
+      //
+      protected function on_enter_state_arbiter() :void
+      {
+         m4_DEBUG('on_enter_state_arbiter');
+         this.register_widgets([
+            this.tab_route_sharing,
+            ]);
+      }
+
+      //
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         var multi_okay:Boolean = false;
+         return this.panel_supports_feat_impl(feat, multi_okay);
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'About the Selected Route';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+
+// BUG_FALL_2013: Sending a route view to the server feels wrong here... 
+//                repopulate is called a lot, and not just when the panel
+//                is active. We might be sending a lot of these packets
+//                to the server; Wireshark would tell us, or a look at
+//                the log file...
+         // Trigger Panel_Routes_Library.looked_at_list_callback.
+         m4_DEBUG('repopulate: route.signal_route_view:', this.route);
+         this.route.signal_route_view();
+
+         m4_DEBUG('repopulate: can_arbit:', this.access_level_can_arbit);
+         // Show the permissions tab if the user can arbit the route, but only
+         // if it's saved to the library already.
+
+
+// BUG_FALL_2013: BUG nnnn: If the user gets a route, logs out, logs on, then
+//        accesses the route via the user's recent viewed list, the save footer
+//        is not shown because the route is not 'unlibraried', which is only
+//        set by route_get_new. Question: Should we show the save footer, to
+//        indicate that route isn't really saved?
+         if ((this.access_level_can_arbit) // same as: route.can_arbit
+             && (!this.route.unlibraried)) {
+            this.change_state('route_arbiter');
+         }
+
+         // Recording reactions is same as creating posts, so using the same
+         // action code.
+         // <!-- Bug nnnn: This is disabled because it accepts any email
+         //                the user gives it. It should use a verified
+         //                email address, i.e., the logged in user's
+         //                registered email address.
+         // this.widget_feedback.visible =
+         //    G.app.mode.is_allowed(App_Action.post_create);
+
+         this.resize_route_tabs();
+      }
+
+      // *** Resizers
+
+      //
+      protected function on_resize_side_panel(event:ResizeEvent=null) :void
+      {
+         m4_DEBUG('on_resize_side_panel: calling resize_route_tabs');
+         this.resize_route_tabs();
+      }
+
+      //
+      protected function on_resize_route_footer(event:ResizeEvent=null) :void
+      {
+         m4_DEBUG('on_resize_route_footer: calling resize_route_tabs');
+         this.resize_route_tabs();
+      }
+
+      //
+      public function resize_route_tabs() :void
+      {
+         m4_PPUSH2('resize_route_tabs: G.app.side_panel.h:',
+                   G.app.side_panel.height);
+         m4_PPUSH2('resize_route_tabs: widget_feedback.h:',
+                   this.widget_feedback.height);
+         m4_PPUSH2('resize_route_tabs: panel_route_hrule.h:',
+                   this.panel_route_hrule.height);
+         m4_PPUSH2('resize_route_tabs: widget_name_header.h:',
+                   this.widget_name_header.height);
+         m4_PPUSH2('resize_route_tabs: widget_route_footer.h:',
+                   this.widget_route_footer.height);
+
+         m4_PPUSH2('resize_route_tabs: widget_container.verticalGap:',
+                   this.widget_container.getStyle('verticalGap'));
+
+         var new_max_height:int =
+            G.app.side_panel.height
+            - this.widget_feedback.height
+            - this.panel_route_hrule.height
+            - this.widget_name_header.height
+            ////- (this.widget_route_footer.visible
+            ////   ? this.widget_route_footer.height : 0)
+            //- (this.widget_route_footer.save_footer.visible
+            //   ? this.widget_route_footer.save_footer.height : 0)
+            - this.widget_route_footer.height
+            // MAGIC_NUMBER: 5 is the number of components getting the gap.
+            - 5 * this.widget_container.getStyle('verticalGap')
+            ;
+
+         m4_PPUSH2('resize_route_tabs: new_max_height:', new_max_height,
+                   '/ this:', this);
+
+         this.route_tabs.maxHeight = new_max_height;
+      }
+
+      // *** Getters and setters
+
+      //
+      override public function get_cmd_mgr() :Command_Manager
+      {
+         // Most Geofeatures use the shared map command mgr, but each route
+         // has its own command stack.
+         return this.cmd_mgr;
+      }
+
+      //
+      override public function get panel_active_child() :Detail_Panel_Base
+      {
+         // Return the TabNavigator child that's showing.
+         var sub_panel:Detail_Panel_Base = (this.route_tabs.selectedChild
+                                            as Detail_Panel_Base);
+         return sub_panel;
+      }
+
+      //
+      override public function set panel_active_child(dpanel:Detail_Panel_Base)
+         :void
+      {
+         this.route_tabs.selectedChild = dpanel;
+      }
+
+      //
+      public function get route() :Route
+      {
+         m4_VERBOSE('route: panel get route:', this.route_);
+         return this.route_;
+      }
+
+      //
+      public function set route(rt:Route) :void
+      {
+         this.route_ = rt;
+         if (this.route_ !== null) {
+            this.items_selected = new Set_UUID([this.route_,]);
+         }
+         else {
+            this.items_selected = null;
+         }
+         m4_DEBUG('route: panel set route_:', this.route_);
+      }
+
+      //
+      public function get route_viz() :Route_Viz
+      {
+         // CcpV1 just uses the last route visualization that the user chose,
+         // for whatever route they were looing at. But then you can't open
+         // different routes and choose a number of different visualization.
+         // Too restrictive:
+         //  return G.user.route_viz;
+         // Instead, we could use what the widget says is the current viz,
+         // but that data should really be stored with the route, since you
+         // can visualize the route from the routes_panel without the route
+         // details panel needing to be open.
+         var routes_viz:Route_Viz = Conf.route_vizs[0];
+         if (this.route !== null) {
+            routes_viz = this.route.routes_viz;
+         }
+         else {
+            m4_WARNING('get route_viz: no route for panel:', this);
+            m4_ASSERT_SOFT(false);
+         }
+         return routes_viz;
+      }
+
+      //
+      public function set route_viz(v:Route_Viz) :void
+      {
+         if (this.route !== null) {
+
+            this.route.routes_viz = v;
+
+            // Update user's default route viz to the last viz set.
+            // BUG nnnn: Should really be a setting on the Map Settings
+            //           panel, don't you think?
+            G.user.route_viz = v;
+
+            this.tab_route_details.viz_selector.refresh();
+
+            G.sl.event('exp/route_viz/set',
+                       {route: this.route.stack_id,
+                        viz: v.id_});
+         }
+         else {
+            m4_WARNING('set route_viz: no route for panel:', this);
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Route;
+      }
+
+      // *** Getters and setters
+
+      //
+      override public function get can_close() :Boolean
+      {
+         var can_close:Boolean = false;
+         
+         if ((this.cmd_mgr !== null) && (this.cmd_mgr.unsaved_change_ct > 0)) {
+            Alert.show(
+               'You have edited the route but have not saved the changes. '
+               + 'If you close the panel, the changes will be lost. '
+               + 'Is this okay?',
+               'Close route panel',
+               Alert.CANCEL | Alert.OK,
+               null,
+               this.on_close_alert,
+               null,
+               Alert.OK);
+            can_close = false;
+         }
+         else {
+            if (this.route !== null) {
+               G.sl.event('ui/route/close', {id: this.route.stack_id});
+               can_close = true;
+            }
+            else {
+               // Happens if anon user request route, then logs in.
+               can_close = true;
+               m4_ASSERT_SOFT(this.panel_close_pending);
+            }
+         }
+
+         return can_close;
+      }
+
+      //
+      protected function on_close_alert(event:CloseEvent) :void
+      {
+         m4_DEBUG('on_close_alert');
+         if (event.detail == Alert.OK) {
+            // Reset the command manager. This will reset unsaved_change_ct.
+            this.cmd_mgr.undo_all();
+            // This is a little hacky...
+            this.widget_route_footer.save_footer.reset_cmd_mgr();
+            this.close_panel();
+         }
+         // else, no-op.
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+
+         <!-- Get rid of the Panel_Item_Geofeature's Tab_Geofeature_Details.
+              We use two tabs instead. We could derive from Detail_Panel_Base
+              instead of Panel_Item_Geofeature, but Route.as and route.py
+              are geofeatures and so shall we be considered. -->
+         <mx:RemoveChild
+            target="{this.panel_item_details}"/>
+
+         <mx:AddChild
+            relativeTo="{this.panel_item_wrap}"
+            position="firstChild">
+            <mx:target>
+
+               <mx:VBox
+                  id="widget_container"
+                  width="100%"
+                  height="100%"
+                  >
+
+                  <views_panel_items:Widget_Name_Header
+                     id="widget_name_header"
+                     width="100%"
+                     paddingLeft="0"
+                     paddingRight="0"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     dirty_reason="{Dirty_Reason.item_revisionless}"
+                     cmd_mgr_fcn="{this.get_cmd_mgr}"
+                     />
+
+   <!-- BUG nnnn/FIXME: Reimplement Route Reactions. -->
+                  <views_panel_routes:Widget_Feedback
+                     id="widget_feedback"
+   visible="{Conf_Instance.debug_goodies}"
+                     includeInLayout="{this.widget_feedback.visible}"
+                     />
+
+                  <mx:HRule
+                     id="panel_route_hrule"
+                     width="100%"
+                     strokeWidth="1"
+                     visible="{this.widget_feedback.feedbackable}"
+                     includeInLayout="{this.widget_feedback.feedbackable}"
+                     />
+
+                  <!-- NOTE: Always use resizeToContent with TabNavigator.
+                             If not, clipping may occur! -->
+
+                  <!-- Bug nnnn: This is disabled because if accepts any email
+                                 the user gives it. It should use a verified
+                                 email address, i.e., the logged in user's
+                                 registered email address.
+                        also, this should only apply when visible;
+                        really, maxHeight calculation should be in a fcn.
+                       - this.widget_feedback.height
+                       - this.panel_route_hrule.height
+                       - 8
+                     -->
+                  <mx:TabNavigator
+                     id="route_tabs"
+
+                     width="100%"
+                     resizeToContent="false"
+
+                     paddingTop="{G.app.pad}"
+                     paddingBottom="{G.app.pad}"
+                     paddingLeft="{G.app.pad}"
+                     paddingRight="{G.app.pad}"
+
+                     selectedTabTextStyleName="selectedtab"
+                     change="this.on_tab_change(event);"
+                     >
+
+                     <!-- *** Route Details Tab -->
+                     <views_panel_routes:Panel_Item_Route_Details
+                        id="tab_route_details"
+                        width="100%"
+                        height="100%"
+                        />
+
+                     <!-- *** Cue Sheet Tab -->
+                     <views_panel_routes:Panel_Item_Route_Cue_Sheet
+                        id="tab_route_cue_sheet"
+                        width="100%"
+                        height="100%"
+                        />
+
+                     <!-- *** Route Version History Tab
+                              ... goes here -->
+
+                     <!-- *** Route Sharing Tab
+                              ... goes here -->
+
+                  </mx:TabNavigator>
+
+                  <views_panel_routes:Widget_Route_Footer
+                     id="widget_route_footer"/>
+
+              </mx:VBox>
+
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+      <mx:State
+         name="route_arbiter"
+         basedOn="{this.panel_default_state}"
+         enterState="this.on_enter_state_arbiter();"
+         >
+         <mx:AddChild
+            relativeTo="{this.route_tabs}"
+            position="lastChild">
+            <mx:target>
+               <!-- *** Permissions Tab -->
+               <views_panel_items:Tab_Item_Sharing_Restricted
+                  id="tab_route_sharing"
+                  width="100%"
+                  height="100%"
+                  />
+            </mx:target>
+         </mx:AddChild>
+         <!--
+         <mx:RemoveChild
+            target="{this.widget_route_footer}"/>
+         -->
+      </mx:State>
+
+   </views_panel_items:states>
+
+</views_panel_items:Panel_Item_Geofeature>
+

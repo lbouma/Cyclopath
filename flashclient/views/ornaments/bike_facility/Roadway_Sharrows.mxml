@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="bike_facil"
+   attr_key_name="rdway_shrrws"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_ShdRway');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         //
+         // https://en.wikipedia.org/wiki/Shared_lane_marking
+         var html_hint:String = (
+            'A shared-lane marking, or sharrow, is a street marking placed '
+            + 'in the center of a traffic lane to indicate that a bicyclist '
+            + 'may use the full lane.'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

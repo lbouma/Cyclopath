@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2010 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:DataGrid
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   width="100%"
+   height="100%"
+   sortableColumns="false"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="on"
+   allowMultipleSelection="false"
+   draggableColumns="false"
+   selectedIndex="-1"
+   showHeaders="false"
+   headerHeight="0"
+   click="this.on_click();"
+
+   selectionColor="0xEFEEEF"
+   >
+   <!--
+   NOTE: We set selectionColor same as backgroundDisabledColor
+         because there's no meaning when a route is selected in
+         the list (it's the same as any other route in the list
+         that the user previously clicked on). Yes, the route is
+         highlighted on the map, but only during mouse-over; on
+         mouse-out, leaving the route selected in the list is
+         confusing, because there's nothing specialer about the
+         route the user last clicked in the list and any other
+         route that's on the map.
+
+   alternatingItemColors="{Conf.grid_alt_colours}"
+   mouseWheel="this.dg_box.dispatchEvent(event)"
+   resizableColumns="true"
+   rowCount="{this.threads.length}"
+   variableRowHeight="true"
+
+
+    Flex defaults:
+    backgroundDisabledColor="0xEFEEEF"
+    disabledIconColor="0x999999"
+    headerColors="[#FFFFFF, #E6E6E6]"
+    horizontalGridLineColor="0xF7F7F7"
+    iconColor="0x111111"
+    rollOverColor="0xB2E1FF"
+    selectionColor="0x7FCEFF"
+    verticalGridLineColor="0xCCCCCC"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.collections.ArrayCollection;
+
+      import gwis.GWIS_Route_Get_Saved;
+      import items.Geofeature;
+      import items.feats.Route;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Route_List');
+
+      // *** Instance methods
+
+      //
+      protected function on_click() :void
+      {
+         // FIXME: Do we still need this fcn?
+         //        [lb] got rid of selection_refresh that just selects the
+         //             active route in the route list, but [lb] got rid
+         //             of the route selection in the list, since it's
+         //             meaningless. We have a checkbox for each entry to
+         //             determine if the route is displayed on the map, and
+         //             then mousing over the route on the map or the route
+         //             entry will highlight the route.
+         //
+         // on_click must refresh the selection in case
+         // the user clicks a button on an unselected route (such as
+         // 'lookat' or the check) that doesn't change the selection state.
+         //this.selection_refresh();
+      }
+
+      //
+      protected function route_filter_callback(
+         gwis_cmd:GWIS_Route_Get_Saved, route:Route) :void
+      {
+         route.filter_show_route = true;
+      }
+
+      //
+      public function toggle_all_check(filter:Boolean) :void
+      {
+         if (this.dataProvider !== null) {
+            this.toggle_all_check_(filter);
+         }
+         else {
+            m4_DEBUG('toggle_all_check: no this.dataProvider:', this);
+         }
+      }
+
+      //
+      protected function toggle_all_check_(filter:Boolean) :void
+      {
+         var renderer:Route_List_Entry;
+         m4_DEBUG('toggle_all_check_: filter:', filter);
+         for (var i:int = 0; i < this.dataProvider.length; i++) {
+            // 2013.12.22: [lb] was concerned that traversing the item
+            // renderers might be fruitless: the DataGrid container recycles
+            // item renderers so that sometimes there are only as many
+            // renderers as the user can see in the list, so if some entries
+            // are scrolled out of view (i.e., clipped), they don't have a
+            // renderer. Except in the case of the user having interacted
+            // with a renderer: then it appears to continue to exist.
+            //  renderer = (this.indexToItemRenderer(i) as Route_List_Entry);
+            // It easiest just to get the route, which should always exist.
+            var route:Route = (this.dataProvider[i] as Route);
+            m4_DEBUG('toggle_all_check_: route:', route);
+            //if (renderer !== null) {
+            //   // simulate a mouse click on the check box
+            //   m4_DEBUG('toggle_all_check_: filter_cbox.selected:', filter);
+            //   renderer.filter_cbox.selected = filter;
+            //   renderer.on_filter_cbox_check();
+            //} else, route_list_entry not yet created for this, so...
+            //        route = (this.dataProvider[i] as Route)...
+            if (!filter) {
+               route.set_filter_show_route(false, /*force=*/true);
+            }
+            else {
+               if (route.hydrated) {
+                  route.set_filter_show_route(true, /*force=*/true);
+               }
+               else {
+                  // EXPLAIN: Is this right? Get the saved route? [lb] is going
+                  // through lots of code and not sure we an item off the list
+                  // is triggering a route-load.
+                  m4_VERBOSE('toggle_all_check_: fetching route:', route);
+                  // The use of this path is discouraged: it's expensive to
+                  // fetch one route, let alone all routes. Make sure choose
+                  // one by one.
+                  m4_WARNING('toggle_all_check_: expensive GWIS commands');
+
+                  var gwis_cmd:GWIS_Route_Get_Saved =
+                     new GWIS_Route_Get_Saved(
+                        route.stack_id,
+                        /*caller_source=*/'route_list',
+                        /*callback_item=*/route_filter_callback,
+                        /*callback_fail=*/null,
+                        /*as_gpx=*/false,
+                        /*check_invalid=*/
+                           Panel_Routes_Base.recalculate_routes_on_fetch,
+                        // MAYBE: We don't need to use the session ID, do we?
+                        /*gia_use_sessid=*/route.unlibraried,
+                        /*get_steps_and_stops=*/true,
+                        /*compute_landmarks=*/route.show_landmarks);
+                  var found_duplicate:Boolean;
+                  found_duplicate = G.map.update_supplemental(gwis_cmd);
+                  m4_ASSERT_SOFT(!found_duplicate);
+               }
+            }
+         }
+      }
+
+      //
+      public function update_route_list(routes:ArrayCollection) :void
+      {
+         var new_dp:ArrayCollection = new ArrayCollection();
+         var old_scroll:Number = this.verticalScrollPosition;
+
+         m4_DEBUG('update_route_list: routes.length:', routes.length);
+
+// FIXME: This seems... wrong. Or seems like it won't work in CcpV3.
+//        the routes list comes from the server, but we didn't add any deleted
+//        routes to it... so we should fix this...
+//        or maybe this is a separate fcn, for when a route is deleted...
+         for each (var route:Route in routes) {
+            // deleted route's metadata's are kept in the list so things work
+            // out if the delete is undone, but we don't want to show them
+            if (!route.deleted) {
+               if (!(route.stack_id in Geofeature.all)) {
+                  G.map.items_add([route,]);
+                  m4_ASSERT(route === Geofeature.all[route.stack_id]);
+               }
+               else if (route !== Geofeature.all[route.stack_id]) {
+                  // The client requested a new list of routes for the
+                  // Route_List: We may or may not already have this route in
+                  // memory.
+                  // FIXME: When should we discard routes from memory?
+                  // NOTE: We could call items_add, which'll call item_update,
+                  //       but we don't need to call items_add_finish, etc.,
+                  //       so we can update the item directly...
+                  G.map.items_add([route,]);
+                  route = Geofeature.all[route.stack_id];
+               }
+               // else, route already exists in Geofeature.all.
+               //
+               // This adds to the end of the list.
+               new_dp.addItem(route);
+            }
+            else {
+               if ((!(route in Geofeature.all))
+                   && (!route.deleted)) {
+                  m4_WARNING('update_route_list: not deleted?:', route);
+                  m4_ASSERT_SOFT(false);
+               }
+               // else, a deleted route; don't show in list.
+            }
+         }
+
+         m4_DEBUG3('update_route_list: old dataProvider.len:',
+                   (this.dataProvider !== null) ? this.dataProvider.length : 0,
+                   '/ new len:', new_dp.length);
+         this.dataProvider = new_dp;
+         this.verticalScrollPosition = old_scroll;
+      }
+
+   ]]></mx:Script>
+
+   <!-- BUG NNNN: Make table sortable by ... created? likes? views? owner? -->
+
+   <mx:columns>
+      <mx:DataGridColumn
+         itemRenderer="views.panel_routes.Route_List_Entry"/>
+   </mx:columns>
+
+</mx:DataGrid>
+

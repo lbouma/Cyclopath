@@ -1,0 +1,77 @@
+   # This is inside MAP.
+   # And it's included by m4 into the parent map file.
+   # Which is why we pre-indent the contents.
+
+   # FIXME:
+   # SYNC_ME: The draw_class.color column is used by flashclient for vector
+   # rendering and should match the colors in the *.map files.
+
+   NAME "cyclopath"
+   STATUS ON
+   SIZE 256 256
+   # For TileCache's MetaTile, increase MAXSIZE from 2048.
+   # MAYBE: 8192/256 is 32, and we use MetaTile 20, so this is okay, right?
+   #MAXSIZE 4096
+   MAXSIZE 8192
+   #EXTENT 393216 4915200 524288 5013504
+   UNITS METERS
+   #SHAPEPATH "./"
+   # SYNC_ME: Search: Background color.
+   # FIXME: Can I get this (and all the LABEL [attribute]s) from the database?
+   # Classic: IMAGECOLOR 214 197 180
+   #IMAGECOLOR 246 245 243
+   #IMAGECOLOR 236 235 233
+   #IMAGECOLOR 239 240 241
+   #IMAGECOLOR 181 255 255
+   #IMAGECOLOR 181 202 212
+   #IMAGECOLOR 214 241 252
+   IMAGECOLOR 234 241 252
+   #IMAGECOLOR 235 231 150
+   IMAGETYPE AGG
+
+   DEBUG 3
+   CONFIG "MS_ERRORFILE" "/tmp/mapserv.debug.txt"
+
+   OUTPUTFORMAT
+    NAME "AGG"
+    DRIVER AGG/PNG
+    MIMETYPE "image/png"
+    EXTENSION "png"
+    IMAGEMODE RGB
+    FORMATOPTION "INTERLACE=OFF"
+   END
+
+   WEB
+    METADATA
+      "wms_title" "Raster" # Required.
+      # mapserver guesses the host correctly so no need for wms_onlineresource
+    END
+
+    # Image names are sufficiently random that we can just put this in /tmp
+    # (otherwise we have to create a directory manually)
+    IMAGEPATH "/tmp"
+   END
+
+   FONTSET "./fonts.list"
+
+   # This is the "standard" set of Cyclopath layers. MapServer chooses a set of
+   # layers based on the query and then renders the layers in order, each layer
+   # being drawn on top of the layer before it. 
+
+   # *** Layer: Terrain.
+
+include(terrain-m4.map)
+
+   # *** Layer: Regions.
+
+   # MAYBE: Would we ever want to draw regions, e.g., the outline of Minnesota?
+
+   # *** Layer: Points.
+
+   # MAYBE: Would we ever want to draw points? But what types of points?...
+
+   # *** Layer: Byways (Line segments)
+   # ***        and Their Labels.
+
+include(byways_and_labels.map)
+

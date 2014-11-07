@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:DataGrid
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   minHeight="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   wordWrap="false"
+   variableRowHeight="true"
+   sortableColumns="false"
+   resizableColumns="false"
+   selectedIndex="-1"
+   showHeaders="false"
+   headerHeight="0"
+   draggableColumns="false"
+   selectable="false"
+   allowMultipleSelection="false"
+   useRollOver="false"
+   >
+   <!-- Don't set rowCount or you'll clip one of the parents.
+      rowCount="{this.dataProvider.length}"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import items.feats.Route;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Rte_Drs');
+
+      // *** Instance methods
+
+      //
+      public function update_width() :void
+      {
+         // Since when DataGrids are placed with a TabNavigator or other such
+         // multi-item/multi-view containers, their column widths do not get
+         // respected. Hence, we are setting the width of this data grid
+         // explicitly based on something that has a fixed width, in this case
+         // the G.app.left_panel. The extra -2 is for the TabNavigator borders.
+         //
+         // Related: https://issues.apache.org/jira/browse/FLEX-985
+         //
+         this.width = G.app.left_panel.width - (4 * G.app.pad) - 2;
+         m4_DEBUG('measure: this.width:', this.width);
+      }
+
+  ]]></mx:Script>
+
+   <mx:columns>
+      <mx:DataGridColumn
+         wordWrap="true"
+         itemRenderer="views.panel_routes.Route_Directions_Landmarks_Entry"/>
+   </mx:columns>
+
+</mx:DataGrid>
+

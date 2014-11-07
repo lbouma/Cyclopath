@@ -1,0 +1,161 @@
+# 2011.06.17: 
+#   This is an example VirtualHost section from a Fedora 14
+#     httpd.conf.
+#   The Cyclopath dev dir resides at /ccp/dev/.
+
+# *** Cyclopath Multi-modal
+
+<VirtualHost *:80>
+
+    # SYNC ME: ServerAlias is registered in /etc/hosts
+    ServerName mm.your-server.tld
+    ServerAlias mm mm.your-server.tld
+
+    ServerAdmin root@localhost
+
+    #Options FollowSymLinks
+
+    # Don't forget to also set PythonPath below.
+    DocumentRoot /ccp/dev/cp_1997/htdocs
+
+    PythonInterpreter minnesota
+
+    # By default, serve nothing
+    <Directory />
+        Options FollowSymLinks
+        AllowOverride None
+    </Directory>
+
+    # Don't serve .svn directories
+    <DirectoryMatch "\.svn/">
+        Deny from all
+    </DirectoryMatch>
+
+    # DocumentRoot / Static files
+    <Directory /ccp/dev/cp_1997/htdocs>
+        Options FollowSymLinks
+        #AllowOverride None
+        # This is needed in Fedora 14 because of SELinux:
+        AllowOverride AuthConfig FileInfo
+        #Order deny,allow
+        #Deny from all
+        Order allow,deny
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        # Default caching policy: caches can go 1 hour between re-validations
+        <IfModule !mpm_winnt.c>
+         Header set Cache-Control "max-age=3600, must-revalidate"
+        </IfModule>
+    </Directory>
+
+    # Home page (http://cyclopath.org/)
+    Alias /home/ /ccp/dev/cp_1997/mediawiki/home/
+    <Directory /ccp/dev/cp_1997/mediawiki/home>
+        Options FollowSymLinks
+        AllowOverride None
+        Order allow,deny
+        Allow from all
+    </Directory>
+
+    ## Mikhil's experiment "Better CP by Spring! (2011)"
+    #
+    # BUG 1998: Remove this code someday. ** begin-compliance
+    #
+    # BetterCP Assets 
+    Alias /bettercp/assets /ccp/dev/cp_1997/bettercp/assets
+    <Directory /ccp/dev/cp_1997/bettercp/assets> 
+        Options FollowSymLinks 
+        AllowOverride None 
+        Order allow,deny 
+        Allow from all 
+    </Directory>
+    # BetterCP Scripts
+    ScriptAlias /bettercp /ccp/dev/cp_1997/bettercp
+    <Directory /bettercp> 
+        AllowOverride Options
+        Order allow,deny
+        Allow from all
+        Options +ExecCGI
+        AddHandler cgi-script .cgi
+    </Directory>
+
+    ## Cyclopath
+
+    # MapServer
+    # UBUNTU:
+    #    Alias /wms /ccp/opt/mapserver/mapserv
+    # FEDORA
+    #    Alias /wms /usr/sbin/mapserv
+    Alias /wms /usr/sbin/mapserv
+    <Location /wms>
+        Order allow,deny
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        SetHandler cgi-script
+        Options +ExecCGI
+        SetEnv MS_MAPFILE /ccp/dev/cp_1997/mapserver/wms.map
+    </Location>
+
+    # TileCache via mod_python
+    <Location /tilec>
+        Order allow,deny
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        SetHandler mod_python
+        PythonHandler TileCache.Service
+        # Cannot use symbolic link in path, e.g., 
+        #   PythonPath "['/ccp/opt/tilecache'] + sys.path"
+        # causes: ImportError: No module named TileCache.Service
+        PythonPath "['/ccp/opt/.downloads/tilecache-2.11'] + sys.path"
+        PythonOption TileCacheConfig /ccp/opt/tilecache/tilecache.cfg
+    </Location>
+
+    # Try to fix browsers re-loading stale versions of main.swf: allow only
+    # one second before re-validating.
+    <Location /main.swf>
+        Header set Cache-Control "max-age=1, must-revalidate"
+    </Location>
+
+    # WFS/GWIS Pysever via mod_python
+    <Location /wfs>
+        Order allow,deny 
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        # No caching directives for the pyserver
+        Header unset Cache-Control
+
+        SetOutputFilter DEFLATE
+
+        SetHandler mod_python
+        PythonDebug On
+        PythonPath "['/ccp/dev/cp_1997/pyserver', '/ccp/dev/cp_1997/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python2.6/site-packages', '/ccp/opt/usr/lib/python2.7/site-packages'] + sys.path"
+        PythonHandler wfs_mod_python
+    </Location>
+
+    # Instance assets (logo, etc.)
+    Alias /instance /ccp/dev/cp_1997/htdocs/instance/minnesota
+
+    ErrorLog /var/log/httpd/error_log
+
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel warn
+
+    LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %{ptime}e" combinedplus
+    CustomLog /var/log/httpd/access_log combinedplus
+    ServerSignature On
+
+</VirtualHost>
+

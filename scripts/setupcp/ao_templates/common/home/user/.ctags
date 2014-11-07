@@ -1,0 +1,8 @@
+--langdef=actionscript
+--langmap=actionscript:.as
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1/f, function, functions/
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+[(set|get)]*[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1 \2/p,property, properties/
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*var[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/v,variable, variables/
+--regex-actionscript=/.*\.prototype \.([A-Za-z0-9 ]+)=([ \t]?)function( [ \t]?)*\(/\1/ f,function, functions/
+--regex-actionscript=/^[ \t]*class[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/c,class, classes/
+

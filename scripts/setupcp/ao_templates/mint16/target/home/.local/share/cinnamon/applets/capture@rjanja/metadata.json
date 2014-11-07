@@ -1,0 +1,10 @@
+{
+    "description": "Screenshot and screencasting tools", 
+    "uuid": "capture@rjanja", 
+    "name": "Desktop Capture", 
+    "version": "1.0", 
+    "last-edited": "1382461320", 
+    "hide-configuration": false, 
+    "homepage": "https://github.com/rjanja/desktop-capture", 
+    "icon": "retro-icon-mint.png"
+}

@@ -1,0 +1,399 @@
+/* Copyright (c) 2006-2013 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE. */
+
+/* NOTE: When setting styles on classes, all subclasses also get that style. */
+
+/* BUG nnnn: Flex 4 SDK:
+   https://www.adobe.com/devnet/flex/articles/flex3and4_differences.html
+
+[lb] thinks, for Flex 4, we have to wrap everything herein:
+
+<mx:Style>
+
+   @namespace "http://www.adobe.com/2006/mxml";
+
+and prefix each style with their namespace, i.e.,
+
+   mx|Alert {
+      ...
+   }
+
+</mx:Style>
+
+*/
+
+/* Only embedded fonts can be rotated, and we need rotation to make labels. */
+/*/
+@font-face {
+   src: url("/assets/ttf/Vera.ttf");
+   fontFamily: maplabelfont;
+}
+/*/
+
+Alert {
+   background-alpha: 1;
+   background-color: #ffffff;
+   border-alpha: 1;
+   border-color: #e2e2e2;
+   color: "black";
+   padding-bottom: 12;
+   rounded-bottom-corners: false;
+}
+
+/*
+ * EXPLAIN: What's the default font-family?
+ * font-family: verdana, arial, 'Bitstream Vera Sans', helvetica, sans-serif;
+ */
+
+/* SYNC_ME: Search: Application background color. Conf.as and main.css. */
+Application {
+   background-gradient-colors: #3a3a3c, #3a3a3c;
+   color: "black";
+   modal-transparency-blur: 0;
+   font-size: 11;
+}
+
+ApplicationControlBar {
+   corner-radius: 0;
+   drop-shadow-enabled: false;
+   fill-alphas: 1, 1;
+   fill-colors: #ffffff, #ffffff;
+}
+
+Button {
+   font-size: 11;
+   fill-alphas: 1, 1;
+   font-weight: normal;
+   corner-radius: 0;
+}
+
+Button.overlaynote {
+   corner-radius: 0;
+   fill-alphas: 1, 1;
+   fill-colors: #ffffff, #ffffff;
+   font-size: 13;
+   font-weight: bold;
+   padding-bottom: 12;
+   padding-top: 12;
+   padding-left: 36;
+   padding-right: 36;
+}
+
+Button.small {
+   font-size: 10;
+   corner-radius: 0;
+   font-weight: normal;
+   /* See note in Button_Small.mxml:
+      setting height and padding in CSS doesn't do the trick. */
+   height: 17;
+   padding-left: 0;
+   padding-top: 0;
+   padding-right: 0;
+   padding-bottom: 0;
+   /* FIXME: route manip. From route sharing, r24623 through r27178:
+   corner-radius: 2;
+   padding-bottom: 5;
+   */
+}
+
+Button.smallEditCtls {
+   font-size: 10;
+   font-weight: normal;
+   padding-top: 1;
+   padding-bottom: 0;
+   padding-left: 0;
+   padding-right: 0;
+   horizontalGap: 0;
+   verticalGap: 0;
+   padding-right: 0;
+   text-indent: 0;
+}
+
+Button.ampm {
+   padding-right: 0;
+   padding-left: 0;
+}
+
+Form {
+   padding-left: 0;
+   padding-right: 0;
+   padding-top: 0;
+   padding-bottom: 0;
+}
+
+GridItem {
+   vertical-align: middle;
+}
+
+GridRow {
+   vertical-align: middle;
+}
+
+Label {
+   font-size: 11;
+}
+
+/*
+MenuBar {
+   fill-alphas: 1, 1;
+   font-size: 12;
+   font-weight: bold;
+}
+*/
+
+LinkButton {
+   font-weight: normal;
+   color: #0000ff;
+   rollOverColor: #aadeff; /* supposedly the default, but it's not */
+   text-decoration: underline;
+}
+
+RadioButton {
+   padding-top: -1;
+   padding-bottom: -1;
+}
+
+TitleWindow {
+   border-alpha: 1;
+}
+
+ToolTip {
+   backgroundAlpha: 1;
+   cornerRadius: 0;
+   color: #000000;
+   fontSize: 11;
+}
+
+.border {
+   border-style: solid;
+}
+
+.labelmajor {
+   font-size: 13;
+   font-weight: bold;
+   text-align: left;
+}
+
+.labelmajorer {
+   font-size: 16;
+   font-weight: bold;
+   text-align: left;
+}
+
+.labelnormal {
+   font-size: 11;
+}
+
+.labelminor {
+   font-size: 10;
+}
+
+.linkbutton {
+   color: blue;
+   fill-alphas: 1, 1;
+   text-decoration: underline;
+}
+
+/* *** */
+
+.looknfeelCleanOuter {
+   verticalGap: 0;
+   padding-left: 0;
+   padding-top: 6;
+   padding-right: 0;
+   padding-bottom: 2;
+}
+
+
+.looknfeelCleanInner {
+   verticalGap: 0;
+   padding-left: 8;
+   padding-top: 0;
+   padding-right: 8;
+   padding-bottom: 0;
+}
+
+.optgroupZeroes {
+   verticalGap: 0;
+   padding-left: 0;
+   padding-top: 0;
+   padding-right: 0;
+   padding-bottom: 0;
+}
+
+.optgroupLbOuter {
+   verticalGap: 0;
+   padding-left: 6;
+   padding-top: 6;
+   padding-right: 6;
+   padding-bottom: 6;
+   /* border-color: #DDEEFF; */
+   /* border-color: #333333; */
+   /* What is border-color default? Looks grey... */
+   border-style: solid;
+}
+
+.optgroupLbInner2 {
+   verticalGap: 0;
+   padding-left: 4;
+   padding-top: 4;
+   padding-right: 4;
+   padding-bottom: 4;
+   background-color: #EFEFEF;
+   border-style: solid;
+}
+
+/* FIXME: Tone down the border with a grey border-color? */
+.optgroupLbOuter2 {
+   verticalGap: 0;
+   padding-left: 2;
+   padding-top: 2;
+   padding-right: 2;
+   padding-bottom: 2;
+   /* border-color: #DDEEFF; */
+   border-style: solid;
+}
+
+.optgroupLbOuter4 {
+   verticalGap: 6;
+   padding-left: 4;
+   padding-top: 4;
+   padding-right: 4;
+   padding-bottom: 4;
+   border-color: #DDEEFF;
+   border-style: solid;
+}
+
+.optgroupLbDblOuter {
+   verticalGap: 0;
+   padding-left: 2;
+   padding-top: 2;
+   padding-right: 2;
+   padding-bottom: 2;
+   border-style: solid;
+   /* border-color: #CCCCCC; */
+   background-color: #FFFFFF;
+}
+.optgroupLbDblInner {
+   verticalGap: 0;
+   padding-left: 4;
+   padding-top: 5;
+   padding-right: 4;
+   padding-bottom: 4;
+   border-style: solid;
+   background-color: #E9E9E9;
+}
+
+.optgroupMmInner {
+   verticalGap: 0;
+   padding-left: 2;
+   padding-top: -2;
+   padding-right: 2;
+   padding-bottom: 2;
+}
+
+.optgroupMmInnerToo {
+   verticalGap: 0;
+   padding-left: 6;
+   padding-top: 0;
+   padding-right: 6;
+   padding-bottom: 0;
+}
+
+.optgroupMmOuter {
+   verticalGap: 0;
+   padding-left: 2;
+   padding-top: -4;
+   padding-right: 0;
+   padding-bottom: 0;
+}
+
+.optgroupMmSixes {
+   verticalGap: 6;
+   padding-left: 6;
+   padding-top: 6;
+   padding-right: 6;
+   padding-bottom: 6;
+}
+
+/* *** */
+
+.title {
+   font-size: 20;
+   font-weight: bold;
+   text-align: left;
+}
+
+Button.launcher {
+   corner-radius: 0;
+   font-weight: normal;
+   padding-left: 4;
+   padding-top: 1;
+   padding-right: 4;
+   padding-bottom: 0;
+   color: #FFFFFF;
+   skin:
+      ClassReference("views.section_launchers.Launcher_Skin");
+   disabledSkin:
+      ClassReference("views.section_launchers.Launcher_Skin");
+   selectedDisabledSkin:
+      ClassReference("views.section_launchers.Launcher_Skin");
+   upSkin:
+      ClassReference("views.section_launchers.Launcher_Up_Skin");
+   downSkin:
+      ClassReference("views.section_launchers.Launcher_Down_Skin");
+   overSkin:
+      ClassReference("views.section_launchers.Launcher_Over_Skin");
+   selectedUpSkin:
+      ClassReference("views.section_launchers.Launcher_Selected_Skin");
+   selectedDownSkin:
+      ClassReference("views.section_launchers.Launcher_Selected_Skin");
+   selectedOverSkin:
+      ClassReference("views.section_launchers.Launcher_Selected_Skin");
+}
+
+.launcherselected {
+   color: #000000;
+}
+
+Button.headerbutton {
+}
+
+.selectedtab {
+   font-weight: normal;
+}
+
+/* Flex ComboBox */
+
+ComboBox {
+   font-size: 11;
+   fill-alphas: 1, 1;
+   font-weight: normal;
+   corner-radius: 0;
+   dropdownStyleName: cboxdropdown;
+}
+
+.cboxdropdown {
+   border-color: #3a3a3c;
+   border-thickness: 1;
+}
+
+/* Cyclopath ComboBox w/ Icons */
+
+ComboBoxV2.comboBoxV2 {
+   border-color: #aab3b3;
+}
+
+ComboBoxV2.comboDropdown {
+   border-color: #3a3a3c;
+   border-thickness: 1;
+   padding-top: 3;
+   vertical-align: middle;
+}
+
+.floatingToolPalette {
+   headerColors: #C3D1D9, #D2DCE2;
+   header-colors: #C3D1D9, #D2DCE2;
+   /* borderColor: #D2DCE2; */
+}
+

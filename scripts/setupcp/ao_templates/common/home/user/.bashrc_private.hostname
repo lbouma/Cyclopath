@@ -1,0 +1,40 @@
+# This is a machine-specific file, specific to the machine you're on. This file
+# is auto-loaded by matching the file extension to the machine name ($HOSTNAME)
+
+# INSTRUCTIONS: Copy and rename this file once for each of your machines and
+#               configure to taste. Change the file extension to the name of
+#               your machine, e.g., ~/.bashrc_private.mymachine.mydomain.com.
+
+# DIRECTORY STYLE: This machine uses the Cyclopath V2/V3 directory layout.
+
+# Dubs variables
+
+## Path to the .trash directory
+export DUB_TRASHHOME=$HOME
+
+## Path to host OS backup directory
+# NOTE This only applies to virtual machines
+export DUB_PATHBACKUP=/win/pluto_backups
+
+## Shortcut to Firefox downloads directory
+export dls=$HOME/Downloads
+
+# Cyclopath development variables
+
+export CCP_DIR=/ccp
+
+## Path to Cyclopath development tools checkout
+export CCP_DEV_BIN=/ccp/bin
+
+## Path to local working copies of Cyclopath source
+export CCP_DEV_DIR=/ccp/dev
+
+## Path to developer thingies, like the nightly database snapshots
+export CCP_ETC_DIR=/ccp/etc
+
+# FIXME Need a better name
+export CS_PATHBACKUP=$CCP_DEV_DIR/cp_dubs.back
+
+# Add the Flex build tools to PATH
+export PATH=/ccp/opt/flex/bin:$PATH
+

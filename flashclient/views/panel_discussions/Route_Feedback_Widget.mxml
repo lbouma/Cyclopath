@@ -1,0 +1,740 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+<    FIXME: Derive from Detail_Panel_Base?
+<    FIXME: Use this.change_state(''); instead of currentState = ?
+-->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderStyle="solid"
+   backgroundColor="{Conf.reac_widget_bgcolor}"
+   borderColor="{Conf.reac_widget_border_color}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   width="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.containers.Canvas;
+      import mx.controls.Alert;
+      import mx.managers.PopUpManager;
+
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Commit;
+      import gwis.GWIS_Route_Feedback_Dragged;
+      import items.feats.Route;
+      import items.feats.Route_Step;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.base.UI;
+      import views.map_components.Please_Wait_Popup;
+      import views.panel_routes.Panel_Item_Route_Details;
+      import views.panel_util.Pointing_Widget;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##Rt_Fb_Wget');
+
+      // ***
+
+      public var route:Route;
+      public var route_reset:Route;
+      public var route_old:Route;
+      public var route_old_stack_id:int;
+      public var route_new_stack_id:int;
+      public var route_old_version:int;
+      public var route_new_version:int;
+      protected var saving_popup:Please_Wait_Popup;
+
+      // Length of the command stack when feedback process starts.
+      protected var cm_pos:int;
+
+      // Pointing Widget
+      public var pw:Pointing_Widget;
+
+      // Initialise the widget.
+      public function init(rt:Route) :void
+      {
+         var old_feedback_mode:int = Route.FB_OFF;
+         var old_feedback_instance:int = Route.FB_OFF;
+
+         if ((rt !== null)
+             && ((this.route === null)
+                 || (rt.stack_id != this.route.stack_id)
+                 || (rt.version != this.route.version))) {
+
+            // Backup feedback mode.
+            if (this.route !== null) {
+               old_feedback_mode = this.route.feedback_mode;
+               old_feedback_instance = this.route.feedback_instance;
+            }
+
+            this.route = rt;
+
+            if (this.currentState == 'form_state') {
+               this.route_new_stack_id = rt.stack_id;
+               this.route_new_version = rt.version;
+
+               // Restore feedback mode.
+               this.route.feedback_mode = old_feedback_mode;
+               this.route.feedback_mode = old_feedback_instance;
+
+               // New route received and loaded.
+               // Save feedback.
+               m4_DEBUG_CLLL('>callLater: init: this.feedback_save');
+               G.map.callLater(this.feedback_save);
+            }
+            else {
+               this.currentState = 'start_state';
+               this.route_old_stack_id = rt.stack_id;
+               this.route_old_version = rt.version;
+
+               this.reset();
+            }
+         }
+
+         // Set up legends.
+         this.legend_setup(this.legend_old,
+                           Conf.route_feedback_old_outline,
+                           Conf.route_feedback_old_color);
+         this.legend_setup(this.legend_new,
+                           Conf.route_feedback_new_outline,
+                           Conf.route_feedback_new_color);
+      }
+
+      //
+      protected function feedback_save() :void
+      {
+         var gwis_save:GWIS_Route_Feedback_Dragged;
+         var byway_sids:Array = new Array();
+         var step:Route_Step;
+
+         for each (step in Route.selected_steps) {
+            byway_sids.push(step.byway_stack_id);
+         }
+
+         gwis_save = new GWIS_Route_Feedback_Dragged(
+                           this.route_old_stack_id,
+                           this.route_old_version,
+                           this.route_new_stack_id,
+                           this.route_new_version,
+                           this.old_reason.text,
+                           this.new_reason.text,
+                           byway_sids,
+                           int(this.change.selectedValue),
+                           this.on_feedback_complete);
+
+         var popup_window:Please_Wait_Popup = new Please_Wait_Popup();
+         UI.popup(popup_window);
+         popup_window.init(
+            'Saving feedback', 'Please wait.', gwis_save, false);
+         this.saving_popup = popup_window;
+
+         gwis_save.fetch();
+      }
+
+      //
+      protected function legend_setup(canvas:Canvas,
+                                      outline:Number,
+                                      fill:Number) :void
+      {
+         var gr:Graphics = canvas.graphics;
+         gr.clear();
+
+         gr.beginFill(outline);
+         gr.drawRect(0, 5, 50, 12);
+         gr.endFill();
+
+         gr.beginFill(fill);
+         gr.drawRect(0, 7, 50, 8);
+         gr.endFill();
+      }
+
+      //
+      protected function on_feedback_complete() :void
+      {
+         if (this.saving_popup !== null) {
+            PopUpManager.removePopUp(this.saving_popup);
+         }
+         this.saving_popup = null;
+
+         Route.evaluated.push(this.route.stack_id);
+
+         this.cleanup();
+      }
+
+      //
+      protected function reset() :void
+      {
+         this.currentState = 'start_state';
+         this.old_box.includeInLayout = false;
+         this.cantsay.selected = true;
+         Route.selected_steps = new Array();
+         this.update_segment_list();
+         this.old_reason.text =
+            'What about the original route made you change it? (optional)';
+         this.new_reason.text =
+            'What do you prefer about your new route? (optional)';
+         this.drag_finished.visible = true;
+         this.drag_continue.visible = false;
+         this.submit.visible = false;
+
+         if (Route.evaluated.indexOf(this.route.stack_id) >= 0) {
+            this.start_text.text = 'Thank you for evaluating this route!';
+            this.suggest.visible = false;
+            this.suggest.includeInLayout = false;
+         }
+         else {
+            this.start_text.text =
+               "If this isn't exactly how you would ride, "
+               + "please suggest a different route.";
+            this.suggest.visible = true;
+            this.suggest.includeInLayout = true;
+         }
+      }
+
+      //
+      protected function cleanup() :void
+      {
+         this.reset();
+
+         // Reset current route.
+         this.route.feedback_mode = Route.FB_OFF;
+         this.route.feedback_instance = Route.FB_OFF;
+
+         // Switch map to normal mode.
+         G.map.rmode = Conf.map_mode_normal;
+         m4_DEBUG('cleanup: geofeatures_redraw');
+         G.map.geofeatures_redraw();
+
+         // Enable certain features.
+         this.toggle_app_features(true);
+      }
+
+      // When Submit is clicked...
+      protected function on_submit_click() :void
+      {
+         // Get rid of pointing widgets, if any.
+         if (pw !== null) {
+            pw.on_close();
+         }
+
+         pw = null;
+
+         // Save the new route first.
+         var to_save:Set_UUID = new Set_UUID();
+         to_save.add(this.route);
+
+         var gwis_save:GWIS_Commit = new GWIS_Commit(
+            to_save,
+            /*changenote=*/'',
+            /*be_silent=*/true,
+            /*callback_load=*/this.on_save_cleanup,
+            /*callback_fail=*/this.on_save_cleanup,
+            /*callback_payload=*/null,
+            /*anon_coward=*/false,
+            // So that we don't save map items -- i.e., Very Important.
+            /*restrict_dirty=*/Dirty_Reason.item_mask_oob,
+            /*alert_on_activity=*/false,
+            this.route.route_panel.cmd_mgr);
+
+         var popup_window:Please_Wait_Popup = new Please_Wait_Popup();
+         UI.popup(popup_window);
+         popup_window.init('Recording suggested route',
+                           'Please wait.',
+                           gwis_save,
+                           false);
+         this.saving_popup = popup_window;
+
+         gwis_save.fetch();
+
+         G.sl.event('ui/route/feedback/submit',
+                    {route_id: this.route.stack_id});
+      }
+
+      // Route saving is complete.
+      protected function on_save_cleanup(gwis_req:GWIS_Commit,
+                                         rset:XML, payload:*=null) :void
+      {
+         if (this.saving_popup !== null) {
+            PopUpManager.removePopUp(this.saving_popup);
+         }
+         this.saving_popup = null;
+      }
+
+      //
+      public function suggest_start() :void
+      {
+         this.currentState = 'form_state';
+         this.route.feedback_mode = Route.FB_DRAGGING;
+         this.route.feedback_instance = Route.FB_NEW;
+
+         // Load route clone.
+         this.route_reset = (this.route.clone_item() as Route);
+         // MAYBE: Call this.route.clone_id(this.route_reset); ???
+         this.route_reset.stack_id = this.route.stack_id;
+         this.route_reset.version = this.route.version;
+
+         // route_old is the originally-computed route (if available), not the
+         // route when the suggest button was clicked (though these may be the
+         // same).
+         if ((this.route.fresh_route !== null)
+             && (this.route.fresh_route.stack_id == this.route.stack_id)) {
+            this.route_old = (this.route.fresh_route.clone_item() as Route);
+            // MAYBE: this.route.clone_id(this.route_old); ???
+         }
+         else {
+            this.route_old = (this.route.clone_item() as Route);
+            // MAYBE: this.route.clone_id(this.route_old); ???
+         }
+
+         this.route_old.feedback_mode = Route.FB_DRAGGING;
+         this.route_old.feedback_instance = Route.FB_OLD;
+         G.map.items_add([this.route_old,]);
+
+         // Note command stack position.
+         this.cm_pos = G.map.cm.undo_length;
+
+         // Switch map to feedback mode.
+         G.map.rmode = Conf.map_mode_feedback;
+         m4_DEBUG('suggest_start: geofeatures_redraw');
+         G.map.geofeatures_redraw();
+
+         // Disable certain features.
+         this.toggle_app_features(false);
+         //this.reaction_panel.comment_controls.includeInLayout = false;
+
+         G.sl.event('ui/route/feedback/suggest',
+                    {route_id: this.route.stack_id});
+      }
+
+      //
+      protected function on_cancel_click() :void
+      {
+         this.currentState = 'start_state';
+
+         // FIXME: Undo all commands run since this started.
+         while (G.map.cm.undo_length > this.cm_pos) {
+            G.map.cm.undo();
+         }
+
+         // Discard old route.
+         G.map.item_discard(this.route_old);
+
+         this.cleanup();
+
+         G.sl.event('ui/route/feedback/cancel',
+                    {route_id: this.route.stack_id});
+      }
+
+      //
+      protected function on_drag_click() :void
+      {
+         if (this.route.feedback_mode == Route.FB_DRAGGING) {
+            this.old_box.includeInLayout = true;
+            this.route.feedback_mode = Route.FB_SELECTING;
+            this.route_old.feedback_mode = Route.FB_SELECTING;
+            this.route.draw();
+
+            this.drag_continue.visible = true;
+            this.drag_finished.visible = false;
+            this.submit.visible = true;
+
+            // Show pointing widget.
+            //this.show_pointing_widget_maybe();
+         }
+         else {
+            // Clear selected steps for the new route.
+            var step:Route_Step;
+            var new_selected_steps:Array = new Array();
+            for each (step in Route.selected_steps) {
+               if (this.route.rsteps.indexOf(step) < 0) {
+                  new_selected_steps.push(step);
+               }
+            }
+            Route.selected_steps = new_selected_steps;
+            this.update_segment_list();
+
+            this.old_box.includeInLayout = false;
+            this.route.feedback_mode = Route.FB_DRAGGING;
+            this.route_old.feedback_mode = Route.FB_DRAGGING;
+            this.route.draw();
+
+            this.drag_continue.visible = false;
+            this.drag_finished.visible = true;
+            this.submit.visible = false;
+         }
+      }
+
+      //
+      protected function show_pointing_widget_maybe() :void
+      {
+         if (this.pw === null) {
+            this.pw = Pointing_Widget.show_pointer(
+               'Select preferred/rejected segments',
+               'To select segments, click on the original/suggested route. '
+                  + 'To deselect, click again.',
+               this.route.sprite,
+               300,
+               null,
+               null,
+               false,
+               0);
+         }
+      }
+
+      //
+      protected function toggle_app_features(value:Boolean) :void
+      {
+// FIXME: route reactions. Some of these are not in CcpV2.
+//         G.app.search_button.enabled = value;
+// FIXME: See similar code in History_Manager
+         G.app.search_panel.enabled = value;
+//         G.app.watch_regions.enabled = value;
+// FIXME: Statewide UI: changes:
+//         G.app.discussions_panel_box.enabled = value;
+         G.app.activity_panel.enabled = value;
+         var rt_panel:Panel_Item_Route_Details
+            = this.route.route_panel.tab_route_details;
+         rt_panel.export_and_viz.visible = value;
+      }
+
+      //
+      public function update_segment_list() :void
+      {
+         var rs:Route_Step;
+
+         var old_list:Dictionary = new Dictionary();
+         var new_list:Dictionary = new Dictionary();
+
+         var old_list_string:String = '';
+         var new_list_string:String = '';
+
+         // Construct dictionaries.
+         for each (rs in Route.selected_steps) {
+            if (this.route_old.rsteps.indexOf(rs) > -1) {
+               if (!(rs.step_name in old_list)) {
+                  old_list[rs.step_name] = 0;
+               }
+               old_list[rs.step_name]++;
+            }
+
+            if (this.route.rsteps.indexOf(rs) > -1) {
+               if (!(rs.step_name in new_list)) {
+                  new_list[rs.step_name] = 0;
+               }
+               new_list[rs.step_name]++;
+            }
+         }
+
+         // Construct strings from dictionaries.
+         var default_msg:String = 'No segment(s) selected.';
+         this.old_segments.text = Strutil.collapse_dict(old_list, default_msg);
+         this.new_segments.text = Strutil.collapse_dict(new_list, default_msg);
+      }
+
+   ]]></mx:Script>
+
+   <mx:states>
+      <!-- Start State -->
+      <mx:State
+         name="start_state">
+         <mx:SetProperty
+            target="{this.start}"
+            name="includeInLayout"
+            value="true"/>
+         <mx:SetProperty
+            target="{this.form}"
+            name="includeInLayout"
+            value="false"/>
+      </mx:State>
+      <!-- Form State -->
+      <mx:State
+         name="form_state">
+         <mx:SetProperty
+            target="{this.start}"
+            name="includeInLayout"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.form}"
+            name="includeInLayout"
+            value="true"/>
+      </mx:State>
+   </mx:states>
+
+   <!-- Start button -->
+   <mx:VBox
+      id="start"
+      visible="{this.start.includeInLayout}"
+      paddingTop="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+      width="100%">
+      <mx:Label
+         text="Help evaluate the route planner."
+         fontWeight="bold"/>
+
+      <mx:Text
+         id="start_text"
+         width="100%"/>
+
+      <mx:Button
+         id="suggest"
+         label="Suggest Different Route"
+         fillColors="{[Conf.save_button_fill_light,
+                       Conf.save_button_fill_dark,]}"
+         click="this.suggest_start();"/>
+   </mx:VBox>
+
+   <!-- Feedback form -->
+   <mx:VBox
+      id="form"
+      visible="{this.form.includeInLayout}"
+      paddingTop="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+      width="100%">
+
+      <!-- Footer -->
+      <mx:HBox
+         width="100%">
+         <mx:Label
+            text="Evaluate Route"
+            fontWeight="bold"/>
+         <mx:Spacer width="100%"/>
+         <mx:Button
+            id="help"
+            label="Show Me How"
+            height="16"
+            styleName="small"
+            click="UI.url_popup(Conf_Instance.bug_2714_rtfb_link,
+                                'route_feedback');"
+            toolTip="View a short (60 sec) video on how to evaluate a route."/>
+         <mx:Button
+            id="cancel"
+            label="Close"
+            height="16"
+            styleName="small"
+            click="this.on_cancel_click();"
+            toolTip="Quit the feedback process."/>
+      </mx:HBox>
+
+      <mx:HRule width="100%" strokeWidth="1"/>
+
+      <!-- Drag -->
+      <mx:VBox
+         horizontalGap="0"
+         visible="{!this.old_box.visible}"
+         includeInLayout="{!this.old_box.visible}"
+         width="100%">
+         <mx:Text
+            paddingBottom="-4"
+            text="Drag the route to suit your needs" fontWeight="bold"/>
+         <mx:Text
+            width="100%"
+            paddingBottom="-4"
+            text=
+            "Once you are done, click 'Next' to proceed to the next step."/>
+      </mx:VBox>
+
+      <!-- Old -->
+      <mx:VBox
+         id="old_box"
+         includeInLayout="false"
+         visible="{this.old_box.includeInLayout}"
+         paddingTop="4"
+         horizontalGap="0"
+         width="100%">
+         <mx:HBox width="100%">
+            <!-- Question -->
+            <mx:Text
+               paddingBottom="-4"
+               color="{Conf.route_feedback_old_outline}"
+               text="Feedback on original route"
+               fontWeight="bold"/>
+            <mx:Spacer width="100%"/>
+            <!-- Legend: Original Route -->
+            <mx:Canvas id="legend_old" width="50"/>
+         </mx:HBox>
+         <mx:HBox width="100%">
+            <mx:Label text="1." paddingTop="-4"/>
+            <!-- Listing -->
+            <mx:VBox width="100%" paddingTop="-4">
+               <mx:Text
+                  width="100%"
+                  text=
+"Select the segment(s) you want to change the most (click on route to select/deselect)."/>
+               <!-- Selected segments -->
+               <mx:HBox width="100%" paddingTop="-4">
+                  <!-- <mx:Label text="Selected:" fontWeight="bold"/> -->
+                  <!-- Segment names -->
+                  <mx:Text
+                     id="old_segments"
+                     color="{Conf.route_feedback_old_outline}"
+                     width="100%"
+                     text="No segment(s) selected."/>
+               </mx:HBox>
+            </mx:VBox>
+         </mx:HBox>
+
+         <!-- Reason -->
+         <mx:HBox width="100%">
+            <mx:Label text="2." paddingTop="-4"/>
+            <mx:TextArea
+               id="old_reason"
+               width="100%"/>
+         </mx:HBox>
+      </mx:VBox>
+
+      <!-- New -->
+      <mx:VBox
+         id="new_box"
+         includeInLayout="{this.old_box.includeInLayout}"
+         visible="{this.new_box.includeInLayout}"
+         paddingTop="4"
+         horizontalGap="0"
+         width="100%">
+
+         <mx:HBox width="100%">
+            <!-- Question -->
+            <mx:Text
+               text="Feedback on suggested route"
+               color="{Conf.route_feedback_new_outline}"
+               paddingBottom="-4"
+               fontWeight="bold"/>
+            <mx:Spacer width="100%"/>
+            <!-- Legend: Suggested Route -->
+            <mx:Canvas
+               id="legend_new"
+               width="50"/>
+         </mx:HBox>
+
+         <!-- Listing -->
+         <mx:HBox width="100%">
+            <mx:Label text="1." paddingTop="-4"/>
+
+            <mx:VBox width="100%" paddingTop="-4">
+               <mx:Text
+                  width="100%"
+                  text=
+"Select the segment(s) you prefer the most (click on route to select/deselect)."/>
+
+               <!-- Selected segments -->
+               <mx:HBox width="100%" paddingTop="-4">
+                  <!-- <mx:Label text="Selected:" fontWeight="bold"/> -->
+                  <!-- Segment names -->
+                  <mx:Text
+                     id="new_segments"
+                     color="{Conf.route_feedback_new_outline}"
+                     width="100%"
+                     text="No segment(s) selected."/>
+               </mx:HBox>
+            </mx:VBox>
+         </mx:HBox>
+
+         <!-- Reason -->
+         <mx:HBox width="100%">
+            <mx:Label text="2." paddingTop="-4"/>
+            <mx:TextArea
+               id="new_reason"
+               width="100%"/>
+         </mx:HBox>
+
+      <!-- End: New -->
+      </mx:VBox>
+
+      <!-- Change -->
+      <mx:VBox
+         id="change_box"
+         includeInLayout="{this.old_box.includeInLayout}"
+         visible="{this.new_box.includeInLayout}"
+         paddingTop="4"
+         horizontalGap="0"
+         width="100%">
+         <mx:Text
+            width="100%"
+            text=
+         "How much of an improvement is your new route over the original one?"
+            fontWeight="bold"/>
+
+         <mx:HBox width="100%">
+            <mx:RadioButtonGroup id="change"/>
+
+            <mx:VBox width="20%" horizontalAlign="center">
+               <mx:RadioButton
+                  id="cantsay"
+                  groupName="change"
+                  value="0"
+                  selected="true"/>
+               <mx:Text width="100%" text="Can't say"/>
+            </mx:VBox>
+            <mx:VBox width="20%" horizontalAlign="center">
+               <mx:RadioButton groupName="change" value="1"/>
+               <mx:Text
+                  width="100%"
+                  text="Not at all"/>
+            </mx:VBox>
+            <mx:VBox width="20%" horizontalAlign="center">
+               <mx:RadioButton groupName="change" value="2"/>
+               <mx:Text
+                  width="100%"
+                  text="Very little"/>
+            </mx:VBox>
+            <mx:VBox width="20%" horizontalAlign="center">
+               <mx:RadioButton groupName="change" value="3"/>
+               <mx:Text
+                  width="100%"
+                  text="Some what"/>
+            </mx:VBox>
+            <mx:VBox width="20%" horizontalAlign="center">
+               <mx:RadioButton groupName="change" value="4"/>
+               <mx:Text
+                  width="100%"
+                  text="Greatly"/>
+            </mx:VBox>
+         </mx:HBox>
+      </mx:VBox>
+
+      <!-- Buttons -->
+      <mx:HBox
+         width="100%"
+         paddingTop="4"
+         horizontalGap="{G.app.pad}">
+         <mx:Button
+            id="drag_continue"
+            label="Back"
+            visible="false"
+            includeInLayout="{this.drag_continue.visible}"
+            click="this.on_drag_click();"/>
+
+         <mx:Spacer width="100%"/>
+
+         <mx:Button
+            id="drag_finished"
+            label="Next"
+            fillColors="{[Conf.save_button_fill_light,
+                          Conf.save_button_fill_dark,]}"
+            includeInLayout="{this.drag_finished.visible}"
+            click="this.on_drag_click();"/>
+
+         <mx:Button
+            id="submit"
+            label="Submit Feedback"
+            click="this.on_submit_click();"
+            fillColors="{[Conf.save_button_fill_light,
+                          Conf.save_button_fill_dark,]}"
+            visible="false"
+            includeInLayout="{this.submit.visible}"
+            toolTip="Submit this feedback."/>
+      </mx:HBox>
+
+   <!-- End: Change -->
+   </mx:VBox>
+
+</mx:VBox>
+

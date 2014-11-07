@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+//      import mx.controls.Alert;
+//      import mx.controls.NumericStepper;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+//      import flash.events.KeyboardEvent;
+
+//      import utils.misc.AutoComplete;
+//      import utils.misc.Inflector;
+      import utils.misc.Logging;
+//      import utils.misc.Objutil;
+//      import utils.rev_spec.*;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_NdEdpts');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+      }
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         this.register_widgets([
+            this.widget_beg_node,
+            this.widget_fin_node,
+            ]);
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Node Endpoints"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <views_panel_items:Widget_Node_Endpoint
+            id="widget_beg_node"
+            endpt_posit="-1"
+            width="100%"
+            />
+
+         <views_panel_items:Widget_Node_Endpoint
+            id="widget_fin_node"
+            endpt_posit="1"
+            width="100%"
+            />
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

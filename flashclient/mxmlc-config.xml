@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- See flex-config.xml of the docs for the meaning of options. -->
+
+<flex-config>
+
+  <compiler>
+
+    <!--
+    <theme>
+      <filename>themes/Institutional.css</filename>
+    </theme>
+    -->
+
+    <!-- Save callstack information to the SWF for debugging. -->
+    <!-- FIXME: Make mxmlc-config.dev and mxmlc-config.prod and set this false
+                for the production file; also add to Makefile. -->
+    <verbose-stacktraces>true</verbose-stacktraces>
+
+    <warn-class-is-sealed>true</warn-class-is-sealed>
+    <show-binding-warnings>false</show-binding-warnings>
+
+    <library-path
+      append="true">
+      <!--
+      <path-element>
+        /ccp/opt/flex_util/SWFExplorer-0.7.1/bin/SWFExplorer.swc
+      </path-element>
+      -->
+      <!-- NOTE: Even though we include these libraries here (in library-path)
+                 Flex doesn't actually add the libraries to our code unless we
+                 instantiate some of their objects ([lb] read that library-path
+                 includes the complete library - but maybe only if it's
+                 actually used - or maybe (probably) it's because this is
+                 library-path and not include-libraries...).
+                 We include these libraries here so we can import the libraries
+                 in Main_Toolbar.mxml, which tricks Class_Loader into working.
+                 -->                 
+      <!--
+      <path-element>
+        /ccp/opt/flex_util/as3corelib/as3corelib.swc
+      </path-element>
+      -->
+      <path-element>
+        /ccp/opt/flex_util/purePDF/purePDF.swc
+      </path-element>
+      <path-element>
+        /ccp/opt/flex_util/purePDF/purePDFont.swc
+      </path-element>
+    </library-path>
+
+  </compiler>
+
+  <!-- [lb] tried extracting the swf from the swc and using RSL
+            to dynamically load some libraries, but it fails.
+               unzip as3corelib.swf -d as3corelib
+               cd as3corelib
+               optimizer \
+                  -keep-as3-metadata="Bindable,Managed,ChangeEvent,NonCommittingChangeEvent,Transient" \
+                  -input library.swf \
+                  -output as3corelib.swf
+            Flashclient fails immediately on boot and says something about
+            the checksum of the http://.../*.swf files not matching.
+            Also, some other errors [lb] saw:
+              VerifyError: Error #1014: Class IMXMLObject could not be found.
+              Error: Type was not found or was not a compile-time constant:
+                      File.
+  <static-link-runtime-shared-libraries>
+    false
+  </static-link-runtime-shared-libraries>
+  <runtime-shared-library-path>
+    <path-element>/ccp/opt/flex_util/as3corelib/as3corelib.swc</path-element>
+    <rsl-url>flex_util/as3corelib.swf</rsl-url>
+  </runtime-shared-library-path>
+  <runtime-shared-library-path>
+    <path-element>/ccp/opt/flex_util/purePDF/purePDFont.swc</path-element>
+    <rsl-url>flex_util/purePDFont.swf</rsl-url>
+  </runtime-shared-library-path>
+  <runtime-shared-library-path>
+    <path-element>/ccp/opt/flex_util/purePDF/purePDF.swc</path-element>
+    <rsl-url>flex_util/purePDF.swf</rsl-url>
+  </runtime-shared-library-path>
+  -->
+
+  <!-- DEVS: If you want to raise the target-player, look at usage
+             statistics in the log_event table.
+              SELECT
+                EXTRACT(YEAR FROM created) AS year,
+                EXTRACT(MONTH FROM created) AS month,
+                value,
+                COUNT(*) AS value_cnt
+              FROM log_event_kvp
+              JOIN log_event
+                ON (log_event_kvp.event_id = log_event.id)
+              WHERE
+                key_ = 'flash_version'
+                GROUP BY year, month, value
+                ORDER BY year DESC, month DESC, value_cnt DESC;
+            -->
+  <!-- 2013.03.19: Changing from the default target flash version,
+                   which is 9, to 10, so we can support external
+                   PDF libraries. A peek at the database shows that
+                   the last Flash 9 access was last November, and there
+                   were only a handful of accesses in all of 2012. -->
+  <target-player>10.0.0</target-player>
+
+  <!-- Active RSL framework libraries. See Chapter 10 of "Building and
+       Deploying Flex 3 Applications"
+
+       NOTE: We are not using the "signed" RSLs - those signed by Adobe which
+       can be shared with arbitrary Flex applications - due to an Adobe bug
+       which makes such signed RSLs unusuable on Linux.
+       https://bugs.adobe.com/jira/browse/SDK-15282
+
+       We settle instead for unsigned RSLs, which only save download time on
+       subsequent visits to Cyclopath.
+       -->
+
+  <!-- This is currently disabled due to following error appearing randomly,
+       after which the application fails to start. "Flex Error #1001: Digest
+       mismatch with RSL framework_3.0.0.477.swf. Redeploy the matching RSL or
+       relink your application with the matching library."
+       -->
+
+  <!-- Not used:
+    <static-link-runtime-shared-libraries>
+      false
+    </static-link-runtime-shared-libraries>
+    <runtime-shared-library-path>
+      <path-element>
+        /export/scratch/reid/flex3/frameworks/libs/framework.swc
+      </path-element>
+      <rsl-url>framework_3.0.0.477.swf</rsl-url>
+    </runtime-shared-library-path>
+  -->
+
+  <!-- 2012.11.10: How has [lb] not known about these tools?!
+                   Monster Debugger and The Miner!
+       2013.02.15: Meh. [lb] thinks they are interesting, but running fdb on
+                   Windows seems faster for debugging. The only thing missing
+                   is collecting our own profile and spitting it out here and
+                   there.
+            MAYBE: Copy the profiler SWF from the commercial flex debugger
+                   (you can get a demo) and try to interface with it?
+                   -->
+
+  <!-- DEVS: MonsterDebugger. -->
+  <!-- DONT_CARE: [lb] cannot get this to work... it fails on SWF load:
+         VerifyError: Error #1053:
+         Illegal override of callInContext in _Main_mx_managers_SystemManager.
+         -->
+  <!-- Not working:
+    <static-link-runtime-shared-libraries>
+      false
+    </static-link-runtime-shared-libraries>
+    <runtime-shared-library-path>
+      <path-element>
+        /ccp/opt/.downloads/MonsterDebuggerV3_02/export/MonsterDebugger.swc
+      </path-element>
+      <rsl-url>debugger/Main.swf</rsl-url>
+    </runtime-shared-library-path>
+  -->
+
+  <!-- DEVS: TheMiner. -->
+  <!--
+    <static-link-runtime-shared-libraries>
+      false
+    </static-link-runtime-shared-libraries>
+    <runtime-shared-library-path>
+      <path-element>
+        /ccp/opt/.downloads/TheMiner_NC_1_4_01/1.4.01/SWCs/TheMiner_en.swc
+      </path-element>
+      <rsl-url>debugger/TheMiner_en.swf</rsl-url>
+    </runtime-shared-library-path>
+  -->
+
+</flex-config>
+

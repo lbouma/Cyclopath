@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <!-- EXPLAIN: What's this syntax? I [lb] haven't seen it before. -->
+   <!-- MAYBE: See: on_date_time_change(). Are we suppose to register all the
+               events we signal with dispatchEvent? Well, things work for now,
+               but Metadata is being used to tell someone about an event we
+               fire below, in on_date_time_change. -->
+    <mx:Metadata>
+      [Event(name="change", type="flash.events.Event")]
+    </mx:Metadata>
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@DateTimePck');
+
+      // *** Instance variables
+
+      [Bindable] private var selected_date_:Date = new Date();
+
+      // EXPLAIN: What's Inspectable? I [lb] haven't seen it before.
+      [Bindable] [Inspectable(defaultValue='5',
+                              category="Other",
+                              enumeration="1,5,10,15,30")]
+      public var minuteIncrement:int = 5;
+
+      // *** Getters and setters
+
+      //
+      [Bindable] public function get selected_date() :Date
+      {
+         this.validateNow();
+         return this.selected_date_;
+      }
+
+      //
+      public function set selected_date(value:Date) :void
+      {
+         this.selected_date_ = value;
+         this.date.selectedDate = this.selected_date_;
+         if (value.getHours() >= 12) {
+            this.ampm.selectedIndex = 1;
+         }
+         else {
+            this.ampm.selectedIndex = 0;
+         }
+         if (value.getHours() < 13) {
+            this.hours.value = value.getHours();
+         }
+         else {
+            this.hours.value = value.getHours() - 12;
+         }
+         if (value.getHours() == 0) {
+            this.hours.value = 12;
+         }
+         this.minutes.value = value.getMinutes();
+         this.validateNow();
+      }
+
+      // *** Instance methods
+
+      //
+      override public function validateProperties() :void
+      {
+         super.validateProperties();
+      }
+
+      //
+      protected function on_date_time_change() :void
+      {
+         var militaryHours:int = hours.value;
+         if ((ampm.selectedIndex == 1) && (hours.value != 12)) {
+            militaryHours = hours.value + 12;
+         }
+         else if ((ampm.selectedIndex == 0) && (hours.value == 12)) {
+            militaryHours = 0;
+         }
+         var selDate:Date = this.date.selectedDate;
+         var date:Date = new Date(selDate.getFullYear(),
+                                  selDate.getMonth(),
+                                  selDate.getDate(),
+                                  militaryHours,
+                                  minutes.value);
+         this.selected_date = date;
+         this.invalidateProperties();
+         this.validateNow();
+         this.dispatchEvent(new Event("change"));
+         // Update text to display a leading 0 when value is a single digit.
+         if (hours.value < 10) {
+            hours.mx_internal::inputField.text = "0" + hours.value;
+         }
+         else {
+            hours.mx_internal::inputField.text = "" + hours.value;
+         }
+         if (minutes.value < 10) {
+            minutes.mx_internal::inputField.text = "0" + minutes.value;
+         }
+         else {
+            minutes.mx_internal::inputField.text = "" + minutes.value;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <!-- 2013.02.16: The minimum left panel width cannot take the width of the
+                    date time selector (it makes a horizontal scroll bar
+                    appear). So breaking the calendar control down a line. -->
+   <mx:Grid
+      verticalGap="6">
+      <!-- Depart at: [Time] -->
+      <mx:GridRow>
+         <mx:GridItem
+            horizontalAlign="right"
+            verticalAlign="middle">
+            <mx:Label
+               text="Depart at"
+               fontWeight="normal"
+               textAlign="right"/>
+         </mx:GridItem>
+         <mx:GridItem
+            horizontalAlign="left"
+            verticalAlign="middle">
+            <!-- Hour + Minute Selector -->
+            <mx:HBox
+               horizontalGap="4"
+               horizontalAlign="center"
+               verticalAlign="middle">
+               <mx:NumericStepper
+                  id="hours"
+                  minimum="1"
+                  maximum="12"
+                  width="45"
+                  stepSize="1"
+                  change="this.on_date_time_change();"
+                  valueCommit="on_date_time_change()"
+                  textAlign="center"/>
+               <mx:Label
+                  text=":"
+                  textAlign="center"
+                  paddingLeft="-8"
+                  paddingRight="-8"/>
+               <mx:NumericStepper
+                  id="minutes"
+                  minimum="0"
+                  maximum="59"
+                  width="45"
+                  stepSize="{minuteIncrement}"
+                  change="this.on_date_time_change();"
+                  valueCommit="on_date_time_change()"
+                  textAlign="center"/>
+               <mx:ToggleButtonBar
+                  id="ampm"
+                  buttonWidth="35"
+                  buttonStyleName="ampm"
+                  itemClick="this.on_date_time_change();">
+                  <mx:dataProvider>
+                     <mx:Array>
+                        <mx:String>AM</mx:String>
+                        <mx:String>PM</mx:String>
+                     </mx:Array>
+                  </mx:dataProvider>
+               </mx:ToggleButtonBar>
+            </mx:HBox>
+         </mx:GridItem>
+      </mx:GridRow>
+      <!-- [Depart] on: [Date] -->
+      <mx:GridRow>
+         <mx:GridItem>
+         </mx:GridItem>
+         <mx:GridItem
+            horizontalAlign="center"
+            verticalAlign="middle">
+            <!-- Date + Year Selector -->
+            <mx:HBox
+               horizontalGap="4"
+               horizontalAlign="center"
+               verticalAlign="middle">
+               <mx:Label
+                  text="on"
+                  fontWeight="normal"
+                  textAlign="right"/>
+               <mx:DateField
+                  id="date"
+                  selectedDate="{new Date()}"
+                  change="this.on_date_time_change();"/>
+            </mx:HBox>
+         </mx:GridItem>
+      </mx:GridRow>
+   </mx:Grid>
+
+</views_panel_routes:Route_Widget_Base>
+

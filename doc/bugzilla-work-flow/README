@@ -1,0 +1,1 @@
+convert -density 100 bugzilla.eps bugzilla.png

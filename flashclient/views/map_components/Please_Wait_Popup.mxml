@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="268"
+   borderAlpha="1"
+   layout="vertical"
+   horizontalAlign="center"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      import gwis.GWIS_Base;
+      import utils.misc.Collection;
+      import utils.misc.Set_UUID;
+
+      // *** Instance variables
+
+      [Bindable] public var dismissable:Boolean = false;
+      [Bindable] public var n_dismissals:int = 0;
+
+      public var gwis_cmds:Set_UUID;
+
+      // *** Init methods
+
+      //
+      public function init(title:String,
+                           note:String,
+                           gwis_active:GWIS_Base,
+                           cancelable:Boolean,
+                           gwis_array:Array=null) :void
+      {
+         this.title = title;
+         this.bar.label = '';
+         this.bar_text.text = note;
+         this.b_cancel.visible = cancelable;
+         if (gwis_array === null) {
+            this.gwis_cmds = new Set_UUID();
+         }
+         else {
+            this.gwis_cmds = new Set_UUID(Collection.array_copy(gwis_array));
+         }
+         if (gwis_active !== null) {
+            this.gwis_cmds.add(gwis_active)
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      public function add_another(gwis_active:GWIS_Base) :void
+      {
+         this.gwis_cmds.add(gwis_active);
+      }
+
+      // Cancel route finding request.
+      protected function cancel() :void
+      {
+         for each (var gwis_cmd:GWIS_Base in this.gwis_cmds) {
+            gwis_cmd.cancel();
+         }
+         this.gwis_cmds = new Set_UUID();
+         PopUpManager.removePopUp(this);
+      }
+
+      //
+      protected function on_i_got_it_link_click() :void
+      {
+         this.n_dismissals += 1;
+         this.gwis_cmds = new Set_UUID();
+         PopUpManager.removePopUp(this);
+      }
+
+      // *** (Other) Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         this.gwis_cmds = new Set_UUID();
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      verticalGap="0"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      horizontalAlign="center"
+      >
+
+      <mx:Text
+         id="bar_text"/>
+
+      <mx:ProgressBar
+         id="bar"
+         fontWeight="normal"
+         fontSize="0"
+         indeterminate="true"
+         labelPlacement="bottom"
+         trackHeight="8"
+         width="100%"
+         barColor="0x949494"/>
+
+      <mx:HBox
+         width="100%"
+         verticalGap="0"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         >
+
+         <mx:VBox
+            width="33%"
+            verticalGap="0"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            >
+         </mx:VBox>
+
+         <mx:VBox
+            width="34%"
+            verticalGap="0"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            horizontalAlign="center"
+            >
+            <mx:Button
+               id="b_cancel"
+               label="Cancel"
+               click="this.cancel();"/>
+         </mx:VBox>
+
+         <mx:VBox
+            width="33%"
+            verticalGap="0"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            horizontalAlign="right"
+            >
+            <views_panel_util:Hyper_Link
+               id="i_got_it_link"
+               htmlText="{this.dismissable ? 'I got it!' : ''}"
+               click="this.on_i_got_it_link_click();"
+               toolTip=
+   "Click here to keep working and we'll load the new route when it's ready."
+               />
+         </mx:VBox>
+
+      </mx:HBox>
+
+   </mx:VBox>
+
+</mx:TitleWindow>
+

@@ -1,0 +1,2841 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   verticalScrollPolicy="off"
+   resize="this.on_resize(event)"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.DisplayObject;
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.text.TextFormat;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.managers.PopUpManager;
+
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Route_Get_New;
+      import items.Geofeature;
+      import items.feats.Route;
+      import items.utils.Travel_Mode;
+      import utils.geom.Location;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set_UUID;
+      import utils.misc.Text2;
+      import views.base.UI;
+      import views.map_components.Please_Wait_Popup;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_search.Panel_Search_Result;
+      import views.panel_util.Alert_Dialog;
+      import views.panel_util.Pointing_Widget;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rts_New');
+
+      protected static const classic_rf_tooltip:String =
+           "Try this option if you'd like your route computed by the "
+         + "original Cyclopath route finder. We used this algorithm "
+         + "until 2013. We switched our algorithm in 2014 after "
+         + "releasing Cyclopath Greater Minnesota. The new algorithm "
+         + "is faster and should be able to generate more varieties "
+         + "of the same route as you fiddle with the influence value.";
+
+      public static const INPUT_BEG:int = 1;
+      public static const INPUT_FIN:int = 2;
+      public static const INPUT_BOTH:int = 3;
+      public static const INPUT_NEITHER:int = 3;
+
+      // *** Instance variables
+
+      protected var without_scroll_height:int = 0;
+
+      protected var not_first_branch_change:Boolean = false;
+
+      protected var panel_last_opened:int = -1;
+
+      protected var source:String;
+
+      protected var p2_depart_at:Date;
+
+      // If pre-geocoding, don't show alerts or ask user things.
+      public var pregeocoding:Boolean = false;
+      public var routstanding:Boolean = false;
+
+      // You can cancel the route request while it's processing.
+      protected var gwis_active_routeop:GWIS_Route_Get_New;
+
+      // 2014.April: [lb] finally de-blocking the Please Wait... popup.
+      //             Users can now dismiss the dialog so they can continue
+      //             working while the route request is being processed.
+      //             Yeah, we'll interupt the user when the route is
+      //             returned -- by opening the route details panel --
+      //             but this is better than blocking users from using
+      //             the application for twenty or forty seconds. There's
+      //             no compelling reason not to let the user keep working.
+      protected var gwis_active_alert:Please_Wait_Popup;
+
+      // *** Base class overrides
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         this.register_widgets([
+            this.beg_addr_resolver,
+            this.fin_addr_resolver,
+            this.widget_multimodal,
+            this.anchored_find_route,
+            this.floating_find_route,
+            ]);
+      }
+
+      //
+      override protected function has_auto_scroll_bar_policy() :Boolean
+      {
+         return true;
+      }
+
+      //
+      protected function on_branch_change(event:Event=null) :void
+      {
+         if (!this.not_first_branch_change) {
+            //this.not_first_branch_change = true;
+
+            // BUG nnnn/MAYBE: Let users set default beg and/or fin addrs?
+            if ((Conf_Instance.debug_goodies)
+                && (G.user.username == 'landonb')) {
+
+               this.beg_addr_resolver.raw_addr_input.text = 
+                  //'Gateway Fountain';
+                  //'5051 dupont ave s, mpls';
+                  'Waldo Rd & Airport Rd, Two Harbors';
+
+               this.fin_addr_resolver.raw_addr_input.text = 
+                  //'Mall of America Station';
+                  //'De La Salle High School';
+                  //'w 40th st and dupont ave s mpls';
+                  '7th St & 8th Ave, Two Harbors';
+
+               m4_DEBUG('on_branch_change: geocode_start');
+               this.pregeocoding = true;
+               this.beg_addr_resolver.geocode_start();
+               this.fin_addr_resolver.geocode_start();
+               // this.display_find_route_help(/*show_help=*/false);
+            }
+         }
+      }
+
+      //
+      protected function on_enter_state_layout_() :void
+      {
+         m4_DEBUG('on_enter_state_layout_');
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+
+         G.app.addEventListener('user_event_change', this.on_user_change);
+         this.on_user_change();
+
+         G.item_mgr.addEventListener('branchChange', this.on_branch_change);
+
+         this.change_state('layout_mm');
+      }
+
+      //
+      // NOTE: The base class doesn't hook on_resize, but it defines a
+      //       callback (which is a no-op). We hook the resize event above.
+      override public function on_resize(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize: this.dp.height:', this.dp.height);
+         if (this.dp.height > 0) {
+            if (this.details_main_box.height) {
+               if (!this.without_scroll_height) {
+                  // Hack! Let Flex create the component raw, without the
+                  // scrollbar, and then grab its height, which we'll use
+                  // to determine if we show the floating find route or the
+                  // footer version.
+                  this.without_scroll_height = this.details_main_box.height;
+                  this.details_main_box.verticalScrollPolicy = 'auto';
+               }
+               this.on_resize_(event);
+            }
+            // else, just starting up.
+         }
+      }
+
+      //
+      protected function on_resize_(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize_: this.height:', this.height);
+
+         m4_PPUSH2('route_tabs.height:',
+                   G.app.routes_panel.route_tabs.height);
+
+         m4_PPUSH2('route_tabs.fontSize:',
+                   G.app.routes_panel.route_tabs.getStyle('fontSize'));
+         m4_PPUSH2('route_tabs.paddingTop:',
+                   G.app.routes_panel.route_tabs.getStyle('paddingTop'));
+         m4_PPUSH2('route_tabs.paddingBottom:',
+                   G.app.routes_panel.route_tabs.getStyle('paddingBottom'));
+
+         m4_PPUSH3('has_VerticalScrollBar_(details_main_box):',
+                   Detail_Panel_Base.has_VerticalScrollBar_(
+                                  this.details_main_box));
+
+         m4_PPUSH('details_main_box.height:', this.details_main_box.height);
+         this.details_main_box.height = NaN;
+         m4_PPUSH('details_main_box.height:', this.details_main_box.height);
+
+         var details_main_height_floater:int;
+         details_main_height_floater =
+            //
+            this.dp.height
+            //
+            - this.dp.getStyle('paddingTop')
+            - this.dp.getStyle('paddingBottom')
+            //
+            - G.app.routes_panel.route_tabs.getStyle('fontSize')
+            - G.app.routes_panel.route_tabs.getStyle('paddingTop')
+            - G.app.routes_panel.route_tabs.getStyle('paddingBottom')
+            //
+            - this.getStyle('paddingTop')
+            - this.getStyle('paddingBottom')
+            //
+            // There are two VBoxes in the inner VBox, so one vertical Gap.
+            - this.box_details_all.getStyle('paddingTop')
+            - this.box_details_all.getStyle('paddingBottom')
+            // When borderStyle is "solid", check borderThickness (default: 1).
+            // MAGIC_NUMBER: The border has upper and lower edges, or 2 edges.
+            - 2 * this.box_details_all.getStyle('borderThickness')
+            //
+            - this.details_main_box.getStyle('paddingTop')
+            - this.details_main_box.getStyle('paddingBottom')
+            - 2 * this.details_main_box.getStyle('borderThickness')
+            //
+            ;
+
+         m4_PPUSH('details_main_height_floater:', details_main_height_floater);
+
+         /* BUG nnnn: Resize the window and Find Route button disappears.
+
+            Originally reported BUG_FALL_2013. Also seen APRIL2014, but it's
+            not _so_ bad. Most people don't resize their windows, or they
+            find that they can usually scroll to the Find Route button ([lb]
+            can't remember the last time he saw it disappear; usually, the
+            footer just doesn't reappear when it should... I think).
+
+            Here are some handy commands for easy testing by using a terminal
+            command to change the dimensions of your browser window:
+
+               sudo apt-get install wmctrl
+               wmctrl -r "Cyclopath Geowiki - Mozilla Firefox" -e 0,0,0,900,600
+
+            To reproduce, run the wmctrl command, and then,
+            If you click Show More Options, the Find Route button disappears.
+
+            It seems to be the fault of Hide This Message... so it's a problem
+            with the Pyserver_Message notification widget.
+
+            */
+
+         m4_PPUSH('find_route_anchor.height:', this.find_route_anchor.height);
+
+         var details_main_height_anchor:int;
+         details_main_height_anchor =
+            //
+            details_main_height_floater
+            - this.box_details_all.getStyle('verticalGap')
+            - this.find_route_anchor.height
+            // MAGIC_NUMBER: A little fudge factor... maybe it's the scroll bar
+            //                elevator button height...
+            - 13
+            ;
+
+         m4_PPUSH('details_main_height_anchor:', details_main_height_anchor);
+
+         var details_main_height:int;
+         //Wrong: if (details_main_height_floater < this.without_scroll_height)
+         if ((details_main_height_anchor < this.without_scroll_height)
+             || (this.multimodal_and_remember_and_classic.visible)) {
+            details_main_height = details_main_height_anchor;
+            this.find_route_floater.visible = false;
+            this.find_route_anchor.visible = true;
+         }
+         else {
+            details_main_height = details_main_height_floater;
+            this.find_route_floater.visible = true;
+            this.find_route_anchor.visible = false;
+         }
+
+         this.details_main_box.height = details_main_height;
+         this.details_main_box.maxHeight = details_main_height;
+
+         m4_PPUSH3('on_resize: details_main_box.height:',
+                   this.details_main_box.height,
+                   '/ maxHeight:', this.details_main_box.maxHeight);
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         // User has changed, reload user-specific defaults.
+         m4_DEBUG('on_user_change');
+         if (G.user !== null) {
+            this.reset();
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate: setting state:', G.panel_mgr.layout_theme);
+         this.change_state(G.panel_mgr.layout_theme);
+      }
+
+      //
+      protected function reposition_scroll_bar() :void
+      {
+         m4_DEBUG_CLLL('<callLater: reposition_scroll_bar');
+         //
+         // m4_DEBUG2('reposition_scroll_bar: this.verticalScrollPosition:',
+         //           this.verticalScrollPosition);
+         var rect:Rectangle = this.link_more_options_box.getBounds(this);
+         // reposition_scroll_bar: get_bounds: (x=0, y=355, w=1113, h=352)
+         //  m4_DEBUG('reposition_scroll_bar: get_bounds:', rect);
+         this.verticalScrollPosition = rect.y;
+      }
+
+      // *** Getters and setters
+
+      //
+      protected function get error_text() :String
+      {
+         var msg:Array = new Array();
+         if (!this.beg_addr_resolver.raw_addr_valid) {
+            msg.push('The From address is missing.');
+         }
+         if (!this.fin_addr_resolver.raw_addr_valid) {
+            msg.push('The To address is missing.');
+         }
+         if (!this.tagprefs.valid) {
+            msg.push(this.tagprefs.error_text);
+         }
+         if (!this.another_tagprefs.valid) {
+            msg.push(this.another_tagprefs.error_text);
+         }
+         if (msg.length > 0) {
+            return msg.join('\n');
+         }
+         return null;
+      }
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         // We belong to a container panel (i.e., tab bar and ViewStack).
+         return G.app.routes_panel;
+      }
+
+      //
+      public function get restrict_p1() :Boolean
+      {
+         var restrict_p1:Boolean = false;
+         try {
+            restrict_p1 = this.classic_rf_enable.selected;
+         }
+         catch (e:TypeError) { } // Application must be bootstrapping.
+         return restrict_p1;
+      }
+
+      //
+      public function get restrict_p2() :Boolean
+      {
+         var restrict_p2:Boolean = false;
+         try {
+            restrict_p2 = (
+               (this.widget_multimodal.widget_container.visible)
+               && (this.widget_multimodal.multimodal.selected));
+         }
+         catch (e:TypeError) { } // Application must be bootstrapping.
+         return restrict_p2;
+      }
+
+      //
+      public function get restrict_p3() :Boolean
+      {
+         var restrict_p3:Boolean = false;
+         try {
+            restrict_p3 = (!(this.restrict_p1 || this.restrict_p2));
+         }
+         catch (e:TypeError) { } // Application must be bootstrapping.
+         return restrict_p3;
+      }
+
+      //
+      public function get p2_transit_pref() :int
+      {
+         var p2_transit_pref:int = 0;
+         if ((this.widget_multimodal.widget_container.visible)
+             && (this.widget_multimodal.multimodal.selected)) {
+            p2_transit_pref = this.widget_multimodal.transit_pref.value;
+         }
+         return p2_transit_pref;
+      }
+
+      //
+      public function get travel_mode() :int
+      {
+         var tmode:int;
+         // This is a hacky check to see that multimodal is enabled
+         // and then to see if the user has the checkbox selected.
+
+         if ((this.widget_multimodal.widget_container.visible)
+             && (this.widget_multimodal.multimodal.selected)) {
+            // 2014.04.18: Multim. rte planner still broke/returns weird rtes.
+            tmode = Travel_Mode.transit;
+         }
+         else if (this.classic_rf_enable.selected) {
+            // 2014.April: Classic route finder "retired"; can visit at Home.
+            tmode = Travel_Mode.classic;
+         }
+         else {
+            // 2014.04.18: The new p3 planner is the new default finder.
+            tmode = Travel_Mode.wayward;
+         }
+
+         return tmode;
+      }
+
+      //
+      protected function get valid() :Boolean
+      {
+         var is_valid:Boolean = (
+               (this.beg_addr_resolver.valid)
+            && (this.fin_addr_resolver.valid)
+            && (this.tagprefs.valid)
+            && (this.another_tagprefs.valid));
+         m4_DEBUG('get valid:', is_valid);
+         return is_valid;
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_button_restore_defaults_click() :void
+      {
+         G.sl.event('ui/container/route_finder/defaults_restore');
+
+         G.user.rf_prefs_default();
+
+         this.classic_rf_enable.selected = false;
+         this.widget_multimodal.multimodal.selected = false;
+         this.multimodal_and_remember_and_classic.visible = false;
+         this.use_my_rat_tags_cbox.selected = false;
+
+         this.reset();
+
+         this.tagprefs.scrollToIndex(0);
+         this.another_tagprefs.scrollToIndex(0);
+
+         //this.scrollToIndex(0);
+         this.verticalScrollPosition = 0;
+      }
+
+      //
+      protected function reset() :void
+      {
+         if (   (G.user.rf_p3_weight_type == 'prat')
+             || (G.user.rf_p3_weight_type == 'pfac')
+             || (G.user.rf_p3_weight_type == 'prac')) {
+            this.use_my_rat_tags_cbox.selected = true;
+         }
+         else {
+            this.use_my_rat_tags_cbox.selected = false;
+         }
+         this.rating_spread_reset();
+         this.facility_burden_reset();
+
+         this.tagprefs.reset();
+         this.another_tagprefs.reset();
+
+         // Classic p1 priority sets edge cost ratio. It ranges
+         // from 1.0 (best bikeability) to 0.0 (least distance).
+         this.priority_slider.value = 1.0 - G.user.rf_p1_priority;
+
+         // MAGIC_NUMBER: p1, p2, p3... 2 is the multimodal planner.
+         this.widget_multimodal.multimodal.selected =
+            (G.user.rf_planner_default == Travel_Mode.transit);
+         this.widget_multimodal.transit_pref.value = G.user.rf_p2_transit_pref;
+         // Make sure the additional settings show if the user has multimodal
+         // selected...
+         // FIXME: This also shows the tag prefs, but maybe we want to keep
+         //        that hidden.
+         if (G.user.rf_planner_default == Travel_Mode.transit) {
+            if (!this.multimodal_and_remember_and_classic.visible) {
+               this.multimodal_and_remember_and_classic_toggle();
+            }
+         }
+
+         var cboxname:String;
+         var cboxttip:String;
+         if (G.user.logged_in) {
+            cboxname = 'Use My Ratings and Include Tag Preferences';
+            cboxttip =
+               'Check this box if you have rated lots of roads and would '
+               + 'like to use your ratings to personalize the route, or '
+               + 'if you would like to use tag preferences to customize '
+               + 'the route. '
+               + 'But please be patient: A personalized route can take '
+               + 'longer to find.';
+            this.route_patience_warning.htmlText =
+               '<i>Please note:</i><br/>'
+               + 'It takes longer to find a personalized route.';
+         }
+         else {
+            cboxname = 'Include Tag Preferences';
+            cboxttip =
+               'Check this box if you would like to use tag preferences. '
+               + 'Please be patient: Personalizing a route with tag '
+               + 'preferences takes our software longer to plan.';
+            this.route_patience_warning.htmlText =
+               '<i>Please note:</i><br/>'
+               + 'It takes longer to find a route using tags.';
+         }
+         //this.use_my_rat_tags_cbox.label = cboxname;
+         this.use_my_rat_tags_cbox.toolTip = cboxttip;
+         this.use_my_rat_tags_lbl.text = cboxname
+         this.use_my_rat_tags_lbl.toolTip = cboxttip;
+
+         this.use_classic_lbl.toolTip = Panel_Routes_New.classic_rf_tooltip;
+         this.classic_rf_enable.toolTip = Panel_Routes_New.classic_rf_tooltip;
+
+         this.planner_options_update();
+      }
+
+      // ***
+
+      //
+      protected function on_classic_rf_enable_click(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_classic_rf_enable_click');
+         try {
+            if (this.classic_rf_enable.selected) {
+               this.widget_multimodal.multimodal.selected = false;
+            }
+            this.planner_options_update();
+         }
+         catch (e:TypeError) { } // Application must be bootstrapping.
+      }
+
+      //
+      protected function on_use_classic_lbl_click(event:MouseEvent=null)
+         :void
+      {
+         this.classic_rf_enable.selected = !this.classic_rf_enable.selected;
+
+         this.planner_options_update();
+      }
+
+      protected function on_use_landmarks_btn_click(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_use_landmarks_btn_click');
+         // No-op; we'll just use the state of the button when we submit the
+         // route request.
+      }
+
+      //
+      protected function on_use_landmarks_lbl_click(event:MouseEvent=null)
+         :void
+      {
+         // Toggle the checkbox button.
+         this.use_landmarks_btn.selected = !this.use_landmarks_btn.selected;
+      }
+
+      //
+      protected function on_use_my_rat_tags_lbl_click(event:MouseEvent=null)
+         :void
+      {
+         this.use_my_rat_tags_cbox.selected =
+            !this.use_my_rat_tags_cbox.selected;
+
+         this.on_use_my_rat_tags_cbox_click();
+      }
+
+      //
+      protected function on_widget_multimodal_change() :void
+      {
+         m4_DEBUG('on_widget_multimodal_change');
+         try {
+            if (this.widget_multimodal.multimodal.selected) {
+               this.classic_rf_enable.selected = false;
+            }
+            this.planner_options_update();
+         }
+         catch (e:TypeError) { } // Application must be bootstrapping.
+      }
+
+      //
+      protected function multimodal_and_remember_and_classic_toggle() :void
+      {
+         m4_ASSERT(G.app.routes_panel.routes_new === this);
+
+         if (this.multimodal_and_remember_and_classic.visible) {
+            this.link_more_options.htmlText = 'Show More Options &#187;';
+            this.multimodal_and_remember_and_classic.visible = false;
+            this.multimodal_and_remember_and_classic.includeInLayout = false;
+            this.widget_multimodal.multimodal.selected = false;
+            this.classic_rf_enable.selected = false;
+         }
+         else {
+            // 2013.02.15: [lb] thinks it should be 'Fewer Options' and not
+            //             'Less Options'. Less is used with uncountables,
+            //             but there are a finite number of options. Also,
+            //             options is plural, and 'less' just doesn't sound
+            //             right.
+            // http://grammar.quickanddirtytips.com/less-versus-fewer.aspx
+            // Okay, [lb] changed his mind again, let's use Show and Hide.
+            //  this.link_more_options.htmlText = 'Fewer Options &#171;';
+            this.link_more_options.htmlText = 'Hide More Options &#171;';
+            this.multimodal_and_remember_and_classic.visible = true;
+            this.multimodal_and_remember_and_classic.includeInLayout = true;
+         }
+
+         this.planner_options_update();
+      }
+
+      // *** p3 Planner Buttons and Such
+
+      //
+      protected function on_planner_chooser_button_click(event:MouseEvent)
+         :void
+      {
+         m4_DEBUG2('_plnnr_chsr_btn_clck: event:', event,
+                   '/ target:', event.target);
+
+         // You can ctrl- or shift-click the rating or facility button
+         // to combine both weights in the same request.
+         var combo:Boolean = (event.ctrlKey || event.shiftKey);
+
+         // It's a little tedious figuring out the weight from the widget
+         // states... lots of else ifses.
+         if (event.target === this.planner_choice_len) {
+            // Ignore combo.
+            G.user.rf_p3_weight_type = 'len';
+         }
+         else if (event.target === this.planner_choice_rat) {
+            if ((combo) && (G.user.rf_p3_weight_type == 'fac')) {
+               G.user.rf_p3_weight_type = 'rac';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'pfac')) {
+               G.user.rf_p3_weight_type = 'prac';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'rac')) {
+               G.user.rf_p3_weight_type = 'fac';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'prac')) {
+               G.user.rf_p3_weight_type = 'pfac';
+            }
+            else if (this.use_my_rat_tags_cbox.selected) {
+               G.user.rf_p3_weight_type = 'prat';
+            }
+            else {
+               G.user.rf_p3_weight_type = 'rat';
+            }
+         }
+         else if (event.target === this.planner_choice_fac) {
+            if ((combo) && (G.user.rf_p3_weight_type == 'rat')) {
+               G.user.rf_p3_weight_type = 'rac';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'prat')) {
+               G.user.rf_p3_weight_type = 'prac';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'rac')) {
+               G.user.rf_p3_weight_type = 'rat';
+            }
+            else if ((combo) && (G.user.rf_p3_weight_type == 'prac')) {
+               G.user.rf_p3_weight_type = 'prat';
+            }
+            else if (this.use_my_rat_tags_cbox.selected) {
+               G.user.rf_p3_weight_type = 'pfac';
+            }
+            else {
+               G.user.rf_p3_weight_type = 'fac';
+            }
+         }
+         m4_ASSERT_ELSE_SOFT;
+
+         m4_DEBUG('_plnnr_chsr_btn_clck: p3 wgt:', G.user.rf_p3_weight_type);
+
+         if ((G.user.rf_p3_weight_type == 'rac')
+             || (G.user.rf_p3_weight_type == 'prac')) {
+            m4_DEBUG('_plnnr_chsr_btn_clck: fixing dualing sliders');
+            // Range is -1 to 5, and only endpoints enabled, so 6.
+            this.rating_spread_slider.tickInterval = 6;
+            this.rating_spread_slider.snapInterval = 6;
+            if (this.rating_spread_slider.value != 5) {
+               this.rating_spread_slider.value = -1;
+            }
+            this.facility_burden_slider.tickInterval = 6;
+            this.facility_burden_slider.snapInterval = 6;
+            if (this.facility_burden_slider.value != 5) {
+               this.facility_burden_slider.value = -1;
+            }
+         }
+         else {
+            m4_DEBUG('_plnnr_chsr_btn_clck: disabling dualing sliders');
+            // Range is -1 to 5, and allpoint enabled, so 1.
+            this.rating_spread_slider.tickInterval = 1;
+            this.rating_spread_slider.snapInterval = 1;
+            this.facility_burden_slider.tickInterval = 1;
+            this.facility_burden_slider.snapInterval = 1;
+         }
+
+         this.planner_options_update();
+      }
+
+      //
+      protected function on_use_my_rat_tags_cbox_click(event:MouseEvent=null)
+         :void
+      {
+         // Ug... this is tedious, but it seems to be the only way.
+         // Set the weight type according to the state of the widgets.
+         if (this.use_my_rat_tags_cbox.selected) {
+            m4_ASSERT_SOFT(G.user.rf_p3_weight_type != 'len');
+            if (G.user.rf_p3_weight_type == 'rat') {
+               G.user.rf_p3_weight_type = 'prat';
+            }
+            else if (G.user.rf_p3_weight_type == 'fac') {
+               G.user.rf_p3_weight_type = 'pfac';
+            }
+            else if (G.user.rf_p3_weight_type == 'rac') {
+               G.user.rf_p3_weight_type = 'prac';
+            }
+            // else, rf_p3_weight_type already a 'p***'.
+         }
+         else {
+            if (G.user.rf_p3_weight_type == 'prat') {
+               G.user.rf_p3_weight_type = 'rat';
+            }
+            else if (G.user.rf_p3_weight_type == 'pfac') {
+               G.user.rf_p3_weight_type = 'fac';
+            }
+            else if (G.user.rf_p3_weight_type == 'prac') {
+               G.user.rf_p3_weight_type = 'rac';
+            }
+            // else, rf_p3_weight_type 'len' or not a 'p***'.
+         }
+
+         this.planner_options_update();
+      }
+
+      //
+      protected function planner_options_update() :void
+      {
+         this.planner_choice_len.selected = false;
+         this.planner_choice_rat.selected = false;
+         this.planner_choice_fac.selected = false;
+         this.personalized_route_option.visible = true;
+         this.personalized_route_option.includeInLayout = true;
+         if ((G.user.rf_p3_weight_type == 'rac')
+             || (G.user.rf_p3_weight_type == 'prac')) {
+            this.planner_choice_rat.selected = true;
+            this.planner_choice_fac.selected = true;
+         }
+         else if ((G.user.rf_p3_weight_type == 'rat')
+                  || (G.user.rf_p3_weight_type == 'prat')) {
+            this.planner_choice_rat.selected = true;
+         }
+         else if ((G.user.rf_p3_weight_type == 'fac')
+                  || (G.user.rf_p3_weight_type == 'pfac')) {
+            this.planner_choice_fac.selected = true;
+         }
+         else {
+            this.planner_choice_len.selected = true;
+            this.personalized_route_option.visible = false;
+            this.personalized_route_option.includeInLayout = false;
+         }
+
+         this.optgroup_length_inner.visible = false;
+         this.optgroup_length_inner.includeInLayout = false;
+         this.optgroup_rating_spread_inner.visible = false;
+         this.optgroup_rating_spread_inner.includeInLayout = false;
+         this.optgroup_facility_burden_inner.visible = false;
+         this.optgroup_facility_burden_inner.includeInLayout = false;
+
+         if ((G.user.rf_p3_weight_type == 'rac')
+             || (G.user.rf_p3_weight_type == 'prac')) {
+            this.optgroup_rating_spread_inner.visible = true;
+            this.optgroup_rating_spread_inner.includeInLayout = true;
+            this.optgroup_facility_burden_inner.visible = true;
+            this.optgroup_facility_burden_inner.includeInLayout = true;
+         }
+         else if ((G.user.rf_p3_weight_type == 'rat')
+                  || (G.user.rf_p3_weight_type == 'prat')) {
+            this.optgroup_rating_spread_inner.visible = true;
+            this.optgroup_rating_spread_inner.includeInLayout = true;
+         }
+         else if ((G.user.rf_p3_weight_type == 'fac')
+                  || (G.user.rf_p3_weight_type == 'pfac')) {
+            this.optgroup_facility_burden_inner.visible = true;
+            this.optgroup_facility_burden_inner.includeInLayout = true;
+         }
+         else {
+            this.optgroup_length_inner.visible = true;
+            this.optgroup_length_inner.includeInLayout = true;
+         }
+
+         // Not used by flashclient (use server default): rf_p3_spalgorithm.
+
+         if (this.planner_p1_classic.visible != this.restrict_p1) {
+            this.planner_p1_classic.visible = this.restrict_p1;
+            this.planner_p1_classic.includeInLayout = this.restrict_p1;
+            if (this.planner_p1_classic.visible) {
+               this.another_tagprefs.reload();
+            }
+            else {
+               this.tagprefs.reload();
+            }
+         }
+
+         var restrict_p3:Boolean = this.restrict_p3;
+
+         var show_p1_options:Boolean = ((G.user.rf_p3_weight_type != 'len')
+                                    && (this.use_my_rat_tags_cbox.selected));
+         this.planner_p1_options.visible = show_p1_options;
+         this.planner_p1_options.includeInLayout = show_p1_options;
+         this.planner_p1_options.enabled = restrict_p3;
+         this.route_patience_warning.visible = show_p1_options;
+         this.route_patience_warning.includeInLayout = show_p1_options;
+         this.route_patience_warning.enabled = restrict_p3;
+         //
+         this.optgroup_biking_preference_outer.enabled = restrict_p3;
+
+         m4_DEBUG_CLLL('>callLater: reposition_scroll_bar');
+         G.map.callLater(this.reposition_scroll_bar);
+      }
+
+      // *** Bikeability/Rating Spread and Willingness/Facilty Burdern Sliders
+
+      //
+      protected function on_rating_spread_slider_change() :void
+      {
+         var cur_rating_spread:Number = this.rating_spread_slider.value;
+         m4_DEBUG('on_rating_spread_slider_change:', cur_rating_spread);
+         if (G.user !== null) {
+            // SYNC_ME: flashclient/views/panel_routes/Panel_Routes_New.mxml
+            //          pyserver/planner/routed_p3/tgraph.ph
+            //          Specifically: Trans_Graph.rating_pows
+            if (cur_rating_spread == -1) {
+               G.user.rf_p3_rating_pump = 128;
+            }
+            else if (cur_rating_spread == 0) {
+               G.user.rf_p3_rating_pump = 64;
+            }
+            else if (cur_rating_spread == 1) {
+               G.user.rf_p3_rating_pump = 32;
+            }
+            else if (cur_rating_spread == 2) {
+               G.user.rf_p3_rating_pump = 16;
+            }
+            else if (cur_rating_spread == 3) {
+               G.user.rf_p3_rating_pump = 8;
+            }
+            else if (cur_rating_spread == 4) {
+               G.user.rf_p3_rating_pump = 4;
+            }
+            else if (cur_rating_spread == 5) {
+               G.user.rf_p3_rating_pump = 2;
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+            }
+         }
+      }
+
+      //
+      protected function rating_spread_reset() :void
+      {
+         m4_DEBUG2('rating_spread_reset: rating_spread:',
+                   G.user.rf_p3_rating_pump);
+         // SYNC_ME: flashclient/views/panel_routes/Panel_Routes_New.mxml
+         //          pyserver/planner/routed_p3/tgraph.ph
+         //          Specifically: Trans_Graph.burden_vals
+         if (G.user.rf_p3_rating_pump == 128) {
+            this.rating_spread_slider.value = -1;
+         }
+         else if (G.user.rf_p3_rating_pump == 64) {
+            this.rating_spread_slider.value = 0;
+         }
+         else if (G.user.rf_p3_rating_pump == 32) {
+            this.rating_spread_slider.value = 1;
+         }
+         else if (G.user.rf_p3_rating_pump == 16) {
+            this.rating_spread_slider.value = 2;
+         }
+         else if (G.user.rf_p3_rating_pump == 8) {
+            this.rating_spread_slider.value = 3;
+         }
+         else if (G.user.rf_p3_rating_pump == 4) {
+            this.rating_spread_slider.value = 4;
+         }
+         else if (G.user.rf_p3_rating_pump == 2) {
+            this.rating_spread_slider.value = 5;
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      //
+      protected function on_facility_burden_slider_change() :void
+      {
+         var cur_facility_burden:Number = this.facility_burden_slider.value;
+         m4_DEBUG('on_facility_burden_slider_change:', cur_facility_burden);
+         if (G.user !== null) {
+            // SYNC_ME: flashclient/views/panel_routes/Panel_Routes_New.mxml
+            //          pyserver/planner/routed_p3/tgraph.ph
+            //          Specifically: Trans_Graph.burden_vals
+            if (cur_facility_burden == -1) {
+               G.user.rf_p3_burden_pump = 98;
+            }
+            else if (cur_facility_burden == 0) {
+               G.user.rf_p3_burden_pump = 95;
+            }
+            else if (cur_facility_burden == 1) {
+               G.user.rf_p3_burden_pump = 90;
+            }
+            else if (cur_facility_burden == 2) {
+               G.user.rf_p3_burden_pump = 65;
+            }
+            else if (cur_facility_burden == 3) {
+               G.user.rf_p3_burden_pump = 40;
+            }
+            else if (cur_facility_burden == 4) {
+               G.user.rf_p3_burden_pump = 20;
+            }
+            else if (cur_facility_burden == 5) {
+               G.user.rf_p3_burden_pump = 10;
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+            }
+         }
+      }
+
+      //
+      protected function facility_burden_reset() :void
+      {
+         m4_DEBUG2('facility_burden_reset: facility_slog:',
+                   G.user.rf_p3_burden_pump);
+         // SYNC_ME: flashclient/views/panel_routes/Panel_Routes_New.mxml
+         //          pyserver/planner/routed_p3/tgraph.ph
+         //          Specifically: Trans_Graph.burden_vals
+         if (G.user.rf_p3_burden_pump == 98) {
+            this.facility_burden_slider.value = -1;
+         }
+         else if (G.user.rf_p3_burden_pump == 95) {
+            this.facility_burden_slider.value = 0;
+         }
+         else if (G.user.rf_p3_burden_pump == 90) {
+            this.facility_burden_slider.value = 1;
+         }
+         else if (G.user.rf_p3_burden_pump == 65) {
+            this.facility_burden_slider.value = 2;
+         }
+         else if (G.user.rf_p3_burden_pump == 40) {
+            this.facility_burden_slider.value = 3;
+         }
+         else if (G.user.rf_p3_burden_pump == 20) {
+            this.facility_burden_slider.value = 4;
+         }
+         else if (G.user.rf_p3_burden_pump == 10) {
+            this.facility_burden_slider.value = 5;
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      //
+      protected function on_format_data_tip_rating_spread(val:String) :String
+      {
+         var data_tip:String;
+
+         var cur_influence:int = int(val);
+         //m4_DEBUG('on_format_data_tip: cur_influence:', cur_influence);
+
+         // SYNC_ME: This matches the HSlider below, facility_burden_slider.
+         // MAGIC_NUMBERS: Slider ranges 1/Twice as far to 5/A little further.
+
+         if (cur_influence == -1) {
+            // Burden: 128.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'even if it quadruples the length of the route.';
+         }
+         else if (cur_influence == 0) {
+            // Burden: 64.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'even if it quadruples the length of the route.';
+         }
+         else if (cur_influence == 1) {
+            // Burden: 32.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'even if it doubles, triples, or even quadruples '
+               + 'the length of the route.';
+         }
+         else if (cur_influence == 2) {
+            // Burden: 16.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'even if it doubles or triples '
+               + 'the length of the route.';
+         }
+         else if (cur_influence == 3) {
+            // Burden: 8.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'even if it doubles '
+               + 'the length of the route.';
+         }
+         else if (cur_influence == 4) {
+            // Burden: 4.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'but only if '
+               + 'adds less than 40% of the distance of shortest route.';
+         }
+         else if (cur_influence == 5) {
+            // Burden: 2.
+            data_tip =
+               'Try to find a route that uses highly rated roads, '
+               + 'but only if '
+               + 'adds less than 20% of the distance of shortest route.';
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+
+         return data_tip;
+      }
+
+      //
+      protected function on_format_data_tip_facility_burden(val:String) :String
+      {
+         var data_tip:String;
+
+         var cur_facility_burden:int = int(val);
+         //m4_DEBUG2('on_format_data_tip: cur_facility_burden:',
+         //          cur_facility_burden);
+
+         // SYNC_ME: This matches the HSlider below, facility_burden_slider.
+         // MAGIC_NUMBERS: Slider ranges 1/Twice as far to 5/A little further.
+
+         if (cur_facility_burden == -1) {
+            // Burden: 98 (50x edge weights).
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, even if it '
+               + 'doubles the length of the route.';
+         }
+         else if (cur_facility_burden == 0) {
+            // Burden: 95 (20x edge weights).
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, even if it '
+               + 'doubles the length of the route.';
+         }
+         else if (cur_facility_burden == 1) {
+            // Burden: 90 (10x edge weights).
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, even if it '
+               + 'doubles the length of the route.';
+         }
+         else if (cur_facility_burden == 2) {
+            // Burden: 65.
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, even if it '
+               + 'increases the length of the route by 65%.';
+         }
+         else if (cur_facility_burden == 3) {
+            // Burden: 40.
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, even if it '
+               + 'increases the length of the route by 40%.';
+         }
+         else if (cur_facility_burden == 4) {
+            // Burden: 20.
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, but only if '
+               + 'it adds less than 20% of the distance of shortest route.';
+         }
+         else if (cur_facility_burden == 5) {
+            // Burden: 10.
+            data_tip =
+               'Try to find a route that uses bike trails, bike lanes, '
+               + 'bike boulevards, and other bike facilities, but only if '
+               + 'it adds less than 10% of the distance of shortest route.';
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+
+         return data_tip;
+      }
+
+      // *** p1 Planner Priority (Bikeability) Slider
+
+      //
+      // Legacy/classic route finder slider.
+      protected function on_format_data_tip_priority_slider(val:String) :String
+      {
+         var data_tip:String;
+
+         var cur_priority:Number = Number(val);
+         m4_DEBUG('on_format_data_tip: cur_priority:', cur_priority);
+
+         // SYNC_ME: This matches the HSlider below, priority_slider.
+         // MAGIC_NUMBERS: Slider goes from 0 (Fast) to 1 (Friendly).
+         // 2013.05.23: [lb] Flipped it, from 1 to 0. Blather is below. BUB.
+         cur_priority = 1.0 - cur_priority;
+
+         if (cur_priority == 0.0) {
+            data_tip = 'Find the fastest bike route.';
+         }
+         else if (cur_priority == 0.125) {
+            data_tip = 'Find a pretty fast bike route.';
+         }
+         else if (cur_priority == 0.25) {
+            data_tip = 'Find a fast bike route.';
+         }
+         else if (cur_priority == 0.375) {
+            data_tip = 'Find a somewhat fast bike route.';
+         }
+         else if (cur_priority == 0.5) {
+            data_tip = 'Find a decently fast, bikeable route.';
+         }
+         else if (cur_priority == 0.625) {
+            data_tip = 'Find a somewhat bike-friendly route.';
+         }
+         else if (cur_priority == 0.75) {
+            data_tip = 'Find a bike-friendly bike route.';
+         }
+         else if (cur_priority == 0.875) {
+            // data_tip = 'Find a mostly bike-friendly route.';
+            data_tip = 'Find a mostly bike-friendliest route.';
+         }
+         else if (cur_priority == 1.0) {
+            // data_tip = 'Find the bike-friendliest bike route.';
+            // data_tip = 'Find a most bike-friendly bike route.';
+            // data_tip = 'Find a most bike-friendliest bike route.';
+            // data_tip = 'Find the friendliest bike route.';
+            data_tip = 'Find the nicest bike route.';
+         }
+         else {
+            // You're doing it wrong. 
+            //   snapInterval="0.125"
+            //   tickInterval="0.125"
+            m4_ASSERT_SOFT(false);
+         }
+
+         return data_tip;
+      }
+
+      //
+      protected function on_priority_change() :void
+      {
+         // 2013.05.23: Silly. Setting priority_slider.value in the MXML to
+         //             something other than 0 causes the change event to fire
+         //             on creation, before G.user, etc., is ready (tada, null
+         //             reference).
+         if (G.user !== null) {
+            // 2013.05.23: [lb] Flipped it, from 1 to 0. Blather is below. BUB.
+            //  G.user.rf_p1_priority = this.priority_slider.value;
+            G.user.rf_p1_priority = 1.0 - this.priority_slider.value;
+         }
+      }
+
+      // *** Managing To/From and Pre-Geocoding
+
+      //
+      public function find_route_maybe(caller_alias:String) :void
+      {
+         if (this.resolver_geocoders_inactive) {
+            this.pregeocoding = false;
+         }
+         m4_DEBUG2('find_route_maybe: pregeocoding:', this.pregeocoding,
+                   '/ routstanding:', this.routstanding);
+         if ((!this.pregeocoding) && (this.routstanding)) {
+            // Respond to geocoding results.
+            if (   (this.beg_addr_resolver.addy_chosen.is_geocoded())
+                && (this.fin_addr_resolver.addy_chosen.is_geocoded())) {
+               // Unambiguous geocodes (1 resp each) -- start route finding.
+               m4_DEBUG('find_route_maybe: find_route_send_cmd');
+               this.find_route_send_cmd();
+            }
+            else if (   (this.beg_addr_resolver.addy_chosen.has_results())
+                     && (this.fin_addr_resolver.addy_chosen.has_results())) {
+               // Ambiguous geocodes -- show disambiguation widget.
+               m4_DEBUG('find_route_maybe: show_addy_resolver');
+               this.show_addy_resolver();
+               this.cleanup_popup_maybe();
+            }
+            else {
+               // Still waiting on the other geocode operation, or we only
+               // geocoded one of the addresses (and we're waiting for the
+               // user to fill in the next address).
+               m4_DEBUG('find_route_maybe: still waiting on geocode');
+            }
+         }
+         // else, !this.routstanding, so don't auto-start the find route,
+         //       or this.pregeocoding, so wait for other request to complete.
+      }
+
+      //
+      public function picked_callback() :void
+      {
+         m4_DEBUG2('picked_callback: pregeocoding:', this.pregeocoding,
+                   '/ routstanding:', this.routstanding);
+         // Hide the geocoded resolver.
+         this.show_addy_resolver();
+         this.find_route_maybe(/*caller_alias=*/'picked_callback');
+      }
+
+      //
+      public function geocoded_clear(
+         which_input:int=Panel_Routes_New.INPUT_BOTH)
+            :void
+      {
+         // Called when making a new route request from search results
+         // or an existing route.
+         if (which_input != Panel_Routes_New.INPUT_NEITHER) {
+            if (which_input != Panel_Routes_New.INPUT_FIN) {
+               this.beg_addr_resolver.geocoded_clear();
+            }
+            if (which_input != Panel_Routes_New.INPUT_BEG) {
+               this.fin_addr_resolver.geocoded_clear();
+            }
+         }
+      }
+
+      //
+      public function geocode_start_both() :void
+      {
+         // Preemptive geocoding! =)
+         if (   (this.beg_addr_resolver.gwis_geocode === null)
+             && (!this.beg_addr_resolver.addy_chosen.is_geocoded())
+             && (this.beg_addr_resolver.raw_addr_input.text != '')) {
+            this.pregeocoding = true;
+            m4_DEBUG('geocode_start_both: beg_addr_resolver.geocode_start');
+            this.beg_addr_resolver.geocode_start();
+         }
+         if (   (this.fin_addr_resolver.gwis_geocode === null)
+             && (!this.fin_addr_resolver.addy_chosen.is_geocoded())
+             && (this.fin_addr_resolver.raw_addr_input.text != '')) {
+            this.pregeocoding = true;
+            m4_DEBUG('geocode_start_both: fin_addr_resolver.geocode_start');
+            this.fin_addr_resolver.geocode_start();
+         }
+         // MAYBE: We could also preemptively start the route finding...
+      }
+
+      //
+      public function manage_destinations_and_find_route_button() :void
+      {
+         var enable:Boolean = (
+               (this.beg_addr_resolver.raw_addr_input.text != '')
+            && (this.fin_addr_resolver.raw_addr_input.text != ''));
+
+         var remind_example:Boolean = false;
+         var remind_choose:Boolean = false;
+         var remind_find:Boolean = false;
+         if (   (this.beg_addr_resolver.raw_addr_input.visible)
+             || (this.fin_addr_resolver.raw_addr_input.visible)) {
+            if (   (this.beg_addr_resolver.addy_chosen.is_geocoded())
+                && (this.fin_addr_resolver.addy_chosen.is_geocoded())) {
+               if (!this.routstanding) {
+                  // Both destinations are specified, but we'll wait for
+                  // the user to tweak Bike Preferences, maybe, and hit
+                  // Find Route when ready.
+                  remind_find = true;
+               }
+               // else, user chose both destinations and started route request.
+            }
+            else if (   (!this.beg_addr_resolver.addy_chosen.has_results())
+                     || (!this.fin_addr_resolver.addy_chosen.has_results())) {
+               // One or both destinations is not specified yet.
+               remind_example = true;
+            }
+            else {
+               // Both destinations indicated, but both are not yet geocoded.
+               remind_choose = true;
+            }
+         }
+
+         m4_DEBUG2('manage_dests_and_find_rte: enabl find route:', enable,
+                   '/ remind_example:', remind_example);
+
+         // this.display_find_route_help(!enable && this.routstanding);
+
+         this.route_addr_example_box.visible = remind_example;
+         this.route_addr_example_box.includeInLayout = remind_example;
+
+         //this.route_click_find_route_reminder.visible = remind_find;
+         //this.route_click_find_route_reminder.includeInLayout = remind_find;
+
+         var find_route_toolTip:String = '';
+         if (remind_example) {
+            find_route_toolTip =
+               "Please enter a From address and a To address "
+               + "to find a route.";
+         }
+         else if (remind_choose) {
+            find_route_toolTip =
+               "We found more than one match. "
+               + "Please choose a specific destination above.";
+         }
+         else if (remind_find) {
+            find_route_toolTip = "";
+         }
+         this.anchored_find_route.find_route.toolTip = find_route_toolTip;
+         this.floating_find_route.find_route.toolTip = find_route_toolTip;
+
+         if (!this.routstanding) {
+            this.cleanup_popup_maybe();
+         }
+      }
+
+      //
+      public function on_either_addr_input_enter() :void
+      {
+         m4_DEBUG('on_either_addr_input_enter');
+         if (   (this.beg_addr_resolver.raw_addr_input.text != '')
+             && (this.fin_addr_resolver.raw_addr_input.text != '')) {
+            this.submit_route_request();
+         }
+      }
+
+      //
+      public function show_addy_resolver() :void
+      {
+         this.beg_addr_resolver.show_addy_resolver();
+         this.fin_addr_resolver.show_addy_resolver();
+
+         if (
+             (this.beg_addr_resolver.geocode_picker.addy_picker_box.visible)
+          || (this.fin_addr_resolver.geocode_picker.addy_picker_box.visible)) {
+            m4_DEBUG('show_addy_resolver: one or more visible');
+            // this.display_find_route_help(/*show_help=*/true);
+
+            this.verticalScrollPosition = 0;
+         }
+         else {
+            m4_DEBUG('show_addy_resolver: neither visible');
+            // this.display_find_route_help(/*show_help=*/false);
+         }
+
+         this.on_resize_();
+      }
+
+      // Validate.  If all checks out, submit route request.
+      public function submit_route_request() :void
+      {
+         // We wait until the user clicks Find Route to be jerks about
+         // telling user what fields are required and what to do next.
+
+         var pointy_target:DisplayObject = null;
+         var pointy_title:String;
+         var pointy_message:String;
+         var from_which_or_to_which:String = '';
+         if (this.beg_addr_resolver.raw_addr_input.text == '') {
+            this.beg_addr_resolver.geocode_addr_valid.required = true;
+            pointy_target = this.beg_addr_resolver.raw_addr_input;
+            from_which_or_to_which = 'from';
+            this.beg_addr_resolver.raw_addr_input.setFocus();
+         }
+         else if (this.fin_addr_resolver.raw_addr_input.text == '') {
+            this.fin_addr_resolver.geocode_addr_valid.required = true;
+            pointy_target = this.fin_addr_resolver.raw_addr_input;
+            from_which_or_to_which = 'to';
+            this.fin_addr_resolver.raw_addr_input.setFocus();
+         }
+         if (pointy_target !== null) {
+            pointy_title = 'Specify a destination';
+            pointy_message = 'Please enter an address, intersection '
+                              + 'or point of interest '
+                              + from_which_or_to_which
+                              + ' which to travel.';
+         }
+         else {
+            var beg_results_xml:XMLList;
+            var fin_results_xml:XMLList;
+            beg_results_xml = this.beg_addr_resolver.addy_chosen.results_xml;
+            fin_results_xml = this.fin_addr_resolver.addy_chosen.results_xml;
+            if ((beg_results_xml !== null)
+                && (beg_results_xml.length() >= 1)
+                && (!this.beg_addr_resolver.addy_chosen.is_geocoded())) {
+               pointy_target = this.beg_addr_resolver.geocode_picker;
+               from_which_or_to_which = 'from';
+            }
+            else if ((fin_results_xml !== null)
+                     && (fin_results_xml.length() >= 1)
+                     && (!this.fin_addr_resolver.addy_chosen.is_geocoded())) {
+               pointy_target = this.fin_addr_resolver.geocode_picker;
+               from_which_or_to_which = 'to';
+            }
+            if (pointy_target !== null) {
+               pointy_title = 'Choose a destination';
+               pointy_message = 'We found more than one match. '
+                                 + 'Please choose a specific location '
+                                 + from_which_or_to_which
+                                 + ' which to travel.';
+            }
+         }
+
+         if (pointy_target !== null) {
+            // FIXME/BUG nnnn: Use a nice transition to face out the pointy
+            // widget. Currently, it just all-of-a-sudden disappears.
+            Pointing_Widget.show_pointer(
+               /*title=*/pointy_title,
+               /*message=*/pointy_message,
+               pointy_target,
+               300,     // max_width
+               null,    // button_labels
+               null,    // button_callbacks
+               false,   // use_link_buttons
+               4.5);    // timeout
+         }
+         else if (!this.valid) {
+            if ((!this.tagprefs.valid) || (!this.another_tagprefs.valid)) {
+               // Show a long error message.
+               // MAYBE: This just goes in the route find footer.... so,
+               //        if there are a lot of tag errors, is this going
+               //        to look awfully ugly? Or should we handle tag
+               //        preferences errors differently?
+               //        TESTME: There are two tag preferences boxes now...
+               //                are we managing both equally the same, i.e.,
+               //                complaining about tag preferences errors the
+               //                same way?
+               Alert_Dialog.show('Please select tag preferences',
+                                 this.error_text, /*html?=*/true);
+            }
+            m4_ASSERT_ELSE_SOFT;
+         }
+         else {
+            G.sl.event('ui/container/route_finder/submit',
+                       { status: 'ok' });
+            this.find_route_start();
+         }
+      }
+
+      // ***
+
+      // Start a GetGeocode request. Callbacks in GWIS_Geocode deal with
+      // starting the subsequent GetRoute request.
+      public function find_route_start() :void
+      {
+         this.pregeocoding = false;
+         this.routstanding = true;
+         m4_DEBUG('find_route_start: pregeocoding false / routstanding: true');
+
+         m4_DEBUG('find_route_start: 2 x geocode_start');
+         this.beg_addr_resolver.geocode_start();
+         this.fin_addr_resolver.geocode_start();
+
+         m4_DEBUG2('find_route_start: beg_addr_resolver.gwis_geocode:',
+                   this.beg_addr_resolver.gwis_geocode);
+         m4_DEBUG2('find_route_start: fin_addr_resolver.gwis_geocode:',
+                   this.fin_addr_resolver.gwis_geocode);
+
+         if (   (this.beg_addr_resolver.gwis_geocode !== null)
+             || (this.fin_addr_resolver.gwis_geocode !== null)) {
+            if (this.beg_addr_resolver.gwis_geocode !== null) {
+               this.gwis_alert_show(this.beg_addr_resolver.gwis_geocode);
+            }
+            if (this.fin_addr_resolver.gwis_geocode !== null) {
+               this.gwis_alert_show(this.fin_addr_resolver.gwis_geocode);
+            }
+            // At this point, we have to wait for the geocodes to complete.
+         }
+         else {
+            // Both geocodes were completed previously, so we're gung ho.
+
+            // This seems like a perfectly weird place for this.
+            this.p2_depart_at =
+               this.widget_multimodal.date_picker.selected_date;
+
+            if (   (!isNaN(this.beg_addr_resolver.geocoded_ptx))
+                && (!isNaN(this.beg_addr_resolver.geocoded_pty))
+                && (!isNaN(this.fin_addr_resolver.geocoded_ptx))
+                && (!isNaN(this.fin_addr_resolver.geocoded_pty))) {
+
+                  // Alright, we're ready-set-go!
+                  m4_DEBUG('find_route_start: find_route_send_cmd');
+                  this.find_route_send_cmd();
+            }
+            else if (   (this.beg_addr_resolver.gwis_geocode === null)
+                     && (this.fin_addr_resolver.gwis_geocode === null)) {
+
+               if (   (this.beg_addr_resolver.addy_chosen.results_xml !== null)
+                   || (this.fin_addr_resolver.addy_chosen.results_xml !== null)
+                   ) {
+                  // We geocoded in the background before the user hit
+                  // the Find Route button but the results were many,
+                  // and we waited until now to show 'em.
+                  this.show_addy_resolver();
+               }
+               else {
+                  m4_WARNING('find_route_start: nothing to geocode');
+                  m4_WARNING2('  beg_addr_resolver.geocoded_ptx:',
+                              this.beg_addr_resolver.geocoded_ptx);
+                  m4_WARNING2('  beg_addr_resolver.raw_addr_input.text:',
+                              this.beg_addr_resolver.raw_addr_input.text);
+                  m4_ASSERT_SOFT(false);
+               }
+            }
+            else {
+               // One or two geocode requests to go.
+               m4_DEBUG('find_route_start: waiting on geocode(s)');
+            }
+         }
+      }
+
+      //
+      public function find_route_send_cmd() :void
+      {
+         // Create the route request.
+         var changes_only:Boolean = false;
+         var prefs:XML = G.user.rf_prefs_xml(changes_only,
+            this.restrict_p1, this.restrict_p2, this.restrict_p3);
+
+         this.gwis_active_routeop = new GWIS_Route_Get_New(
+
+            this.beg_addr_resolver.proper_address,
+            this.beg_addr_resolver.geocoded_ptx,
+            this.beg_addr_resolver.geocoded_pty,
+
+            this.fin_addr_resolver.proper_address,
+            this.fin_addr_resolver.geocoded_ptx,
+            this.fin_addr_resolver.geocoded_pty,
+
+            /*caller_source=*/this.source,
+
+            /*callback_okay=*/this.gwis_route_get_new_okay,
+            /*callback_fail=*/this.gwis_route_get_new_fail,
+            /*callback_obj=*/null,
+
+            /*preferences=*/prefs,
+
+            /*ref_route=*/null,
+            /*dont_save=*/false,
+            /*compute_landmarks=*/this.use_landmarks_btn.selected,
+
+            /*travel_mode=*/this.travel_mode,
+            /*p2_depart_at=*/this.p2_depart_at.toString(),
+            /*p2_transit_pref=*/this.p2_transit_pref);
+
+         // Show the working popup again (it may already still be showing).
+         this.gwis_alert_show(this.gwis_active_routeop);
+
+         // Show the start and end points right away.
+         // MAYBE: This come and go real quickly sometimes... and they
+         // get replaced by a little different looking labels later.
+         // So maybe clean this up a bit...
+         G.map.location_show(
+            new Location(
+               [[this.beg_addr_resolver.geocoded_ptx,
+                 this.beg_addr_resolver.geocoded_pty,
+                 this.beg_addr_resolver.geocoded_w,
+                 this.beg_addr_resolver.geocoded_h,
+                 this.beg_addr_resolver.proper_address,
+                 this.beg_addr_resolver.gc_fulfiller,
+                 this.beg_addr_resolver.gc_confidence,],
+                [this.fin_addr_resolver.geocoded_ptx,
+                 this.fin_addr_resolver.geocoded_pty,
+                 this.fin_addr_resolver.geocoded_w,
+                 this.fin_addr_resolver.geocoded_h,
+                 this.fin_addr_resolver.proper_address,
+                 this.fin_addr_resolver.gc_fulfiller,
+                 this.fin_addr_resolver.gc_confidence,],]),
+               true);
+
+         // Fetch the request.
+         this.gwis_active_routeop.fetch();
+      }
+
+      //
+      public function gwis_route_get_new_fail(
+         gwis_req:GWIS_Route_Get_New, rset:XML) :void
+      {
+         m4_DEBUG('gwis_route_get_new_fail: gwis_req:', gwis_req);
+         m4_DEBUG('gwis_route_get_new_fail: rset:', rset);
+
+         // GWIS_Base already alerted the user, so just cleanup.
+         G.map.location_show(null, false); // clear start/end locations
+
+         this.routstanding = false;
+
+         this.gwis_active_routeop = null;
+
+         this.cleanup_popup_maybe();
+      }
+
+      // This is called from GWIS_Route_Get_New if no callback is provided.
+      public function gwis_route_get_new_okay(
+         gwis_req:GWIS_Route_Get_New, route:Route) :void
+      {
+         m4_DEBUG('gwis_route_get_new_okay: route:', route);
+         m4_DEBUG('gwis_route_get_new_okay: ref_route:', gwis_req.ref_route);
+
+         //var callback_obj:Object = gwis_req.callback_obj;
+
+         if (this.saveprefs.selected) {
+            G.user.rf_prefs_save();
+         }
+         else {
+            G.user.rf_prefs_restore();
+         }
+
+         G.sl.event('exp/route_viz/route',
+                    {route: route.stack_id,
+                     viz: route.route_panel.route_viz.id_});
+
+         // The route was already added, in GWIS_Route_Get_Base.
+         // Nope: G.map.items_add([route,]);
+         m4_ASSERT(route.stack_id in Geofeature.all);
+
+         // Indicate that this route is absolutely new and unsaved.
+         // MAYBE: Should tracks have this attribute, too?
+         //        Or any other items, for that matter?
+         //        If either case happens, we could move unlibraried
+         //        to Item_Stack, or we could make a base class for
+         //        Route and Track.
+         // Perhaps not: route.item_stack.unlibraried = true;
+         route.unlibraried = true;
+         m4_DEBUG('gwis_route_get_new_okay: route.unlibraried = true');
+
+         m4_DEBUG('gwis_route_get_new_okay: lazy-loading');
+         m4_ASSERT(route.rsteps !== null); // we've only got the ste/ops so far
+         m4_ASSERT(!route.links_lazy_loaded);
+         route.addEventListener('featLinksLoaded',
+                   /*callback=*/this.gwis_route_get_new_okay_finish);
+         G.app.callLater(G.item_mgr.link_values_lazy_load, [route,]);
+
+         this.routstanding = false;
+
+         this.gwis_active_routeop = null;
+
+         this.cleanup_popup_maybe();
+      }
+
+      //
+      protected function gwis_route_get_new_okay_finish(event:Event)
+         :void
+      {
+         var route:Route = (event.target as Route);
+
+         m4_DEBUG('gwis_route_get_new_okay_finish: route:', route);
+
+         // FIXME: For an all-bus route with no geometry, this causes the
+         //        view_port to end up with NaNs, which we send over GWIS
+         //        to the server. And then we get a lot of errors back.
+         //         I've [lb] only seen this when routed_v2 was wonky,
+         //         but it's an interesting phenomenon.
+         G.map.lookat(route);
+         G.map.location_show(null, false); // clear start/end locations
+
+         // Switch to the Item Details Panel to display the Route Details.
+
+         G.panel_mgr.panel_activate(route.route_panel);
+
+         // Route Feedback Drag: Keep a copy of the original route.
+         route.fresh_route = (route.clone_item() as Route);
+         // By design, clone doesn't copy IDs; separately copy the IDs,
+         // system_id, stack_id, version, and branch_id.
+         route.clone_id(route.fresh_route);
+
+         if (route.is_multimodal) {
+            // MAGIC_NUMBER: Maybe replace route_vizs with an enum class.
+            route.route_panel.route_viz = Conf.route_vizs[5]; // transit
+         }
+      }
+
+      // ***
+
+      //
+      public function cleanup_popup_maybe() :void
+      {
+         m4_DEBUG5('cleanup_popup_maybe:',
+                   'gwis_active_routeop:', this.gwis_active_routeop,
+                   '/ routstanding:', this.routstanding,
+                   '/ beg:', this.beg_addr_resolver.gwis_geocode,
+                   '/ fin:', this.fin_addr_resolver.gwis_geocode);
+         if ((this.gwis_active_routeop === null)
+             && (this.resolver_geocoders_inactive)) {
+            if ((this.gwis_active_alert !== null)
+                && ((!this.routstanding)
+                    || (!this.beg_addr_resolver.addy_chosen.is_geocoded())
+                    || (!this.fin_addr_resolver.addy_chosen.is_geocoded()))) {
+               m4_DEBUG('cleanup_popup_maybe: removePopUp: gwis_active_alert');
+               this.gwis_active_alert.gwis_cmds = new Set_UUID();
+               PopUpManager.removePopUp(this.gwis_active_alert);
+            }
+            this.pregeocoding = false;
+         }
+      }
+
+      // Creates and displays the We're-Finding-the-Route dialog.
+      // Circa Spring 2014, users can now dismiss the dialog and keep working.
+      protected function gwis_alert_show(new_alert:GWIS_Base) :void
+      {
+         // This is CcpV1:
+         //var msg:String = ('Calculating best route. Please wait.\n'
+         //                  + 'Tip: Adding more tags improves routes!');
+         // BETTER?: Statewide UI: [lb]'s change:
+         var msg:String = ('We are working on it!');
+
+         if (this.gwis_active_alert !== null) {
+            m4_DEBUG3('gwis_alert_show: gwis_active_alert:',
+                      this.gwis_active_alert, '/ n_dismissals:',
+                      this.gwis_active_alert.n_dismissals);
+         }
+         else {
+            m4_DEBUG('gwis_alert_show: gwis_active_alert: new');
+         }
+
+         if (this.gwis_active_alert === null) {
+            this.gwis_active_alert = new Please_Wait_Popup();
+            this.gwis_active_alert.dismissable = true;
+         }
+         // If the user ever dismisses the finding route dialog ("I got it!"),
+         // we won't show the dialog ever again.
+         if (this.gwis_active_alert.n_dismissals == 0) {
+            // We have to call UI.popup before Please_Wait_Popup.init.
+            m4_DEBUG('gwis_alert_show: popup: gwis_active_alert');
+            UI.popup(this.gwis_active_alert, 'b_cancel');
+            this.gwis_active_alert.init('Finding Route', msg, new_alert, true);
+            this.gwis_active_alert.add_another(new_alert);
+         }
+      }
+
+      //
+      protected function get resolver_geocoders_inactive() :Boolean
+      {
+         var inactive:Boolean = false;
+         if (   (   (this.beg_addr_resolver.gwis_geocode === null)
+                 || (this.beg_addr_resolver.gwis_geocode.timer === null)
+                 || (!this.beg_addr_resolver.gwis_geocode.timer.running))
+             && (   (this.fin_addr_resolver.gwis_geocode === null)
+                 || (this.fin_addr_resolver.gwis_geocode.timer === null)
+                 || (!this.fin_addr_resolver.gwis_geocode.timer.running))) {
+            inactive = true;
+         }
+         return inactive;
+      }
+
+      // ***
+
+      //
+      public function address_from_search(
+         result:Panel_Search_Result, which_input:int) :void
+      {
+         if (result.label_coords !== null) {
+            // No: this.geocoded_clear();
+            //  (leave the other destination unchanged, so user
+            //   can assemble search results, e.g.).
+            if (which_input == Panel_Routes_New.INPUT_BEG) {
+               this.beg_addr_resolver.address_from_search(result);
+               //?: this.fin_addr_resolver.addr_input_clear();
+               this.fin_addr_resolver.raw_addr_input.setFocus();
+            }
+            else if (which_input == Panel_Routes_New.INPUT_FIN) {
+               this.fin_addr_resolver.address_from_search(result);
+               //?: this.beg_addr_resolver.addr_input_clear();
+               this.beg_addr_resolver.raw_addr_input.setFocus();
+            }
+            m4_ASSERT_ELSE_SOFT;
+            this.panel_routes_new_open('search');
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      public function find_route_recreate(route:Route) :void
+      {
+         m4_DEBUG('find_route_recreate: route:', route.softstr);
+         m4_DEBUG('find_route_recreate: plops:', route.toString_Plops());
+         if ((route.edit_stops === null) || (route.edit_stops.length < 2)) {
+            m4_ASSERT_SOFT(false);
+         }
+         else {
+            this.geocoded_clear();
+
+            var rstop_endpt:Route_Stop;
+
+            rstop_endpt = route.edit_stops[0];
+            this.beg_addr_resolver.address_from_rstop(rstop_endpt);
+
+            rstop_endpt = route.edit_stops[route.edit_stops.length-1];
+            this.fin_addr_resolver.address_from_rstop(rstop_endpt);
+
+            // Reset the controls based on the route params.
+
+            // This is sorta hacky, but really G.user.rf_* are not really
+            // the user's default route finding preferences, they're whatever
+            // were the last preferences used... maybe we should uncheck the
+            // 'remember preferences' button?
+            //?: this.saveprefs.selected = false;
+            //?: route.travel_mode;
+            // Set this.priority_slider:
+            G.user.rf_p1_priority = route.p1_priority;
+            // Not applicable for recreation: route.p2_depart_at
+            //  (because depart_at is in the past).
+            //    this.widget_multimodal.date_picker.selected_date =
+            //       route.p2_depart_at;
+            G.user.rf_p2_transit_pref = route.p2_transit_pref;
+            if (route.p3_weight_type) {
+               G.user.rf_p3_weight_type = route.p3_weight_type;
+            }
+            if (route.p3_rating_pump) {
+               G.user.rf_p3_rating_pump = route.p3_rating_pump;
+            }
+            if (route.p3_burden_pump) {
+               G.user.rf_p3_burden_pump = route.p3_burden_pump;
+            }
+            if (route.p3_spalgorithm) {
+               G.user.rf_p3_spalgorithm = route.p3_spalgorithm;
+            }
+
+            this.classic_rf_enable.selected =
+               (route.travel_mode == Travel_Mode.bicycle);
+            this.widget_multimodal.multimodal.selected =
+               (route.travel_mode == Travel_Mode.transit);
+            this.multimodal_and_remember_and_classic.visible = 
+               (this.classic_rf_enable.selected
+                || this.widget_multimodal.multimodal.selected);
+            // This is a hack. 'p' as in, 'prat, 'pfac', or 'prac'.
+            this.use_my_rat_tags_cbox.selected =
+               (route.p3_weight_type.charAt(0) == 'p');
+
+            // NOTE/MAYBE/MEH: We don't set up tag preferences.
+            //                 Seems tedious...
+
+            this.reset();
+
+            this.panel_routes_new_open('search');
+         }
+      }
+
+      // Switch to the "find Route" panel.... oh, wait, that's US!
+      public function panel_routes_new_open(src:String) :void
+      {
+         // Called from Find_Route_Manager via main.mxml's init().
+
+         this.source = src;
+
+         // Switch to the new route tab within the routes panel.
+         G.panel_mgr.panel_activate(G.app.routes_panel);
+         G.app.routes_panel.route_tabs.selectedChild = this;
+
+         if (!this.beg_addr_resolver.raw_addr_input.visible) {
+            this.fin_addr_resolver.raw_addr_input.setFocus();
+         }
+
+         this.beg_addr_resolver.raw_addr_input.text =
+            Objutil.null_replace(this.beg_addr_resolver.proper_address, '');
+         this.fin_addr_resolver.raw_addr_input.text =
+            Objutil.null_replace(this.fin_addr_resolver.proper_address, '');
+
+         if ((G.now() > (this.panel_last_opened + Conf.rf_p2_date_reset_time))
+             || (this.p2_depart_at === null)) {
+            // reset depart_at time
+            this.p2_depart_at = new Date();
+         }
+         this.panel_last_opened = G.now();
+         this.widget_multimodal.date_picker.selected_date = this.p2_depart_at;
+
+         // Although UI.popup sets the focus, we have to reselect the text
+         // after replacing it. If we don't, only the portion of the text
+         // equal in length to the previous text will remain selected,
+         // resulting in partly selected text.
+         if (this.beg_addr_resolver.raw_addr_input.visible) {
+            this.beg_addr_resolver.raw_addr_input.setSelection(0,
+               this.beg_addr_resolver.raw_addr_input.text.length);
+         }
+         else {
+            this.fin_addr_resolver.raw_addr_input.setSelection(0,
+               this.fin_addr_resolver.raw_addr_input.text.length);
+         }
+
+         G.user.rf_prefs_backup();
+      }
+
+      // ***
+
+      //
+      protected function on_mouse_move_hint_facilities(event:MouseEvent):void
+      {
+         var set_tool_tip:Boolean = false;
+         var i:int = this.hint_text_facilities.get_textField
+                        .getCharIndexAtPoint(event.localX, event.localY);
+         if (i >= 0) {
+            var text_format:TextFormat;
+            text_format = this.hint_text_facilities.get_textField
+                           .getTextFormat(i, i+1);
+            var url:String = text_format.url;
+            m4_TALKY('on_mouse__facil: i:', i, '/ url:', url);
+            if (url == 'toolTip_facilities') {
+               set_tool_tip = true;
+            }
+            else {
+               m4_TALKY('on_mouse__facil: text at point but no url?');
+               m4_ASSERT_SOFT(!url);
+            }
+         }
+         else {
+            m4_TALKY('on_mouse__facil: no text at point');
+         }
+         if (set_tool_tip) {
+            this.hint_text_facilities.toolTip =
+               'Use this bicycle preference to find a route that '
+               + 'makes more use of bike trails and roads with '
+               + 'bike facilities, like bike boulevards and bike '
+               + 'lanes. As you move the slider from the right to '
+               + 'the left, the route will be more likely to include '
+               + 'bike trails and roads with bike facilities, but '
+               + 'you may get a route that is a lot longer than '
+               + 'the most direct route.';
+         }
+         else {
+            this.hint_text_facilities.toolTip = '';
+         }
+      }
+
+      //
+      protected function on_mouse_move_hint_ratings(event:MouseEvent):void
+      {
+         var set_tool_tip:Boolean = false;
+         var i:int = this.hint_text_ratings.get_textField
+                        .getCharIndexAtPoint(event.localX, event.localY);
+         if (i >= 0) {
+            var text_format:TextFormat;
+            text_format = this.hint_text_ratings.get_textField
+                           .getTextFormat(i, i+1);
+            var url:String = text_format.url;
+            m4_TALKY('on_mouse__ratings: i:', i, '/ url:', url);
+            if (url == 'toolTip_ratings') {
+               set_tool_tip = true;
+            }
+            else {
+               m4_TALKY('on_mouse__ratings: text at point but no url?');
+               m4_ASSERT_SOFT(!url);
+            }
+         }
+         else {
+            m4_TALKY('on_mouse__ratings: no text at point');
+         }
+         if (set_tool_tip) {
+            this.hint_text_ratings.toolTip =
+               'As a Cyclopath user, you can edit the map '
+               + 'and rate the bikeability of roads and trails. '
+               + 'The trip planner uses the average of all user '
+               + 'ratings to find you the best bike route. '
+               + 'Change the position of the slider to get '
+               + 'different routes. If the slider is further to '
+               + 'the right, you will get a shorter route but '
+               + 'possibly a less bike-friendly route. As you '
+               + 'move the slider to the left, you will get '
+               + 'routes that travel better-rated roads but '
+               + 'which may be a lot longer than the direct route.';
+         }
+         else {
+            this.hint_text_ratings.toolTip = '';
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_panel_base:states>
+      <!-- 2014.04.05: When Statewide was first developed, there were a few
+                       different layouts beings tested... which is why
+                       there's just layout_mm now and then this one last
+                       trace of layout_lb.
+      <mx:State
+         name="layout_lb"
+         enterState="this.on_enter_state_layout_();"
+         >
+         <mx:SetProperty
+            .../>
+      </mx:State>
+      -->
+      <mx:State
+         name="layout_mm"
+         enterState="this.on_enter_state_layout_();"
+         >
+      </mx:State>
+   </views_panel_base:states>
+
+   <mx:VBox
+      id="box_details_all"
+      width="100%"
+      height="100%"
+      verticalGap="6"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off">
+
+      <mx:Canvas
+         id="details_main_canvas"
+         xmlns:mx="http://www.adobe.com/2006/mxml"
+         xmlns="*"
+         width="100%"
+         height="100%"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+
+         <mx:VBox
+            id="details_main_box"
+            width="100%"
+            height="100%"
+            verticalScrollPolicy="off">
+
+            <mx:VBox
+               id="optgroup_directions_outer"
+               styleName="optgroupZeroes"
+               width="100%"
+               verticalGap="0"
+               >
+
+               <!--
+                  text="Destinations"
+                  text="Find a Bike Route"
+                  text="Directions"
+               -->
+               <mx:Label
+                  id="optgroup_directions_label"
+                  styleName="labelmajor"
+                  text="Directions"
+                  />
+
+               <mx:VBox
+                  id="optgroup_directions_inner"
+                  styleName="optgroupMmSixes"
+                  width="100%"
+                  verticalGap="0"
+                  >
+                  <!-- 2014.April: [lb] finally DRYing out this code: shiny new
+                                   classes for our address geocoding needs. -->
+                  <!-- *** 'From' textbox -->
+                  <views_panel_routes:Address_Resolver
+                     id="beg_addr_resolver"
+                     width="100%"
+                     label_text="From"/>
+                  <mx:Spacer
+                     height="6"/>
+                  <!-- *** 'To' textbox -->
+                  <views_panel_routes:Address_Resolver
+                     id="fin_addr_resolver"
+                     width="100%"
+                     label_text="To"/>
+                  <!-- Spacer. -->
+                  <mx:HBox
+                     paddingTop="6"
+                     width="100%">
+                     <!-- Usage example. -->
+                     <mx:HBox
+                        id="route_addr_example_box"
+                        width="100%"
+                        paddingTop="2"
+                        horizontalGap="0"
+                        verticalAlign="middle"
+                        >
+                        <views_panel_routes:Address_Example
+                           id="route_addr_example"/>
+                     </mx:HBox>
+                     <!-- Usage example. -->
+                     <mx:HBox
+                        id="route_click_find_route_reminder"
+                        width="80%"
+                        paddingTop="2"
+                        horizontalGap="0"
+                        verticalAlign="middle"
+                        visible="false"
+                        includeInLayout=
+                           "{this.route_click_find_route_reminder.visible}">
+                        <mx:Text
+                           id="push_button_reminder_text"
+                           width="100%"
+                           selectable="false"
+                           condenseWhite="true"
+                           color="0x000000"
+
+                           mouseChildren="false"
+                           mouseEnabled="false"
+                           >
+                           <mx:htmlText>
+                              <![CDATA[
+Click &quot;Find Route&quot; to get a route.
+You can adjust the Biking Preferences to get different routes.
+                              ]]>
+                           </mx:htmlText>
+                        </mx:Text>
+                     </mx:HBox>
+                  </mx:HBox>
+
+               </mx:VBox> <!-- end : optgroup_directions_inner -->
+
+            </mx:VBox> <!-- end: optgroup_directions_outer -->
+
+            <mx:VBox
+               id="optgroup_biking_preference_outer"
+               styleName="optgroupZeroes"
+               width="100%"
+               verticalGap="0"
+               paddingTop="0"
+               >
+
+               <mx:Label
+                  styleName="labelmajor"
+                  text="Biking Preference"
+                  paddingTop="4"
+                  />
+
+               <mx:VBox
+                  id="planner_chooser_inner"
+                  styleName="optgroupMmSixes"
+                  paddingTop="11"
+                  verticalGap="6"
+                  width="100%"
+                  verticalAlign="middle"
+                  horizontalAlign="left"
+                  >
+
+                  <mx:HBox
+                     id="planner_chooser_button_box"
+                     width="100%"
+                     horizontalGap="{G.app.pad}"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     verticalAlign="middle"
+                     horizontalAlign="left"
+                     >
+                     <!-- 2014.04.18: The original, CcpV1 priority slider is
+                          labeled "Minimize Distance" and "Favor Bikeability".
+                          Initially in CcpV2 we used "Friendliest"<->"Fastest".
+                          And old comment from [lb]:
+                          "Friendly and Friendlier are both adjectives (though
+                           Faster can be an adjective or an adverb). For
+                           parallelism, Friendlier goes better with Faster
+                           (they both end in -er) but Friendlier is kind of an
+                           ugly word (the 'er' ending sounds funny after 'lee')
+                           so Faster and Friendlier is valid, but maybe Fast
+                           and Friendly is a better choice?" Or should we just
+                          go with Fastest and Friendliest? And here are/were
+                          some thoughts on which label to place to the left,
+                          and which to place to the right:
+                            2. What's more natural in human nature? Don't
+                               people tend to associate the left as being more
+                               friendly than the right? Well, at least here's
+                               an article that says "Face's Left Side More
+                               Attractive Than Its Right Side, Study Shows"
+                                 http://www.huffingtonpost.com/2012/04/21/
+                                  face-left-side-more-attractive_n_1443325.html
+                               [lb] smirks, Finally! I get to link HuffPo in Co
+                         -->
+                     <mx:Button
+                        id="planner_choice_len"
+                        label="Fastest"
+                        click="this.on_planner_chooser_button_click(event);"
+                        />
+                     <mx:Button
+                        id="planner_choice_rat"
+                        label="Friendliest"
+                        click="this.on_planner_chooser_button_click(event);"
+                        />
+                     <mx:Button
+                        id="planner_choice_fac"
+                        label="Lanes and Trails"
+                        click="this.on_planner_chooser_button_click(event);"
+                        />
+                  </mx:HBox> <!-- end: planner_chooser_button_box -->
+
+                  <mx:VBox
+                     id="optgroup_length_inner"
+                     styleName="optgroupMmSixes"
+                     paddingTop="7"
+                     paddingBottom="0"
+                     verticalGap="6"
+                     width="100%"
+                     verticalAlign="left"
+                     horizontalAlign="center"
+                     visible="false"
+                     includeInLayout=
+                        "{this.optgroup_length_inner.visible}"
+                     >
+                     <mx:Text
+                        id="find_fastest_route_text"
+                        mouseChildren="false"
+                        mouseEnabled="false"
+                        condenseWhite="true"
+                        width="100%"
+                        >
+                        <mx:htmlText><![CDATA[
+                           Find the route with the shortest distance.
+                           ]]></mx:htmlText>
+                     </mx:Text>
+                  </mx:VBox> <!-- end: optgroup_length_inner -->
+
+                  <mx:VBox
+                     id="optgroup_rating_spread_inner"
+                     styleName="optgroupMmSixes"
+                     paddingTop="7"
+                     verticalGap="6"
+                     width="100%"
+                     verticalAlign="left"
+                     horizontalAlign="center"
+                     visible="false"
+                     includeInLayout=
+                        "{this.optgroup_rating_spread_inner.visible}"
+                     >
+                     <!--
+                        text="Bikeability Factor"
+                        text="Rating Influence"
+                     -->
+                     <!--
+                     <mx:Label
+                        styleName="labelmajor"
+                        text="Bikeability Factor"
+                        paddingTop="0"
+                        />
+                     -->
+                     <utils_misc:Text2
+                        id="hint_text_ratings"
+                        condenseWhite="true"
+                        width="100%"
+                        mouseMove="this.on_mouse_move_hint_ratings(event);"
+                        mouseChildren="false"
+                        buttonMode="true"
+                        mouseEnabled="true"
+                        useHandCursor="false"
+                        >
+                        <utils_misc:htmlText><![CDATA[
+                  How much further are you willing to bike to include
+                  <font color="#0000FF" style="text-decoration:underline;"
+                  ><u><a href="toolTip_ratings"
+                  >higher user-rated roads</a></u></font> in your route?
+                           ]]></utils_misc:htmlText>
+                     </utils_misc:Text2>
+                     <mx:VBox
+                        width="100%"
+                        verticalAlign="left"
+                       >
+                        <!-- 
+                           2014.04.18: This is an old comment from [lb], about
+                           the CcpV1 priority slider, before the p3 planner was
+                           implemented and has since meant that playing around
+                           with the slider should create lots of meaningfully
+                           different routes.
+
+                             "MAYBE: Statewide UI: Reduce the number of tick
+                              marks? In CcpV1, the slider is nine ticks, e.g.,
+                                 tickInterval="0.125"
+                                 snapInterval="0.125"
+                              but [lb] thinks this is misleading. You can
+                              rarely produce more than three unique routes,
+                              but I often see people trying every slider
+                              position. I think we should test five ticks."
+                           -->
+                        <!-- The rating_spread_slider, a/k/a bikeability .-->
+                        <mx:HSlider
+                           id="rating_spread_slider"
+                           minimum="-1"
+                           maximum="5"
+                           value="1"
+                           snapInterval="1"
+                           tickInterval="1"
+                           showDataTip="true"
+                           dataTipFormatFunction=
+                              "on_format_data_tip_rating_spread"
+                           change="this.on_rating_spread_slider_change();"
+                           width="92.5%"
+                           labels="['A lot further', 'A little further']"
+                           />
+                     </mx:VBox>
+                  </mx:VBox> <!-- end: optgroup_rating_spread_inner -->
+
+                  <mx:VBox
+                     id="optgroup_facility_burden_inner"
+                     styleName="optgroupMmSixes"
+                     paddingTop="7"
+                     verticalGap="6"
+                     width="100%"
+                     verticalAlign="left"
+                     horizontalAlign="center"
+                     visible="false"
+                     includeInLayout=
+                        "{this.optgroup_facility_burden_inner.visible}"
+                     >
+                     <!--
+                     <mx:Label
+                        styleName="labelmajor"
+                        text="Willingness Factor"
+                        paddingTop="0"
+                        />
+                     -->
+                     <utils_misc:Text2
+                        id="hint_text_facilities"
+                        condenseWhite="true"
+                        width="100%"
+                        mouseMove="this.on_mouse_move_hint_facilities(event);"
+                        mouseChildren="false"
+                        buttonMode="true"
+                        mouseEnabled="true"
+                        useHandCursor="false"
+                        >
+                        <utils_misc:htmlText><![CDATA[
+                  How much further are you willing to bike to include
+                  <font color="#0000FF" style="text-decoration:underline;"
+                  ><u><a href="toolTip_facilities"
+                  >bike lanes and trails</a></u></font> in your route?
+                           ]]></utils_misc:htmlText>
+                     </utils_misc:Text2>
+                     <mx:VBox
+                        width="100%"
+                        verticalAlign="left"
+                        >
+                        <!-- 
+                        HAHA: If the "labels" Array's second (and last) element
+                        ends with a comma (like is good form in Python!), the
+                        second label appears in the middle of the slider, like
+                        Flex thinks there's a third label in the array. Hahaha
+                                                                      [lb]. -->
+                        <!-- The facility_burden_slider, a/k/a willingness .-->
+                        <mx:HSlider
+                           id="facility_burden_slider"
+                           minimum="-1"
+                           maximum="5"
+                           value="1"
+                           snapInterval="1"
+                           tickInterval="1"
+                           showDataTip="true"
+                           dataTipFormatFunction=
+                              "on_format_data_tip_facility_burden"
+                           change="this.on_facility_burden_slider_change();"
+                           width="92.5%"
+                           labels="['Thrice as far', 'Just a little']"
+                           />
+                     </mx:VBox>
+                  </mx:VBox> <!-- end: optgroup_facility_burden_inner -->
+
+                  <mx:HBox
+                     id="personalized_route_option"
+                     width="100%"
+                     horizontalGap="2"
+                     paddingLeft="2"
+                     paddingTop="6"
+                     verticalAlign="top"
+                     horizontalAlign="left"
+                     visible="false"
+                     includeInLayout="{this.personalized_route_option.visible}"
+                     >
+                     <mx:CheckBox
+                        id="use_my_rat_tags_cbox"
+                        label=""
+                        click="this.on_use_my_rat_tags_cbox_click(event);"
+                        />
+                     <mx:VBox
+                        width="100%"
+                        horizontalGap="0"
+                        paddingTop="0"
+                        horizontalAlign="left"
+                        >
+                        <mx:Label
+                           id="use_my_rat_tags_lbl"
+                           paddingTop="0"
+                           fontWeight="normal"
+                           text="Use My Ratings and Tag Preferences"
+                           click="this.on_use_my_rat_tags_lbl_click(event);"
+                           />
+                        <mx:Text
+                           id="route_patience_warning"
+                           mouseChildren="false"
+                           mouseEnabled="false"
+                           condenseWhite="true"
+                           width="100%"
+                           visible="false"
+                           includeInLayout=
+                              "{this.route_patience_warning.visible}"
+                           />
+                     </mx:VBox>
+                  </mx:HBox>
+
+               </mx:VBox> <!-- end: planner_chooser_inner -->
+
+            </mx:VBox> <!-- end: optgroup_biking_preference_outer -->
+
+            <mx:VBox
+               id="planner_p1_options"
+               styleName="optgroupZeroes"
+               visible="false"
+               includeInLayout="{this.planner_p1_options.visible}"
+               width="100%"
+               verticalGap="3"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               >
+
+               <mx:Label
+                  id="optgroup_tagpref_label"
+                  styleName="labelmajor"
+                  text="Tag Preferences"
+                  paddingTop="6"
+                  />
+
+               <!-- Make less than 100% wide so mouse scrolling is easier:
+                    if you scroll the item panel and the tag prefs scroll
+                    under the mouse, then you'll start scolling the tag
+                    prefs instead. So leave a little room in the margin
+                    so the user can mousewheel scroll the panel without
+                    getting jammed. -->
+               <mx:VBox
+                  id="optgroup_tagpref_inner"
+                  styleName="optgroupMmSixes"
+                  width="95%"
+                  paddingTop="0"
+                  >
+                  <!--
+                  verticalGap="0"
+                  -->
+
+                  <mx:Text
+                     mouseChildren="false"
+                     mouseEnabled="false"
+                     condenseWhite="true"
+                     width="100%"
+                     >
+                     <mx:htmlText><![CDATA[
+                        Select and rate tags to influence the route.
+                     ]]></mx:htmlText>
+                  </mx:Text>
+
+                  <mx:HBox
+                     width="100%"
+                     paddingTop="8"
+                     >
+                     <!--
+                        MAGIC_NUMBER: DataGrid header and rows are each 20p.
+                        Set maxHeight so the control doesn't make itself
+                        super tall. -->
+                     <!-- FIXME:
+                        Statewide UI: UI2: 2013.03.20: [mm] changes
+                        maxHeight to 200 from [lb]'s 100, but it feels
+                        too tall... can we make it variable depending
+                        on panel height? For now... 160? Each row is
+                        supposedly 20 pixels, so using multiple of 20.
+                        -->
+                     <views_panel_routes:Tag_Preference_Viewer
+                        width="100%"
+                        maxHeight="160"
+                        id="tagprefs"
+                        />
+                  </mx:HBox>
+
+                  <mx:HBox
+                     width="100%"
+                     paddingTop="6"
+                     >
+                     <views_panel_routes:Tag_Filter_Help_Text
+                        width="100%"/>
+                  </mx:HBox>
+
+               </mx:VBox> <!-- end: optgroup_tagpref_inner -->
+
+            </mx:VBox> <!-- end: planner_p1_options -->
+
+            <!-- 'More Options' widget. -->
+
+            <mx:HBox
+               id="link_more_options_box"
+               horizontalAlign="left"
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               >
+               <views_panel_util:Hyper_Link
+                  id="link_more_options"
+                  enabled="true"
+                  styleName="labelminor"
+                  htmlText="Show More Options &#187;"
+                  toolTip="Click to show additional route-finding options."
+                  click="this.multimodal_and_remember_and_classic_toggle();"/>
+            </mx:HBox>
+
+            <!--
+            Advanced options. Hidden until 'Show More Options' clicked.
+            -->
+
+            <mx:VBox
+               id="multimodal_and_remember_and_classic"
+               styleName="optgroupZeroes"
+               visible="false"
+               includeInLayout=
+                  "{this.multimodal_and_remember_and_classic.visible}"
+               width="100%">
+
+               <!-- We use two wrappers on the multimodal widget since
+                    it can't draw itself until it's bootstrapped some
+                    information from the server (like the name of the
+                    bike facility attribute for the active branch).
+                    So rather than show just the "Bike + Bus" label
+                    without any checkbox beneath it, don't show the
+                    label. -->
+               <mx:VBox
+                  id="optgroup_multimodal_outer"
+                  styleName="optgroupZeroes"
+                  width="100%"
+                  verticalGap="0"
+                  visible="{this.widget_multimodal.widget_container.visible}"
+                  includeInLayout=
+                     "{this.widget_multimodal.widget_container.visible}"
+                  >
+                  <mx:VBox
+                     id="multimodal_opts_container"
+                     width="100%"
+                     verticalGap="0"
+                     visible="true"
+                     includeInLayout="{this.multimodal_opts_container.visible}"
+                     >
+                     <mx:Label
+                        id="optgroup_multimodal_label"
+                        styleName="labelmajor"
+                        text="Bike + Bus"
+                        paddingTop="6"
+                        />
+                     <mx:VBox
+                        id="optgroup_multimodal_inner"
+                        styleName="optgroupMmSixes"
+                        width="100%"
+                        verticalGap="0"
+                        >
+                        <views_panel_routes:Widget_Multimodal
+                           id="widget_multimodal"
+                           width="100%"
+                           mm_change="{this.on_widget_multimodal_change}"
+                           />
+                     </mx:VBox>
+                  </mx:VBox> <!-- end: multimodal_opts_container -->
+               </mx:VBox> <!-- end: optgroup_multimodal_outer -->
+
+               <mx:VBox
+                  id="optgroup_classic_outer"
+                  styleName="optgroupZeroes"
+                  width="100%"
+                  verticalGap="0"
+                  >
+                  <mx:Label
+                     styleName="labelmajor"
+                     text="Classic Routes"
+                     paddingTop="6"
+                     />
+                  <mx:HBox
+                     styleName="optgroupMmSixes"
+                     verticalGap="0"
+                     width="92.5%"
+                     verticalAlign="top"
+                     paddingRight="3"
+                     >
+                     <mx:CheckBox
+                        id="classic_rf_enable"
+                        label=""
+                        toolTip=""
+                        click="this.on_classic_rf_enable_click(event);"
+                        />
+                     <mx:VBox
+                        id="planner_p1_container"
+                        width="100%"
+                        horizontalGap="0"
+                        paddingTop="0"
+                        horizontalAlign="left"
+                        visible="true"
+                        includeInLayout="{this.planner_p1_container.visible}"
+                        >
+                        <mx:Label
+                           id="use_classic_lbl"
+                           paddingTop="0"
+                           fontWeight="normal"
+                           text="Use the classic route finder"
+                           click="this.on_use_classic_lbl_click(event);"
+                           />
+                        <mx:VBox
+                           id="planner_p1_classic"
+                           width="100%"
+                           horizontalGap="0"
+                           paddingTop="0"
+                           horizontalAlign="left"
+                           visible="false"
+                           includeInLayout="{this.planner_p1_classic.visible}"
+                           >
+                           <mx:Text
+                              mouseChildren="false"
+                              mouseEnabled="false"
+                              condenseWhite="true"
+                              width="100%"
+                              >
+                              <mx:htmlText><![CDATA[
+               If you've requested routes in the past, you might notice
+               differences in the routes that Cyclopath now finds. If you'd
+               like a route calculated by our old algorithm (used until 2013),
+               try the classic route finder.
+                                 ]]></mx:htmlText>
+                           </mx:Text>
+                           <mx:Label
+                              styleName="labelmajor"
+                              text="Bikeability Preference"
+                              paddingTop="4"
+                              />
+                           <mx:VBox
+                              id="optgroup_bikeability_inner"
+                              styleName="optgroupMmSixes"
+                              paddingTop="7"
+                              verticalGap="6"
+                              width="100%"
+                              verticalAlign="left"
+                              horizontalAlign="center"
+                              >
+                              <mx:Text
+                                 mouseChildren="false"
+                                 mouseEnabled="false"
+                                 condenseWhite="true"
+                                 width="100%"
+                                 >
+                                 <mx:htmlText><![CDATA[
+                                 How much should ratings influence the route?
+                                 ]]></mx:htmlText>
+                              </mx:Text>
+                              <mx:HSlider
+                                 id="priority_slider"
+                                 minimum="0.0"
+                                 maximum="1.0"
+                                 value="0.0"
+                                 snapInterval="0.125"
+                                 tickInterval="0.125"
+                                 showDataTip="true"
+                                 dataTipFormatFunction
+                                    ="on_format_data_tip_priority_slider"
+                                 change="this.on_priority_change();"
+                                 width="100%"
+                                 labels="['A lot', 'None']"
+                                 />
+                           </mx:VBox> <!-- end: optgroup_bikeability_inner -->
+                           <!-- If I [lb] was feeling clever, I'd use State
+                           changes to move the tag preferences widget, but
+                           it seems easier to just violate the DRY policy and
+                           make copies of the tag preference components. -->
+                           <mx:Label
+                              styleName="labelmajor"
+                              text="Tag Preferences"
+                              paddingTop="4"
+                              />
+                           <mx:VBox
+                              id="another_tagpref_inner"
+                              styleName="optgroupMmSixes"
+                              width="100%"
+                              paddingTop="0"
+                              >
+                              <mx:Text
+                                 mouseChildren="false"
+                                 mouseEnabled="false"
+                                 condenseWhite="true"
+                                 width="100%"
+                                 >
+                                 <mx:htmlText><![CDATA[
+                                 Select and rate tags to influence the route.
+                                 ]]></mx:htmlText>
+                              </mx:Text>
+                              <mx:HBox
+                                 width="100%"
+                                 paddingTop="8"
+                                 >
+                                 <!--
+                                    MAGIC_NUMBER/SYNC_ME: See the value of and
+                                    reasoning for the maxHeight in the other
+                                    Tag_Preference_Viewer widget definition,
+                                    above. -->
+                                 <views_panel_routes:Tag_Preference_Viewer
+                                    width="100%"
+                                    maxHeight="160"
+                                    id="another_tagprefs"
+                                    />
+                              </mx:HBox>
+                              <mx:HBox
+                                 width="100%"
+                                 paddingTop="6"
+                                 >
+                                 <views_panel_routes:Tag_Filter_Help_Text
+                                    width="100%"/>
+                              </mx:HBox>
+                           </mx:VBox> <!-- end: another_tagpref_inner -->
+                        </mx:VBox> <!-- end: planner_p1_classic -->
+                     </mx:VBox> <!-- end: planner_p1_container -->
+                  </mx:HBox>
+               </mx:VBox> <!-- end: optgroup_classic_outer -->
+
+               <mx:VBox
+                  id="optgroup_landmarks_outer"
+                  styleName="optgroupZeroes"
+                  width="100%"
+                  verticalGap="0"
+                  >
+                  <mx:Label
+                     styleName="labelmajor"
+                     text="Local Landmarks"
+                     paddingTop="6"
+                     />
+                  <mx:HBox
+                     styleName="optgroupMmSixes"
+                     verticalGap="0"
+                     width="92.5%"
+                     verticalAlign="top"
+                     paddingRight="3"
+                     >
+                     <mx:CheckBox
+                        id="use_landmarks_btn"
+                        label=""
+                        toolTip=""
+                        click="this.on_use_landmarks_btn_click(event);"
+                        />
+                     <mx:VBox
+                        id="landmarks_container"
+                        width="100%"
+                        horizontalGap="0"
+                        paddingTop="0"
+                        horizontalAlign="left"
+                        visible="true"
+                        includeInLayout="{this.landmarks_container.visible}"
+                        >
+                        <mx:Label
+                           id="use_landmarks_lbl"
+                           paddingTop="0"
+                           fontWeight="normal"
+                           text="Use the classic route finder"
+                           click="this.on_use_landmarks_lbl_click(event);"
+                           />
+                     </mx:VBox> <!-- end: landmarks_container -->
+                  </mx:HBox>
+               </mx:VBox> <!-- end: optgroup_landmarks_outer -->
+
+               <mx:VBox
+                  id="optgroup_remember_outer"
+                  styleName="optgroupZeroes"
+                  width="100%"
+                  verticalGap="0"
+                  >
+                  <mx:Label
+                     styleName="labelmajor"
+                     text="Remember Settings"
+                     paddingTop="6"
+                     />
+                  <mx:HBox
+                     styleName="optgroupMmSixes"
+                     verticalGap="0"
+                     width="92.5%"
+                     verticalAlign="middle"
+                     paddingRight="3"
+                     >
+                     <mx:CheckBox
+                        id="saveprefs"
+                        selected="true"
+                        label="Remember settings"
+                        toolTip=
+            "Remember and use these settings the next time I request a route."
+                        width="100%"/>
+                     <!-- MAYBE: Don't enable button_restore_defaults
+                                 until user changes options. -->
+                     <mx:Button
+                        id="button_restore_defaults"
+                        label="Restore Defaults"
+                        toolTip="Reset all options you've changed above."
+                        click="this.on_button_restore_defaults_click();"
+                        enabled="true"
+                        />
+                  </mx:HBox>
+               </mx:VBox> <!-- end: optgroup_remember_outer -->
+
+            </mx:VBox> <!-- end: multimodal_and_remember_and_classic -->
+
+            <mx:VBox
+               id="find_route_floater"
+               horizontalAlign="left"
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               visible="true"
+               includeInLayout="{this.find_route_floater.visible}"
+               >
+               <!-- The floating footer's Find Route button. -->
+               <views_panel_routes:Widget_Find_Route
+                  id="floating_find_route"
+                  width="100%"/>
+            </mx:VBox> <!-- end: find_route_floater -->
+
+         </mx:VBox> <!-- end: details_main_box -->
+
+      </mx:Canvas> <!-- end: details_main_canvas> -->
+
+   </mx:VBox> <!-- end: box_details_all -->
+
+   <!-- When there's a scrollbar, anchor the button Find Route so that users
+        don't have to find the Find Route button. -->
+   <mx:VBox
+      id="find_route_anchor"
+      horizontalAlign="left"
+      width="100%"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      visible="true"
+      includeInLayout="{this.find_route_anchor.visible}"
+      >
+      <!-- The affixed footer's Find Route button. -->
+      <views_panel_routes:Widget_Find_Route
+         id="anchored_find_route"
+         width="100%"/>
+   </mx:VBox> <!-- end: find_route_anchor -->
+
+</views_panel_base:Detail_Panel_Widget>
+

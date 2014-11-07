@@ -1,0 +1,1136 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   verticalGap="6"
+   label="Permissions"
+   >
+   <!--
+   label="Sharing"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+      import mx.utils.UIDUtil;
+
+      import grax.Access_Infer;
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import grax.Library_Squelch;
+      import gwis.GWIS_Commit;
+      import gwis.GWIS_Grac_Get;
+      import gwis.GWIS_Item_Findability_Put;
+      import items.Item_User_Access;
+      import items.feats.Route;
+      import items.gracs.Group_Item_Access;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Shr_Res');
+
+      protected static var make_public_style_change:int =
+         Access_Infer.usr_denied | Access_Infer.pub_editor;
+
+      // *** Instance attributes
+
+      // We keep track of the original state of the selection set so that we
+      // can restore the controls if the user clicks Undo Changes.
+      protected var was_old_timer:Boolean = false;
+      protected var was_show_in_lib_private:Object;
+      protected var was_show_in_lib_public:Object;
+      protected var was_simple_acl_library:Object;
+      protected var was_simple_acl_weblink:Object;
+
+      // Once the user hits save, we send out a collection of gwis requests.
+      protected var gwis_outstanding:int = 0;
+
+      protected var reload_groups_access:Boolean = false;
+
+      protected var failure_detected:Boolean = false;
+
+      protected var make_public_pending:Boolean = false;
+      protected var done_public_pending:Boolean = false;
+
+      // *** Startup and Show methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         m4_DEBUG('set detail_panel: dp:', dp);
+
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         //this.register_widgets([
+         //   ]);
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+         m4_DEBUG('Creation Complete: ==== ', UIDUtil.getUID(this));
+
+         // The Route panel uses a state change to show us, so detail_panel
+         // will get set and we'll be added to our parent's child widget list
+         // and we won't have finished creating ourselves by the time
+         // repopulate is first called.
+         if (!this.was_old_timer) {
+            this.repopulate();
+         }
+
+         //this.widget_simple_acl_weblink.option_inherit_public.visible = true;
+      }
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         super.on_preinitialize(ev);
+         m4_DEBUG('on_preinitialize');
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         m4_DEBUG('on_initialize');
+      }
+
+      //
+      override public function on_panel_show() :void
+      {
+         m4_DEBUG('on_panel_show: this.height:', this.height);
+         super.on_panel_show();
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         m4_ASSERT(false);
+         return 'Sharing';
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this:', this.class_name_tail);
+         // 2013.05.30: Why are these null? [lb] loaded route then deleted it.
+         if (this.widget_show_in_lib_private !== null) {
+            this.widget_show_in_lib_private.selectedItem = null;
+         }
+         else {
+            m4_WARNING('EXPLAIN: widget_show_in_lib_private null?:', this);
+         }
+         if (this.widget_simple_acl_weblink !== null) {
+            this.widget_simple_acl_weblink.selectedItem = null;
+         }
+         else {
+            m4_WARNING('EXPLAIN: widget_show_in_lib_private null?:', this);
+         }
+         if (this.widget_simple_acl_library !== null) {
+            this.widget_simple_acl_library.selectedItem = null;
+         }
+         else {
+            m4_WARNING('EXPLAIN: widget_show_in_lib_private null?:', this);
+         }
+         if (this.widget_show_in_lib_public !== null) {
+            this.widget_show_in_lib_public.selectedItem = null;
+         }
+         else {
+            m4_WARNING('EXPLAIN: widget_show_in_lib_private null?:', this);
+         }
+         if (this.cbox_action_make_public !== null) {
+            this.cbox_action_make_public.selected = false;
+         }
+         else {
+            m4_WARNING('EXPLAIN: cbox_action_make_public null?:', this);
+         }
+         this.fbilities_and_perms.enabled =
+            !this.cbox_action_make_public.selected;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG3('repopulate: creation_completed:', this.creation_completed,
+                   '/ was_old_timer:', this.was_old_timer,
+                   '/ items_selected.length:', this.items_selected.length);
+
+         if ((this.creation_completed)
+             && (this.items_selected.length > 0)) {
+
+            // This widget is only designed for a single item.
+            m4_ASSERT_SOFT(this.items_selected.length == 1);
+            var the_item:Item_User_Access = (this.items_selected.one()
+                                             as Item_User_Access);
+
+            // Is this cool? Do we have to ever removeEventListener?
+            the_item.addEventListener('stealthSecretLoaded',
+                                      this.on_stealth_secret_loaded);
+
+            // Skipping: the_item.fbilty_usr_histy_show (Boolean)
+            //           which indicates if the route is shown in
+            //           the user's recently viewed list. Obviously,
+            //           this doesn't pertain to perms and library squelching.
+
+            //
+
+            this.was_show_in_lib_private = this.get_ddown_object_squelch(
+               the_item,
+               the_item.fbilty_usr_libr_squel,
+               this.widget_show_in_lib_private);
+
+            this.was_show_in_lib_public = this.get_ddown_object_squelch(
+               the_item,
+               the_item.fbilty_pub_libr_squel,
+               this.widget_show_in_lib_public);
+
+            for each (var gia:Group_Item_Access in the_item.groups_access) {
+               m4_DEBUG('repopulate: gia:', gia);
+            }
+            m4_DEBUG('repopulate: public_group_id:', G.grac.public_group_id);
+            m4_DEBUG('repopulate: stealth_group_id:', G.grac.stealth_group_id);
+
+            m4_DEBUG2('repopulate: groups_access[public_group_id]:',
+                      the_item.groups_access[G.grac.public_group_id]);
+            m4_ASSERT(G.grac.public_group_id > 0);
+            this.was_simple_acl_library = this.get_ddown_object_permissions(
+               the_item, the_item.groups_access[G.grac.public_group_id],
+               this.widget_simple_acl_library);
+
+            // Skipping/Not applicable: G.grac.session_group_id
+
+            m4_DEBUG2('repopulate: groups_access[stealth_group_id]:',
+                      the_item.groups_access[G.grac.stealth_group_id]);
+            m4_ASSERT(G.grac.stealth_group_id > 0);
+            this.was_simple_acl_weblink = this.get_ddown_object_permissions(
+               the_item, the_item.groups_access[G.grac.stealth_group_id],
+               this.widget_simple_acl_weblink);
+
+            //
+
+            this.widget_show_in_lib_private.selectedItem =
+               this.was_show_in_lib_private;
+            this.widget_show_in_lib_public.selectedItem =
+               this.was_show_in_lib_public;
+            this.widget_simple_acl_library.selectedItem =
+               this.was_simple_acl_library;
+            this.widget_simple_acl_weblink.selectedItem =
+               this.was_simple_acl_weblink;
+
+            // Fake that stealthSecretLoaded fired so we enable or disable the
+            // permissions dropdown for the web link, which may or may not
+            // exist.
+            this.on_stealth_secret_loaded();
+
+            this.was_old_timer = true;
+         }
+
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function get_ddown_object_permissions(
+         the_item:Item_User_Access,
+         grpa:Group_Item_Access,
+         sharing_widget:Widget_Sharing_Simple_AcL)
+            :Object
+      {
+         m4_DEBUG5('get_ddown_object_permissions: grpa:',
+                   (grpa !== null) ? grpa : 'null', '/ sharing_widget:',
+                   Strutil.class_name_tail(sharing_widget.toString(),
+                                           /*num_classes=*/2),
+                   '/ the_item:', the_item);
+         var dropdown_object:Object = null;
+         if ((grpa === null)
+             || (grpa.access_level_id > Access_Level.client)) {
+            dropdown_object = sharing_widget.option_never_access;
+         }
+         else if (grpa.access_level_id >= Access_Level.viewer) {
+            if (grpa.access_level_id == Access_Level.client) {
+               m4_ERROR2('get_ddown_object_permissions: unexpected grpa:',
+                         grpa, '/ the_item:', the_item);
+            }
+            dropdown_object = sharing_widget.option_only_view;
+         }
+         else if (grpa.access_level_id >= Access_Level.editor) {
+            dropdown_object = sharing_widget.option_help_edit;
+         }
+         //else if () {
+         //   dropdown_object = sharing_widget.option_inherit_public;
+         //}
+         else {
+            // Group is arbiter or owner?
+            // But this is for the public or stealth record...
+            m4_ERROR2('get_ddown_object_permissions: unexpected perms:',
+                      grpa, '/ the_item:', the_item);
+            m4_ASSERT_SOFT(false);
+         }
+         return dropdown_object;
+      }
+
+      //
+      protected function get_ddown_object_squelch(
+         the_item:Item_User_Access,
+         squelch_val:int,
+         sharing_widget:Widget_Sharing_In_Library)
+            :Object
+      {
+         m4_DEBUG5('get_ddown_object_squelch: squelch_val:', squelch_val,
+                   '/ sharing_widget:',
+                   Strutil.class_name_tail(sharing_widget.toString(),
+                                           /*num_classes=*/2),
+                   '/ the_item:', the_item);
+         // If there's no item_findability record for the public,
+         // Item_User_Access.get fbilty_pub_libr_squel defaults to
+         // Library_Squelch.squelch_undefined...
+         var dropdown_object:Object = null;
+         if (squelch_val == Library_Squelch.squelch_show_in_library) {
+            dropdown_object = sharing_widget.option_always_show;
+         }
+         else if (squelch_val == Library_Squelch.squelch_searches_only) {
+            dropdown_object = sharing_widget.option_searches_only;
+         }
+         else if (squelch_val == Library_Squelch.squelch_always_hide) {
+            dropdown_object = sharing_widget.option_never_show;
+         }
+         else if (squelch_val == Library_Squelch.squelch_undefined) {
+            // If the squelch is undefined, this is an old route without an
+            // explicit findability record. The route is libraried if it's
+            // accessible.
+            m4_DEBUG2('get_ddown_object_squelch: access_infer_id:',
+                      the_item.access_infer_id.toString(16));
+            if (   (the_item.access_infer_id & Access_Infer.pub_arbiter)
+                || (the_item.access_infer_id & Access_Infer.pub_editor)
+                || (the_item.access_infer_id & Access_Infer.pub_arbiter)) {
+               dropdown_object = sharing_widget.option_always_show;
+            }
+            else {
+               dropdown_object = sharing_widget.option_never_show;
+            }
+         }
+         else {
+            m4_ERROR2('get_ddown_object_squelch: unexpected squelch:',
+                      squelch_val, '/ the_item:', the_item);
+            m4_ASSERT_SOFT(false);
+         }
+         return dropdown_object;
+      }
+
+      // *** Instance methods
+
+      //
+      protected function enable_apply_and_reset() :void
+      {
+         var changes_detected:Boolean = false;
+
+         // This is fcn. is called before it's initialized, so components dne.
+         if ((this.button_restricted_apply !== null)
+             && (this.link_reset_changes !== null)) {
+            // FIXME: if values differ from normal:
+            //this.button_restricted_apply.enabled<C-S-F6> = ??;
+            //this.link_reset_changes.enabled = ??;
+
+            if (   (this.was_show_in_lib_private
+                    !== this.widget_show_in_lib_private.selectedItem)
+                || (this.was_show_in_lib_public
+                    !== this.widget_show_in_lib_public.selectedItem)
+                || (this.was_simple_acl_library
+                    !== this.widget_simple_acl_library.selectedItem)
+                || (this.was_simple_acl_weblink
+                    !== this.widget_simple_acl_weblink.selectedItem)
+                || (this.cbox_action_make_public.selected)) {
+               changes_detected = true;
+            }
+
+            var the_item:Item_User_Access = (this.items_selected.one()
+                                             as Item_User_Access);
+            if (the_item.can_arbit) {
+               this.button_restricted_apply.enabled = changes_detected;
+               this.link_reset_changes.enabled = changes_detected;
+            }
+         }
+         m4_DEBUG2('enable_apply_and_reset: changes_detected:',
+                   changes_detected);
+      }
+
+      //
+      protected function on_acl_library() :void
+      {
+         m4_DEBUG('on_acl_library');
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_acl_weblink() :void
+      {
+         m4_DEBUG('on_acl_weblink');
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_action_donate_public() :void
+      {
+         m4_DEBUG('on_action_donate_public');
+
+         // BUG nnnn: Implement donate to public.
+         //           - disable other controls.
+         // QUESTION: does this mean show in public route library?
+
+         this.fbilities_and_perms.enabled =
+            !this.cbox_action_make_public.selected;
+
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_click_any_combobox(ev:MouseEvent) :void
+      {
+         // Because on_click_panel calls this.stage.focus = null.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_click_more_or_less_details() :void
+      {
+         m4_DEBUG('on_click_more_or_less_details');
+      }
+
+      //
+      protected function on_click_reset_changes() :void
+      {
+         this.widget_show_in_lib_private.selectedItem =
+            this.was_show_in_lib_private;
+         this.widget_show_in_lib_public.selectedItem =
+            this.was_show_in_lib_public;
+         this.widget_simple_acl_library.selectedItem =
+            this.was_simple_acl_library;
+         this.widget_simple_acl_weblink.selectedItem =
+            this.was_simple_acl_weblink;
+
+         this.cbox_action_make_public.selected = false;
+
+         this.fbilities_and_perms.enabled =
+            !this.cbox_action_make_public.selected;
+
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_show_in_lib_private() :void
+      {
+         m4_DEBUG('on_show_in_lib_private');
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_show_in_lib_public() :void
+      {
+         m4_DEBUG('on_show_in_lib_public');
+         this.enable_apply_and_reset();
+      }
+
+      //
+      protected function on_stealth_secret_loaded(event:Event=null) :void
+      {
+         m4_DEBUG('on_stealth_secret_loaded');
+
+         var the_item:Item_User_Access = (this.items_selected.one()
+                                          as Item_User_Access);
+
+         var web_link:String = '';
+         web_link = the_item.get_stealth_secret_web_link();
+         widget_simple_acl_weblink.enabled = (web_link != '');
+      }
+
+      // ***
+
+      //
+      protected function on_click_restricted_apply() :void
+      {
+         m4_DEBUG('on_click_restricted_apply');
+
+         var the_item:Item_User_Access = (this.items_selected.one()
+                                          as Item_User_Access);
+
+         m4_DEBUG('on_click_restricted_apply: the_item:', the_item);
+
+         var the_style_change:int = Access_Infer.not_determined; // E.g., 0.
+
+         m4_ASSERT_SOFT(this.gwis_outstanding == 0);
+         m4_ASSERT_SOFT(!this.make_public_pending);
+
+         // Check the donate-public action first, since it trumps the others.
+         if (this.cbox_action_make_public.selected) {
+
+            // Make sure the item is publically libraried.
+            //
+            // BUG nnnn: It's a hack to do it here. Really, the server should
+            //           do it when making the item public, probably.
+            //
+            this.widget_show_in_lib_private.selectedItem =
+               this.widget_show_in_lib_private.option_always_show;
+            this.widget_show_in_lib_public.selectedItem = 
+               this.widget_show_in_lib_public.option_always_show;
+
+            this.make_public_pending = true;
+
+            // BUG nnnn: How would anyone ever delete a libraried public route?
+
+            the_style_change =
+               Tab_Item_Sharing_Restricted.make_public_style_change;
+            m4_DEBUG2('on_click_restricted_apply: action_make_public:',
+                      '/ the_style_change:', the_style_change);
+         }
+
+         var drdown_obj:Object;
+         var action_obj:Object;
+         if (this.was_show_in_lib_private
+             !== this.widget_show_in_lib_private.selectedItem) {
+            drdown_obj = this.widget_show_in_lib_private.selectedItem;
+            action_obj = { action_squelch_usr: drdown_obj.squelch_value };
+            this.fbility_put(the_item, action_obj);
+            this.gwis_outstanding++;
+            m4_DEBUG2('on_click_restricted_apply: show_in_lib_private:',
+                      '/ gwis_outstanding:', this.gwis_outstanding);
+         }
+         if (this.was_show_in_lib_public
+             !== this.widget_show_in_lib_public.selectedItem) {
+            drdown_obj = this.widget_show_in_lib_public.selectedItem;
+            action_obj = { action_squelch_pub: drdown_obj.squelch_value };
+            this.fbility_put(the_item, action_obj);
+            this.gwis_outstanding++;
+            m4_DEBUG2('on_click_restricted_apply: show_in_lib_public:',
+                      '/ gwis_outstanding:', this.gwis_outstanding);
+         }
+
+         if (!this.cbox_action_make_public.selected) {
+            if (this.was_simple_acl_library
+                !== this.widget_simple_acl_library.selectedItem) {
+               // Or-in the new public access flag.
+               if (this.widget_simple_acl_library.selectedItem
+                   == this.widget_simple_acl_library.option_never_access) {
+                  the_style_change |= Access_Infer.pub_denied;
+               }
+               else if (this.widget_simple_acl_library.selectedItem
+                     == this.widget_simple_acl_library.option_only_view) {
+                  the_style_change |= Access_Infer.pub_viewer;
+               }
+               else if (this.widget_simple_acl_library.selectedItem
+                     == this.widget_simple_acl_library.option_help_edit) {
+                  the_style_change |= Access_Infer.pub_editor;
+               }
+               else {
+                  m4_ASSERT_SOFT(false);
+               }
+               m4_DEBUG2('on_click_restricted_apply: simple_acl_library:',
+                         '/ the_style_change:', the_style_change);
+            }
+            if (this.was_simple_acl_weblink
+                !== this.widget_simple_acl_weblink.selectedItem) {
+               // Or-in the new stealth access flag.
+               if (this.widget_simple_acl_weblink.selectedItem
+                   == this.widget_simple_acl_weblink.option_never_access) {
+                  the_style_change |= Access_Infer.stealth_denied;
+               }
+               else if (this.widget_simple_acl_weblink.selectedItem
+                     == this.widget_simple_acl_weblink.option_only_view) {
+                  the_style_change |= Access_Infer.stealth_viewer;
+               }
+               else if (this.widget_simple_acl_weblink.selectedItem
+                     == this.widget_simple_acl_weblink.option_help_edit) {
+                  the_style_change |= Access_Infer.stealth_editor;
+               }
+               else {
+                  m4_ASSERT_SOFT(false);
+               }
+               m4_DEBUG2('on_click_restricted_apply: simple_acl_weblink:',
+                         '/ the_style_change:', the_style_change);
+            }
+         }
+
+         if (this.gwis_outstanding == 0) {
+            // No need to wait on Gwis, so submit public change now.
+            this.make_public_pending = false;
+         }
+
+         if ((!this.make_public_pending)
+             && (the_style_change != Access_Infer.not_determined)) {
+            this.item_commit_style_change(the_item, the_style_change);
+         }
+
+// FIXME: Set a timer in case this.gwis_outstanding never decrements?
+
+      }
+
+      //
+      protected function on_click_restricted_apply_finish() :void
+      {
+         m4_DEBUG2('on_click_restricted_apply_finish: gwis_outstanding:',
+                   this.gwis_outstanding);
+
+         if (this.gwis_outstanding > 0) {
+
+            this.gwis_outstanding--;
+
+            if (this.gwis_outstanding == 0) {
+
+               var the_item:Item_User_Access = (this.items_selected.one()
+                                                as Item_User_Access);
+
+               m4_DEBUG3('on_click_restricted_apply_finish:',
+                         this.make_public_pending ? 'pub-pending' : 'pub-done',
+                         'the_item:', the_item);
+
+               if (this.make_public_pending) {
+                  var the_style_change:int =
+                     Tab_Item_Sharing_Restricted.make_public_style_change;
+                  m4_DEBUG2('on_click_restricted_apply_finish: _make_public:',
+                            '/ the_style_change:', the_style_change);
+                  this.make_public_pending = false;
+                  this.item_commit_style_change(the_item, the_style_change);
+                  this.done_public_pending = true;
+               }
+               else {
+
+                  // We waited on one or more commands, either or both
+                  // of setting findability or committing the item. The
+                  // findability callbacks update the item object's findability
+                  // members (in Item_Stack).  But the commit callbacks just
+                  // set a flag to tell us to reload GIA records here, so we
+                  // don't send multiple requests.
+                  //
+                  // Additional details:
+                  //
+                  // With restricted items, we use style_change and
+                  // issue GWIS_Commit, rather than playing around with
+                  // Group_Item_Access records (the_item.groups_access)
+                  // and sending dirty GIA records (which also happens via
+                  // GWIS_Commit).
+                  //
+                  // GWIS_Commit already called Item_User_Access's
+                  // update_item_committed. But that fcn. only resets item's
+                  // style_change, doesn't it touch GIA records, because rather
+                  // than try to update the GIA records in flashclient (and
+                  // possibly mess up), we go with the tried and the trued
+                  // approach: get them from the server.
+                  //
+                  // And we send the GWIS_Grac_Get here rather than in
+                  // GWIS_Commit or update_item_committed, because not all
+                  // commits need a GIA update.  And [lb] isn't sure how
+                  // GWIS_Commit or IUA would detect a need to update the GIA
+                  // records. So here it is.
+
+                  if (this.reload_groups_access) {
+
+                     this.reload_groups_access = false;
+
+                     // In lieu of listening on Grpa_Change_Event, we use
+                     // callbacks.
+                     m4_DEBUG2('on_click_restricted_acs_load: fetch_item_gia:',
+                               the_item);
+                     var get_okay:Function = this.grac_get_okay;
+                     var get_fail:Function = this.grac_get_fail;
+                     the_item.fetch_item_gia(get_okay, get_fail);
+                  }
+
+                  // Is this safe to call from here?
+                  this.was_old_timer = false;
+                  this.repopulate();
+
+                  // MAYBE: This is coupled: We should dispatchEvent instead,
+                  //        whenever we want the route lists to update.
+                  G.app.routes_panel.routes_library.fetch_list();
+                  G.app.routes_panel.routes_looked_at.fetch_list();
+
+                  if ((this.done_public_pending)
+                      && (!this.failure_detected)) {
+
+                     m4_DEBUG('on_click_restricted_acs_load: done_pblc_pndg');
+
+                     // Disable the permissions controls.
+                     this.cbox_action_make_public.enabled = false;
+                     this.button_restricted_apply.enabled = false;
+                     this.link_reset_changes.enabled = false;
+                     this.done_public_pending = false;
+
+                     // We could also remove the tab. Which might be confusing
+                     // to the user. ... which happens anyway because we reset
+                     // access_level_id which makes the tab go away anyway...
+                     if (false) {
+                        var route:Route = (the_item as Route);
+                        if (   (route !== null)
+                            && (route.route_panel_ !== null)) {
+                           route.route_panel_.change_state(
+                              route.route_panel_.panel_base_state);
+                        }
+                     } // end: if (false)
+                  }
+               }
+
+               if (this.failure_detected) {
+                  // MAYBE: Do we need to display a warning, or does the GWIS
+                  //        command handle that? Too bad it's a waste of time
+                  //        to try to test this... or maybe we can easily test
+                  //        by just turning off the network connection before
+                  //        hitting 'Save'....
+                  this.failure_detected = false;
+               }
+
+            } // end: if (this.gwis_outstanding == 0)
+         } // end: if (this.gwis_outstanding > 0)
+         else {
+            m4_WARNING2('on_click_r_a_finish: unexpected gwis_outstanding:',
+                        this.gwis_outstanding);
+         }
+      }
+
+      //
+      protected function item_commit_style_change(the_item:Item_User_Access,
+                                                  the_style_change:int) :void
+      {
+         // Skipping Item_User_Access's set style_change, since
+         // it calls init_gia_from_access_style... which is probably
+         // not the best reaction, since 'style_change = ' should
+         // be able to be used on existing items, and not just new items.
+         //the_item.style_change = the_style_change;
+         the_item.style_change_ = the_style_change;
+
+         the_item.dirty_set(Dirty_Reason.item_schg_oob, true);
+
+         var gwis_share:GWIS_Commit = new GWIS_Commit(
+            new Set_UUID([the_item,]),
+            /*changenote=*/'',
+            /*silent=*/true,
+            /*callback_load=*/this.on_click_restricted_acs_load,
+            /*callback_fail=*/this.on_click_restricted_acs_fail,
+            /*callback_payload=*/null,
+            /*anon_coward=*/false,
+            // So that we don't save map items:
+            /*restrict_dirty=*/Dirty_Reason.item_mask_oob,
+            /*alert_on_activity=*/false,
+            /*command_mgr=*/null);
+
+         gwis_share.fetch();
+
+         this.gwis_outstanding++;
+         m4_DEBUG2('item_commit_style_change: style_change:',
+                   the_item.style_change);
+      }
+
+      // ***
+
+      //
+      protected function fbility_put(
+         the_item:Item_User_Access,
+         action_obj:Object)
+         :void
+      {
+         m4_DEBUG2('fbility_put: action_obj:', action_obj,
+                   '/ the_item:', the_item);
+
+         var callback_load:Function = this.findability_saved_okay;
+         var callback_fail:Function = this.findability_saved_fail;
+
+         var stack_ids:Stack_Id_Array = new Stack_Id_Array();
+         stack_ids.push(the_item.stack_id);
+
+         if (G.user.logged_in) {
+            var fbil_req:GWIS_Item_Findability_Put =
+               new GWIS_Item_Findability_Put(stack_ids,
+                                             action_obj,
+                                             callback_load,
+                                             callback_fail);
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(fbil_req);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+            callback_fail();
+         }
+      }
+
+      //
+      protected function findability_saved_fail(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_WARNING('findability_saved_fail');
+
+         this.failure_detected = true;
+
+         this.on_click_restricted_apply_finish();
+      }
+
+      //
+      protected function findability_saved_okay(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         var the_item:Item_User_Access = (this.items_selected.one()
+                                          as Item_User_Access);
+
+         m4_DEBUG4('findability_saved_okay: was fbilty_pub_libr_squel:',
+                   the_item.fbilty_pub_libr_squel,
+                   '/ was fbilty_usr_libr_squel:',
+                   the_item.fbilty_usr_libr_squel);
+
+         // We only modify action_squelch_pub or action_squelch_usr.
+         m4_ASSERT_SOFT(gwis_req.action_history_add === undefined);
+         m4_ASSERT_SOFT(gwis_req.action_history_chg === undefined);
+         m4_ASSERT_SOFT(!gwis_req.use_all_in_history);
+         if (gwis_req.action_squelch_pub != undefined) {
+            the_item.fbilty_pub_libr_squel = gwis_req.action_squelch_pub;
+            m4_DEBUG2('findability_saved_okay: set fbilty_pub_libr_squel:',
+                      the_item.fbilty_pub_libr_squel);
+         }
+         if (gwis_req.action_squelch_usr != undefined) {
+            the_item.fbilty_usr_libr_squel = gwis_req.action_squelch_usr;
+            m4_DEBUG2('findability_saved_okay: set fbilty_usr_libr_squel:',
+                      the_item.fbilty_usr_libr_squel);
+         }
+
+         // A little hack to tell the route_list to update, maybe.
+         G.app.routes_panel.routes_library.force_fetch_list_next_maybe();
+
+         this.on_click_restricted_apply_finish();
+      }
+
+      // ***
+
+      //
+      protected function on_click_restricted_acs_load(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         this.reload_groups_access = true;
+
+         this.on_click_restricted_apply_finish();
+      }
+
+      //
+      protected function grac_get_okay(gwis_req:GWIS_Grac_Get) :void
+      {
+         var the_item:Item_User_Access = (this.items_selected.one()
+                                          as Item_User_Access);
+         m4_DEBUG('grac_get_okay: groups_access:', the_item.groups_access);
+         for each (var gia:Group_Item_Access in the_item.groups_access) {
+            m4_DEBUG('grac_get_okay: gia:', gia);
+         }
+
+         // Does this make sense?
+         this.was_old_timer = false;
+         this.repopulate();
+      }
+
+      //
+      protected function grac_get_fail(gwis_req:GWIS_Grac_Get) :void
+      {
+         m4_WARNING('grac_get_fail');
+
+         // MAYBE: Well, at least we cleared the old groups_access.
+         //        And the GWIS_Commit command will have complained,
+         //        right? So nothing to do?
+         //        Or should we restore the item's original groups_access,
+         //        since we cleared it before calling the grac_get cmd?
+
+         // Does this make sense?
+         this.was_old_timer = false;
+         this.repopulate();
+      }
+
+      //
+      protected function on_click_restricted_acs_fail(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         m4_WARNING('on_click_restricted_acs_fail');
+
+         this.failure_detected = true;
+
+         // Since we whacked the item's groups_access earlier, should we try to
+         // reload it? This is probably fruitless: if there was a problem
+         // committing, it's either a programmer error or a network outage.
+         // But, hey, at least we're trying.
+         this.reload_groups_access = true;
+
+         this.on_click_restricted_apply_finish();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:HBox
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         verticalAlign="middle"
+         >
+         <mx:Label
+            styleName="labelmajor"
+            text="Configure Sharing"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            />
+      </mx:HBox>
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         verticalGap="12"
+         paddingTop="4"
+         >
+
+         <mx:VBox
+            id="fbilities_and_perms"
+            width="100%"
+            verticalGap="12"
+            >
+
+            <mx:VBox
+               width="100%">
+               <mx:Text
+                  width="100%"
+                  condenseWhite="true"
+                  mouseChildren="false"
+                  mouseEnabled="false">
+                  <mx:htmlText><![CDATA[
+                     Show in My Route Library?
+                  ]]></mx:htmlText>
+               </mx:Text>
+               <mx:VBox
+                  width="100%"
+                  styleName="looknfeelCleanInner">
+                  <views_panel_items:Widget_Sharing_In_Library
+                     id="widget_show_in_lib_private"
+                     change="this.on_show_in_lib_private();"
+                     click="this.on_click_any_combobox(event);"
+                     />
+               </mx:VBox>
+            </mx:VBox>
+
+            <mx:VBox
+               width="100%">
+               <mx:Text
+                  width="100%"
+                  condenseWhite="true"
+                  mouseChildren="false"
+                  mouseEnabled="false">
+                  <mx:htmlText><![CDATA[
+                     Show in Public Route Library?
+                  ]]></mx:htmlText>
+               </mx:Text>
+               <mx:VBox
+                  width="100%"
+                  styleName="looknfeelCleanInner">
+                  <views_panel_items:Widget_Sharing_In_Library
+                     id="widget_show_in_lib_public"
+                     change="this.on_show_in_lib_public();"
+                     click="this.on_click_any_combobox(event);"
+                     />
+               </mx:VBox>
+            </mx:VBox>
+
+            <mx:VBox
+               width="100%">
+               <mx:Text
+      width="80%"
+                  condenseWhite="true"
+                  mouseChildren="false"
+                  mouseEnabled="false">
+                  <mx:htmlText><![CDATA[
+      Users who find my route in the public library or in a route reaction can...
+                  ]]></mx:htmlText>
+               </mx:Text>
+               <mx:HBox
+                  width="100%"
+                  styleName="looknfeelCleanInner"
+                  verticalAlign="middle">
+                  <views_panel_items:Widget_Sharing_Simple_AcL
+                     id="widget_simple_acl_library"
+                     change="this.on_acl_library();"
+                     click="this.on_click_any_combobox(event);"
+                     friendly_name_found_via=
+                        "when accessed from the route library."
+                     />
+                  <mx:Text
+                     width="100%"
+                     condenseWhite="true"
+                     mouseChildren="false"
+                     mouseEnabled="false">
+                     <mx:htmlText><![CDATA[this item.]]></mx:htmlText>
+                  </mx:Text>
+               </mx:HBox>
+            </mx:VBox>
+
+            <mx:VBox
+               width="100%">
+               <mx:Text
+                  width="100%"
+                  condenseWhite="true"
+                  mouseChildren="false"
+                  mouseEnabled="false">
+                  <mx:htmlText><![CDATA[
+                     Users with the Web link can...
+                  ]]></mx:htmlText>
+               </mx:Text>
+               <mx:HBox
+                  width="100%"
+                  styleName="looknfeelCleanInner"
+                  verticalAlign="middle">
+                  <views_panel_items:Widget_Sharing_Simple_AcL
+                     id="widget_simple_acl_weblink"
+                     change="this.on_acl_weblink();"
+                     click="this.on_click_any_combobox(event);"
+                     friendly_name_found_via=
+                        "when accessed with the web link URL."
+                     enabled="false"
+                     />
+                  <mx:Text
+                     width="100%"
+                     condenseWhite="true"
+                     mouseChildren="false"
+                     mouseEnabled="false">
+                     <mx:htmlText><![CDATA[this item.]]></mx:htmlText>
+                  </mx:Text>
+               </mx:HBox>
+            </mx:VBox>
+
+         <!-- end: fbilities_and_perms -->
+         </mx:VBox>
+
+         <mx:VBox
+            width="100%">
+            <mx:Text
+               width="100%"
+               condenseWhite="true"
+               mouseChildren="false"
+               mouseEnabled="false">
+               <mx:htmlText><![CDATA[
+                  Or do something completely different.
+               ]]></mx:htmlText>
+               <!--
+                  Ignore the above and do something more drastic instead.
+                  Or do something completely different.
+               -->
+            </mx:Text>
+            <mx:HBox
+               width="100%"
+               styleName="looknfeelCleanInner"
+               horizontalGap="8"
+               >
+               <mx:CheckBox
+                  id="cbox_action_make_public"
+                  label="Make Public"
+                  toolTip=
+"Make a public copy of the item and delete your private version of the item."
+                  selected="false"
+                  change="this.on_action_donate_public();"/>
+            </mx:HBox>
+         </mx:VBox>
+
+         <mx:VBox
+            width="100%"
+            paddingBottom="7"
+            >
+            <mx:Text
+               id="label_restricted_about_apply"
+               condenseWhite="true"
+               mouseChildren="false"
+               mouseEnabled="false"
+               width="100%"
+               paddingTop="0"
+               paddingBottom="0"
+               visible="true"
+               includeInLayout="{this.label_restricted_about_apply.visible}"
+               >
+               <mx:htmlText><![CDATA[
+                  Press Apply when you are ready.<br/>
+                  Changes take effect immediately.
+               ]]></mx:htmlText>
+               <!--
+                  Press Apply when you are satisfied with your changes.
+                  You do not have to save the map to make these changes.
+
+                  Press Apply when you are satisfied with your changes.
+                  Your changes will take effect immediately.
+               -->
+            </mx:Text>
+            <mx:HBox
+               width="100%"
+               styleName="looknfeelCleanInner"
+               verticalAlign="middle"
+               horizontalGap="12">
+               <mx:Button
+                  id="button_restricted_apply"
+                  label="Apply"
+                  click="this.on_click_restricted_apply();"
+                  toolTip=
+   "Save your new permissions to the server. You do not have to save the map to make these changes -- the changes will take effect immediately."
+                  fillColors="{[Conf.save_button_fill_light,
+                                Conf.save_button_fill_dark,]}"
+                  enabled="false"
+                  />
+               <views_panel_util:Hyper_Link
+                  id="link_reset_changes"
+                  htmlText="Undo Changes"
+                  click="this.on_click_reset_changes();"
+                  enabled="false"
+                  paddingTop="1"
+                  toolTip=
+               "Click to undo any changes you made to the controls above."
+                  />
+            </mx:HBox>
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

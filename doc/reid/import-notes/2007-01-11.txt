@@ -1,0 +1,70 @@
+201 [reid@magnify scripts]$ for i in /export/scratch2/maps/mndot-basemap-roads/*.shp ; do PYSERVER_HOME=../pyserver/ ./import_mndot_roads.py $i; done
+16424 features in /export/scratch2/maps/mndot-basemap-roads/anoka.shp 
+Connected to database
+Creating byway segments 
+Warning: discarding invalid '133rd Ave NW' (MULTILINESTRING)
+Warning: discarding invalid '109th Ave NE' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Able St NE' (MULTILINESTRING)
+Warning: discarding invalid '98th La NE' (MULTILINESTRING)
+Warning: discarding invalid 'Woodland Rd' (MULTILINESTRING)
+Saving revision 8 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+4902 features in /export/scratch2/maps/mndot-basemap-roads/carver.shp 
+Connected to database
+Creating byway segments 
+Saving revision 9 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+18287 features in /export/scratch2/maps/mndot-basemap-roads/dakota.shp 
+Connected to database
+Creating byway segments 
+Warning: discarding invalid 'Lexington Ave' (LINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Robert Tr S' (MULTILINESTRING)
+Saving revision 10 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+52293 features in /export/scratch2/maps/mndot-basemap-roads/hennepin.shp 
+Connected to database
+Creating byway segments 
+Warning: discarding invalid '12th Ave N' (MULTILINESTRING)
+Warning: discarding invalid 'Abbott Pl' (MULTILINESTRING)
+Saving revision 11 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+21227 features in /export/scratch2/maps/mndot-basemap-roads/ramsey.shp 
+Connected to database
+Creating byway segments 
+Warning: discarding invalid 'Childs Rd' (MULTILINESTRING)
+Warning: discarding invalid 'I-35E' (MULTILINESTRING)
+Warning: discarding invalid 'Commonwealth Ave W' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Unknown or No Streetname' (MULTILINESTRING)
+Warning: discarding invalid 'Eagle St' (MULTILINESTRING)
+Saving revision 12 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+6543 features in /export/scratch2/maps/mndot-basemap-roads/scott.shp 
+Connected to database
+Creating byway segments 
+Saving revision 13 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();
+11899 features in /export/scratch2/maps/mndot-basemap-roads/washington.shp 
+Connected to database
+Creating byway segments 
+Warning: discarding invalid 'Woodbury Dr' (MULTILINESTRING)
+Warning: discarding invalid 'Woodbury Dr' (MULTILINESTRING)
+Saving revision 14 to database
+Done. You may want to:
+VACUUM; SELECT update_geometry_stats();

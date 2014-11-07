@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_map_legend:Map_Legend_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   initialize="this.on_initialize(event);"
+   creationComplete="this.on_creation_complete(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Combo_Box_V2;
+      import utils.misc.Logging;
+      import views.ornaments.bike_facility.*;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_items.Widget_Bike_Facility;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapLgd_Fcil');
+
+      // *** Instance variables
+
+      protected var inited:Boolean = false;
+
+      protected var watch_side_panel_height:ChangeWatcher;
+
+      // Call out the classes so getDefinitionByName works.
+      // SYNC_ME: Search var _ignored_silly_pre_refs.
+      //          See also the mapserver/skins/ files.
+      protected static var _ignored_silly_pre_refs:Array = [
+         // Bike Facilities
+         Bike_Boulevard,
+         Bike_Lane_OnRoad,
+         Bike_Lane_Protected,
+         Bike_Route_U_S,
+         Bikeway_State,
+         Facility_Icon_Base,
+         Facilities_None,
+         Facilities_Vary,
+         Gravel_Road,
+         Highway_High_Vol,
+         Highway_Low_Vol,
+         Roadway_Shared,
+         Roadway_Sharrows,
+         Shared_Path_Paved,
+         Shared_Path_Unpaved,
+         Shoulder_Low_Vol,
+         Shoulder_High_Vol,
+         // Cautions
+         Cautions_None,
+         Construction_Open,
+         Construction_Closed,
+         Difficult_Connection,
+         Poor_Visibility,
+         Use_Extra_Caution,
+         ];
+
+      // *** Instance methods
+
+      //
+      protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete: this:', this);
+
+         this.on_change_height();
+      }
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize: this:', this);
+
+         m4_ASSURT(G.app.side_panel !== null);
+
+         this.watch_side_panel_height = ChangeWatcher.watch(
+            G.app.side_panel, 'height', this.on_change_height);
+      }
+
+      //
+      override public function fill_values() :void
+      {
+         if (!this.inited) {
+            this.fill_values_for_pen_group('bike_facil');
+            this.fill_values_for_pen_group('cautionary');
+            this.inited = true;
+         }
+      }
+
+      //
+      public function fill_values_for_pen_group(pen_group:String) :void
+      {
+         var attr_key:String;
+         var attr_pen:Object;
+
+         var attr_pen_key_names:Array =
+            Conf.tile_skin.attr_keys[pen_group] as Array;
+
+         // NOTE: The pens are already sorted by key_rank.
+         for each (attr_key in attr_pen_key_names) {
+
+            attr_pen = Conf.tile_skin.attr_pens[pen_group][attr_key];
+
+            // C.f. Widget_Bike_Facility.on_mode_change.
+            /*
+            var pen_defn:Object =
+               {
+               id: attr_pen['attr_key'],
+               //id: attr_pen.key_rank,
+               pen_group: attr_pen['pen_group'],
+               key: attr_pen['attr_key'],
+               label: attr_pen['key_friendly'],
+               icon: attr_pen['icon_class'],
+               icon_selected: attr_pen['icon_class'],
+               enabled: true
+               };
+            */
+            // We could use the icon_class but then we'd have to preload all
+            // the classes explicitly so getDefinitionByName would work.
+            if ((attr_pen.key_rank != Combo_Box_V2.INDEX_VARIES)
+                && (!((pen_group == 'cautionary')
+                      && (attr_pen.attr_key // == 'no_cautys'
+                          == Widget_Bike_Facility.attr_key_no_cautys)))) {
+
+               m4_TALKY('fill_values: new icon: attr_key:', attr_key);
+
+               //var cur_icon:Facility_Icon_Base = new Facility_Icon_Base();
+               var icon_class:Class;
+               icon_class = getDefinitionByName(attr_pen.icon_class) as Class;
+               m4_DEBUG('fill_values: new icon_class:', icon_class);
+               var cur_icon:Facility_Icon_Base = new icon_class();
+               m4_DEBUG('fill_values: new cur_icon:', cur_icon);
+
+               // Add the component first otherwise paint fails because
+               // grandchild components won't exist. Also, you can't set
+               // visible, etc.
+               this.facil_box_scroller.addChild(cur_icon);
+
+               cur_icon.attr_pen_group = pen_group;
+               cur_icon.attr_key_name = attr_key;
+
+               cur_icon.paint_bike_facility();
+
+               cur_icon.bike_facil_hint.visible = true;
+               cur_icon.bike_facil_hint.includeInLayout = true;
+               cur_icon.percentHeight = 100;
+
+               // [lb] had a problem with Text being clipped and tried this
+               // approach first, but the problem was probably solved by
+               // using Text_Mousewheelless. Meaning, the two invalidates
+               // here probably aren't necessary, but they also don't hurt.
+               cur_icon.invalidateProperties();
+               cur_icon.invalidateDisplayList();
+
+               /*
+               <views_ornaments_bike_facility:Facility_Icon_Base
+                  id="bike_facil_label"
+                  visible="false"
+                  includeInLayout="{this.bike_facil_label.visible}"
+                  paddingTop="0"
+                  paddingBottom="0"
+                  height="{Facility_Icon_Base.total_height}"
+                  width="{Facility_Icon_Base.total_width}"
+                  x="0"
+                  y="0"
+               */
+            }
+         }
+      }
+
+      //
+      public function on_change_height(ev:Event=null, skip_btn:Boolean=false)
+         :void
+      {
+         m4_PPUSH('on_change_height');
+
+         if ((G.app !== null) && (G.app.side_panel !== null)) {
+
+            if (G.app.side_panel.height > 0) {
+
+               var dwr:Map_Key_Drawer = this.parentDocument as Map_Key_Drawer;
+               //var btn:Map_Key_Button = dwr.parentDocument as Map_Key_Button;
+
+               m4_PPUSH2('on_change_height: outer_container.numChildren:',
+                         this.outer_container.numChildren); // numChildren: 2
+
+               var drawer_height_base:int =
+                  0
+                  //
+                  + this.getStyle('paddingTop')
+                  + this.getStyle('paddingBottom')
+                  //
+                  + this.outer_container.getStyle('paddingTop')
+                  + this.outer_container.getStyle('paddingBottom')
+                  + (this.outer_container.getStyle('verticalGap')
+                     * (this.outer_container.numChildren - 1))
+                  //
+                  + this.drawer_panel_header.height
+                  //
+                  ;
+
+               m4_PPUSH2('on_change_height: drawer_height_base- -2:',
+                         drawer_height_base);
+               if (Detail_Panel_Base.has_HorizontalScrollBar_(
+                                       dwr.first_container)) {
+                  drawer_height_base +=
+                     Detail_Panel_Base.get_hsb_height_(dwr.first_container)
+                     //+ 1
+                     ;
+                  m4_PPUSH2('on_change_height: drawer_height_base- -1:',
+                            drawer_height_base);
+               }
+
+               m4_PPUSH2('on_change_height: dwr.height:',
+                         dwr.height);
+
+               var max_height:int = dwr.height - drawer_height_base;
+               m4_PPUSH('on_change_height: max_height:', max_height);
+
+               this.facil_box_scroller.height = max_height;
+            }
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="outer_container"
+      width="100%"
+      height="100%"
+      paddingLeft="8"
+      paddingRight="8"
+      paddingTop="8"
+      paddingBottom="16"
+      verticalGap="8"
+      horizontalAlign="center"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="drawer_panel_header"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         verticalGap="0"
+         horizontalAlign="center"
+         >
+         <!--
+            text="Roadway Attributes Key"
+         -->
+         <mx:Label
+            text="Bike Facilities and Cautions Key"
+            fontWeight="bold"/>
+      </mx:VBox>
+
+<!--
+         height="100%"
+-->
+      <mx:VBox
+         id="facil_box_scroller"
+         width="100%"
+         paddingLeft="8"
+         paddingRight="8"
+         paddingTop="8"
+         paddingBottom="8"
+         horizontalGap="0"
+         verticalGap="8"
+         horizontalAlign="left"
+         verticalAlign="top"
+         borderThickness="1"
+         borderStyle="solid"
+         borderColor="0x000000"
+
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="auto"
+         >
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_map_legend:Map_Legend_Base>
+

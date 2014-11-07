@@ -1,0 +1,397 @@
+@font-face {
+	font-family: "raleway";
+	src: url("fonts/raleway_thin.otf");
+}
+
+@font-face {
+	font-family: "Sawasdee";
+	src: url("fonts/Sawasdee.ttf");
+}
+
+html {
+	background-color: #000000;
+}
+
+body { 	
+	position: absolute;
+	height: 100%;
+	width: 100%;
+	-webkit-background-size: cover;
+	-moz-background-size: cover;
+	-o-background-size: cover;
+	background-size: cover;
+	
+}
+
+a:focus {
+    outline: 0px solid black!important;
+}
+
+.background {
+	position: fixed;
+	width: 100%;
+	height: 100%;
+	//background: url('bg.jpg');
+	background: url('bg.jpg') no-repeat center center fixed;
+	//background: url('bg.jpg') no-repeat center center;
+	background-color: #000000;
+        -webkit-background-size: cover;
+        -moz-background-size: cover;
+        -o-background-size: cover;
+        background-size: cover;
+}
+
+#panel {
+    position: fixed;
+    left: 50%;
+    top: 50%;        
+    height: 200px;
+    margin-top: -55px;
+    width: 600px;
+    margin-left: -300px;
+}
+
+#left_box {	
+	display:table;
+	position: fixed;	
+	width: 50%;
+	height: 100%;
+}
+
+#login_box {
+	//position:relative;
+	width: 400px;
+	height: 170px;
+	//margin-left: 80px;
+	box-shadow: 0 1px 10px rgba(0, 0, 0, .4);
+	background: -webkit-linear-gradient(top, #dedede, #d6d6d6 5%, #d6d6d6);
+	color: #3c3c3c;
+	border-radius: 5px;
+
+	position:absolute;
+	//right: 0px;
+	//width: 100%;
+	//height: 100%;
+	//margin-right: 120px;
+	top: 50%;
+	margin-top: -85px; // Half of the height of 170px.
+	right: 50%;
+	//left: 50%;
+	//margin-left: -200px; // Half of 400px;
+}
+
+#top_box {	
+	position: relative;
+	height: 45%;	
+}
+
+#top_inner_box {	
+	position: absolute;		
+	display: table-cell;
+   	vertical-align: bottom;
+   	height: 100%; 
+    width: 100%;
+}
+
+#top_users {
+	position: absolute;
+	width: 100%;
+	bottom: 0px; 
+	left: 0px;
+}
+
+#middle_box {
+	//height: 170px;
+	height: 100%;
+	width: 100%;
+}
+
+#selected_user_box {
+	position: absolute;
+	margin-left: 120px;
+	margin-top: 30px;
+	text-align: left;
+}
+
+#selected_user .user_box {
+	color: #3c3c3c;
+	position: absolute;
+	margin-left: 120px;
+	margin-top: 30px;
+	text-align: left;
+	font-weight: 200;
+}
+
+#bottom_users {
+
+}
+
+#right-box {
+	position: fixed;
+	right: 0px;
+	vertical-align: middle;
+	height: 100%;	
+	width: 50%;	
+}
+
+.popover-content {
+	max-height: 200px;
+    overflow-y: auto;
+}
+
+.selection-picture {
+}
+
+.user_box {
+	color: white;
+	position: relative;
+	margin-left: 200px;	
+	text-align: left;
+	font-family: "Raleway Light";
+	margin-top: 30px;
+	margin-bottom: 30px;
+}
+
+.font_username {	
+	font-family: "Raleway Light";
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+	font-size:30px;
+	line-height: 40px;	
+	font-weight:300;
+}
+
+.font_gecos {
+	font-family: "Raleway Light";
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+	font-size:16px;
+	line-height: 40px;	
+	font-weight:300;
+}
+
+#selected_user .font_username {	
+	font-family: "Raleway Light";	
+	font-size:30px;
+	line-height: 40px;	
+	font-weight:400;
+	text-shadow: none;
+}
+
+#selected_user .font_gecos {
+	font-family: "Raleway Light";
+	font-size:16px;
+	line-height: 40px;	
+	font-weight:400;
+	text-shadow: none;
+}
+
+#current_session_picture {
+	position: absolute;
+	top: 10px;
+	left: 376px;
+}
+
+#current_language_flag {
+	position: absolute;
+	top: 10px;
+	left: 346px;
+	color: #999;
+}
+
+#current_language_flag:hover {
+	color: #fff;
+}
+
+#selected_avatar {
+	position:absolute;
+	left: 13px;
+	top: 13px;	
+	width: 96px;
+	height: 96px;
+	border: 1px solid #999;
+	border-radius: 0px;
+	box-shadow: 0 0 1px 1px #999;
+	background-color: white;
+}
+
+#selected_status {
+	position: absolute;
+	margin-left: 13px;
+	margin-top: 138px;	
+	font-style: italic;
+	font-family: "Raleway Light";
+	font-size:12px;
+	line-height: 20px;	
+	font-weight:100;
+}
+
+#entry_box {
+	position: absolute;	
+	margin-top: 80px;
+	margin-left: 120px;
+	height: 24px;
+	width: 60px;
+}
+
+#entry {
+	width: 270px;
+   padding: 5px;  
+    font-size: 15px;  
+    text-shadow: 0px 1px 0px #fff;  
+    outline: none;     
+    border-radius: 3px;  
+    border: 1px solid #999;  
+    -webkit-transition: .3s ease-in-out;  
+    -moz-transition: .3s ease-in-out;      
+	 background: #fff;
+     height: 25px;
+}
+ 
+#entry:focus {  	
+     box-shadow:inset 0 0 1px 1px #accd8a;
+}
+
+#ok_button_box {
+	position: absolute;	
+	margin-top: 133px;
+	margin-left: 263px;
+	width: 118px;
+	height: 24px;
+}
+
+#ok_button {
+	width: 118px;
+	height: 24px;
+	font-size: 12px;
+}
+
+.session-picture {
+	border-radius: 5px;
+	border:2px rgba(80,80,80,0.5) solid;
+	width: 24px;
+	height: 24px;	
+	margin-right: 5px;	
+}
+
+.language-picture {
+	width: 16px;
+	height: 16px;
+	margin: 5px;
+}
+
+/*#welcome_message {	
+	position: relative;	
+	top: 50%;
+	color: #fff;
+	font-family: "Sawasdee";
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+	font-size:40px;
+	line-height: 40px;
+	font-weight:300;
+	width: 100%;	
+}
+*/
+
+#lsb {
+	position: relative;		
+	margin-left: auto;
+	color: #999;
+	width: 100%;
+	font-family: "Raleway Light";
+	text-shadow: 0 1px 3px #000;
+	font-size:30px;
+	line-height: 40px;	
+	font-weight:300;
+}
+
+#clock {
+	position: relative;
+	margin-left: auto;	
+	color: #fff;
+	width: 100%;
+	font-family: "Raleway Light";
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 1);
+	font-size:24px;
+	line-height: 40px;
+	font-weight:300;
+}
+
+@media only screen and (max-width: 1599px) {
+  /* Small resolutions */
+  	#clock	 {
+		display: none;
+	}
+
+	#lsb {
+		display: none;
+	}
+}
+
+
+
+
+#quit {
+	float: right;	
+    margin-top: 20px;    
+    margin-right: 25px;  
+    color: #fff;    
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 1); 
+}
+
+#quit:hover {
+	text-shadow: 0 1px 3px rgba(70,70,70, 1);
+}
+
+#error {
+	float: right;
+	font-size: 8.5pt;
+    border-radius: 10px 10px 10px 10px;
+    border: 1px solid rgba(120,120,120,1);
+	background: -webkit-linear-gradient(top, rgba(70,70,70,0.9), rgba(50,50,50,0.9));
+    padding: 8px 8px 8px 8px;
+    margin-top: 20px;    
+    margin-right: 20px;   
+    color: red;
+}
+
+#timed {
+	float: right;
+	font-size: 8.5pt;
+    border-radius: 10px 10px 10px 10px;
+    border: 1px solid rgba(120,120,120,1);
+	background: -webkit-linear-gradient(top, rgba(70,70,70,0.9), rgba(50,50,50,0.9));
+    padding: 8px 8px 8px 8px;
+    margin-top: 20px;    
+    margin-right: 20px;   
+    color: cyan;
+}
+
+#message {	
+    
+}
+
+#languages {
+	color: black;
+	width: 100%;
+	text-align: left;
+}
+
+#languages td a {
+	color: #3c3c3c;	
+}
+
+#sessions {
+	color: black;
+	width: 100%;
+	text-align: left;
+}
+
+#sessions td a {
+	color: #3c3c3c;	
+}
+
+
+
+a {color:#dedede;text-decoration:none;}      /* unvisited link */
+a:hover {color:#ffffff;text-decoration:none;}  /* mouse over link */
+
+

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<menu
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:title="@string/experiment_submit_point"
+          android:id="@+id/submit_point"></item>
+    <item android:title="@string/find_route_to_here"
+          android:id="@+id/route_to_here"></item>
+    <item android:title="@string/find_route_from_here"
+          android:id="@+id/route_from_here"></item>
+</menu>

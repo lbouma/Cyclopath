@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Feedbck');
+
+      // *** Instance variables
+
+      [Bindable] public var feedbackable:Boolean = false;
+
+      // *** Instance methods
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate: this.route:', this.route);
+
+         // Anyone can provide feedback on any route they can see.
+         if (!this.route.can_client) {
+            // 2014.09.09: How in the world is this firing? From android?
+            // 2014.09.09: This is firing (via log_event_check.sh):
+            // See Panel_Item_Route::repopulate: this widget is created
+            // but only made visible if the user can see the route.
+            // And the reason the route is no can_client is because
+            // an anonymous user requested the route: so they're using
+            // the session ID for the route... but, still, the
+            // route should be can_view at least, right??
+            //   m4_ASSERT_SOFT(false);
+            //   G.sl.event('error/wdgt_fdbk/repop',
+            //              {route: this.route});
+         }
+         // <!-- Bug nnnn: This is disabled because if accepts any email
+         //                the user gives it. It should use a verified
+         //                email address, i.e., the logged in user's
+         //                registered email address.
+         // this.feedbackable = Conf_Instance.bug_2714_rtfb_drag;
+
+         if (!Conf_Instance.bug_2714_rtfb_drag) {
+            this.route_reaction.init(this.route);
+         }
+         else {
+            this.feedback.init(this.route);
+         }
+      }
+
+   ]]></mx:Script>
+
+<!-- BUG_FALL_2013 -->
+   <!-- Feedback -->
+   <mx:HBox
+      id="feedback_box"
+      visible="{this.feedbackable}"
+      includeInLayout="{this.feedbackable}"
+      paddingBottom="2"
+      width="100%"
+      label="Improve Route">
+      <views_panel_discussions:Route_Feedback_Widget
+         id="feedback"/>
+   </mx:HBox>
+
+   <!-- Reactions -->
+   <mx:HBox
+      id="reac_box"
+      visible="{!Conf_Instance.bug_2714_rtfb_drag}"
+      includeInLayout="{!Conf_Instance.bug_2714_rtfb_drag}"
+      width="100%"
+      label="Current Route">
+      <views_panel_discussions:Route_Reaction
+         id="route_reaction"
+         visible="true"
+         includeInLayout="{this.route_reaction.visible}"
+         />
+   </mx:HBox>
+
+   <!-- This is the pre-route reactions (circa mid 2012)
+        feedback mechanism.
+   <mx:HBox
+      width="100%">
+      <mx:Button
+         id="feedback"
+         label="Feedback on this Route"
+         fillColors="{[Conf.save_button_fill_light,
+                       Conf.save_button_fill_dark]}"
+         click="Route_Finder_UI.route_feedback_popup_open(this.route);"/>
+      <mx:Spacer width="100%" />
+      <mx:Button
+         label="Show Routes"
+         click="G.app.side_panel.selectedChild = G.app.routes_panel;"/>
+   </mx:HBox>
+   -->
+
+</views_panel_routes:Route_Widget_Base>
+

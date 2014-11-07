@@ -1,0 +1,56 @@
+   LAYER
+
+      METADATA
+         "wms_title" "terrain"
+      END
+      NAME "terrain"
+      GROUP "standard"
+
+      STATUS on
+      TYPE POLYGON
+
+      # Include the db login credentials.
+include(database.map)
+# Oh, here's the warning...
+      # WARNING: bug in mapserver: can't put ORDER BY on a new line unless there
+      # is a WHERE inbetween. Also, no more than one space allowed between FROM
+      # and the first table name.
+
+# FIXME: Reimplement like for byway, i.e., use pyserver and respek permissions.
+# See: tiles_cache_byway_names
+
+# FIXME: Use color values from tiles_mapserver_zoom now.
+
+      DATA "geometry FROM 
+            (SELECT 
+               stack_id, 
+               geometry, 
+               draw_class_viewer
+            FROM %schema%.tiles_draw_terrain 
+            ORDER BY draw_class_viewer ASC) 
+         AS terrain USING UNIQUE stack_id"
+
+      CLASSITEM "draw_class_viewer"
+      CLASS
+         NAME 'Water'
+         EXPRESSION "3"
+         STYLE
+            #COLOR 134 180 206
+            COLOR 50 153 212
+            #COLOR 144 180 208
+            #COLOR 118 148 235
+         END
+      END
+      CLASS
+         NAME 'Open Space'
+         EXPRESSION "2"
+         STYLE
+            #COLOR 121 153 49
+            COLOR 54 189 111
+            #COLOR 195 231 148
+            #COLOR 98 212 148
+         END
+      END
+
+   END
+

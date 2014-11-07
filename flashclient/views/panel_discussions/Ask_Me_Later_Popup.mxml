@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2010 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: route reactions. this whole file is new. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   layout="vertical"
+   title="Ask Me After I Ride"
+   close="this.on_close();"
+   defaultButton="{this.ok}"
+   initialize="this.on_initialize();"
+   keyDown="this.titleWindow_keyDown(event);"
+   showCloseButton="true"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Item_Reminder_Set;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.panel_routes.Panel_Item_Route;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('AskMeLaterP');
+
+      // ***
+
+      // STYLE EXAMPLE: In the original CcpV1 code, the client sends an email
+      // address to the server and this email is used as the reminder email.
+      // But we should verify the email first! We only want to email registered
+      // users at their registered email address. (Granted, in CcpV1 the
+      // problem wasn't that flashclient was sending the email address, but
+      // that the server did zero verification of the email address and just
+      // blindly used it -- meaning, a hacker could craft an exploitive GWIS
+      // packet to abuse the feature and to cause unwanted email sent to any
+      // email address).
+      //
+      // The only reason to allow the client to send an email address is if
+      // we want this feature to work for anonymous users...
+
+      // HISTORY: [lb] experimented with making item reminders into a
+      // link_value, like /item/alert_email (similar to /item/reminder_email)
+      // but this is too complicated. We really just want to set a one-time
+      // item_event_alert event. An alert_email is set for the life of an
+      // item, so it being a link_value makes sense, but an item reminder
+      // is set once and runs just once, so using link_values doesn't
+      // really make sense, especially considering how much more
+      // difficult link_values are to manage.
+
+      public var reaction_panel:Route_Reaction;
+
+      public var remind_times:Array = [
+         'Tomorrow',
+         'In a week',
+         ];
+
+      // ***
+
+      //
+      protected function on_close() :void
+      {
+         PopUpManager.removePopUp(this);
+      }
+
+      //
+      protected function on_initialize() :void
+      {
+         // In CcpV1, we'd show this dialog for anonymous users and let them
+         // enter any email address... but that seems too easily hackable
+         // (i.e., sending unwanted email to other users). Unless we can
+         // figure out a good stradegy to handle unverified email addresses
+         // (like tracking anon user's session_id or client_id or I.P.
+         // address and limiting # of requests; and also banning those I.P.s
+         // that abuse (and making sure the recipient of a reminder email can
+         // easily alert us to abuse, like clicking a hyperlink)).
+         m4_ASSERT(G.user.logged_in);
+      }
+
+      //
+      protected function on_ok_click() :void
+      {
+         var route:Route = this.reaction_panel.route;
+         m4_DEBUG('on_ok_click: route:', route.name_);
+
+         var remind_when:String = String(this.when.selectedItem);
+         var callback_load:Function = this.on_ask_me_later_load;
+         var callback_fail:Function = this.on_ask_me_later_fail;
+
+         // TEST_ME: Does the submit button become disabled and the
+         // popup remain until the request is complete? What if the
+         // request fails, do we recover properly?
+         var gwis_cmd:GWIS_Item_Reminder_Set;
+         gwis_cmd = new GWIS_Item_Reminder_Set(
+            route, 
+            remind_when,
+            this.on_ask_me_later_load,
+            this.on_ask_me_later_fail);
+
+         gwis_cmd.fetch();
+      }
+
+      //
+      protected function on_ask_me_later_load(
+         gwis_req:GWIS_Item_Reminder_Set,
+         rset:XML,
+         payload:*=null) :void
+      {
+         PopUpManager.removePopUp(this);
+         this.reaction_panel.remind_input.includeInLayout = false;
+         this.reaction_panel.remind_success.includeInLayout = true;
+      }
+
+      //
+      protected function on_ask_me_later_fail(
+         gwis_req:GWIS_Item_Reminder_Set,
+         rset:XML,
+         payload:*=null) :void
+      {
+         // A GWIS alert dialog was already displayed... and since the command
+         // failed, let's not hide the reminder GUI controls.
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         // C.f. all the other titleWindow_keyDown handlers.
+         // FIXME: What's BUG 1692?
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Grid
+      width="100%"
+      horizontalGap="3">
+
+      <!-- Email -->
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Email:"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <!-- MAYBE: See comments above. This widget used to let anonymous
+                        users enter any email address, but we don't have a good
+                        system to check for abuse, so now this widget is only
+                        used for registered users. MAYBE: Re-enable for anon.
+            <mx:TextInput
+               id="email"
+               text="{G.user.logged_in ? G.user.email : ''}"
+               width="100%"/>
+                        -->
+            <mx:Label
+               id="email"
+               text="{G.user.email}"
+               width="100%"/>
+         </mx:GridItem>
+      </mx:GridRow>
+
+      <!-- When -->
+      <mx:GridRow
+         width="100%">
+         <mx:GridItem>
+            <mx:Label
+               text="Remind me:"/>
+         </mx:GridItem>
+         <mx:GridItem>
+            <mx:ComboBox
+               id="when"
+               dataProvider="{this.remind_times}"/>
+         </mx:GridItem>
+      </mx:GridRow>
+
+   </mx:Grid>
+
+   <mx:HBox
+      horizontalAlign="right"
+      width="100%">
+      <mx:Button
+         id="ok"
+         label="OK"
+         click="this.on_ok_click();"
+         enabled="{(this.email.text != '')
+                   &amp;&amp; (this.email.text !== null)}"/>
+   </mx:HBox>
+
+</mx:TitleWindow>
+

@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+  For licensing terms, see the file LICENSE. -->
+<resources>
+    
+   <!-- General -->
+   <string name="app_name">Cyclopath</string>
+   <string name="save">Save</string>
+   <string name="discard">Discard</string>
+   <string name="yes">Yes</string>
+   <string name="no">No</string>
+    
+   <!-- GPS and Network -->
+
+   <string name="status_no_location">A location can currently not be
+    determined. Enable more location sources (see Security and Location
+    Settings) and make sure the sky is visible. Try again later.</string>
+   <string name="location_provider_required_title">
+    Enable a Location Provider</string>
+   <string name="location_provider_required_message">A location provider is
+    required in order to use this feature. Open location settings to enable
+    GPS or Network?</string>
+   <string name="gps_default_title">GPS Required</string>
+   <string name="gps_required_default">GPS is required to use this
+    feature.</string>
+   <string name="gps_required_for_recording">GPS is required for recording a
+    track. To start recording, press \"Go To Settings\" to open your location
+    preferences and enable GPS.</string>
+   <string name="gps_disabled_while_recording_message">GPS is required to
+    continue recording the current track. Please save your track or press
+    \"Go To Settings\" to open your location preferences and enable
+    GPS.</string>
+   <string name="location_services_cancel_btn">Cancel</string>
+   <string name="location_services_save_btn">Save Track</string>
+   <string name="location_services_enable_btn">Go To Settings</string>
+   <string name="cannot_retrieve_tile">Cannot retrieve map tile</string>
+   <string name="warning_too_far">You are currently outside Cyclopath\'s map
+    boundaries. Some features may be unavailable.</string>
+
+   <!-- Menu options -->
+
+   <string name="my_location">My Location</string>
+   <string name="find_route">Find Route</string>
+   <string name="start">Record Track</string>
+   <string name="stop">Stop</string>
+   <string name="aerial_tiles">Aerial Tiles</string>
+   <string name="aerial_off">Off</string>
+   <string name="login">Log In</string>
+   <string name="logout">Log Out</string>
+   <string name="clear_map">Clear Map</string>
+   <string name="manage_tracks">Manage Tracks</string>
+   <string name="route_library">Route Library</string>
+   <string name="about">About</string>
+   <string name="landmarks_exp">Help Us Test</string>
+    
+   <!-- Context Menus -->
+
+   <string name="track_context_menu_header">Track Menu</string>
+   <string name="view_track_details">View Details</string>
+   <string name="edit_track_details">Edit Details</string>
+   <string name="delete_track">Delete Track</string>
+   <string name="show_track">Show Track</string>
+   <string name="add_track_to_account">Add Track to Account</string>
+   <string name="context_menu_title">Select item&#8230;</string>
+   <string name="tracks">Track</string>
+   <string name="routes">Route</string>
+   <string name="show_route">Show Route</string>
+   <string name="show_directions">Show Directions</string>
+   <string name="share_route">Share Route</string>
+   <string name="menu">Menu</string>
+   <string name="save_track_gpx">Export as GPX</string>
+   <string name="conflate_track">Conflate Track</string>
+
+   <!--  Login -->
+
+   <string name="login_username">Username</string>
+   <string name="login_password">Password</string>
+   <string name="login_remember_lbl">Remember me</string>
+   <string name="login_btn">Log in</string>
+   <string name="logged_in_title">Cyclopath - Logged in as</string>
+   <string name="logged_in_toast">You are now logged in as</string>
+   <string name="logged_out_title">Cyclopath - Not logged in</string>
+   <string name="logged_out_toast">You are now logged out.</string>
+   <string name="login_username_not_validated">
+      Username cannot be empty.</string>
+   <string name="login_password_not_validated">
+      Password cannot be empty.</string>
+   <string name="sign_up">Sign Up</string>
+   <string name="forgot_password">Forgot your password?</string>
+   <string name="dont_have_account">Don\'t have an account?\t</string>
+
+   <!--  Errors and Alerts -->
+
+   <string name="error">Error</string>
+   <string name="gwis_error_present">\n\nThe URL that failed was: </string>
+   <string name="gwis_io_error">Cyclopath is having difficulty communicating
+    with the Cyclopath servers. Check your network connections.\n\nIf this
+    problem persists and other websites work OK, please contact us so we can
+    look into the problem."</string>
+   <string name="gwis_server_maintenance">Server is down for
+    maintenance.</string>
+   <string name="gwis_bad_response">Bad response from server:\n\n</string>
+   <string name="gwis_semi_protection">Semi-protection note</string>
+   <string name="gwis_semi_protection_part_a">Cyclopath is in semi-protection
+    mode. Currently, anonymous users and accounts younger than </string>
+   <string name="gwis_semi_protection_part_b"> hours cannot save public changes.
+    All logged-in users can still save private changes such as
+    ratings.</string>
+   <string name="gwis_timeout">The response from the server timed out. Please
+    check your network connections.\n\nIf this problem persists and other
+    websites work OK, please contact us so we can look into the
+    problem.</string>
+   <string name="gwis_timeout_title">Timeout waiting for response.</string>
+   <string name="gwis_hello_login_fail">Login failed</string>
+   <string name="gwis_preference_put_fail">Unable to save
+    preferences:\n\n</string>
+   <string name="gwis_new_track_save_later">Track saving failed. The track was
+    saved on the device temporarily and will be saved on the server
+    later.</string>
+   <string name="track_export_fail_media_shared">Could not export track.
+    Please turn off external USB storage and try again.</string>
+   <string name="track_export_fail">Could not export track.</string>
+   <string name="track_export_io_fail">Could not write file.</string>
+   <string name="commit_error">Commit failed</string>
+   <string name="network_error_toast">Network currently unavailable. Please
+       try again later.</string>
+
+   <!-- Account holds -->
+
+   <string name="account_holds_message">Summary:\n%1$s\n New Holds:\n %2$s\n
+    Holds removed:\n %3$s\n There are two types of hold: public
+    and full. While a full hold is active, you may not save any
+    changes.  When a public hold is active, you may not save any public
+    changes, but you can still save ratings and watch regions (private changes).
+    \n\nHolds on computers affect anyone using that computer,
+    logged in or not. If you believe a hold has been placed in error,
+    please contact info@cyclopath.org with your concerns.</string>
+   <string name="account_holds_title">Account Holds</string>
+   <string name="account_no_holds">None</string>
+   <string name="account_hold">There is a hold placed on your
+      account\n</string>
+   <string name="device_hold">There is a hold placed on this device\n</string>
+   <string name="account_hold_removed">A hold on your account has been
+      removed\n</string>
+   <string name="device_hold_removed">A hold on this device has been
+      removed\n</string>
+   <string name="public_account_hold_expires">Public account hold, expires:
+      %1$s\n</string>
+   <string name="public_account_hold_expired">Public account hold, expired:
+      %1$s\n</string>
+   <string name="full_account_hold_expires">Full account hold, expires:
+      %1$s\n</string>
+   <string name="full_account_hold_expired">Full account hold, expired:
+      %1$s\n</string>
+   <string name="public_device_hold_expires">Public device hold, expires:
+      %1$s\n</string>
+   <string name="public_device_hold_expired">Public device hold, expired:
+      %1$s\n</string>
+   <string name="full_device_hold_expires">Full device hold, expires:
+      %1$s\n</string>
+   <string name="full_device_hold_expired">Full device hold, expired:
+      %1$s\n</string>
+   <string name="saving_ban_title">Account Hold</string>
+   <string name="saving_ban_msg">There is currently a hold on this account.
+       You cannot currently save any changes</string>
+      
+   <!-- Route finding -->
+   
+   <string name="route_finder">Find Route</string>
+   <string name="route_finder_from">From:</string>
+   <string name="route_finder_to">To:</string>
+   <string name="route_finder_slider_distance">Distance</string>
+   <string name="route_finder_slider_bikeability">Bikeability</string>
+   <string name="route_finder_remember">Save these settings.</string>
+   <string name="route_finder_btn">Find Route</string>
+   <string name="route_finder_location_not_available">
+      Current location cannot be resolved.</string>
+   <string name="route_finder_from_not_validated">
+      From address cannot be empty.</string>
+   <string name="route_finder_to_not_validated">
+      To address cannot be empty.</string>
+   <string name="route_finder_other_not_validated">
+      Address cannot be empty if \'other\' selected.</string>
+   <string name="current_location">My Location</string>
+   <string name="custom_location">Specified Location</string>
+   <string name="route_share_progress_dialog_content">Generating link to route.
+   </string>
+   <string name="route_share_progress_dialog_title">Sharing route.</string>
+   <string name="route_share_error">Unable to share route.</string>
+   <string name="route_share_create_link_btn">Create Link</string>
+   <string name="route_share_share_btn">Share</string>
+   <string name="gwis_geocode_fail">Can\'t locate address(es)</string>
+   <string name="address_choose">Choose Address</string>
+   <string name="address_choose_starting">The starting location is ambiguous.
+      Please choose one:</string>
+   <string name="address_choose_ending">The ending location is ambiguous.
+      Please choose one:</string>
+   <string name="address_choose_other">Other:</string>
+   <string name="route_finder_error">Can\'t find route.</string>
+   <string name="directions">Directions</string>
+   <string name="directions_back_to_map_btn">Map</string>
+   <string name="route_finder_progress_dialog_title">Finding Route</string>
+   <string name="route_finder_progress_dialog_content">Calculating best route.
+      Please wait.</string>
+   <string name="route_start_label">Start</string>
+   <string name="route_end_label">End</string>
+   <string name="directions_length">Length:</string>
+   <string name="find_route_to_here">Find route to here</string>
+   <string name="find_route_from_here">Find route from here</string>
+   <string name="generic_route_name">Route</string>
+   <string name="route_library_search_button">Search</string>
+   <string name="route_library_no_results">No routes to display.</string>
+   <string name="route_library_results_for">Results for:</string>
+   <string name="route_library_all_results">All routes:</string>
+   <string name="route_waypoint_map_name">Point entered in map</string>
+   <string name="generated_route">Generated Route</string>
+   <string name="route_get_saved_loading_title">Loading</string>
+   <string name="route_get_saved_loading_message">Retrieving Route</string>
+   <string name="route_library_searching_title">Searching</string>
+   <string name="route_library_searching_message">
+      Searching Route Library</string>
+   <string name="directions_btn_content_description">Directions</string>
+   
+   <!--  Route Sharing -->
+   
+   <string name="route_link_error_title">Invalid Link</string>
+   <string name="route_link_error_text">Could not retrieve shared route.
+   </string>
+   <string name="route_share_default_user">A friend </string>
+   <string name="route_share_subject"> has shared a route on Cyclopath!
+   </string>
+   <string name="route_share_text">Hey,\n Check out this new route I 
+      discovered on Cyclopath!\n</string>
+   <string name="route_share_mail_chooser_title">Share a route&#8230;</string>
+
+   <!-- Track recording/editing -->
+   
+   <string name="edit_track">Edit Track</string>
+   <string name="saved_tracks">Saved Tracks</string>
+   <string name="track_confirm_del_title">Delete Track</string>
+   <string name="track_confirm_del_message">Are you sure you want to delete
+    this track? This track, and any associated 
+    information, will be permanently deleted from this device.</string>
+   <string name="track_confirm_discard_title">Discard Track</string>
+   <string name="track_confirm_discard_message">Are you sure you want to
+   discard this track?</string>
+   <string name="track_forced_close_title">Unsaved Track</string>
+   <string name="track_forced_close_message">This application was closed before
+      allowing a track being recorded to be saved. What do you want to do
+      with that track? </string>
+   <string name="track_stale_title">Stale Track</string>
+   <string name="track_stale_message">It has been a while since
+       a point was added to the track you were recording. What do you
+       want to do with that track? </string>
+   <string name="track_deleted">Track deleted</string>
+   <string name="track_editor_name">Track name:</string>
+   <string name="track_editor_notes">Notes:</string>
+   <string name="track_editor_discard">Discard</string>
+   <string name="track_editor_save">Save</string>
+   <string name="track_notification_text">Recording track</string>
+   <string name="track_notification_content_text">Cyclopath is recording a
+    track.</string>
+   <string name="track_get_error">Track retrieval failed.</string>
+   <string name="track_put_error">Track saving failed.</string>
+   <string name="track_conflate_error">Track conflation failed.</string>
+   <string name="tracklist_get_error">Track list retrieval failed.</string>
+   <string name="track_put_progress_dialog_title">Saving Track</string>
+   <string name="track_put_progress_dialog_content">Please wait&#8230;</string>
+   <string name="tracklist_get_progress_dialog_title">Getting tracks</string>
+   <string name="tracklist_get_progress_dialog_content">Loading&#8230;</string>
+   <string name="track_get_progress_dialog_title">Retrieving track</string>
+   <string name="track_load_progress_dialog_title">Loading track</string>
+   <string name="track_conflate_progress_dialog_title">
+       Track Conflation</string>
+   <string name="track_conflate_progress_dialog_content">
+       Starting&#8230;</string>
+   <string name="tracklist_item_no_owner">This track has no owner</string>
+   <string name="track_no_owner_title">Tracks without owner</string>
+   <string name="track_no_owner_message">Some tracks are not associated with
+    any user account. Do you want to add them to your account?</string>
+   <string name="track_no_owner_add_all">Add tracks</string>
+   <string name="track_no_owner_do_nothing">Not now</string>
+   <string name="export_track_title">Exporting Track</string>
+   <string name="export_track_msg">Saving</string>
+   <string name="track_exported_msg"></string>
+   <string name="track_exported_title">Exported As</string>
+   <string name="track_too_short">The track is too short to be saved.</string>
+   <string name="tracklist_empty">There are no available tracks. Please log in
+       to see saved tracks.</string>
+
+   <!-- About dialog -->
+   <string name="about_copyright">Copyright 2006-2011 Regents of
+    the\nUniversity of Minnesota</string>
+   <string name="about_grouplens">Developed and maintained\nby the GroupLens
+    Research\nLab at the University\nof Minnesota.</string>
+   <string name="about_version_colon">Version:</string>
+   <string name="about_credits_colon">Credits:</string>
+   <string name="user_agreement">User Agreement</string>
+   <string name="user_agreement_btn_text">I have read and agree to the terms 
+   of service.</string>
+   <string name="user_agreement_starting_cyclopath">Starting Cyclopath&#8230;
+   </string>
+   <string name="terms_of_service">Terms of Service</string>
+   <string name="agreement_intro">In order to use Cyclopath Mobile,
+    you must understand and agree to the following:</string>
+   <string name="agreement1"><ul><li>Cyclopath is a research project at the
+    University of Minnesota.</li></ul></string>
+   <string name="agreement2"><ul><li>When you use Cyclopath Mobile,
+    information, including your location, will be recorded on our servers. We
+    use this information to improve the Cyclopath user experience and to
+    advance our research."</li></ul></string>
+   <string name="agreement3"><ul><li>We will never share private data that
+    will let you be identified.</li></ul></string>
+   <string name="agreement_end1">For full terms of service, click </string>
+   <string name="agreement_end2">here.</string>
+   
+   <!-- Updates -->
+   <string name="update_required_title">Update Required</string>
+   <string name="update_required_text">An update is required to continue using
+   Cyclopath.</string>
+   <string name="update_required_btn">Update</string>
+   <string name="update_required_exit_btn">Exit</string>
+   <string name="changelog_full_title">Change Log</string>
+   <string name="changelog_title">What\'s New</string>
+   <string name="changelog_ok_button">OK</string>
+   
+   <!-- Route Directions -->
+   <string name="bearing_right">RIGHT</string>
+   <string name="bearing_slight_right">SLIGHT_RIGHT</string>
+   <string name="bearing_forward">FORWARD</string>
+   <string name="bearing_slight_left">SLIGHT_LEFT</string>
+   <string name="bearing_left">LEFT</string>
+   <string name="bearing_sharp_left">SHARP_LEFT</string>
+   <string name="bearing_backward">BACKWARD</string>
+   <string name="bearing_sharp_right">SHARP_RIGHT</string>
+   <string name="bearing_start">START</string>
+   <string name="bearing_end">END</string>
+   <string name="bearing_n">N</string>
+   <string name="bearing_ne">NE</string>
+   <string name="bearing_e">E</string>
+   <string name="bearing_se">SE</string>
+   <string name="bearing_s">S</string>
+   <string name="bearing_sw">SW</string>
+   <string name="bearing_w">W</string>
+   <string name="bearing_nw">NW</string>
+   <string name="direction_before">BEFORE</string>
+   <string name="direction_after">AFTER</string>
+   <string name="direction_unnamed">Unnamed %1$s</string>
+   <string name="direction_end">End at %1$s</string>
+   <string name="direction_start">Start %1$s on %2$s</string>
+   <string name="direction_continue">Continue %1$s on %2$s</string>
+   <string name="direction_backward">%1$s/%2$s on %3$s</string>
+   <string name="direction_forward">%1$s/%2$s onto %3$s</string>
+   <string name="direction_forward_landmark">%1$s/%2$s onto %3$s &lt;font
+       color=\'yellow\'&gt; %4$s %5$s on the %6$s&lt;font&gt;</string>
+   <string name="direction_changes">%1$s changes to %2$s</string>
+   
+   <!-- Item Details -->
+   <string name="item_details_ratings">Bikeability:</string>
+   <string name="item_details_tags">Tags:</string>
+   <string name="item_details_notes">Notes:</string>
+   <string name="item_details_name">Name:</string>
+   <string name="item_details_ratings_est">Estimated:</string>
+   <string name="item_details_loading">Loading&#8230;</string>
+   <string name="item_details">Item Details</string>
+   <string name="note_details">Note Details</string>
+   <string name="track_details">Track Details</string>
+   <string name="item_details_none">None</string>
+   <string name="item_details_edit">Edit</string>
+   <string name="item_nothing_to_save">Nothing to save</string>
+   <string name="item_tag_added">Added tag: %1$s</string>
+   <string name="item_note_added">Added note</string>
+   <string name="item_delete">Delete</string>
+   <string name="item_saved">Item saved</string>
+   <string name="item_saving_title">Saving Item</string>
+   <string name="item_saving_msg">Saving&#8230;</string>
+   <string name="item_discard">Discard</string>
+   <string name="item_discard_cancel">Cancel</string>
+   <string name="item_discard_title">Discard Changes?</string>
+   <string name="item_discard_msg">Do you want to discard the
+       changes you made?</string>
+   <string name="item_name_hint">unnamed</string>
+   <string name="item_add_tag">+ Add Tag</string>
+   <string name="item_add_tag_hint">new tag</string>
+   <string name="item_add_note_hint">new note</string>
+   <string name="item_add_note">+ Add Note</string>
+   <string name="note_hint">Write note here</string>
+   <string name="note_done">Done</string>
+   <string name="ratings_login">You must be logged in to save ratings.</string>
+   
+   <!-- Landmarks Experiment -->
+   <!-- intro bar -->
+   <string name="experiment_bar_text">Help us test a new feature!</string>
+   <string name="experiment_bar_help_btn">Help</string>
+   <string name="experiment_bar_no_btn">Not Now</string>
+   <!-- recording bar -->
+   <string name="experiment_active_text">Landmarks test active</string>
+   <string name="experiment_bar_stop_btn">Stop Test</string>
+   <!-- add landmark (now) bar -->
+   <string name="experiment_landmark_mode">Long press
+       on map to add a landmark.</string>
+   <string name="experiment_bar_done_btn">Done</string>
+   <!-- add landmark (later) bar -->
+   <!-- prompt -->
+   <string name="experiment_prompt_title">Landmark Need</string>
+   <string name="experiment_prompt_text">This nearby intersection needs a
+       landmark. Long press on the map to add one.</string>
+   <string name="experiment_prompt_yes">Add Landmark</string>
+   <string name="experiment_prompt_no">Not Now</string>
+   <!-- status bar notification -->
+   <string name="experiment_notif_title">Landmark Need</string>
+   <string name="experiment_notif_now">Stop and add a nearby landmark!</string>
+   <string name="experiment_notif_later">Look around and remember nearby
+       landmarks!</string>
+   <!-- Instructions -->
+   <string name="experiment_instructions_title">Landmarks Experiment</string>
+   <string name="experiment_instructions_yes">Begin</string>
+   <string name="experiment_instructions_no">Cancel</string>
+   <string name="experiment_instructions_now"><![CDATA[
+      When notified, <font color="#00FFFF"><b>stop and add</b></font>
+      nearby useful landmarks.]]>
+   </string>
+   <string name="experiment_instructions_later"><![CDATA[
+      When notified, <font color="#00FFFF"><b>look around
+      and remember</b></font> nearby useful landmarks.  When you are done
+      riding we will send you an email to remind you to add the landmarks.]]>
+   </string>
+   <!-- other -->
+   <string name="help_exp">Help us Test</string>
+   <string name="experiment_submit_point">Add Landmark</string>
+   <string name="experiment_instructions">We are testing an experimental
+      feature for adding navigation landmarks
+      to Cyclopath in areas of need.\n\n
+      To help, simply record a GPS track. While you ride, you will
+      receive notifications where we ask you to observe and collect
+      information about a few landmarks.\n\n
+      By agreeing to participate, you give us permission to use your data
+      from this test for research purposes. In addition, any landmark
+      information you contribute will be shared publicly as part of the
+      Cyclopath system. No personally identifying
+      information will be disclosed.\n\n
+      The test will remain active for the next two weeks.
+      </string>
+   <string name="experiment_agreement_yes">I Agree</string>
+   <string name="experiment_agreement_no">Not Now</string>
+   <string name="experiment_prompt_bar_text">Prompt %1$s of %2$s.\n
+      Long press to add landmarks.</string>
+   
+   <!--  Misc -->
+   <string name="find_map_btn">Show Map</string>
+   <string name="rating_unknown">Don\'t know</string>
+   <string name="rating_impassable">Impassable</string>
+   <string name="rating_poor">Poor</string>
+   <string name="rating_fair">Fair</string>
+   <string name="rating_good">Good</string>
+   <string name="rating_excellent">Excellent</string>
+   <string name="commit_message">Mobile edit</string>
+   <string name="new_point_name">New Point</string>
+
+</resources>

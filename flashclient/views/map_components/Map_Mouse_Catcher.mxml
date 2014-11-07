@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Canvas
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   mouseEnabled="true">
+
+   <!-- Passes the mouse events on to the Map_Canvas. Since it doesn't adjust
+        target or currentTarget, the handlers in Map_Canvas shouldn't use
+        those, and to be safe, should only ever use stage coordinates. -->
+
+   <!-- NOTE: We do not set up the mouse listeners automatically. We wait
+              until the map is loaded before doing so. -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Map_MouseCat');
+
+      // *** Instance methods
+
+      //
+      public function listeners_register() :void
+      {
+         this.addEventListener(MouseEvent.CLICK, this.on_click);
+         this.addEventListener(MouseEvent.MOUSE_DOWN, this.on_mouse_down);
+         this.addEventListener(MouseEvent.MOUSE_MOVE, this.on_mouse_move);
+         this.addEventListener(MouseEvent.MOUSE_UP, this.on_mouse_up);
+         this.addEventListener(MouseEvent.MOUSE_OUT, this.on_mouse_out);
+         this.addEventListener(MouseEvent.MOUSE_OVER, this.on_mouse_over);
+      }
+
+      // *** Event handlers
+
+      //
+      public function on_click(ev:MouseEvent) :void
+      {
+         // EXPLAIN: Does this fcn. happen?
+         m4_WARNING('on_click: EXPLAIN: Is this suppose to be called?');
+         //G.map.on_click_maybe(ev);
+      }
+
+      //
+      public function on_mouse_down(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_mouse_down');
+         G.map.on_mouse_down(ev);
+      }
+
+      //
+      public function on_mouse_move(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_mouse_move');
+         G.map.on_mouse_move(ev);
+      }
+
+      //
+      public function on_mouse_up(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_mouse_up');
+         G.map.on_mouse_up(ev);
+      }
+
+      //
+      public function on_mouse_out(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_mouse_out');
+         G.map.on_mouse_out(ev);
+      }
+
+      //
+      public function on_mouse_over(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_mouse_over');
+         G.map.on_mouse_over(ev);
+      }
+
+   ]]></mx:Script>
+
+</mx:Canvas>
+

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_util:Hyper_Link
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   styleName="labelminor"
+   color="0x0000ff"
+   textDecoration="none"
+   buttonMode="true"
+   useHandCursor="{this.enabled}"
+   mouseChildren="false"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   mouseOver="this.on_mouse_over(event);"
+   mouseOut="this.on_mouse_out(event);"
+
+   link_colors="[0x00FF00, 0xFF0000]"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.events.FlexEvent;
+
+      import items.utils.Geofeature_Layer;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__LegendLink');
+
+      // *** Instance variables
+
+      public static var fake_park_color:int = Conf.tile_skin.feat_pens[
+         String(Geofeature_Layer.TERRAIN_OPENSPACE)]['pen_color'];
+      public static var fake_water_color:int = Conf.tile_skin.feat_pens[
+         String(Geofeature_Layer.TERRAIN_WATER)]['pen_color'];
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         //this.link_colors = [Legend_Menu_Link.fake_water_color,
+         //                    Legend_Menu_Link.fake_park_color,];
+         //this.link_colors = [0x000000, Legend_Menu_Link.fake_water_color,];
+         //this.link_colors = [0x000000, 0x0000ff,];
+         this.link_colors = [0x0000ff, 0x0000ff,];
+
+         super.on_initialize(ev);
+      }
+
+      //
+      protected function on_mouse_over(ev:MouseEvent) :void
+      {
+         this.setStyle('color', this.link_colors[1]);
+         this.setStyle('textDecoration', 'underline');
+      }
+
+      //
+      protected function on_mouse_out(ev:MouseEvent) :void
+      {
+         this.setStyle('color', this.link_colors[0]);
+         this.setStyle('textDecoration', 'none');
+      }
+
+   ]]></mx:Script>
+
+</views_panel_util:Hyper_Link>
+

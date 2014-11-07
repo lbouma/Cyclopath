@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+   <!--
+   height="100%"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Alert;
+      import mx.controls.NumericStepper;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+
+      import items.feats.Byway;
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Byway');
+
+      // *** Getters and Setters
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Byway;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_preinitialize');
+         super.on_preinitialize(ev);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         //m4_DEBUG('on_init:', this);
+         super.on_initialize(ev);
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         super.depopulate();
+
+         // FIXME: C.f. on_panel_hide. Combine duplicate code.
+         G.item_mgr.highlighted_attachment = null;
+         m4_DEBUG('depopulate: calling populate_grid: item_class: null');
+         this.widget_attrs_assign_byway.populate_grid(/*item_class=*/null);
+      }
+
+      //
+      // MAYBE: See the selectionChanged Event: should repopulate be
+      // called when that changes, rather than being called deliberately by the
+      // geofeature when an item is selected?
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         // We've set things up so this panel only works with Byways.
+         m4_ASSERT(this.items_selected.item_get_random() is Byway);
+
+         // The user can edit the byway if:
+         // 1. The map is showing a Working revision (not Historic or Diff);
+         // 2. The map is in vector mode... or items are selected
+         //    (you can only select items in vector mode, and if you zoom out,
+         //     you see tiles but also still see the selected items... silly?);
+         // 3. The user can edit the selected items.
+         // There's an additional requirement for "Merge Byways", since this
+         // creates (essentially) a new Byway item:
+         // 4. The user can edit the selected items type.
+         var user_can_edit:Boolean = false;
+         var user_can_create:Boolean = false;
+
+         // FIXME: Each Panel_Item_* needs to respek perms. Audit the other
+         //        panels' repopulate()s and make sure they do this (and also
+         //        that they replace editable controls with, i.e., Labels, when
+         //        items cannot be edited).
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit))
+             && ((G.map.zoom_is_vector())
+                 || (this.items_selected.length > 0))
+             && (Objutil.consensus_b(this.items_selected, 'can_edit', false))
+             ) {
+            user_can_edit = true;
+            // Also check that the user can create new Byways, for mergering.
+            if (G.item_mgr.create_allowed_get(Byway)) {
+               // Next check that the user can edit the selected Byways.
+               user_can_create = true;
+            }
+         }
+
+         // 2013.08.07: Avoid flicker; repopulate attr widget deliberately.
+         if (this.widget_attrs_assign_byway.grid_attrs === null) {
+            m4_DEBUG('repopulate: calling populate_grid');
+            this.widget_attrs_assign_byway.populate_grid(/*item_class=*/Byway);
+         }
+
+         // MAYBE: Always show the widget but leave enabled=false unless
+         //        multiple selected byways can be joined?
+         // FIXME: Don't show unless all the segments connect:
+         this.widget_byways_merge.visible = ((this.items_selected.length > 1)
+                                             && (user_can_edit));
+         this.widget_byways_merge.includeInLayout
+            = this.widget_byways_merge.visible;
+
+         if (this.widget_node_endpoints !== null) {
+            this.widget_node_endpoints.visible =
+               G.tabs.settings.show_item_stack_ids_cbox;
+            this.widget_node_endpoints.includeInLayout =
+               G.tabs.settings.show_item_stack_ids_cbox;
+         }
+      }
+
+      // *** Event handlers
+
+      //
+      override protected function get on_delete_click_warning() :String
+      {
+
+// FIXME: Only show this once per user session.
+// BUG nnnn: "Show this dialog again" checkbox....
+// BUG nnnn: Alert user about connectivity problems when
+//           adding new byways or editing existing.
+
+         return 'Delete blocks only when they should be removed from the map entirely, for everyone, and associated information (such as notes and other users\' ratings) should also be removed.\n\nIf you wish to prevent blocks from being used in your routes, rate them "Impassable".\n\nIf you wish to move blocks, adjust their geometry directly rather than deleting and re-drawing.\n\nReally delete the selected block(s), removing all associated information from the shared map?';
+      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_DEBUG('on_enter_state_base');
+         super.on_enter_state_base();
+
+         this.register_widgets([
+            this.widget_bikeability,
+            this.widget_bike_facil,
+            this.widget_attrs_assign_byway,
+            this.widget_node_endpoints,
+            this.widget_byways_merge,
+            ]);
+         // Tell Widget_Attribute_List to use our derived
+         // Widget_Attributes_Assign, the Widget_Attrs_Assign_Byway.
+         m4_ASSERT(this.panel_item_details.widget_attribute_list.widget_attrs
+            === this.panel_item_details.widget_attribute_list
+                .widget_attrs_assign);
+         this.panel_item_details.widget_attribute_list.widget_attrs =
+            this.widget_attrs_assign_byway;
+      }
+
+      //
+      override public function on_panel_hide() :void
+      {
+         G.item_mgr.highlighted_attachment = null;
+         // FIXME Don't always call this; just for Annotations, not Attributes
+         super.on_panel_hide();
+      }
+
+   ]]></mx:Script>
+
+<!--
+FIXME:
+when multiple items are selected, do not show blanks!
+show something meaningful
+like italics, 'No common name'?
+-->
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+
+         <!-- Our parent setup the Details Panel tabs. Modify to taste. -->
+
+         <!-- *** Bicycle Facility -->
+
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.widget_tag_list}"
+            position="before">
+            <mx:target>
+               <views_panel_items:Widget_Bike_Facility
+                  id="widget_bike_facil"
+                  />
+<!-- FIXME: Add disclaimer: 
+Please be aware: This value, Bike Facility, is editable by anyone and everyone. Please take this into account when planning your trip - this value is not guaranteed to be accurate. (And we encourage you to change this value if you find out it's wrong.)
+-->
+
+               <!--
+                  width="100%"
+               -->
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- *** Bikeability Rating -->
+
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.widget_tag_list}"
+            position="before">
+            <mx:target>
+               <views_panel_items:Widget_Bikeability
+                  id="widget_bikeability"
+                  width="100%"
+                  />
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- *** Custom Byway Attribute Widgets -->
+
+         <!-- Remove the one the parent provides. -->
+         <mx:RemoveChild
+            target=
+      "{this.panel_item_details.widget_attribute_list.widget_attrs_assign}"
+            />
+
+         <!-- Replace with a custom attribute widget.
+         <    (The custom widget is like the parent's widget but with Direction
+         <    and Bridge Level controls added to it.) -->
+
+         <mx:AddChild
+            relativeTo=
+      "{this.panel_item_details.widget_attribute_list.tab_gf_attr_box}"
+            position="lastChild">
+            <mx:target>
+               <views_panel_items:Widget_Attrs_Assign_Byway
+                  id="widget_attrs_assign_byway"
+                  width="100%"
+                  />
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- *** Node Endpoints [Widget] -->
+
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.widget_attribute_list}"
+            position="after">
+            <mx:target>
+               <views_panel_items:Widget_Node_Endpoints
+                  id="widget_node_endpoints"
+                  width="100%"
+                  visible="{G.tabs.settings.show_item_stack_ids_cbox}"
+                  includeInLayout="{this.widget_node_endpoints.visible}"
+                  />
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- *** Merge Blocks [Button] -->
+
+         <!-- BUG nnnn: The merge selected button should be with the map
+                        editing ctrls (i.e., on the map, or around/near the
+                        map canvas, as opposed to being at the bottom of the
+                        item details panel.
+                        Also, think about making delete item easier (or is it
+                        wired to the backspace button? Maybe for advanced users
+                        there's a button in the settings panel to enable
+                        backspace-delete-item).
+                        -->
+         <!-- label="Merge Selected" -->
+         <!-- label="Merge Selected Blocks" -->
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.widget_gia_sharing_inline}"
+            position="before">
+            <mx:target>
+               <views_panel_items:Widget_Merge_Byways
+                  id="widget_byways_merge"
+                  width="100%"
+                  visible="false"
+                  includeInLayout="{this.widget_byways_merge.visible}"
+                  />
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_items:states>
+
+</views_panel_items:Panel_Item_Geofeature>
+

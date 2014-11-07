@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- These are some former labels and toolTips.
+      label="Watchers"
+      toolTip="Watch Items for Changes."
+-->
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_panel_watchers="views.panel_watchers.*"
+
+   label="Alerts"
+   toolTip="Get alerted when items are edited."
+   icon="@Embed(source='/assets/img/icon_tabs_watching.png')"
+
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="auto"
+   >
+   <!--
+   label="Item Alerts"
+   label="Alerts"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Count;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.update.Update_Base;
+      import gwis.utils.Query_Filters;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import utils.misc.Counter;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Watchrs');
+
+      // ***
+
+      // MAYBE: [lb] is cheating on this for now (hard-coding values).
+// FIXME: See: Watcher_Frequency
+      protected static var  val_digest_disabled:String = 'Off';
+      protected static var val_digest_immediate:String = 'Right away';
+      protected static var     val_digest_daily:String = 'Every day';
+
+      // ***
+
+// FIXME: This should be invalidated if user adds/removes watchers...
+//        and how do we (or don't we) do pagination.
+      // This is a collection of items that the user is watching. Item watchers
+      // are simply private attribute link_values, and we check them out and
+      // store them here.
+      protected var user_item_watchers:Array;
+
+      // *** Simple base class overrides
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         // return 'Search Map';
+         // return 'My Places';
+         // return 'My Item Watchers';
+         return 'My Item Alerts';
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_attributes_loaded(ev:Event) :void
+      {
+         m4_DEBUG('on_attributes_loaded');
+         // If we called this.load_user_item_watchers() we'd always load, but
+         // we only want to send the GWIS request the user activated us.
+         this.mark_dirty_and_show_maybe();
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         this.register_widgets([
+            this.watch_list,
+            ]);
+
+         // 2012.08.17: Listen to user_event_change so we can fix our widgets.
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+
+         G.item_mgr.addEventListener('attributesLoaded',
+                                     this.on_attributes_loaded);
+
+         this.item_watcher_pager.type_plural = 'watchers';
+         this.item_watcher_pager.list_control_callback =
+            this.list_control_callback;
+         this.item_watcher_pager.records_per_page
+            = Conf.item_watchers_list_size;
+      }
+
+      //
+      protected function on_notif_changed(value:String) :void
+      {
+         if (value == Panel_Watchers.val_digest_disabled) {
+            G.user.enable_watchers_email = false;
+            G.user.enable_watchers_digest = false;
+         }
+         else if (value == Panel_Watchers.val_digest_immediate) {
+            G.user.enable_watchers_email = true;
+            G.user.enable_watchers_digest = false;
+         }
+         else if (value == Panel_Watchers.val_digest_daily) {
+            G.user.enable_watchers_email = true;
+            G.user.enable_watchers_digest = true;
+         }
+
+         G.user.enable_watchers_email_update();
+      }
+
+      //
+      public function on_user_change(event:Event=null) :void
+      {
+         var o:Object;
+         var value:String;
+
+         this.user_item_watchers = new Array();
+
+         m4_DEBUG('on_user_change: logged_in:', G.user.logged_in);
+
+         if (G.user.logged_in) {
+
+            this.change_state('');
+
+// FIXME_2013_06_11
+// FIXME: Statewide UI: This is a global setting, so make it seem so...
+// FIXME: Visit this -- it applies to all watchers in the list.
+            if (G.user.enable_watchers_email) {
+               if (G.user.enable_watchers_digest) {
+                  value = Panel_Watchers.val_digest_daily;
+               }
+               else {
+                  value = Panel_Watchers.val_digest_immediate;
+               }
+            }
+            else {
+               value = Panel_Watchers.val_digest_disabled;
+            }
+
+            for each (o in this.notif.dataProvider) {
+               if (o.value == value) {
+                  this.notif.selectedItem = o;
+               }
+            }
+
+            this.load_user_item_watchers();
+         }
+         else { // (!G.user.logged_in)
+            this.change_state('NoUser');
+         }
+      }
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: load_user_item_watchers');
+
+// BUG_JUL_2014/FIXME: finish implementing item watchers...
+         this.load_user_item_watchers();
+      }
+
+      //
+      protected function load_user_item_watchers() :void
+      {
+         var internal_name:String = '/item/alert_email';
+         var alert_attr:Attribute = Attribute.all_named[internal_name];
+         if (alert_attr !== null) {
+            this.load_user_item_watchers_attr(alert_attr);
+         }
+         else {
+            // User activated panel during bootload, so we'll have to wait to
+            // send the checkout request.
+            m4_DEBUG('load_user_item_watchers: called too early, skipping...');
+         }
+      }
+
+      //
+      protected function load_user_item_watchers_attr(attr:Attribute) :void
+      {
+         var attr_stack_id:int = attr.stack_id;
+         m4_ASSERT(attr_stack_id > 0);
+         var qfs:Query_Filters = new Query_Filters();
+         // We only want links to the /item/alert_email attribute.
+         qfs.only_lhs_stack_ids.push(attr_stack_id);
+         // And we also want the link_value to contain the name of the other
+         // item (the rhs_item) being linked.
+         qfs.include_rhs_name = true;
+         // Set the count and offset of the posts in the thread.
+         this.item_watcher_pager.configure_query_filters(qfs);
+
+         var gwis_checkout:GWIS_Checkout_Base = null;
+         var buddy_ct:Counter = null;
+         var update_req:Update_Base = null;
+         var resp_items:Array = null;
+         var callback_load:Function = this.load_watchers_okay;
+         var callback_fail:Function = this.load_watchers_fail;
+
+         // When the user change event is signalled on login,
+         // the map revision is null. At other times, it's not
+         // null. But we only care about one revision: the Current one.
+
+         gwis_checkout = new GWIS_Checkout_Versioned_Items(
+               'link_value', new utils.rev_spec.Current(), buddy_ct, qfs,
+               update_req, resp_items, callback_load, callback_fail);
+
+         // FIXME: Don't need?: resp_items, buddy_ct
+         gwis_checkout.attc_type = 'attribute';
+         m4_DEBUG('load_user_item_watchers_attr: loading watcher links');
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_checkout);
+         m4_ASSERT_SOFT(!found_duplicate);
+
+         // Get the total record count.
+         // FIXME: Always get the count? Or only just the once?
+         qfs = qfs.clone()
+         qfs.pagin_count = 0;
+         qfs.pagin_offset = 0;
+         qfs.pagin_total = true;
+         qfs.include_item_stack = false;
+         //
+         gwis_checkout = new GWIS_Checkout_Count(
+            'link_value', this.item_watcher_pager, qfs);
+         gwis_checkout.attc_type = 'attribute';
+         found_duplicate = G.map.update_supplemental(gwis_checkout);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function load_watchers_fail(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_WARNING('load_watchers_fail');
+      }
+
+      //
+      protected function load_watchers_okay(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         // 2013.09.05: [lb] thinks this is okay. gwis_req.resp_items is
+         // new items, so we're overwriting our list of watchers, which is
+         // okay, so long as there isn't, like, a Watchers.all lookup that
+         // we should instead by updating.
+
+         m4_DEBUG2('load_watchers_okay: found no. watchers:',
+                   gwis_req.resp_items.length);
+         m4_DEBUG2('load_watchers_okay: no. user_item_watchers:',
+                   this.user_item_watchers.length);
+
+         var new_item_watchers:Array = new Array();
+         for each (var lval:Link_Value in gwis_req.resp_items) {
+            m4_DEBUG(' .. lval:', lval.toString());
+            m4_DEBUG(' .. lval.lhs_name:', lval.lhs_name);
+            // This is the one:
+            m4_DEBUG(' .. lval.rhs_name:', lval.rhs_name);
+
+            // So... do the links exist yet? If they do, 
+            // this.user_item_watchers should be created last.
+            //m4_ASSERT(Link_Value.all[lval.stack_id] === null);
+            m4_DEBUG(' .. Link_Value.all:', Link_Value.all[lval.stack_id]);
+            // 2013.09.05: Shouldn't this be items_add?
+            //    var updated:Item_Versioned = lval.init_item(G.item_mgr);
+            if (lval.stack_id in Link_Value.all) {
+               // 2014.09.09: This is firing:
+               m4_ASSERT_SOFT(false);
+               G.sl.event('error/pnl_wtchrs/load_watchers_okay',
+                  {new_lval: lval,
+                   old_lval: Link_Value.all[lval.stack_id]});
+            }
+            G.map.items_add([lval,]);
+            // if lhs or rhs not loaded,
+            //   Link_Value.all[lval.stack_id] === undefined
+            // and link_value was added to Link_Value.stranded_link_values.
+            new_item_watchers.push(lval);
+         }
+
+         this.user_item_watchers = new_item_watchers;
+
+         this.watch_list.update_watchers(this.user_item_watchers);
+
+         // this.item_watcher_pager.p_collect =
+         //    this.watch_list.dgrid.dataProvider; // same as:
+         this.item_watcher_pager.p_collect = this.user_item_watchers;
+         this.item_watcher_pager.update_pagination_text();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate');
+
+         if (this.user_item_watchers === null) {
+            // This is the first time being shown. Fake a user change event.
+            this.on_user_change(null);
+         }
+
+         // FIXME: or EXPLAIN: What's this about? Does it matter?
+         //        I guess item watchers isn't reimplemented yet so don't
+         //        know...
+         //        ALSO: This seems like a selectionChanged fcn.
+//         if (G.map.selectedset.length > 0) {
+//            if (G.map.selectedset.item_get_random() is Region
+//                && (G.map.selectedset.item_get_random() as Region)
+//                        .notify_email) {
+//               m4_ASSERT(G.map.selectedset.length == 1);
+//            }
+//         }
+/*/ 2013.03.08: commenting...
+         if (this.items_selected.length > 0) {
+            if (this.items_selected.item_get_random() is Region
+                && (this.items_selected.item_get_random() as Region)
+                    .notify_email) {
+               m4_ASSERT(this.items_selected.length == 1);
+            }
+         }
+/*/
+      }
+
+// FIXME: move watchers to branch item details.
+//        move changes there as well? demote it! or not?
+//  the eyeball makes more sense for what the gears are!
+//     "shit you see on the map"
+//  move aerial and edit/view to canvas and move control panels elsewhere
+//  if panel goes under watchers then options/filters/my watchers are the tabs?
+//
+// can you make the gears be the find route, since it implies biking?
+// the find route icon is misleading, it reminds me of 80s olympic logos.
+//
+// reorder: (esp. to match banner nav)
+// you should maybe talk to group... or just ask client and tell group.
+//   so maybe my claim to fame is being the antirp
+// find route | search | details | discussions | view settings | recent changes
+// IT's THIS ONE:
+// discussions | search | find route | view settings | recent changes | details
+// or maybe a slight tweak
+// discussions | search | find route | recent changes | view settings | details
+//
+// use control panel and move watchers under it, then rebrand it
+//   also: control panel and item watchers are both _private_ things, dur!
+//
+// show/hide MAPS according to... well, if any other maps available.
+//
+// just make sure the 6-tabs fill the same width
+// move Sign Up next to Log In
+//    Log In | Sign Up -^
+//    Sign Up -^ | Log In
+// privacy should really go on the '?' tab -- ppl who care will find it.
+//
+//
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingBottom="1"
+      verticalGap="2">
+
+      <mx:VBox
+         width="100%"
+         height="100%"
+         borderStyle="solid"
+         paddingLeft="2"
+         paddingTop="2"
+         paddingRight="2"
+         paddingBottom="2"
+         verticalGap="4">
+
+         <mx:VBox
+            id="content"
+            width="100%"
+            height="100%"
+            borderStyle="solid"
+            backgroundColor="{Conf.private_color}"
+            paddingLeft="4"
+            paddingRight="4"
+            paddingTop="2"
+            paddingBottom="4"
+            verticalGap="0">
+
+            <!-- FIXME: You should at least show the list and all the buttons?
+            <    Otherwise the panel looks really pathetic. -->
+            <mx:VBox
+               id="content_logged_in"
+               verticalAlign="top"
+               verticalGap="0"
+               width="100%"
+               height="100%"
+               >
+
+<!-- FIXME/BUG nnnn/BUG_2014_JULY: Reenable watchers and remove this alert.
+      <mx:Text
+         width="100%"
+         mouseEnabled="false"
+         mouseChildren="false"
+         condenseWhite="true"
+         fontWeight="bold"
+         >
+         <mx:htmlText><![CDATA[
+         Item watchers are currently disabled.
+         We'll enable the feature after fixing a few issues.
+         ]]></mx:htmlText>
+      </mx:Text>
+-->
+
+      <!-- FIXME: Move text to protected static const? Same for all strings? Just all
+      <           long strings? Hmmm... -->
+               <!-- text="You are watching these regions. A pink background indicates one of your private regions, and a white background shows a public region. Other users can never see which regions you are watching."
+                  -->
+               <mx:Text
+                  width="100%"
+                  mouseEnabled="false"
+                  mouseChildren="false"
+                  condenseWhite="true"
+                  >
+                  <mx:htmlText><![CDATA[
+                  Item watchers alert you when there's activity in Cyclopath.
+                  Use this list to manage them.
+                  ]]></mx:htmlText>
+               </mx:Text>
+
+               <!--
+
+               <mx:Text
+                  width="100%"
+      text="You are watching these regions. A pink background indicates one of your private regions, and a white background shows a public region. Other users can never see which regions you are watching." />
+
+               <mx:Text
+                  width="100%"
+      text="Create a new public or private region using the Region tool, located in the Editing Tools palette on the map." />
+
+               <mx:HBox
+                  width="100%"
+                  verticalGap="0"
+                  horizontalGap="0">
+                  <utils_misc:FlowBar
+                     width="100%"
+                     paddingTop="2"
+                     verticalGap="0"
+                     horizontalGap="0"
+                     >
+                     <mx:Label
+                        text="(Hint: The Region tool looks like this:" />
+                     <mx:Box
+                        paddingLeft="0"
+                        paddingTop="-2"
+                        paddingRight="0"
+                        paddingBottom="0">
+                        <mx:Image
+         source="@Embed(source='/assets/img/icon_tools_region_create.png')" />
+                     </mx:Box>
+                     <mx:Label
+                        text=")" />
+                  </utils_misc:FlowBar>
+                  <mx:HBox>
+                     <views_panel_util:Help_Link
+                        click_url="/Watch_Regions"
+                        text="More info" />
+                  </mx:HBox>
+               </mx:HBox>
+
+               -->
+
+<!-- The apply-to-all "Email frequency" dropdown doesn't
+      really indicate it applies to all. It's better to
+      just make user open each item and change the watcher
+      from the item panel.
+      FIXME: It would be nice to indicate each item's alert setting,
+             but for now user can go to item panel.
+      FIXME: If user disabled all alerts using the no_watchers link,
+             will any of them show up in the alert list? If so, how
+             do you remove an item you used to watch from the item
+             alert list?
+      -->
+               <mx:HRule
+                  width="100%"
+                  strokeWidth="1"
+                  
+                  visible="false"
+                  includeInLayout="false"/>
+               <mx:HBox
+                  width="100%"
+                  paddingTop="{G.app.pad}"
+                  paddingBottom="{G.app.pad}"
+                  verticalAlign="middle"
+
+                  visible="false"
+                  includeInLayout="false">
+                  <mx:Label
+                     text="Email frequency:"
+                     />
+                     <!--
+                     fontWeight="bold"
+                     -->
+                  <mx:ComboBox
+                     id="notif"
+            change="this.on_notif_changed(this.notif.selectedItem.value);"
+                     rowCount="3"
+                     fontWeight="normal">
+                     <mx:dataProvider>
+                        <mx:Array>
+                           <mx:Object
+                              value="{Panel_Watchers.val_digest_disabled}"
+                              label="{Panel_Watchers.val_digest_disabled}" />
+                           <mx:Object
+                              value="{Panel_Watchers.val_digest_immediate}"
+                              label="{Panel_Watchers.val_digest_immediate}" />
+                           <mx:Object
+                              value="{Panel_Watchers.val_digest_daily}"
+                              label="{Panel_Watchers.val_digest_daily}" />
+                        </mx:Array>
+                     </mx:dataProvider>
+                  </mx:ComboBox>
+               </mx:HBox>
+
+               <mx:HRule
+                  width="100%"
+                  strokeWidth="1"
+                  />
+
+               <mx:HBox
+                  width="100%"
+                  height="100%"
+                  >
+                  <views_panel_watchers:Widget_Watched_Item_List
+                     id="watch_list"
+                     width="100%"
+                     height="100%"
+                     minHeight="0"
+                     />
+               </mx:HBox>
+
+               <mx:HBox
+                  width="100%"
+                  paddingTop="{G.app.pad}"
+                  horizontalAlign="right"
+                  verticalAlign="middle">
+                  <views_panel_util:Paginator_Widget
+                     id="item_watcher_pager"
+                     width="100%"
+                     horizontalAlign="right"
+                     paddingRight="1"
+                     paddingTop="1"
+                     paddingBottom="1"
+                     horizontalGap="0"
+                     />
+               </mx:HBox>
+
+            </mx:VBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+   </mx:VBox>
+
+<!-- FIXME: States...-->
+
+<!-- FIXME: This state change actually works very well! -->
+
+   <views_panel_base:states>
+
+      <mx:State
+         name="NoUser">
+
+         <mx:RemoveChild target="{this.content_logged_in}" />
+
+         <mx:AddChild relativeTo="{this.content}" position="firstChild">
+            <mx:target>
+               <mx:HBox width="100%"
+                        height="100%"
+                        backgroundColor="{Conf.private_color}"
+                        horizontalAlign="center"
+                        verticalAlign="middle">
+                  <mx:VBox width="80%" height="300">
+                     <mx:Text
+                        width="100%"
+                        condenseWhite="true">
+                        <mx:htmlText><![CDATA[
+                           <b>Please log in!</b>
+                           <br/><br/>
+                           Log in to use region watching. This feature lets
+                           you subscribe to changes in any region and receive
+                           e-mail notification immediately or daily when
+                           changes occur.<br/>
+                        ]]></mx:htmlText>
+                     </mx:Text>
+                     <mx:HBox horizontalAlign="left">
+                        <views_panel_util:Help_Link click_url="/Watch_Regions"
+                                   text="More info" />
+                     </mx:HBox>
+                  </mx:VBox>
+               </mx:HBox>
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_base:states>
+
+</views_panel_base:Detail_Panel_Base>
+

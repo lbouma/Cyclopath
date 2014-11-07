@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   width="100%"
+   height="100%"
+   paddingLeft="4"
+   paddingRight="4"
+   mouseOver="this.on_list_entry_mouseover(event);"
+   mouseOut="this.on_list_entry_mouseout(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.geom.Point;
+      import flash.utils.Timer;
+      import mx.controls.Button;
+      import mx.controls.Menu;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_SearchE');
+
+      // ***
+
+      protected var menu_timer:Timer;
+
+      // *** Handlers: Search list entry
+
+      //
+      public function on_list_entry_mouseover(event:MouseEvent) :void
+      {
+         m4_TALKY('on_list_entry_mouseover');
+         if (G.app.search_panel.enabled) {
+            this.data.highlighted = true;
+            G.map.search_results_draw();
+         }
+         // This is from CcpV1. Hide the context menu if it's not ours. [lb]
+         // thinks it makes more sense to do this on mouseout from the owning
+         // list entry, otherwise sometimes the context menu never hides, like
+         // if you mouseout to the map, then the context menu keeps just
+         // sitting there, glaring at you.
+         //  if (G.app.search_panel.menu_index != G.app.search_panel
+         //                      .results_list.itemRendererToIndex(this)) {
+         //     G.app.search_panel.result_menu.hide();
+         //  }
+      }
+
+      //
+      public function on_list_entry_mouseout(event:MouseEvent) :void
+      {
+         if (G.app.search_panel.enabled) {
+            this.data.highlighted = false;
+            G.map.search_results_draw();
+         }
+         // Hide the context menu if it's ours.
+         var our_index:int;
+         our_index = G.app.search_panel.results_list.itemRendererToIndex(this);
+         m4_TALKY2('on_list_entry_mouseout: menu_index:',
+                   G.app.search_panel.menu_index, '/ our_index:', our_index);
+         if (G.app.search_panel.menu_index == our_index) {
+            G.app.search_panel.result_menu_hide_maybe();
+         }
+         this.menu_timer_reset();
+      }
+
+      // *** Handlers: Search Result text
+
+      //
+      public function on_search_result_click(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_search_result_click');
+         // Panzoom to the location of the geofeature.
+         G.map.lookat(this.data as Panel_Search_Result);
+         // Highlighted selected items in the list doesn't make sense,
+         // so after the user clicks a list entry item, we zoom to its
+         // part of the map but then we deselect the list entry item
+         // (otherwise it's highlighted in the list, but there's no
+         // reason it needs to be highlighted; like, if we were to show
+         // additional information in the map about the selected item,
+         // it might make sense, but for now it doesn't).
+         G.app.search_panel.results_list.selectedIndex = -1;
+         // Hide the context menu. (This happens anyway even if we don't do
+         // this explicitly, but [lb] isn't sure what triggers it.)
+         G.app.search_panel.result_menu_hide();
+         this.menu_timer_reset();
+      }
+
+      // *** Handlers: Menu Symbol widget
+
+      //
+      protected function menu_timer_reset() :void
+      {
+         m4_DEBUG('menu_timer_reset');
+         if (this.menu_timer !== null) {
+            this.menu_timer.reset();
+         }
+      }
+
+      //
+      public function on_menu_symbol_click(ev:Event) :void
+      {
+         m4_DEBUG('on_menu_symbol_click');
+         // 2013.10.29: The CcpV1 behavior is weird. If you mouse over the
+         // ">" then the context menu automatically drops down, but if you
+         // then click the ">", the menu hides, but then the list index gets a
+         // deep blue index (because we didn't intercept the click and then
+         // set selectedIndex to -1). If you click the ">" again or mouse over
+         // the ">", nothing happens (again, because we weren't listening on
+         // click, and we only get the first mouse over). If you mouse over
+         // another list item, it highlights with a lighter blue, and
+         // clicking it zooms the map to the other item and then this item's
+         // darker blue highlight goes away. So in CcpV2 we added a click
+         // handler to the menu symbol, and we also use a timeout on mouse over
+         // to wait a bit before showing the context menu.
+         if (G.app.search_panel.result_menu.visible) {
+            G.app.search_panel.result_menu_hide();
+         }
+         else {
+            this.show_context_menu();
+         }
+         this.menu_timer_reset();
+      }
+
+      //
+      public function on_menu_symbol_mouseover(ev:Event) :void
+      {
+         // 2013.10.29: It's annoying to just be mousing over the list item
+         // to get to the scrollbar and all of a sudden the context menu
+         // pops up. Set a timer instead and wait for the user to hover or
+         // click the mouse over or on the ">" context menu symbol widget.
+         var our_index:int;
+         our_index = G.app.search_panel.results_list.itemRendererToIndex(this);
+         m4_DEBUG2('on_menu_symbol_mouseover: menu_index:',
+                   G.app.search_panel.menu_index, '/ our_index:', our_index);
+         if (G.app.search_panel.menu_index == our_index) {
+            this.menu_timer_reset();
+         }
+         else {
+            if (this.menu_timer === null) {
+               this.menu_timer = new Timer(Conf.context_menu_hover_timeout, 1);
+               this.menu_timer.addEventListener(TimerEvent.TIMER,
+                  this.on_menu_hover_timeout, false, 0, true);
+            }
+            this.menu_timer.start();
+         }
+      }
+
+      //
+      protected function on_menu_hover_timeout(ev:TimerEvent) :void
+      {
+         m4_DEBUG('on_menu_hover_timeout');
+         this.menu_timer_reset();
+         this.show_context_menu();
+      }
+
+      //
+      protected function show_context_menu() :void
+      {
+         var our_index:int;
+         our_index = G.app.search_panel.results_list.itemRendererToIndex(this);
+         m4_DEBUG2('show_context_menu: menu_index:',
+                   G.app.search_panel.menu_index, '/ our_index:', our_index);
+         if (G.app.search_panel.menu_index != our_index) {
+            G.app.search_panel.result_menu_hide();
+         }
+         var button_loc:Point = localToGlobal(new Point(this.x + this.width,
+                                                        this.result_text.y));
+         G.app.search_panel.result_menu.show(button_loc.x - 3, button_loc.y);
+         G.app.search_panel.menu_index = our_index;
+
+         this.menu_timer_reset();
+         G.app.search_panel.menu_timer_reset();
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      horizontalGap="4">
+      <mx:Label
+         id="result_text"
+         width="100%"
+         minWidth="0"
+         text="{this.data.list_text}"
+         click="this.on_search_result_click(event);"/>
+      <mx:Label
+         id="sign"
+         minWidth="0"
+         text=">"
+         mouseOver="this.on_menu_symbol_mouseover(event);"
+         click="this.on_menu_symbol_click(event);"
+         />
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

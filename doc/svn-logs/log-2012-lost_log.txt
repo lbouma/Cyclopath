@@ -1,0 +1,2078 @@
+===============================================================================
+
+From cyclingproject/br/landonb_pre-route-sharing_nnnn:
+
+------------------------------------------------------------------------
+r29630 | landonb | 2013-01-16 19:23:32 -0600 (Wed, 16 Jan 2013) | 1 line
+
+Fix bash_base.sh location
+------------------------------------------------------------------------
+r29628 | landonb | 2013-01-16 19:18:22 -0600 (Wed, 16 Jan 2013) | 1 line
+
+Fix bash_base.sh location
+------------------------------------------------------------------------
+r29627 | landonb | 2013-01-16 19:07:20 -0600 (Wed, 16 Jan 2013) | 1 line
+
+Updates to auto_install scripts, from CcpV3.
+------------------------------------------------------------------------
+r29329 | landonb | 2012-10-23 14:00:26 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Fix syntax error in trace statement.
+------------------------------------------------------------------------
+r29327 | landonb | 2012-10-23 13:51:26 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Don't send link_value request for new features in branch.
+------------------------------------------------------------------------
+r29324 | landonb | 2012-10-23 12:57:46 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Bugfixes from CcpV1 and add missing new_item_right.
+------------------------------------------------------------------------
+r29323 | landonb | 2012-10-23 11:09:07 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Missing from previous.
+------------------------------------------------------------------------
+r29322 | landonb | 2012-10-23 11:04:44 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Cycloplan bugfix: Don't send Attribute's 'value_internal_name'. Also merged Bug 2732 from CcpV1: use 'if (gc_args.length)', not just 'if (gc_args)', and Bug 2732: Don't call geocode unless you have one or more addresses.
+------------------------------------------------------------------------
+r29321 | landonb | 2012-10-23 10:53:39 -0500 (Tue, 23 Oct 2012) | 1 line
+
+Update data model.
+------------------------------------------------------------------------
+r29278 | landonb | 2012-10-17 18:57:53 -0500 (Wed, 17 Oct 2012) | 1 line
+
+Bug 2736 - Scripts: Apache2sql.py: Multiple issues
+------------------------------------------------------------------------
+r29268 | landonb | 2012-10-16 19:15:17 -0500 (Tue, 16 Oct 2012) | 1 line
+
+Bug 2735 - Scripts: Aliases.py: A few issues
+------------------------------------------------------------------------
+r29263 | landonb | 2012-10-16 18:40:16 -0500 (Tue, 16 Oct 2012) | 1 line
+
+Sync from CcpV1: schema scripts for Bug 2714 - Implement dragging-based route feedback mechanism.
+------------------------------------------------------------------------
+r29262 | landonb | 2012-10-16 18:38:27 -0500 (Tue, 16 Oct 2012) | 1 line
+
+Sync CcpV1/V2/V3 schema scripts: Use same license so diff works better, and copy notes amongst the three branches.
+------------------------------------------------------------------------
+r29198 | landonb | 2012-10-02 17:53:13 -0500 (Tue, 02 Oct 2012) | 1 line
+
+Fix route_get bug.
+------------------------------------------------------------------------
+r29192 | landonb | 2012-10-02 12:44:20 -0500 (Tue, 02 Oct 2012) | 1 line
+
+Bugfixes for import/export and route analysis. routed was not calling db.close(). New new_item_policy 'permissive' was not working for anonymous users requesting routes. Route analysis download zipfile name was incorrectly set, so downloading result file did not work. Flashclient crashed when removing route analysis job from list. rs.length was not being computed correctly for route analysis.
+------------------------------------------------------------------------
+r29183 | landonb | 2012-10-01 19:48:48 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29182 | landonb | 2012-10-01 19:48:14 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29181 | landonb | 2012-10-01 19:47:28 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29180 | landonb | 2012-10-01 19:46:36 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29179 | landonb | 2012-10-01 19:44:08 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29178 | landonb | 2012-10-01 19:32:09 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Fix problem with local_script getting set.
+------------------------------------------------------------------------
+r29177 | landonb | 2012-10-01 19:00:47 -0500 (Mon, 01 Oct 2012) | 1 line
+
+ccp.py bugfix
+------------------------------------------------------------------------
+r29172 | landonb | 2012-10-01 12:54:26 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Bug 1126 - lxml Python warnings in error.log
+------------------------------------------------------------------------
+r29171 | landonb | 2012-10-01 12:18:11 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Convert aliases.py to CcpV2 (inherit from Script_Args and Script_Base), which allows us to fix bug 1572.
+------------------------------------------------------------------------
+r29170 | landonb | 2012-10-01 12:18:01 -0500 (Mon, 01 Oct 2012) | 1 line
+
+Update V1->V2 scripts.
+------------------------------------------------------------------------
+r29161 | landonb | 2012-09-28 16:45:24 -0500 (Fri, 28 Sep 2012) | 1 line
+
+Some fixes from CcpV3 (route sharing) branch... also, checking inn from Holiday Inn Alexandria, MN.
+------------------------------------------------------------------------
+r29149 | landonb | 2012-09-25 08:39:08 -0500 (Tue, 25 Sep 2012) | 1 line
+
+Minor bugfixes to route finder.
+------------------------------------------------------------------------
+r29148 | landonb | 2012-09-25 08:31:28 -0500 (Tue, 25 Sep 2012) | 1 line
+
+Rename pyserver/route to pyserver/planner to avoid conflict with package of same name.
+------------------------------------------------------------------------
+r29147 | landonb | 2012-09-25 08:26:47 -0500 (Tue, 25 Sep 2012) | 1 line
+
+Rename pyserver/route to pyserver/planner to avoid conflict with package of same name.
+------------------------------------------------------------------------
+r29146 | landonb | 2012-09-25 08:26:09 -0500 (Tue, 25 Sep 2012) | 1 line
+
+Rename pyserver/route to pyserver/planner to avoid conflict with package of same name.
+------------------------------------------------------------------------
+r29145 | landonb | 2012-09-25 08:19:48 -0500 (Tue, 25 Sep 2012) | 1 line
+
+Bugfixes to code from route sharing branch.
+------------------------------------------------------------------------
+r29138 | landonb | 2012-09-24 16:25:42 -0500 (Mon, 24 Sep 2012) | 1 line
+
+Merge from route sharing branch -- all schema scripts (including route sharing and route reactions changes) and some inconsequential pyserver code (not the route sharing code, yet).
+------------------------------------------------------------------------
+r29137 | landonb | 2012-09-24 16:06:13 -0500 (Mon, 24 Sep 2012) | 1 line
+
+Update db model
+------------------------------------------------------------------------
+r29077 | landonb | 2012-09-18 13:41:47 -0500 (Tue, 18 Sep 2012) | 1 line
+
+Changes incurred while updating to Bug 2628 - Route Sharing for CcpV2 (see br/landonb_ccpv2_route_manip_nnnn).
+------------------------------------------------------------------------
+r29065 | landonb | 2012-09-17 17:56:02 -0500 (Mon, 17 Sep 2012) | 1 line
+
+Copy android from V1 trunk.
+------------------------------------------------------------------------
+r29064 | landonb | 2012-09-17 17:55:47 -0500 (Mon, 17 Sep 2012) | 1 line
+
+Unable to update android using merge, so whacking and re-copying from V1 trunk.
+------------------------------------------------------------------------
+r29061 | landonb | 2012-09-17 17:16:30 -0500 (Mon, 17 Sep 2012) | 15 lines
+
+
+Pyserver:
+
+* Send qb to from_gml()
+
+* Merge from V1 trunk: Fix geocoding intersections.
+
+Style changes:
+
+* Use "x in y" instead of "y.has_key(x)".
+
+* Use "y.setdefault()" instead of "if ...: ..."
+
+
+
+------------------------------------------------------------------------
+r29059 | landonb | 2012-09-17 14:09:11 -0500 (Mon, 17 Sep 2012) | 1 line
+
+V1->V2 updates for route sharing and route reactions.
+------------------------------------------------------------------------
+r29057 | landonb | 2012-09-17 12:00:47 -0500 (Mon, 17 Sep 2012) | 1 line
+
+New 'cp_maintenance' key_value_pair.
+------------------------------------------------------------------------
+r29056 | landonb | 2012-09-17 11:23:02 -0500 (Mon, 17 Sep 2012) | 1 line
+
+schema-upgrade should not lock the revision table...
+------------------------------------------------------------------------
+r29017 | landonb | 2012-09-14 09:55:29 -0500 (Fri, 14 Sep 2012) | 1 line
+
+Bugfix: Bugs 2666/2118/1991 (it's just one bug; they're triplicates).
+------------------------------------------------------------------------
+r29016 | landonb | 2012-09-14 09:40:27 -0500 (Fri, 14 Sep 2012) | 1 line
+
+V1-V2 upgrade scripts: debugging weird postgres deadlock
+------------------------------------------------------------------------
+r29010 | landonb | 2012-09-13 16:49:02 -0500 (Thu, 13 Sep 2012) | 1 line
+
+For schema-upgrade, don't bother verifying the branch ID, etc.
+------------------------------------------------------------------------
+r28997 | landonb | 2012-09-12 21:47:13 -0500 (Wed, 12 Sep 2012) | 1 line
+
+Updates to spam script.
+------------------------------------------------------------------------
+r28994 | landonb | 2012-09-12 21:20:32 -0500 (Wed, 12 Sep 2012) | 1 line
+
+Bug 2726: Multipart email (html and plaintext).
+------------------------------------------------------------------------
+r28838 | landonb | 2012-08-21 20:37:03 -0500 (Tue, 21 Aug 2012) | 1 line
+
+Update auto_install to work on py2.5 (for itamae).
+------------------------------------------------------------------------
+r28837 | landonb | 2012-08-21 20:21:46 -0500 (Tue, 21 Aug 2012) | 1 line
+
+Update auto_install to work on py2.5 (for itamae).
+------------------------------------------------------------------------
+r28785 | landonb | 2012-08-18 13:20:53 -0500 (Sat, 18 Aug 2012) | 136 lines
+
+
+== Bug 2713 ==
+
+Bug 2713: Pyserver: Allow multiple hostnames in 
+CONFIG.server_name
+
+- A client emailed to say they were getting flashclient 
+"difficulty communicating" errors. Turns out they were 
+going to runic.cs.umn.edu rather than runic.cyclopath.org.
+I updated pyserver so it recognizes more than just one 
+server name.
+
+== Bug 2715 ==
+
+Parts of Bug 2715: Better Error Dialogs
+
+- The same error msg. is only displayed once per throbberer
+  session so that the user is not bombarded with potentially 
+  dozens of the same msg.
+
+- No longer print the URL in the error dialog -- it's 
+  meaningless and confusing for users to see this info.
+
+- This bug is still not completely addressed, but it's 
+lots better.
+
+- Oh, and I changed the save-reminder widget (which bugs 
+you to save if you pan the map more than a mile from 
+your edits) to only bug you once, instead of every time
+you pan.
+
+== Bug 2717 ==
+
+Bug 2717: Security Problem: Server Blindly Accepts 
+Usernames to Email (Revision Feedback)
+
+- For discussions about revisions, I fixed the security
+problem with pyserver accepting usernames to email from 
+the client. Now, pyserver gets the list of users by 
+querying the revision table.
+
+== Bug 2718 ==
+
+Bug 2718: Discussions: Sends emails before commit 
+succeeds (What it commit fails?)
+
+- Fixed along w/ Bug 2717, pyserver now only emails 
+users after the commit succeeds (and the database 
+transaction is finished). This prevents the problem
+of emailing users and then hitting a bug or problem 
+and not being able to complete the transaction (so 
+the emails have a link to a discussion that doesn't
+exist).
+
+== Bug 2719 ==
+
+Bug 2719: Don't allow usernames that start with an 
+underscore.
+
+- It's silly that there's a developer convention to 
+prefix usernames with an underscore to indicate a 
+system process editing the geowiki, but we never 
+prevented users from creating accounts that look 
+like system usernames.
+
+- See CycloAuth.php, I added code to (a) disallow 
+usernames that start with an underscore, (b) disallow 
+usernames less than 4 chars in length or more than 
+32, and (c) disallow usernames that contain non-
+standard characters (though the list of accepted 
+characters is still probably too loose, but I like 
+it when users can get creative with their usernames).
+
+== Bug 2720 ==
+
+Bug 2720: Made post text selectable.
+
+== Non-bugs ==
+
+Misc. fixes to Discussions (no bug #s, since these 
+are probable CcpV2 regressions).
+
+- If pyserver returns an error, flashclient used to get 
+in a bad state, thinking the map was still dirty, and 
+disallowed the user from ever saving a post again. So 
+now the GWIS_Commit call in the thread panel cleans up
+properly and resets the dirty flags on the post and 
+thread.
+
+- pyserver was saving posts with the thread's client ID.
+I fixed commit to process threads before posts (using 
+the item classes' item_save_order) so that, when posts 
+are saved, the thread client ID is in the client ID to 
+permanent ID lookup.
+
+- On the thread details panel, fixed the post timestamp
+(it was the raw string from the database, because the 
+post.Many object hadn't enable sql_clauses.outer.enabled).
+
+- GWIS_Base now processes the client-ID-to-permanent-ID 
+mapping that pyserver returns after a successful commit.
+The mapping will be used to update item stack IDs so we 
+don't have to reload the map after a commit. For now, 
+we use the mapping after saving a new thread, so we can
+get the new thread's real stack ID.
+
+- Well, this one might not be a regression: Fixed a 
+problem clicking a thread to open it and then clicking
+Close immediately, before the reponse is received. This 
+would hose flashclient.
+
+Other misc. fixes.
+
+- Added new events to flashclient, so that objects can 
+listen on events rather than being told about them. I.e., 
+when a user logs in or out, the login-logout fcn. calls 
+a bunch of other items' functions, which is kind of 
+backwards -- a better MVC design is to generally signal 
+an event that the other items are listening on, i.e., 
+we want to reduce coupling so that some fcns. don't have 
+to know everything about everybody else.
+
+-- Added 'user_event_change' and 'selectedset_event_change'.
+
+- "Deprecated" a bunch of old CcpV1 scripts. (Basically 
+just print a "deprecated" message and exit immediately.)
+
+== Update to this rev. instructions ==
+
+pyserver: Singular CONFIG.server_name changed to plurable
+          CONFIG.server_names.
+
+flashclient: Moved Conf.debug_items_show_stack_ids to 
+             Conf_Instance.
+
+
+------------------------------------------------------------------------
+r28784 | landonb | 2012-08-18 13:19:01 -0500 (Sat, 18 Aug 2012) | 1 line
+
+Reverting lao's accidental commit to landon's branch.
+------------------------------------------------------------------------
+r28781 | lao | 2012-08-17 14:28:04 -0500 (Fri, 17 Aug 2012) | 1 line
+
+Modified Route Analysis Study tab interface and added auto-complete for tag analysis option
+------------------------------------------------------------------------
+r28768 | landonb | 2012-08-16 12:31:06 -0500 (Thu, 16 Aug 2012) | 1 line
+
+To nip-init, basemap owners should have work_item rights.
+------------------------------------------------------------------------
+r28767 | landonb | 2012-08-16 11:02:50 -0500 (Thu, 16 Aug 2012) | 1 line
+
+Remove argparse import from pop-rev-geo script.
+------------------------------------------------------------------------
+r28765 | landonb | 2012-08-16 09:09:00 -0500 (Thu, 16 Aug 2012) | 1 line
+
+Missing from last checkin...
+------------------------------------------------------------------------
+r28764 | landonb | 2012-08-15 21:32:15 -0500 (Wed, 15 Aug 2012) | 26 lines
+
+
+Discussion Fixes: Can load posts, save new posts, attach 
+geofeatures to posts. Also fixed code to make link_post-
+revision, i.e., revision feedback post, but this code is 
+untested (though similar to the code to make link_post-
+geofeature links work, so it's well on its way to working).
+
+GWIS_* stack change: moved callback fcn., which was common 
+to a number of commands, to the base class. Also added a
+callback for when the request fails, so that commands can 
+cleanup. See callback_load and callback_fail.
+
+Lots of little fixes, as well... lots of files touched.
+
+== Database Update ==
+
+A trigger is post had a regression error.   Was 'text', 
+              An _old_ regression error.    not 'body'.
+
+drop trigger post_tsvect_body_trig on post;
+CREATE TRIGGER post_tsvect_body_trig 
+   BEFORE INSERT OR UPDATE ON post 
+   FOR EACH ROW EXECUTE PROCEDURE tsvector_update_trigger(
+      tsvect_body, 'pg_catalog.english', body);
+
+
+------------------------------------------------------------------------
+r28744 | landonb | 2012-08-15 05:14:42 -0500 (Wed, 15 Aug 2012) | 1 line
+
+Ug. For populate_revision_geo, had to crawl through revisions and, due to PostGIS crashing on its weird findEdge error, manually exempt revisions with 'corrupted' (makes PostGIS unhappy) geometry and restart the script. Takes about an hour to run the whole script.
+------------------------------------------------------------------------
+r28743 | landonb | 2012-08-15 02:59:40 -0500 (Wed, 15 Aug 2012) | 19 lines
+
+
+Awesome new script: populate_revision_geo.py.
+
+- Creates revision and group_revision bbox, geometry, and 
+  geosummary for each revision and each group_id with affected 
+  items in a revision.
+
+- Tries to deal with some PostGIS problems when working with 
+  lots (hundreds plus) of geometries. (Added workarounds to 
+  a few PostGIS issues.)
+
+Fixes to checking out threads/posts.
+
+- Thread list was working, but clicking post brought up empty
+  panel. This is fixed. (Clicking the link_post widget was 
+  not working, however, which is why I was reminded that I 
+  needed to to the populate_revision_geo script....)
+
+
+------------------------------------------------------------------------
+r28741 | landonb | 2012-08-14 13:26:04 -0500 (Tue, 14 Aug 2012) | 1 line
+
+1. Regression Fixes. 2. Can save new byway, point, region, add tag to point or byway. 3. Fixes to checking out link_values (new code to get tags at basemap branch was wrong). 4. Splitting byway has bug (half of the split is missing).
+------------------------------------------------------------------------
+r28739 | landonb | 2012-08-13 16:51:06 -0500 (Mon, 13 Aug 2012) | 1 line
+
+Update to previous.
+------------------------------------------------------------------------
+r28738 | landonb | 2012-08-13 15:17:10 -0500 (Mon, 13 Aug 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r28737 | landonb | 2012-08-13 14:52:09 -0500 (Mon, 13 Aug 2012) | 1 line
+
+Fixes to route analysis and import/export.
+------------------------------------------------------------------------
+r28721 | landonb | 2012-08-08 18:12:50 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Dev-only changes to runic setup scripts.
+------------------------------------------------------------------------
+r28720 | landonb | 2012-08-08 17:46:45 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Make node_cache_maker more lenient so it cleans up before updating and does not drop rows before cleaning up other tables.
+------------------------------------------------------------------------
+r28719 | landonb | 2012-08-08 17:27:58 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Looking up token on runic not working... why didn't this fire on my dev. machine?
+------------------------------------------------------------------------
+r28718 | landonb | 2012-08-08 17:19:05 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Resolving comments and whatnot btw. my working copy and the branch.
+------------------------------------------------------------------------
+r28716 | landonb | 2012-08-08 14:12:51 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Syntax error in query_client...
+------------------------------------------------------------------------
+r28715 | landonb | 2012-08-08 13:53:07 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Fixes to manually running new_item_policy_init.
+------------------------------------------------------------------------
+r28713 | landonb | 2012-08-08 12:54:26 -0500 (Wed, 08 Aug 2012) | 13 lines
+
+
+New script make_new_branch.py combines a bunch of commands 
+I've been running manually to create a new branch, new group_ 
+items, new group_memberships, new new_item_policies, populate 
+the node_* tables, and update revision.
+
+Fixes to node_cache_maker script.
+
+Fixes to import scripts. (Lots of tedious corner cases that 
+were revealed the deeper I got into the Bikeways Shapefile.)
+
+
+
+------------------------------------------------------------------------
+r28712 | landonb | 2012-08-08 12:19:42 -0500 (Wed, 08 Aug 2012) | 1 line
+
+Make deletedset a Dictionary() so we can key off stack_id rather relying on stringification. Also updated some items' toString() fcns. to be more like pyserver's similar.
+------------------------------------------------------------------------
+r28704 | landonb | 2012-08-02 11:45:12 -0500 (Thu, 02 Aug 2012) | 1 line
+
+Flashclient fixes for That Big pyserver checkin with the new item policy changes.
+------------------------------------------------------------------------
+r28703 | landonb | 2012-08-02 11:36:06 -0500 (Thu, 02 Aug 2012) | 1 line
+
+Silly syntax fix.
+------------------------------------------------------------------------
+r28702 | landonb | 2012-08-02 11:05:37 -0500 (Thu, 02 Aug 2012) | 1 line
+
+Updates to previous.
+------------------------------------------------------------------------
+r28701 | landonb | 2012-08-02 10:54:42 -0500 (Thu, 02 Aug 2012) | 1 line
+
+Boilerplate script for Ccp Cli script that bulk-loads items.
+------------------------------------------------------------------------
+r28700 | landonb | 2012-07-31 23:00:11 -0500 (Tue, 31 Jul 2012) | 117 lines
+
+
+- Bug 2688: Database concurrency problems
+
+  - "Do over, man!"; I reopened bug...
+
+  - Instead of using SERIALIZABLE transactions, which fail 
+    on commmit if there's a concurrency issue, we now try 
+    to get an EXCLUSIVE table lock using NOWAIT. Using 
+    a non-blocking query allows us to be more proactive 
+    about concurrency (i.e., we can complain to the user 
+    early if we can't get the commit lock for, e.g., before
+    doing any work, if there's another commit or import that's 
+    hogging the lock. With SERIALIZABLE, transactions can
+    block on commit, and then three things might happen:
+    the other cursor rollbacks, so our commit succeeds; 
+    the other cursor commits, so our commit fails; or
+    the apache request times-out before we get the lock!).
+
+- Simplified New_Item_Policy
+
+  - Gone are:
+      access_existing, access_create_new, 
+      access_init_author, and access_init_group
+    replaced by:
+      nip_style
+      super_acl
+
+  - See 201-apb-52-groups-instnc_1.sql for a discussion.
+
+- Bug 2708: Don't waste sequence values.
+
+  - Instead of calling NEXTVAL on the stack ID and system 
+    ID sequence values, we peek at the next value and track
+    it internally. This is for two reasons: 1.) If the code
+    fails, we want to release the IDs back to the ID pool;
+    and 2.) If we're testing, e.g., import, and we're not 
+    committing, we don't want to waste 10,000s of IDs.
+
+  - This bug was discovered because I didn't want to waste 
+    revision IDs on failed commits or failed imports, 
+    because this would leave gaps in the revision ID 
+    sequence that the public sees. So I fixed the problem 
+    wasting revision IDs and then I also fixed the problem
+    wasting stack and system IDs.
+
+- Bug 2709: Use 'acl_grouping' for 'permissive' access changes.
+
+  - Add 'acl_grouping' to group_item_access, so we can change
+    item GIA records without having to save new item versions.
+    This is for nip_style='permissive', which means a real 
+    user owns the item and can edit GIA records for it for 
+    other groups.
+
+  - This feature is only partially implemented.
+
+- Updated copy_from (i.e., item cloning) to exclude certain
+  object attributes from being copied (like stack_id,
+  system_id, etc.).
+
+- Overhauled commit.py.
+
+  - Make commit more like import: preprocess the XML first, 
+    and then process the items, so you can take advantage 
+    of bulk SQL operations.
+
+  - Fixed some issues with ordering. This is related to 
+    preprocessing: we have to preprocess the XML, make 
+    some collections of things to process, and then 
+    process those things in a deliberate order.
+    
+- Bug 2710: Fix GWIS to give up on banned IPs earlier.
+
+  - We were doing more processing than necessary for 
+    requests from banned IPs.
+
+  - I fiddled with the command hierarchy, adding 
+    pre_decode (called before decode_request) and 
+    combining fetch and save into fetch_n_save.
+
+=====
+
+Db update notes:
+
+CREATE TRIGGER group_item_access_date_created_i 
+   BEFORE INSERT ON group_item_access
+      FOR EACH ROW EXECUTE PROCEDURE set_date_created();
+
+UPDATE group_item_access SET date_created = now();
+ALTER TABLE group_item_access ALTER COLUMN date_created SET NOT NULL;
+ALTER TABLE group_item_access ADD COLUMN acl_grouping INTEGER;
+UPDATE group_item_access SET acl_grouping = 1;
+ALTER TABLE group_item_access alter column acl_grouping SET NOT NULL;
+
+ALTER TABLE group_item_access 
+   DROP CONSTRAINT group_item_access_pkey;
+ALTER TABLE group_item_access 
+   ADD CONSTRAINT group_item_access_pkey 
+   PRIMARY KEY (group_id, item_id, valid_until_rid, acl_grouping);
+CREATE INDEX group_item_access_acl_grouping 
+   ON group_item_access (acl_grouping);
+
+See 201-apb-52-groups-instnc_1.sql:
+
+  DROP TABLE IF EXISTS new_item_policy...
+  CREATE TABLE new_item_policy...
+  CREATE OR REPLACE VIEW nip...
+
+From 201-apb-57-groups-pub_ins3.sql
+
+   DROP FUNCTION cp_add_link_policy...
+   CREATE FUNCTION cp_add_link_policy...
+   DROP FUNCTION cp_add_item_policy...
+   CREATE FUNCTION cp_add_item_policy...
+
+=====
+
+
+------------------------------------------------------------------------
+r28669 | landonb | 2012-07-16 12:29:08 -0500 (Mon, 16 Jul 2012) | 1 line
+
+Bugfixes and whatnot for import.
+------------------------------------------------------------------------
+r28662 | landonb | 2012-07-15 00:50:15 -0500 (Sun, 15 Jul 2012) | 1 line
+
+Bugfixes to get route_analysis working again with the new node_endpoint table, etc.
+------------------------------------------------------------------------
+r28661 | landonb | 2012-07-13 20:17:12 -0500 (Fri, 13 Jul 2012) | 1 line
+
+bugfix for routed
+------------------------------------------------------------------------
+r28660 | landonb | 2012-07-13 19:48:51 -0500 (Fri, 13 Jul 2012) | 1 line
+
+Missed from previous.
+------------------------------------------------------------------------
+r28659 | landonb | 2012-07-13 19:47:11 -0500 (Fri, 13 Jul 2012) | 1 line
+
+Bugfixes to node_cache_maker so it works on leafy branches (I had just tested against the public basemap until now).
+------------------------------------------------------------------------
+r28658 | landonb | 2012-07-13 19:43:42 -0500 (Fri, 13 Jul 2012) | 1 line
+
+Bugfixes to node_cache_maker so it works on leafy branches (I had just tested against the public basemap until now).
+------------------------------------------------------------------------
+r28657 | landonb | 2012-07-13 17:52:07 -0500 (Fri, 13 Jul 2012) | 43 lines
+
+
+Two Bugfixes to previous.
+
+HINT: These are the commands to run to work with the new code
+      (this list replaces one from a few checkins ago).
+
+== Scripts To Run ==
+
+./node_cache_maker.py --create-tables
+./node_cache_maker.py --populate-nodes --add-internals --update-route --branch 0
+./node_cache_maker.py --populate-nodes --add-internals --update-route --branch "Metc Bikeways 2012"
+./node_cache_maker.py --vacuum
+
+== CONFIG Changes ==
+
+Add this to pyserver/CONFIG:
+
+# This is the average elevation of Minnesota.
+# http://www.netstate.com/states/geography/mn_geography.htm
+elevation_mean: 1200.0
+
+== Database Changes ==
+
+ALTER TABLE geofeature RENAME COLUMN end_node_id TO fin_node_id;
+
+ALTER TABLE route ADD COLUMN rsn_min INTEGER;
+ALTER TABLE route ADD COLUMN rsn_max INTEGER;
+ALTER TABLE route ADD COLUMN n_steps INTEGER;
+ALTER TABLE route ADD COLUMN beg_nid INTEGER;
+ALTER TABLE route ADD COLUMN fin_nid INTEGER;
+
+ALTER TABLE group_ ADD COLUMN reverted BOOLEAN DEFAULT FALSE;
+ALTER TABLE group_membership ADD COLUMN reverted BOOLEAN DEFAULT FALSE;
+UPDATE group_ SET reverted = FALSE;
+UPDATE group_membership SET reverted = FALSE;
+ALTER TABLE group_ ALTER COLUMN reverted SET NOT NULL;
+ALTER TABLE group_membership ALTER COLUMN reverted SET NOT NULL;
+
+LTER TABLE new_item_policy ADD COLUMN reverted BOOLEAN DEFAULT FALSE;
+UPDATE new_item_policy SET reverted = FALSE;
+ALTER TABLE new_item_policy ALTER COLUMN reverted SET NOT NULL;
+
+
+------------------------------------------------------------------------
+r28656 | landonb | 2012-07-13 17:14:44 -0500 (Fri, 13 Jul 2012) | 17 lines
+
+
+Update merge import/export scripts.
+
+- Work with new node_* tables (see previous checkin).
+
+- Lots of bugfixes, but import still not 100% repaired.
+  Started implementing new Shapefile conf options and 
+  implementing network connectivity code (e.g., to 
+  detect where a line segment is "snapped-to" another 
+  line segment so we can make a node_endpoint (i.e., 
+  make an intersection).
+
+- Still have to finish implementing code to replace 
+  missing line segments and to setup network connectivity
+  for line segments with new or changed geometry.
+
+
+------------------------------------------------------------------------
+r28655 | landonb | 2012-07-13 16:48:38 -0500 (Fri, 13 Jul 2012) | 140 lines
+
+
+== ==
+
+BUG 2704: Route Analysis: Node Endpoint Selection Bugfixes
+
+- The route_analysis script assumes that route_step = 1 is the first 
+route_step for a route, but the index is really 0-based, so it should 
+be route_step = 0. But more importantly, there are some routes that 
+don't start at 0 at all, so we have to use MIN() to figure out the 
+correct route_number for the first step (like we use MAX() to figure 
+out the last route_number).
+
+- If the From region is not set but To region is set, don't use the To 
+region as the From region: because of one-ways and whatnot, we want to
+make the node endpoint pairs in the reverse, so we find routes in the 
+reverse direction.
+
+- The user route selection algoritm should select routes from the 
+Current revision but it should make sure each route's node_endpoints 
+exist at the Historic revision (i.e., its geometry is set and 
+reference_n > 0, otherwise the route finder won't find a route if 
+no byways in the Historic revision use a node_endpoint).
+
+- Remove route_step_count table and added columns to route. Add 
+code to keep the columns updated, too. The columns are also computed 
+by the node_cache_maker script. See route.Many.update_node_stats().
+
+  - See also BUG 2696: pyserver does not update/maintain the table 
+    route_step_count table. When a new route is created, we need code 
+    to add to this table.
+
+== ==
+
+BUG 2705: Geometry: Explicit Precision
+
+- I.e., instead of %f, use %.1f or %.6f, and be consistent.
+  %.1f is for node tolerance: nodes within 0.1 meters of another 
+       are considered to be logically the same node.
+  %.6f is for storing points as well as line segment and polygon 
+       vertices. %.6f is generally the default precision for %f, 
+       anyway.
+
+- See the new fcns., in geometry.py,
+    xy_to_raw_point_lossless # E.g., "SRID=%s;POINT(%.6f %.6f)"
+    xy_to_raw_point_restrict # E.g., "SRID=%s;POINT(%.1f %.1f)"
+    xy_to_wkt_point_lossless # E.g., "ST_GeomFromEWKT('SRID=%s;POINT(%.6f %.6f)')"
+    xy_to_wkt_point_restrict # E.g., "ST_GeomFromEWKT('SRID=%s;POINT(%.1f %.1f)')"
+
+== ==
+
+BUG 2706: Better Node Endpoint Infrastructure
+
+Replace the node_attribute table (CcpV1) and the byway_node table (CcpV2) 
+with node_endpoint and node_endpt_xy. Also add a few helper tables.
+
+- Store the node geometry in the node_endpt_xy. In CcpV1, node geometry is 
+  gleaned from the geometry of the byways that use the endpoint, but in 
+  CcpV1 node all byways agree on each node's geometry. This scheme ensures 
+  that a node's geometry is consistent. Also, caching this value helps 
+  route_analysis and conflation.
+
+- Node Endpoints are always publically visible, so they do not have 
+  corresponding rows in group_item_access. Furthermore, they derive from a 
+  new intermediate item class, permissions_free, so we don't have to store 
+  group_item_access records in the database or worry about group_accesses 
+  in pyserver. Node Endpoints are also Wiki'ed, so we can find historic 
+  data about nodes. Uniquely, Node Endpoints are stored as a "flattened" 
+  branch, as opposed to most items, which are stored as "stacked" branches.
+  This just means that every node endpoint has a row for every branch in 
+  node_endpoint.
+
+- New helper tables, node_byway and node_traverse. Node Byway stores all 
+  byway vertex xys and is used for conflation and for maintaining 
+  node_endpoint.reference_n. The node_byway table only reflects the 
+  Current revision of a branch. The node_traverse table reflects the cost 
+  of transition across a node from one edge to another edge in a specific 
+  direction of travel; this feature is not implemented, though, the table 
+  is just a stub.
+
+- New wrapper fcn. for setting an item's geometry, geofeature.set_geometry_wkt(),
+  so we know when geometry is edited so we know when we have to update the 
+  node_byway and/or node_endpoint tables.
+
+- Loads of updates to node_endpoint and node_cache_maker:
+
+  - Several performance improvements, including reducing number of postgres 
+    transactions, has sped up the script from an old runtime of 3 hours or 
+    so to just a half hour.
+
+== ==
+
+MISCELLANY
+
+- BUG 2703 (Still Open): Route Analysis: Radial Route Selection
+
+  - Adding preliminary code (stubs) for Radial route selection
+    (the bug is still open).
+
+    See http://bugs.grouplens.org/show_bug.cgi?id=2703
+
+    See http://wiki.grouplens.org/index.php/Cyclopath/Cycloplan/Radial_route_selection
+
+- Fixed usage of reverted.
+
+  - Was missing from grac classes.
+
+== Scripts To Run ==
+
+./node_cache_maker.py --create-tables
+./node_cache_maker.py --populate-nodes --add-internals --update-route --branch 0
+./node_cache_maker.py --populate-nodes --add-internals --update-route --branch "Metc Bikeways 2012"
+./node_cache_maker.py --vacuum
+
+== CONFIG Changes ==
+
+Add this to pyserver/CONFIG:
+
+# This is the average elevation of Minnesota.
+# http://www.netstate.com/states/geography/mn_geography.htm
+elevation_mean: 1200.0
+
+== Database Changes ==
+
+ALTER TABLE group_item_access RENAME COLUMN start_node_id TO beg_node_id;
+ALTER TABLE group_item_access RENAME COLUMN end_node_id TO fin_node_id;
+
+ALTER TABLE route ADD COLUMN rsn_min INTEGER;
+ALTER TABLE route ADD COLUMN rsn_max INTEGER;
+ALTER TABLE route ADD COLUMN n_steps INTEGER;
+ALTER TABLE route ADD COLUMN beg_nid INTEGER;
+ALTER TABLE route ADD COLUMN fin_nid INTEGER;
+
+ALTER TABLE group_ ADD COLUMN reverted BOOLEAN DEFAULT FALSE;
+ALTER TABLE group_membership ADD COLUMN reverted BOOLEAN DEFAULT FALSE;
+UPDATE group_ SET reverted = FALSE;
+UPDATE group_membership SET reverted = FALSE;
+ALTER TABLE group_ ALTER COLUMN reverted SET NOT NULL;
+ALTER TABLE group_membership ALTER COLUMN reverted SET NOT NULL;
+
+
+------------------------------------------------------------------------
+r28654 | landonb | 2012-07-13 14:56:51 -0500 (Fri, 13 Jul 2012) | 1 line
+
+Continuity and Parallelism: Changing start_/end_ and beg_/end_ prefixes to beg_/fin_. I.e., "start_time" and "end_time" are renamed "beg_time" and "fin_time". As in, "beginning" and "finishing". First, this standardizes the usage in the code. Secondly, it makes the two words the same in length, whether abbreviated or not, which makes the code more readable. Thirdly, beg_ and fin_ are only used in this manner, which helps when searching, i.e., the prefixes will no longer maybe be confused with other terms, e.g., "node_endpoint" or "valid_start_rid". Fourth, "start" and "end" are active verbs, like "start this" and "end that", whereas "beginning" and "finishing" are verbs, but in the present participle, which maybe are more representative of the values they represent (e.g., "what was the starting and finishing time?", or, "what is the starting and finishing location?"). NOTE: This is an intermediate checkin; I want to segregate these changes from the ton of cool changes I am about to commit (because changing names really is not all that cool, it just makes the code pretty, hopefully without changing any behavior).
+------------------------------------------------------------------------
+r28652 | landonb | 2012-07-10 17:20:38 -0500 (Tue, 10 Jul 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r28651 | landonb | 2012-07-10 17:13:57 -0500 (Tue, 10 Jul 2012) | 1 line
+
+Was debugging a make problem (ultimately, a reboot solved it (probably caused by the June 30, 2012, leap second)) and ended up cleaning up Makefile and fcsh-wrap. Nothing much, just some pretty-printing, fixing tabs/spaces in Makefile, and wrapping an os call with try/except.
+------------------------------------------------------------------------
+r28650 | landonb | 2012-07-10 16:21:35 -0500 (Tue, 10 Jul 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r28649 | landonb | 2012-07-10 13:35:26 -0500 (Tue, 10 Jul 2012) | 38 lines
+
+
+Renamed byway_node to node_endpoint:
+
+ - nodes are special items, and not simply a byway feature.
+ - byway_node is also the name of the table CcpV1 used in the
+   very early days, before node_attribute; so let's not confuse
+   the two.
+ - there are other tables to help with nodes:
+   - node_byway: attrs. about a node-byway relationship;
+   - node_traverse: attrs. about a byway-node-byway relationship.
+   - (so node_endpoint is just attrs. about a node).
+ - cleaned up the var. names in flashclient to match those in 
+   postgres and pyserver.
+
+Reimplemented the byway_node script, and combined it with the 
+ conny_audit (connectivity auditor) script.
+
+ - uses db's fetchone callback in an effort to be more memory 
+   conscience (though I'm not sure how helpful this is: the 
+   script still builds a couple of Really Big lookups).
+
+Renamed G.app.discussions_panel to discussion_panel_box to 
+ not confuse with UI.discussions_panel (which happened in 
+ some CcpV1 code...).
+
+NOTE: You need to update your database.
+
+      1.) SYNC_ME: Search: Item_Type table
+          i.e., see 201-apb-21-aattrs-shared__.sql and 
+                paste the INSERTs to a psql session.
+
+      2.) Make the node_endpoint table (takes 3 hours), i.e., 
+          ./node_cache_maker.py -C
+          ./node_cache_maker.py -I --branch 0
+          ./node_cache_maker.py -I --branch "Metc Bikeways 2012"
+          ./node_cache_maker.py -V --skip-populate --skip-audit
+
+
+------------------------------------------------------------------------
+r28647 | landonb | 2012-07-10 12:22:45 -0500 (Tue, 10 Jul 2012) | 1 line
+
+Oops, the member, download_fake, in merge_job should really be in work_item, so route_analysis_job can use it.
+------------------------------------------------------------------------
+r28626 | landonb | 2012-07-02 19:30:28 -0500 (Mon, 02 Jul 2012) | 1 line
+
+More import updates. Run against complete Bikeways conflated dataset, save for committing to database and processing splits; but fixed a bunch of other bugs.
+------------------------------------------------------------------------
+r28624 | landonb | 2012-07-02 15:17:58 -0500 (Mon, 02 Jul 2012) | 1 line
+
+Some bugfixes to import/export. Also deriving two new classes from merge_job: merge_export_job and merge_import_job. But the client can still ask for the intermediate class -- merge_job -- and it'll get both import and export jobs. The two new classes mostly help in the server, i.e., better OO than just having one class that does two things... now with have three classes that do two things. =)
+------------------------------------------------------------------------
+r28612 | landonb | 2012-07-01 18:07:00 -0500 (Sun, 01 Jul 2012) | 1 line
+
+Import framework works again, though the code to import splits isn't re-implemented. Also, I think the missing features aren't getting saved to the target Shapefile. But overall things are looking good...
+------------------------------------------------------------------------
+r28602 | landonb | 2012-06-29 17:31:13 -0500 (Fri, 29 Jun 2012) | 35 lines
+
+
+Export works again.
+
+It adheres to the new convention of searching en masse for
+geofeatures and their attachments and processing them using
+fetchone and a callback.
+
+The result: populating a very rich set of fields in the
+Shapefile is a fast and memory-light operation.
+
+I've also changed from using a yaml config file that's
+confusing and cumbersome to using a set of geometry-less
+features inside of the Shapefile (meaning you'll see them
+and can edit them in ArcMap (or QGIS or OpenJump, etc.)).
+These settings include, i.e., the name and stack ID of the
+branch and other directives to tell the import code how
+to process the Shapefile (assuming it'll be edited and
+eventually imported back into Cyclopath).
+
+Also, a lot of code has been shuffled around: the
+import/export code uses three class-stacks (the work item,
+the merge job, and the import/export itself), but a lot
+of the code is now just a part of the import/export base
+class (so that the merge job and the work item classes are
+pretty light, and most of the heavy-lifting is done in the
+import/export base class). The export class itself is very
+light now (as opposed to the import class stack, which has
+lots of code to deal with conflation and whatnot); one reason
+for doing this is to make it easier to process multiple
+Shapefiles from one import job's zip archive and to make it
+easier to abstract processing different geofeature class
+types (points, line segments, polygons, etc.), since very
+much of the code is shared, but with subtle differences.
+
+
+------------------------------------------------------------------------
+r28596 | landonb | 2012-06-28 13:59:25 -0500 (Thu, 28 Jun 2012) | 1 line
+
+Bucket o' import/export changes. Moved qb management from merge_job class to import/export class. Also changed from yaml config to shapefile confil (that is, embedding config as geometry-less features in the shapefile). FIXME: This checkin is syntaxtically correct (it imports in Python) but it has not been debugged... but not to worry, this code is already broken in the branch, so this is an improvement.
+------------------------------------------------------------------------
+r28591 | landonb | 2012-06-27 15:52:39 -0500 (Wed, 27 Jun 2012) | 1 line
+
+Bug 2698 - User Registration: Update MediaWiki plugin to work with CcpV2. I added a new Postgres fcn., cp_user_new, that make the user_ record (like in CcpV1) and also makes the private group_ record and a couple of group_membership records.
+------------------------------------------------------------------------
+r28580 | landonb | 2012-06-26 15:45:04 -0500 (Tue, 26 Jun 2012) | 1 line
+
+Update to previous.
+------------------------------------------------------------------------
+r28579 | landonb | 2012-06-26 15:31:21 -0500 (Tue, 26 Jun 2012) | 8 lines
+
+
+Fixed is_dirty: was in item_user_access but needed by 
+grac_record, so moved part of the fcn. to item_base.
+
+Fixed a problem making the branch_hier for a branch at 
+a revision from before the branch was created.
+
+
+------------------------------------------------------------------------
+r28576 | landonb | 2012-06-25 14:27:29 -0500 (Mon, 25 Jun 2012) | 1 line
+
+Updates to previous.
+------------------------------------------------------------------------
+r28570 | landonb | 2012-06-22 14:57:16 -0500 (Fri, 22 Jun 2012) | 37 lines
+
+
+Bug 2682: Fixed saving ratings on unedited byway.
+
+- E.g., load Cyclopath, click byway, rate, save.
+
+- Fix Flashclient to not prompt if user is just 
+rating (or editing watchers), since a new revision 
+is not being created.
+
+Fixed regression saving a new point that you tagged 
+(link_value was being saved before point and tag).
+
+Regression fix related to applying viewport query.
+
+Fix item_user_access to be able to change permissions
+without having to save a new revision.
+
+Added date_created to group_revision table to capture 
+recent changes that do not cause a new revision to be
+saved, such as rating and watching. (We should eventually 
+put this activity in a user's Recent Changes.)
+
+Added date_created and last_modified fields to 
+group_item_access, so users can change permissions 
+without causing new items or new revisions to be 
+created.
+
+New Route Analytics features: find regions by tag, 
+instead of by name.
+
+BUG 2688: Transaction Retryable fix from V1.
+
+Lots of update to import/export. Starting to write 
+our own conflation algorithms, since RoadMatcher is 
+no longer a viable solution....
+
+
+------------------------------------------------------------------------
+r28566 | landonb | 2012-06-21 17:22:40 -0500 (Thu, 21 Jun 2012) | 1 line
+
+Auto_install: make initial questions all usually require an affimative 'Y' response.
+------------------------------------------------------------------------
+r28565 | landonb | 2012-06-21 17:21:36 -0500 (Thu, 21 Jun 2012) | 1 line
+
+Fix auto_install: Adobe moved and changed the format of their Flash debug plugin and player.
+------------------------------------------------------------------------
+r28564 | landonb | 2012-06-21 17:16:37 -0500 (Thu, 21 Jun 2012) | 1 line
+
+Fix auto_install: Adobe moved and changed the format of their Flash debug plugin and player.
+------------------------------------------------------------------------
+r28563 | landonb | 2012-06-21 16:40:14 -0500 (Thu, 21 Jun 2012) | 1 line
+
+Intelligently calculate kernel.shmmax and kernel.shmall to properly configure postgresql.conf. This is important for servers, otherwise their resources will go largely unused. Also update pg_ident.conf so it includes the user for whom we're installing Cyclopath dev tools.
+------------------------------------------------------------------------
+r28393 | landonb | 2012-05-25 12:10:41 -0500 (Fri, 25 May 2012) | 8 lines
+
+
+Regression bugfixes for export.
+
+Fix problem saving ratings (commit was loading byway 
+to check user has view acccess but then inadvertently 
+added the byway to the commit list).
+
+
+------------------------------------------------------------------------
+r28336 | landonb | 2012-05-17 00:47:00 -0500 (Thu, 17 May 2012) | 1 line
+
+Oops. Referenced before assigned, regression error.
+------------------------------------------------------------------------
+r28335 | landonb | 2012-05-17 00:38:49 -0500 (Thu, 17 May 2012) | 1 line
+
+I guess math.ceil returns a float...
+------------------------------------------------------------------------
+r28333 | landonb | 2012-05-16 23:21:33 -0500 (Wed, 16 May 2012) | 1 line
+
+Dopey regression bugfix. At least I added stack trace to the error message in the previous checkin; that made it easy to find.
+------------------------------------------------------------------------
+r28332 | landonb | 2012-05-16 23:18:29 -0500 (Wed, 16 May 2012) | 1 line
+
+Extra debug output for runic.
+------------------------------------------------------------------------
+r28331 | landonb | 2012-05-16 22:16:27 -0500 (Wed, 16 May 2012) | 23 lines
+
+
+From [mm]: Fix old syntax error in grac_manager.py.
+(I'm curious why I haven't triggered it; [mm] was 
+just debugging saving ratings.)
+
+Regression: could not save routes from anonymous user.
+assurt was firing and complaining that groups_access 
+was empty. I added a bool to the route and track classes 
+to tell the base class it's okay to save them without 
+any GIA records.
+
+Tooltips on byways was crashing flashclient.
+
+Fixed a malformatted .mxml file.
+
+Modified analysis tab create-job panel. Moved the job-type 
+(user-requested, synthetic, or past-job) controls to the 
+left, so there's not so much whitespace and so they don't 
+fall off the right of the panel when the panel is narrow.
+Put in a box with a distinct bg color that's offset a little 
+from the left edge.
+
+
+------------------------------------------------------------------------
+r28325 | landonb | 2012-05-16 17:23:22 -0500 (Wed, 16 May 2012) | 1 line
+
+Merge from Mikhil: fix missing scrollbar on analysis tab. Add bike_fac drop-down for MetC attribute.
+------------------------------------------------------------------------
+r28324 | landonb | 2012-05-16 16:59:51 -0500 (Wed, 16 May 2012) | 1 line
+
+Regression bugfix to route_analysis past-job analysis.
+------------------------------------------------------------------------
+r28323 | landonb | 2012-05-16 16:49:27 -0500 (Wed, 16 May 2012) | 1 line
+
+Debug code for runic.
+------------------------------------------------------------------------
+r28322 | landonb | 2012-05-16 16:23:28 -0500 (Wed, 16 May 2012) | 1 line
+
+Fixed problem found by [ml] with link_value adding same-named col_tuple to schema_cols: item_versioned adds 'name' column, and so does link_value. Solution: derived class's tuples overwrite parent's tuples of the same name.
+------------------------------------------------------------------------
+r28321 | landonb | 2012-05-16 16:10:25 -0500 (Wed, 16 May 2012) | 1 line
+
+Fixed problem found by [ml] with non-attr link_values being rejected by pyserver incorrectly because value_* was not set.
+------------------------------------------------------------------------
+r28319 | landonb | 2012-05-16 14:21:07 -0500 (Wed, 16 May 2012) | 73 lines
+
+
+I [lb]'d route_analysis.py.
+
+- Changed some hard-coded ints to static class attr refs.
+
+- Added error handling if region returns no geometry (used 
+  to just crash in db_glue).
+
+- Added multi-threading to route_analysis. Speed up yer jobs.
+
+- Because of the Python global interpreter lock (GIL), 
+  using ThreadingMixin for the route daemon only makes 
+  sense if we don't actually multi-thread. That's because
+  threads are not really run concurrently. But using 
+  ForkingMixin slows down dev machines (since a route 
+  request always causes a fork). So now routed.py decides 
+  which Mixin to use depending on the async values set in 
+  CONFIG.
+
+- I changed the Cartesian product calculation that assemble 
+route endpoint pairs to a somewhat quicker and less
+memory-consumptive implementation using other random lib.
+fcns. (by a few seconds, I'll admit, and by a few hundred
+megabytes, for 1,200 sample sources and destins).
+
+I implemented a fix for problem that [mm] identified as
+causing the bug when searching for nearest-node when
+geocoding before a find-route: the order-by was ordering by
+stack_id, branch_id, access_level_id, etc., first, and then
+it was ordering by distance-from the desired x,y byway_node
+endpoint. So the result of the geocode was not the closest
+byway_node to the x,y in the find-route.
+
+- This also made me realize the outer order-by no longer 
+needs to order by stack, branch, and access level IDs, 
+since that's taken care of by the inner order-by. The 
+outer order-by should be free for anyone to use.
+
+I changed making of items' group_item_access records to not 
+make GIA records on new items if the access is denied, since 
+we don't need those records cluttering our table.
+
+Fixed a problem with the default new_item_policy for MetC
+branch. Had assigned permissions to the MetC group, but we
+should assign permissions to the public instead, otherwise,
+if we want to give the public viewer access to the branch,
+they wouldn't otherwise see the new items being created.
+
+Bugfix in update_feats_and_attcs (syntax error, oy).
+
+Split query_builder's request_lock_update into two:
+request_lock_for_share and request_lock_for_update, since
+it was being used for both, but the two are different
+(SELECT ... FOR SHARE OF allows concurrent access, but
+using FOR UPDATE OF claims exclusive access).
+
+Removed trying to row-lock during commit, before getting 
+revision table lock. The revision table lock still lets 
+users read from that table (and all others), so it only 
+blocks other commits. And row-locking was setup so that 
+it could deadlock, since we weren't locking by stack ID 
+ascending, so competing threads locking the same rows 
+but in different orders would deadlock.
+
+Started implementing running the route finder from ccp.py,
+including using byway_node IDs so we can skip geocoding.
+Right now, ccp.py geocodes the --from and --to of a 
+--route requests, but it doesn't parse the response yet 
+or send the route request. I added the new class address2
+to help with parsing the XML.
+
+
+
+------------------------------------------------------------------------
+r28316 | landonb | 2012-05-15 19:22:43 -0500 (Tue, 15 May 2012) | 1 line
+
+Merge from [mm]. Make revision stepper work for all types of route analysis jobs (used to just apply to user and synthetic, but not old-job). Hack to try to complete as many route requests as requested. Also a fix from [lb] to appropriately not include a hidden route-using-bikeways widget, and to update the tagprefs when changing branches (panel needs to listen for tagLoaded).
+------------------------------------------------------------------------
+r28315 | landonb | 2012-05-15 19:02:43 -0500 (Tue, 15 May 2012) | 1 line
+
+Merge from [ml]: fix new-region tool to create region at cursor's X,Y (rather than at X,X\!).
+------------------------------------------------------------------------
+r28308 | landonb | 2012-05-15 14:59:55 -0500 (Tue, 15 May 2012) | 1 line
+
+Add pid to routed_ports. Added complement to magic_localhost_auth: magic_auth_remoteip, for remote debugging when localhost_auth is not an authption.
+------------------------------------------------------------------------
+r28305 | landonb | 2012-05-15 12:10:06 -0500 (Tue, 15 May 2012) | 1 line
+
+Bugfixes to previous.
+------------------------------------------------------------------------
+r28304 | landonb | 2012-05-15 09:19:09 -0500 (Tue, 15 May 2012) | 1 line
+
+Bugfixes to previous.
+------------------------------------------------------------------------
+r28303 | landonb | 2012-05-15 09:10:27 -0500 (Tue, 15 May 2012) | 1 line
+
+Update to previous.
+------------------------------------------------------------------------
+r28302 | landonb | 2012-05-15 09:07:15 -0500 (Tue, 15 May 2012) | 1 line
+
+Updates from Michael -- some flashclient fixes to lazy-load notes and tags, and fix a few other bugs. Landon fixed a problem doing a job and then saving the map.
+------------------------------------------------------------------------
+r28297 | landonb | 2012-05-14 13:23:06 -0500 (Mon, 14 May 2012) | 1 line
+
+Debugging route finders for route analysis, so added thread-id to log trace so we can distinguish between overlapped lines in the logfile.
+------------------------------------------------------------------------
+r28296 | landonb | 2012-05-14 10:33:47 -0500 (Mon, 14 May 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r28294 | landonb | 2012-05-14 10:15:20 -0500 (Mon, 14 May 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r28293 | landonb | 2012-05-14 10:03:50 -0500 (Mon, 14 May 2012) | 25 lines
+
+
+Removed new_item_policy's init_access_others (unused, misleading, 
+and confusing). Its intended usage will be implemented sometime 
+in the future by branch_role (that is, access for others should 
+be based on user roles, and not on item permissions).
+
+Finish adding GWIS abbrevs (was implemented for attr names, and 
+now for class names).
+
+Bugfix: branch was trying to save server-only var to db.
+
+Bugfix: Group_Item_Access in flashclient was using wrong GWIS attr name.
+
+Moved some group.py code into new intermediate base class, groupy_base, 
+for some of the item.grac classes to use, to resolve group names into IDs.
+
+To ccp.py, added ability to set group_item_access permissions, so MetC
+group can be given access to the MetC branch.
+
+Converted commit's item_save_order mechanism into item class attributes. 
+It was getting tedious to maintain a list of item names -- we have to 
+convert the GWIS XML into an item object anyway, so might as well sort 
+the items, instead of the XML.
+
+
+------------------------------------------------------------------------
+r28282 | landonb | 2012-05-11 14:15:22 -0500 (Fri, 11 May 2012) | 1 line
+
+item_user_access shouldn't auto-recycle after a query, in case callers have a lock open. Also, consolidated the two query_builder objects in commit, since they were basically replicas on one another.
+------------------------------------------------------------------------
+r28278 | landonb | 2012-05-11 12:42:17 -0500 (Fri, 11 May 2012) | 1 line
+
+Trace statements for problem on runic that I cannot repro on dev machine... trying to delete one of my completed jobs fails.
+------------------------------------------------------------------------
+r28277 | landonb | 2012-05-11 12:06:34 -0500 (Fri, 11 May 2012) | 1 line
+
+Make db_glue not assurt on production, just on dev machines, for recoverable errors. Also extra tracing in route_analysis to track down route request success but no xml problem.
+------------------------------------------------------------------------
+r28276 | landonb | 2012-05-11 11:02:42 -0500 (Fri, 11 May 2012) | 1 line
+
+Make % display on work items panels be less confusing (show overall pct. instead of per-stage pct.).
+------------------------------------------------------------------------
+r28275 | landonb | 2012-05-11 10:36:42 -0500 (Fri, 11 May 2012) | 1 line
+
+route_analysis: Don't fail if routed can't be stopped.
+------------------------------------------------------------------------
+r28274 | landonb | 2012-05-11 10:26:50 -0500 (Fri, 11 May 2012) | 1 line
+
+Regression: MAPS tab missing. branch.Many() was accidentally reseting branch_hier_limit to 1 from 0. Also hardened gwis_mod_python to catch Exceptions not caught by request.py (and to return HTTP BAD REQ).
+------------------------------------------------------------------------
+r28272 | landonb | 2012-05-11 08:58:35 -0500 (Fri, 11 May 2012) | 2 lines
+
+Bugfix to previous.
+
+------------------------------------------------------------------------
+r28267 | landonb | 2012-05-10 20:29:41 -0500 (Thu, 10 May 2012) | 17 lines
+
+
+route_analysis: If from: region specifed but not to:, crashes! So 
+I fixed that.
+
+item_mgr: fix tag lookup to fetch from mainline, since fetching 
+from branch misses recently-added tags and tags and only saved to 
+the mainline, anyway.
+
+Add last_modified to routed_ports.
+
+Fix route_analysis to get byways from historic revision. Otherwise 
+they won't match the returned route!
+
+Lots of misc. bugfixes. Incl. some related to cancelling jobs. Like,
+when you hit the Cancel button from flashclient.
+
+
+------------------------------------------------------------------------
+r28265 | landonb | 2012-05-10 14:27:02 -0500 (Thu, 10 May 2012) | 1 line
+
+route_analysis: don't wait for routed to start while we can be doing other things. Start routed first, then do other setup (which includes sql calls that take a while), and then wait for routed just before you're ready to start processing route end points.
+------------------------------------------------------------------------
+r28264 | landonb | 2012-05-10 13:48:15 -0500 (Thu, 10 May 2012) | 1 line
+
+Updates to previous.
+------------------------------------------------------------------------
+r28263 | landonb | 2012-05-10 13:41:52 -0500 (Thu, 10 May 2012) | 1 line
+
+Updates to previous.
+------------------------------------------------------------------------
+r28262 | landonb | 2012-05-10 13:32:32 -0500 (Thu, 10 May 2012) | 1 line
+
+Fixed route_analysis job: for branchy jobs, was only looking for route start and end nodes for routes for the leafy branch -- so it wasn't finding any routes to analyse. Also fixed a few performance issues in route_analysis related to SQLing.
+------------------------------------------------------------------------
+r28259 | landonb | 2012-05-09 16:18:06 -0500 (Wed, 09 May 2012) | 1 line
+
+Remove last year's CcpV1-type analytics code. I checked and confirmed that this year's new CcpV2-type code does the same, and more.
+------------------------------------------------------------------------
+r28257 | landonb | 2012-05-09 14:46:36 -0500 (Wed, 09 May 2012) | 1 line
+
+Fix to previous.
+------------------------------------------------------------------------
+r28256 | landonb | 2012-05-09 14:20:15 -0500 (Wed, 09 May 2012) | 24 lines
+
+
+Fixed problems with db_glue and cloning cursors.
+
+- DB() class now maintains list of whose using which cursors.
+
+- DB() users must now explicitly close() when they're done.
+
+Don't auto-load DEM on every instance. DEM takes a second or two 
+to load. Now it's loaded the first time something wants elev. data.
+
+Fixed g.py to start remote debugging when apache code assurts.
+
+Update auto_install to edit /usr/share/proj/epsg file for 
+MapServer mercator support.
+
+In route_analysis, got rid of conf.ccp_path. Using $PYSERVER_HOME 
+instead.
+
+In route_analysis, replaced use of obsolete os.system with 
+subprocess.Popen. See misc.run_cmd().
+
+Got rid of route_analysis's --no_io_close hack.
+
+
+------------------------------------------------------------------------
+r28249 | landonb | 2012-05-08 17:36:08 -0500 (Tue, 08 May 2012) | 1 line
+
+Fix issues with starting and stopping Mr. Do\! Now, it checks job_status on startup to cleanup any jobs that were left in a bad state after an ungraceful shutdown. Also make single file out of routedctl and mr_doctl common code.
+------------------------------------------------------------------------
+r28246 | landonb | 2012-05-08 16:07:23 -0500 (Tue, 08 May 2012) | 1 line
+
+Fix work_item jobs so the 'x' button deletes the job and removes files from the hard drive.
+------------------------------------------------------------------------
+r28245 | landonb | 2012-05-08 14:21:34 -0500 (Tue, 08 May 2012) | 1 line
+
+Don't require conf.py settings -- can assume default False on some of 'em.
+------------------------------------------------------------------------
+r28244 | landonb | 2012-05-08 14:10:23 -0500 (Tue, 08 May 2012) | 1 line
+
+Hardened routed code, so it starts/stops better on Fedora. Also new routed_ports class to handle finding routed port and also (new:) checking that the daemon is actually running (by looking for /proc/).
+------------------------------------------------------------------------
+r28241 | landonb | 2012-05-08 01:46:26 -0500 (Tue, 08 May 2012) | 1 line
+
+Regression fix: need to almost always use outer select with leafy checkout.
+------------------------------------------------------------------------
+r28240 | landonb | 2012-05-07 22:22:05 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix getting list of branch names to exclude denied.
+------------------------------------------------------------------------
+r28239 | landonb | 2012-05-07 22:03:58 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix recent regressions caused by changes to branch loading basemap ID on __init__.
+------------------------------------------------------------------------
+r28238 | landonb | 2012-05-07 21:41:32 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix routedctl so you can specify branch name with stop command. Add name to branch_hier tuple (for routedctl fix). New _branch and _attribute database views (shorthand for joining against item_versioned and also uses concise column names).
+------------------------------------------------------------------------
+r28237 | landonb | 2012-05-07 20:34:38 -0500 (Mon, 07 May 2012) | 1 line
+
+Add branch attr, is_public_basemap, for flashclient's use.
+------------------------------------------------------------------------
+r28236 | landonb | 2012-05-07 19:57:51 -0500 (Mon, 07 May 2012) | 1 line
+
+A few comments
+------------------------------------------------------------------------
+r28235 | landonb | 2012-05-07 18:35:47 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix --branch switch, again, because of weirdness when passed from routedctl.
+------------------------------------------------------------------------
+r28234 | landonb | 2012-05-07 18:17:25 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix routedctl: --branch tag broken.
+------------------------------------------------------------------------
+r28233 | landonb | 2012-05-07 18:13:53 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix routedctl: --branch tag broken.
+------------------------------------------------------------------------
+r28232 | landonb | 2012-05-07 17:56:34 -0500 (Mon, 07 May 2012) | 1 line
+
+Fixes to previous.
+------------------------------------------------------------------------
+r28231 | landonb | 2012-05-07 17:42:07 -0500 (Mon, 07 May 2012) | 1 line
+
+Modify ccp.py and item classes so we can set valid_start_rid = 1 for group_ and group_membership (so if we add someone to a group we can let them see historical versions).
+------------------------------------------------------------------------
+r28230 | landonb | 2012-05-07 16:48:38 -0500 (Mon, 07 May 2012) | 1 line
+
+Fix ccp.py to work with GML abbrevs.
+------------------------------------------------------------------------
+r28229 | landonb | 2012-05-07 14:16:09 -0500 (Mon, 07 May 2012) | 1 line
+
+Misc. fixes.
+------------------------------------------------------------------------
+r28228 | landonb | 2012-05-07 13:44:20 -0500 (Mon, 07 May 2012) | 1 line
+
+Misc. fixes.
+------------------------------------------------------------------------
+r28216 | landonb | 2012-05-05 22:38:47 -0500 (Sat, 05 May 2012) | 97 lines
+
+
+
+Overhauled byway checkout.
+
+  When loading the map, flashclient just requests geofeatures, 
+  and pyserver loads those geofeatures along with their tags 
+  and attributes.
+  
+  The tags and attrs are loaded much more efficiently than
+  before -- we still respek permissions, but we use the
+  byway stack IDs to restrict the query (rather than using
+  a bbox query to find link_values; using explicit IDs is
+  very much faster).
+  
+  We also don't send the heavyweight link_values, just the tag 
+  names and attribute name and value.
+
+  And we use fetchone rather than fetchall, since it's quicker
+  not to load all query results into memory.
+
+  Figured out how to efficiently load note and post counts -- 
+  similar to how attrs and tags are loaded, only with a COUNT
+  and some ORDER and GROUP BYs.
+
+Fixed revision.Diff and revision.Updated!
+
+  Via ./ccp.py, you can now checkout Diff and Updated.
+
+  Updated is implemented efficiently, and it works with 
+  routed.py, too. So the v1 route finder can be updated 
+  when the map is saved (for v2, we have to restart the 
+  finder, because of how GraphServer works).
+
+  Diff works from ccp.py but does not work from flashclient
+  yet.
+
+New to query_filters: 
+
+  Option to skip getting tagged-byways counts -- this speeds up 
+  the Item_Manager when it caches tags and attributes, which it 
+  does everytime it gets byways with tags and attrs populated, 
+  since the link_values don't actually specify the tag or byway 
+  name.
+  
+  Option to skip getting attrs and tags when fetching byways, 
+  since the new standard is to get lvals for byways when 
+  they're checked out, which speeds up the fetch considerably.
+
+  Option to skip getting annotation and post counts when 
+  fetching byways. Flashclient uses the counts to highlight 
+  byways on the map, but they're not always necessary.
+
+  Also reordered both pyserver and flashclient query_filters 
+  files so all the parms are in the same order.
+
+GWIS change: Abbreviations!
+
+  I abbreviated some XML keys, i.e., instead of geofeature_layer_id, 
+  just gflid. For one particular query, this reduced the XML payload
+  from 110 Kb down to 70 Kb.
+
+Per Mikhil's problems in Flash Player 11, renamed 'z' attributes to 
+either z_level or zoom_level, as appropriate.
+
+  Not sure, but Mikhil indicated that parent classes already had a 
+  'z' attribute. But I'm not sure why this hasn't been a problem 
+  before.
+
+  Fixed a few places in routed.py when the 'z' changed wasn't 
+  implemented.
+
+Fixed help panel (to reflect order of tabs) and replaced gears icon 
+(for routes) with the weird running guy icon (the one currently used)
+(so the gears icon is no longer used, since watch regions and the 
+control panel are combined).
+
+Filled in some places where Major Trail was missing when it was 
+originally implemented.
+
+Fixed recent changes to how ratings are loaded to respek branches.
+So the ratings lookup is keyed by byway stack id, then username, 
+then branch ID. And there's a new filter option to use just 
+ratings for the current branch or any rating from the branch 
+hierarchy.
+
+  Can also now load historic ratings. Also a filters option.
+
+Fixed branchy checkouts to be quicker (and to not timeout flashclient).
+Wrote a more efficient query: for checked-out items whose branch 
+IDs are not the leafiest, search for leafier items with same ID 
+WHERE branch_id is greater, and then nix those results. This is 
+just one query; previously, we re-checkout every item singly 
+which was a leafy item... and postgres is super-slow when you 
+do single queries; it's best to be bulk.
+
+
+
+------------------------------------------------------------------------
+r28138 | landonb | 2012-04-26 12:06:02 -0500 (Thu, 26 Apr 2012) | 1 line
+
+Merge from Michael.
+------------------------------------------------------------------------
+r28137 | landonb | 2012-04-26 12:00:02 -0500 (Thu, 26 Apr 2012) | 1 line
+
+Merge from Mikhil
+------------------------------------------------------------------------
+r28102 | landonb | 2012-04-24 16:59:51 -0500 (Tue, 24 Apr 2012) | 1 line
+
+Merge from Mikhil and bugfixes.
+------------------------------------------------------------------------
+r28088 | landonb | 2012-04-24 12:46:56 -0500 (Tue, 24 Apr 2012) | 27 lines
+
+
+Overhauled work item's stage framework.
+
+- Fixed problem with import/export skipping stages.
+
+- Swapped process_stage_n() scheme for just using a list 
+  of fcns. to run.
+
+- Better support for substages.
+
+- Better error handling and shutting down
+
+  - Exception() is used instead of returning from fcns. 
+    when handling an error.
+
+  - Easier interface for changing states, bumping the 
+    stage number, or updating stage stats.
+
+  - Each time you update stats, we check to see if Mr. 
+    Do! is being shutdown or if the user requested an 
+    action on the work item (i.e., cancel).
+
+Made DEBUG the default for the services, at least until 
+the code is more production-worthy.
+
+
+
+------------------------------------------------------------------------
+r28074 | landonb | 2012-04-22 15:39:04 -0500 (Sun, 22 Apr 2012) | 1 line
+
+Mr Do fixes.
+------------------------------------------------------------------------
+r28073 | landonb | 2012-04-22 14:57:23 -0500 (Sun, 22 Apr 2012) | 2 lines
+
+Fix routed startup/shutdown to more reliably cleanup. Like removing its port_number from routed_ports and deleting its pid files, as well as proactively stopping outstanding SQL calls for the server shutdowns quicker (otherwise routed...stop causes a kill -KILL to happen, which leaves the port_num in routed_ports as well as the pid files).
+
+------------------------------------------------------------------------
+r28062 | landonb | 2012-04-20 22:09:23 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Nothing special.
+------------------------------------------------------------------------
+r28061 | landonb | 2012-04-20 22:07:02 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Make GWIS's branch_id more general: moved from GWIS_Checkout_Base to GWIS_Base.
+------------------------------------------------------------------------
+r28058 | landonb | 2012-04-20 21:13:47 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Not much. Wrapped routed's socket open with a try/except, since sometimes the socket is already open so we can't grab it. Python docs suggest this happens because of a timeout in the network stack; so if you're testing and quickly closing and reopening a socket, you will see this error. Also made a convenience PID file for routed for public branch (branch 0) since the routedctl start command works for dev but not the stop command. This fixes that.
+------------------------------------------------------------------------
+r28055 | landonb | 2012-04-20 19:19:15 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Oops, didn't mean to commit all that (still not bugtested). But I don't want to revert... so, last commit message should have read: lots of updates to import/export. Fixed attrs and tags usage to be quick -- loading 'em one-by-one made the import take all day; now it should be back to just a few hours. Item Mgr. has a fancy fcn. you can use to bulk-load byways and their attrs and tags.
+------------------------------------------------------------------------
+r28053 | landonb | 2012-04-20 19:16:09 -0500 (Fri, 20 Apr 2012) | 1 line
+
+IndexError, not KeyError.
+------------------------------------------------------------------------
+r28052 | landonb | 2012-04-20 19:11:24 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Oops, forget to remove --instance switch.
+------------------------------------------------------------------------
+r28048 | landonb | 2012-04-20 16:39:50 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Bugfixes to previous.
+------------------------------------------------------------------------
+r28047 | landonb | 2012-04-20 16:33:44 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Bugfix for previous: fix pid filename in conf.py so service can be shutdown.
+------------------------------------------------------------------------
+r28045 | landonb | 2012-04-20 16:22:25 -0500 (Fri, 20 Apr 2012) | 1 line
+
+Bugfix: Mr. Do\! was not starting. Fixed mr_doctl.
+------------------------------------------------------------------------
+r28030 | landonb | 2012-04-19 20:25:30 -0500 (Thu, 19 Apr 2012) | 1 line
+
+New vacuum.sh script to vacuum production server database sans apache tables.
+------------------------------------------------------------------------
+r28025 | landonb | 2012-04-19 17:08:33 -0500 (Thu, 19 Apr 2012) | 1 line
+
+Minor fix for shutting down routed before it's completely loaded.
+------------------------------------------------------------------------
+r28020 | landonb | 2012-04-19 15:45:06 -0500 (Thu, 19 Apr 2012) | 1 line
+
+Merge new CcpV1 schema scripts.
+------------------------------------------------------------------------
+r28011 | landonb | 2012-04-19 13:23:40 -0500 (Thu, 19 Apr 2012) | 1 line
+
+Bugfixes to previous (new routed_ports feature).
+------------------------------------------------------------------------
+r28010 | landonb | 2012-04-19 01:50:13 -0500 (Thu, 19 Apr 2012) | 1 line
+
+Update schema-upgrade's handling of oob (out-of-band, i.e., not using upgrade_event).
+------------------------------------------------------------------------
+r28006 | landonb | 2012-04-19 00:00:09 -0500 (Thu, 19 Apr 2012) | 1 line
+
+Merge from Michael: new routed_ports table, which dynamically assigns port numbers to route daemons. I made significant changes, mostly for analytics, but also to fill in some gaps.
+------------------------------------------------------------------------
+r28002 | landonb | 2012-04-18 19:14:33 -0500 (Wed, 18 Apr 2012) | 1 line
+
+Update schema-upgrade. Also, rid of username_friendly in pyserver.
+------------------------------------------------------------------------
+r27999 | landonb | 2012-04-18 17:27:36 -0500 (Wed, 18 Apr 2012) | 1 line
+
+Fix from Mikhil: dummy items used to test user's permissions were erroneously being added to dirtyset, which was causing client-side commit to fail.
+------------------------------------------------------------------------
+r27995 | landonb | 2012-04-18 13:02:46 -0500 (Wed, 18 Apr 2012) | 1 line
+
+Default service log verbosity should be warning, not debug.
+------------------------------------------------------------------------
+r27994 | landonb | 2012-04-18 13:00:37 -0500 (Wed, 18 Apr 2012) | 1 line
+
+Update auto_install to work on Fedora (and dev machines not on the CS network).
+------------------------------------------------------------------------
+r27993 | landonb | 2012-04-18 12:54:54 -0500 (Wed, 18 Apr 2012) | 39 lines
+
+
+Overhauled schema-upgrade.
+
+-  Fixed problem recovering if the first schema script works
+   but the second one fails (the info. recorded to the database
+   was wrong).
+
+-  Reworked to use Ccp_Script_Args (argparse), rather than using 
+   the cumbersome sys.argv approach.
+
+-  Added --database option to Ccp_Script_Args (my v1-v2 upgrade 
+   scripts we're relying on the database set in CONFIG, which 
+   means you have to make sure your /dev/ccp/cp folder matches 
+   the database your cron job wants to work on, and these were 
+   always getting out of sync... and who wants to waste half a 
+   day running database scripts on the wrong database!).
+
+-  Got rid of scrub-db.py, since it was just a cheap cxpx of 
+   schema-upgrade. The latter now supports running schema 
+   scripts from any directory and also lets you tell it to 
+   run all scripts without looking into the upgrade_event 
+   table to see what's already run.
+
+-  Schema-upgrade used to be mostly just one long, 500+ line 
+   function. Now it's modularized better and split into mult.
+   fcns. Oh, and it's a class object now, to make sharing 
+   attributes easier, dur. Point being, it's a much more useful 
+   and robust script today.
+
+Modified db_glue.py to make it simpler to use. Rather than passing 
+a connect string, just pass the db_user. You can also set the 
+db_name globally, since (I assume) if you're running one script, 
+you always want to be accessing the same database.
+
+mr_do.py now uses Ccp_Script_Args, instead of just argparse.
+This removes a lot of duplicate code. As they say, keep it DRY.
+
+
+
+------------------------------------------------------------------------
+r27986 | landonb | 2012-04-17 14:55:14 -0500 (Tue, 17 Apr 2012) | 19 lines
+
+
+A handful of big changes...
+
+Fix internal geocoder -- it was crashing while trying to find 
+points in the database, since the query_builder object had 
+since changed.
+
+Fix routed script to derive from script_args so we can share 
+code and normalize our cmd line switches.
+
+Add db_glue.clone() so we can make a copy of a db connection 
+with a new cursor without having to build an all new conn.
+
+Change how the route finder loads so it can use cursors.
+
+Change how item mgr loads byways so it can quickly get 
+their tags and attributes.
+
+
+------------------------------------------------------------------------
+r27985 | landonb | 2012-04-17 14:05:34 -0500 (Tue, 17 Apr 2012) | 1 line
+
+Add cheesy met council logo. Needs to be png'd, though.
+------------------------------------------------------------------------
+r27983 | landonb | 2012-04-17 13:55:16 -0500 (Tue, 17 Apr 2012) | 1 line
+
+Update v1-v2 scripts.
+------------------------------------------------------------------------
+r27982 | landonb | 2012-04-17 13:47:25 -0500 (Tue, 17 Apr 2012) | 1 line
+
+Merge from masli's route analytics. Adds Synthetic routes, and adds "old job" routes.
+------------------------------------------------------------------------
+r27958 | landonb | 2012-04-13 13:38:23 -0500 (Fri, 13 Apr 2012) | 1 line
+
+Fix to previous.
+------------------------------------------------------------------------
+r27956 | landonb | 2012-04-13 12:44:17 -0500 (Fri, 13 Apr 2012) | 2 lines
+
+Fix to previous.
+
+------------------------------------------------------------------------
+r27955 | landonb | 2012-04-13 11:31:44 -0500 (Fri, 13 Apr 2012) | 1 line
+
+Update anonymizer: remove from route_views.
+------------------------------------------------------------------------
+r27954 | landonb | 2012-04-13 00:34:58 -0500 (Fri, 13 Apr 2012) | 1 line
+
+Merges from Mikhil & Michael (analytics & rtsharing); untested;.
+------------------------------------------------------------------------
+r27953 | landonb | 2012-04-12 23:18:33 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Fixing anonymized. Removing a package req. from auto_install pkg check.
+------------------------------------------------------------------------
+r27946 | landonb | 2012-04-12 15:28:49 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Fix anonymizer scripts.
+------------------------------------------------------------------------
+r27943 | landonb | 2012-04-12 14:31:45 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Update to previous.
+------------------------------------------------------------------------
+r27942 | landonb | 2012-04-12 14:22:22 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Systems didn't setup postgres on runic. On dev machines, it maps pgdata to scratch space and does some other tricks. I added code to auto_install to mimic the same (which is tricky\!).
+------------------------------------------------------------------------
+r27936 | landonb | 2012-04-12 00:57:32 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Update auto_install.
+------------------------------------------------------------------------
+r27935 | landonb | 2012-04-12 00:28:45 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Update auto_install.
+------------------------------------------------------------------------
+r27934 | landonb | 2012-04-12 00:21:18 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Update auto_install.
+------------------------------------------------------------------------
+r27933 | landonb | 2012-04-12 00:17:37 -0500 (Thu, 12 Apr 2012) | 1 line
+
+Add schema script from mludwig for v2 route-finding.
+------------------------------------------------------------------------
+r27868 | landonb | 2012-04-04 22:25:24 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Fix analytic's accordionness. Fix analytic's revision stepper to show last rev. Still confusing, though, should not show last rev number (meaningless to user) but should instead show 'Current' or something...
+------------------------------------------------------------------------
+r27865 | landonb | 2012-04-04 20:26:19 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Shorten logging facility name to be <=12 chars (route_analysis_job => rt_anlyss_jb)
+------------------------------------------------------------------------
+r27864 | landonb | 2012-04-04 20:23:35 -0500 (Wed, 04 Apr 2012) | 1 line
+
+One bugfix to previous. Added stage count to route_analytics.
+------------------------------------------------------------------------
+r27863 | landonb | 2012-04-04 19:31:01 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Bugfixes and stylefixes to previous.
+------------------------------------------------------------------------
+r27862 | landonb | 2012-04-04 18:02:54 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Regression fixes to previous merge. Flashclient loads now.
+------------------------------------------------------------------------
+r27859 | landonb | 2012-04-04 15:40:11 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r27858 | landonb | 2012-04-04 15:19:41 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Manual merge: Mikhil's analytics code (masli_ccpv2-route-analytics_2631@27852)
+------------------------------------------------------------------------
+r27850 | landonb | 2012-04-04 13:28:06 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Some updates to import/export.
+------------------------------------------------------------------------
+r27849 | landonb | 2012-04-04 13:23:59 -0500 (Wed, 04 Apr 2012) | 1 line
+
+Bug 2641: Poor Python Memory Management. Now, the V1 route finder for the metro area consumes just 750 Mb.
+------------------------------------------------------------------------
+r27829 | landonb | 2012-04-03 20:07:16 -0500 (Tue, 03 Apr 2012) | 1 line
+
+Bug 2641: Python Memory Management. Routed does not hydrate all SQL rows simultaneously while creating caches but instead does so one-by-one. Also changed all range() to xrange(), also for better memory management.
+------------------------------------------------------------------------
+r27815 | landonb | 2012-04-02 19:47:31 -0500 (Mon, 02 Apr 2012) | 1 line
+
+Fix pre-loading attrs and tags to be quicker: load all link_values at once, rather than loading 'em one-by-one for each byway.
+------------------------------------------------------------------------
+r27811 | landonb | 2012-04-02 12:58:15 -0500 (Mon, 02 Apr 2012) | 1 line
+
+Regression fixes to routed startup.
+------------------------------------------------------------------------
+r27807 | landonb | 2012-04-02 11:32:23 -0500 (Mon, 02 Apr 2012) | 1 line
+
+Add caching mechanism to item_manager for link_values (speeds up the route finder's cost fcn. and the import's field fcn.). Fix field vals in exported Shapefile.
+------------------------------------------------------------------------
+r27797 | landonb | 2012-03-30 15:00:25 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27793 | landonb | 2012-03-30 13:59:01 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27792 | landonb | 2012-03-30 13:53:34 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27789 | landonb | 2012-03-30 13:49:13 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27787 | landonb | 2012-03-30 13:35:18 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27785 | landonb | 2012-03-30 13:28:44 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27779 | landonb | 2012-03-30 13:10:07 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27777 | landonb | 2012-03-30 13:06:08 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27775 | landonb | 2012-03-30 12:59:05 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27773 | landonb | 2012-03-30 12:47:58 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27770 | landonb | 2012-03-30 12:39:29 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Updates for V1-V2 upgrade.
+------------------------------------------------------------------------
+r27768 | landonb | 2012-03-30 12:35:35 -0500 (Fri, 30 Mar 2012) | 2 lines
+
+Update psql_wrap
+
+------------------------------------------------------------------------
+r27759 | landonb | 2012-03-30 00:24:32 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Update v1-v2 scripts.
+------------------------------------------------------------------------
+r27758 | landonb | 2012-03-30 00:13:38 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Update v1-v2 scripts.
+------------------------------------------------------------------------
+r27757 | landonb | 2012-03-30 00:05:58 -0500 (Fri, 30 Mar 2012) | 1 line
+
+Update v1-v2 scripts.
+------------------------------------------------------------------------
+r27756 | landonb | 2012-03-29 23:57:22 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Update v1-v2 scripts.
+------------------------------------------------------------------------
+r27755 | landonb | 2012-03-29 23:49:42 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Minor auto_install update.
+------------------------------------------------------------------------
+r27749 | landonb | 2012-03-29 16:37:27 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Add Firefox to auto_install.
+------------------------------------------------------------------------
+r27748 | landonb | 2012-03-29 16:06:16 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Fix upgrade script.
+------------------------------------------------------------------------
+r27746 | landonb | 2012-03-29 15:55:03 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Update schema script.
+------------------------------------------------------------------------
+r27719 | landonb | 2012-03-29 01:24:59 -0500 (Thu, 29 Mar 2012) | 1 line
+
+Testing postgis_restore.pl without --no-psqlrc.
+------------------------------------------------------------------------
+r27715 | landonb | 2012-03-29 00:06:55 -0500 (Thu, 29 Mar 2012) | 1 line
+
+psql_wrap missing --no-psqlrc
+------------------------------------------------------------------------
+r27713 | landonb | 2012-03-28 23:53:25 -0500 (Wed, 28 Mar 2012) | 1 line
+
+Updates to CcpV1->V2 SQL upgrade scripts. Hoping to resolve issues with latest production dump.
+------------------------------------------------------------------------
+r27708 | landonb | 2012-03-28 13:05:56 -0500 (Wed, 28 Mar 2012) | 1 line
+
+Three flashclient bugs: (1) could not sort route finder by Tag name (was referencing 'text' instead of 'text_'); (2) could not create new region (was trying to set old watch_region 'notify' attribute which is replaced by item watchers); (3) 'make clean' was throwing OSError that it should instead look for and ignore (since the OSError is harmless). One auto_install 'bug': (4) need to install libyaml and pyyaml locally so www-data account can load yaml (yaml is only available to interactive accounts, for whatever reason).
+------------------------------------------------------------------------
+r27695 | landonb | 2012-03-27 14:19:30 -0500 (Tue, 27 Mar 2012) | 1 line
+
+auto_install: init.d scripts must be processed with m4.
+------------------------------------------------------------------------
+r27694 | landonb | 2012-03-27 13:59:19 -0500 (Tue, 27 Mar 2012) | 1 line
+
+Removing stale links.
+------------------------------------------------------------------------
+r27693 | landonb | 2012-03-27 13:57:55 -0500 (Tue, 27 Mar 2012) | 1 line
+
+When saving new work_item, wait until after commit before kicking Mr. Do! For work_item job defs, added new job_def_cols (like schema_cols) to automated packing/unpacking job defs to/from the database. Got rid of self.filters in work_item and now just store filter_by_regions (which is all we want, anyway). Setup import/export for public basemap. Fixed region filter for import/export.
+------------------------------------------------------------------------
+r27653 | landonb | 2012-03-23 12:22:55 -0500 (Fri, 23 Mar 2012) | 1 line
+
+Bugfix to previous.
+------------------------------------------------------------------------
+r27652 | landonb | 2012-03-23 12:20:37 -0500 (Fri, 23 Mar 2012) | 1 line
+
+Bugfix for from_gml (wasn't setting missing to default value; thanks, Mikhil\!). Bugfix for new inreqd_local_only, for 'access_level_id'. Added timer output for long route_analysis operations.
+------------------------------------------------------------------------
+r27647 | landonb | 2012-03-22 19:40:21 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Minor updates to previous merge of landon's and mikhil's codes.
+------------------------------------------------------------------------
+r27644 | landonb | 2012-03-22 18:07:15 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Manual merge from analytics (masli_ccpv2-route-analytics_2631@27642).
+------------------------------------------------------------------------
+r27642 | landonb | 2012-03-22 16:17:36 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Minor update for export: able to download completed zip archive from flashclient.
+------------------------------------------------------------------------
+r27636 | landonb | 2012-03-22 12:54:56 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Ccp export appears to work now, including using the region filter. Need to debug and inspect shapefile, but looking good so far...
+------------------------------------------------------------------------
+r27635 | landonb | 2012-03-22 12:51:13 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Fix fixperms to work from any working directory, and not just its own.
+------------------------------------------------------------------------
+r27634 | landonb | 2012-03-22 12:50:08 -0500 (Thu, 22 Mar 2012) | 1 line
+
+Fix problems with creating the multi geometry (i.e., when a regions filter is applied). Because of issues with circular imports, if someone wants to use a region filter, they are responsible for building the geometry before using the query_builder object. This code is moved to a single module that does just that, and if a programmer forgets to build the geometry, item_user_access complains when making the SQL.
+------------------------------------------------------------------------
+r27631 | landonb | 2012-03-21 17:19:53 -0500 (Wed, 21 Mar 2012) | 1 line
+
+More code sharing btw. import and export. Some bugfixes. Trying to load the job's original qb.filters, but it's not working. Export loads all the byways now and fails on first one it tries to write to shapefile... but hey, it's still progress.
+------------------------------------------------------------------------
+r27630 | landonb | 2012-03-21 17:15:50 -0500 (Wed, 21 Mar 2012) | 1 line
+
+Fiddling with work_item's job_def and work_item_step's callback_def. Also added update fcn. just to update the job_dat.
+------------------------------------------------------------------------
+r27629 | landonb | 2012-03-21 17:02:45 -0500 (Wed, 21 Mar 2012) | 1 line
+
+Update auto_install: make group name a variable so script is more compatible outside of CS domain.
+------------------------------------------------------------------------
+r27624 | landonb | 2012-03-21 11:45:36 -0500 (Wed, 21 Mar 2012) | 1 line
+
+More code-sharing between import and export code.
+------------------------------------------------------------------------
+r27619 | landonb | 2012-03-20 20:32:14 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Bugfixes to previous. Export creates shapefile. It also shares class hierarchy with import. Just need to checkout geofeatures and create shapefile features...
+------------------------------------------------------------------------
+r27617 | landonb | 2012-03-20 16:21:28 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Updates to previous.
+------------------------------------------------------------------------
+r27616 | landonb | 2012-03-20 16:08:07 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Refactoring import classes so the new export code can use the same.
+------------------------------------------------------------------------
+r27615 | landonb | 2012-03-20 16:07:35 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Refactoring import classes so the new export code can use the same.
+------------------------------------------------------------------------
+r27609 | landonb | 2012-03-20 10:24:33 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Resolve issues with setting default for for_revision. Fix problem with zipping: do not recreate absolute path, just do relative pathing.
+------------------------------------------------------------------------
+r27608 | landonb | 2012-03-20 09:46:22 -0500 (Tue, 20 Mar 2012) | 1 line
+
+Export script runs; all fcns. coded except the actual export. Moved more code to the shared import/export base class (merge_base).
+------------------------------------------------------------------------
+r27606 | landonb | 2012-03-19 20:06:23 -0500 (Mon, 19 Mar 2012) | 1 line
+
+Fix route.Many().search_by_stack_id. More implementation of merge_export. Updates to auto_install from CcpV2 trunk.
+------------------------------------------------------------------------
+r27605 | landonb | 2012-03-19 19:56:38 -0500 (Mon, 19 Mar 2012) | 2 lines
+
+Storing both data models, the previous CcpV2 model and then new one that reflects rtsharing.
+
+------------------------------------------------------------------------
+r27541 | landonb | 2012-03-13 18:38:09 -0500 (Tue, 13 Mar 2012) | 1 line
+
+fix sys.path[0] == '' prob
+------------------------------------------------------------------------
+r27534 | landonb | 2012-03-13 18:28:36 -0500 (Tue, 13 Mar 2012) | 1 line
+
+fix sys.path[0] == '' prob
+------------------------------------------------------------------------
+r27528 | landonb | 2012-03-13 14:46:22 -0500 (Tue, 13 Mar 2012) | 1 line
+
+Branch for Landon: V2 without route sharing, from ccpv2@27462 and from analytics (which has a few bugfixes).
+------------------------------------------------------------------------
+r27524 | landonb | 2012-03-13 12:18:51 -0500 (Tue, 13 Mar 2012) | 1 line
+
+Fix pyserver_glue problem. It was working fine, but now sys.path[0] is coming up '' and so we get hosed looking for pyserver/. Replaced sys.path[0] with os.curdir and things seem to work....
+------------------------------------------------------------------------
+r27521 | landonb | 2012-03-13 11:57:11 -0500 (Tue, 13 Mar 2012) | 1 line
+
+Fix fcsh-wrap: the PID files are not reliable, so try/except os.kill and do a smarter kill if that fails.
+------------------------------------------------------------------------
+r27501 | landonb | 2012-03-12 16:47:01 -0500 (Mon, 12 Mar 2012) | 1 line
+
+Create branch for V2 route analytics.
+
+===============================================================================
+
+Last shared revision before branching cyclingproject/br/landonb_pre-route-sharing_nnnn:
+
+------------------------------------------------------------------------
+r27462 | landonb | 2012-03-09 12:43:10 -0600 (Fri, 09 Mar 2012) | 1 line
+
+auto_install: a few fixes, and added code to install flash debug plugin.
+
+===============================================================================
+
+From cyclingproject/public/ccpv2_trunk:
+
+------------------------------------------------------------------------
+r29130 | landonb | 2012-09-24 12:18:42 -0500 (Mon, 24 Sep 2012) | 1 line
+
+Remaking public CcpV2 branch.
+
+And it's last shared revision:
+
+------------------------------------------------------------------------
+r29077 | landonb | 2012-09-18 13:41:47 -0500 (Tue, 18 Sep 2012) | 1 line
+
+Changes incurred while updating to Bug 2628 - Route Sharing for CcpV2 (see br/landonb_ccpv2_route_manip_nnnn).
+
+===============================================================================
+

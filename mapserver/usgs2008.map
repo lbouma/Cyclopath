@@ -1,0 +1,40 @@
+   # Copyright (c) 2006-2012 Regents of the University of Minnesota.
+   # For licensing terms, see the file LICENSE.
+
+   # This file is included by m4 into a parent map file, hence the pre-indent.
+
+   # Denver area, March 2008 (USGS).  We request it here in WGS84; MapServer will
+   # automatically reproject it to UTM for us. 
+
+   LAYER
+     GROUP "USGS2008"
+     NAME "2008pt1"
+     TYPE RASTER
+     STATUS ON
+     CONNECTION "http://imsortho.cr.usgs.gov/wmsconnector/com.esri.wms.Esrimap/USGS_EDC_Ortho_Colorado?"
+     DEBUG ON
+     CONNECTIONTYPE WMS
+     METADATA
+       "wms_srs"             "EPSG:4326"
+       "wms_name"            "DenverCO_0.6m_Color_Mar_2008_01"
+       "wms_server_version"  "1.1.1"
+       "wms_format"          "image/png"
+     END
+   END
+
+   LAYER
+     GROUP "USGS2008"
+     NAME "2008pt2"
+     TYPE RASTER
+     STATUS ON
+     CONNECTION "http://imsortho.cr.usgs.gov/wmsconnector/com.esri.wms.Esrimap/USGS_EDC_Ortho_Colorado?"
+     DEBUG ON
+     CONNECTIONTYPE WMS
+     METADATA
+       "wms_srs"             "EPSG:4326"
+       "wms_name"            "DenverCO_0.6m_Color_Mar_2008_02"
+       "wms_server_version"  "1.1.1"
+       "wms_format"          "image/png"
+     END
+   END
+

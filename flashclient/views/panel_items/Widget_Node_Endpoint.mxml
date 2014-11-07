@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+
+      import items.feats.Byway;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_NdEdpt_');
+
+      // *** Instance variables
+
+      // The endpt_posit is -1 for beg_node_id and +1 for fin_node_id.
+      [Bindable] public var endpt_posit:int = 0;
+
+      // *** Instance methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         var multiple_lines:Boolean = false;
+         this.endpt_node_elevation_m_content.init('elevation_m',
+                                                  multiple_lines);
+         this.endpt_node_elevation_m_content.required = false;
+         this.endpt_node_elevation_m_content.use_label_toggle = false;
+         //G.app.side_panel.addEventListener(ResizeEvent.RESIZE,
+         //   this.on_resize_name_label, false, 0, true);
+         //this.endpt_node_elevation_m_content.addEventListener(
+         //   ResizeEvent.RESIZE, this.on_resize_name_label, false, 0, true);
+
+         //this.endpt_node_elevation_m_content.labeler.maxWidth = 60;
+         this.endpt_node_elevation_m_content.maxWidth = 80;
+
+         super.on_creation_complete(ev);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+
+         this.endpt_node_elevation_m_content.text = 'Nothing selected';
+         this.endpt_node_elevation_m_content.edit_enabled = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+
+         var byway:Byway;
+         var stk_ids:Array = new Array();
+         var nearby_nodes:Set_UUID;
+         var nodes_adjacent:Set_UUID;
+         var endpt_placement:String;
+         var endpt_node_sids:String;
+         if (this.endpt_posit == -1) {
+            endpt_placement = 'Beginning';
+            for each (byway in this.dp.feats_selected) {
+               stk_ids.push(byway.beg_node_id);
+               nearby_nodes = G.map.nodes_adjacent[byway.beg_node_id];
+               if (nodes_adjacent === null) {
+                  nodes_adjacent = nearby_nodes;
+               }
+               else {
+                  nodes_adjacent.extend(nearby_nodes);
+               }
+            }
+         }
+         else {
+            m4_ASSERT(this.endpt_posit == 1);
+            endpt_placement = 'Finishing';
+            for each (byway in this.dp.feats_selected) {
+               stk_ids.push(byway.fin_node_id);
+               nearby_nodes = G.map.nodes_adjacent[byway.fin_node_id];
+               if (nodes_adjacent === null) {
+                  nodes_adjacent = nearby_nodes;
+               }
+               else {
+                  nodes_adjacent.extend(nearby_nodes);
+               }
+            }
+         }
+
+         this.endpt_label_placement.text = endpt_placement + ' node endpoint';
+
+         // This causes width issues:
+         //   this.endpt_label_stack_id.text =
+         //      '(Stk. ' + stk_ids.join(',') + ')';
+         var endpt_label:String;
+         if (stk_ids.length > 0) {
+            endpt_label = String(stk_ids[0]);
+            if (stk_ids.length > 1) {
+               endpt_label += ', ...';
+            }
+            endpt_label = '(Stk. ' + endpt_label + ')';
+         }
+         else {
+            endpt_label = '';
+         }
+         this.endpt_label_stack_id.text = endpt_label;
+
+         if (nodes_adjacent !== null) {
+            this.endpt_node_reference_n_content.text =
+               String(nodes_adjacent.length);
+         }
+         else {
+            this.endpt_node_reference_n_content.text = 'n/a';
+            nodes_adjacent = new Set_UUID();
+         }
+
+         // BUG nnnn: Have pyserver send node values on lazy-load, and wire
+         //           to undo/redo, commit, etc.
+
+         this.endpt_node_opt_dangle_okay.selected = false;
+         if (nodes_adjacent.length == 1) {
+            this.endpt_node_opt_dangle_okay.enabled = true;
+         }
+         else {
+            this.endpt_node_opt_dangle_okay.selected = false;
+            this.endpt_node_opt_dangle_okay.enabled = false;
+         }
+
+         this.endpt_node_elevation_m_content.text = 'n/a';
+         // BUG nnnn: We should make Node_Endpoint objects
+         // rather than using Byway.as, so that the same node
+         // endpoint data isn't shared by multiple Byways.
+         // This is wrong, since Byway has node_lhs_elevation_m and
+         // node_rhs_elevation_m. But what we want is Node_Endpoint.
+         //   views.commands.UI_Wrapper_Scalar.wrap(
+         //      this.endpt_node_elevation_m_content, 'text',
+         //      this.dp.feats_selected,
+         //      'elevation_m', 'varies');
+         if (this.endpt_posit == -1) {
+            views.commands.UI_Wrapper_Scalar.wrap(
+               this.endpt_node_elevation_m_content, 'text',
+               this.dp.feats_selected,
+               'node_lhs_elevation_m_str', 'varies');
+         }
+         else {
+            m4_ASSERT(this.endpt_posit == 1);
+            views.commands.UI_Wrapper_Scalar.wrap(
+               this.endpt_node_elevation_m_content, 'text',
+               this.dp.feats_selected,
+               'node_rhs_elevation_m_str', 'varies');
+         }
+
+         // FIXME: Wire the edit box or use another control for the
+         //        node_endpoint elevation_m member.
+         //this.endpt_node_elevation_m_content.features
+         //this.endpt_node_elevation_m_content.edit_enabled = ;
+      }
+
+      //
+      protected function on_click_endpt_node_elevation_m_content(ev:MouseEvent)
+         :void
+      {
+         m4_DEBUG('on_click_endpt_node_elevation_m_content: ev:', ev);
+         // Because on_click_panel calls this.stage.focus = null.
+         ev.stopPropagation();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      verticalGap="0"
+      paddingTop="2"
+      paddingBottom="1"
+      >
+
+      <mx:HBox
+         width="100%"
+         verticalGap="0"
+         >
+         <mx:Label
+            id="endpt_label_placement"
+            text="node endpoint"
+            fontWeight="bold"
+            />
+         <!--
+         <mx:Spacer
+            width="100%"/>
+         -->
+         <mx:Label
+            id="endpt_label_stack_id"
+            text=""
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            />
+      </mx:HBox>
+
+      <mx:VBox
+         id="endpt_node_opts"
+         width="100%"
+         paddingTop="2"
+         paddingBottom="2"
+         verticalGap="0"
+         horizontalGap="3"
+         horizontalAlign="left"
+         verticalAlign="top"
+         visible="true"
+         includeInLayout="{this.endpt_node_opts.visible}"
+         >
+
+         <mx:HBox
+            width="100%"
+            verticalGap="0"
+            >
+
+            <!-- node_endpoint.reference_n -->
+            <mx:HBox
+               width="100%"
+               verticalGap="0"
+               verticalAlign="middle"
+               >
+               <!--
+                  text="Number of references:"
+                  text="No. Intersecting Roadways:"
+                  text="Number of references:"
+               -->
+               <mx:Label
+                  id="endpt_node_reference_n_label"
+                  text="Number of roadways:"
+                  />
+               <mx:Label
+                  id="endpt_node_reference_n_content"
+                  text=""
+                  />
+            </mx:HBox>
+
+            <mx:Spacer
+               width="100%"/>
+
+            <!-- node_endpoint.dangle_okay -->
+            <mx:CheckBox
+               id="endpt_node_opt_dangle_okay"
+               label="Dangle Okay"
+               toolTip=
+   "Select this option if the endpoint really is the dead end of a road."
+               />
+
+         </mx:HBox>
+
+         <!-- node_endpoint.elevation_m -->
+         <mx:HBox
+            width="100%"
+            verticalGap="0"
+            verticalAlign="middle"
+            >
+            <mx:Label
+               id="endpt_node_elevation_m_label"
+               text="Elevation:"
+               />
+            <views_commands:Text_Field_Editable
+               id="endpt_node_elevation_m_content"
+               width="100%"
+               height="100%"
+               paddingRight="2"
+               verticalAlign="middle"
+               click="this.on_click_endpt_node_elevation_m_content(event);"
+               />
+            <mx:Label
+               id="endpt_node_elevation_m_units"
+               text="meters"
+               />
+         </mx:HBox>
+
+         <!-- Skipping: node_endpoint.referencers -->
+
+         <!-- Skipping: node_endpoint.a_duex_rues -->
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,1 @@
+../../analyze/sql/ccp_common.sql

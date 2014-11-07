@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- 2014.04.17: This class is Deprecated.
+                 It's not used anyway nohow.
+                 It used to be part of the Panel_Routes_New
+                 widget, and it shows a nice Metropolitan Coucil
+                 icon, but we've integrated the feature more
+                 generally, so we don't need this widget anymore.
+
+                 Feel free, when cleaning house, to delete this...
+                 I'm [lb] not doing it now because I like how it loads
+                 after a delay, waiting for attributes to load
+                 to figure out which icon to display. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import items.attcs.Attribute;
+      import items.feats.Byway;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_MetCBwy');
+
+      // *** Instance variables
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_DEBUG('on_initialize: addEventListener: attributesLoaded');
+         G.item_mgr.addEventListener('attributesLoaded',
+                                     this.on_attributes_loaded);
+         this.on_attributes_loaded();
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_bikeways_checked() :void
+      {
+         // Update user's preferences.
+         // NOTE: We don't actually save the new preferences unless
+         //       the user has the "Remember settings" checkbox
+         //       checked and then submits the route request.
+         //
+         G.user.rf_p3_weight_type = this.use_bikeways.selected ? 'fac' : 'rat';
+      }
+
+      //
+      protected function on_attributes_loaded(ev:Event=null) :void
+      {
+         var is_visible:Boolean = false;
+
+         this.metropolitan_council_icon.visible = false;
+
+         if (Attribute.all_named !== null) {
+            var facil_attr:String;
+            //facil_attr = '/metc_bikeways/bike_facil';
+            facil_attr = Byway.attr_name_facil_metc;
+            if (facil_attr in Attribute.all_named) {
+               is_visible = true;
+               // Formerlies:
+               //    'Route over Metro Council Bikeways'
+               //    'Prefer roadways with approved facilities'
+               //    'Prefer trails and roads with approved facilities';
+               this.use_bikeways_label.text =
+                  'Prefer routes using approved facilities';
+               this.metropolitan_council_icon.visible = true;
+            }
+            else {
+               // 2013.05.23: Can we do this on the main branch, too?
+               //             No? Or at least relabel the text...
+               facil_attr = Byway.attr_name_facil_basemap;
+               if (facil_attr in Attribute.all_named) {
+                  is_visible = true;
+               // Formerlies:
+               //    'Prefer roadways with bike facilities'
+                  this.use_bikeways_label.text =
+                     'Prefer trails and roads with bike facilities';
+               }
+               else {
+                  facil_attr = '';
+               }
+            }
+            m4_DEBUG('on_attributes_loaded: found?:', facil_attr);
+         }
+         else {
+            m4_DEBUG('on_attributes_loaded: too early');
+         }
+
+         this.widget_container.visible = is_visible;
+      }
+
+      // ***
+
+// BUG nnnn: Make a better widget for /byway/cycle_route.
+/*
+      //
+      public function get bikeways_box_is_visible() :Boolean
+      {
+         //See also: Byway.attr_name_facil_basemap/attr_name_facil_metc
+         //Byway.facil_attr_cycle_route...
+
+         var is_visible:Boolean = false;
+         is_visible = ((Attribute.all_named !== null)
+                       && ('/metc_bikeways/bike_facil'
+                           in Attribute.all_named)
+                       // 2013.05.23: Can we do this on the main branch, too?
+                       //             No? Or at least relabel the text...
+                       || ('/byway/cycle_facil'
+                           in Attribute.all_named)
+                       );
+         return is_visible;
+      }
+
+      //
+      public function set bikeways_box_is_visible(is_visible:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+*/
+
+   ]]></mx:Script>
+
+   <!-- MAGIC ATTRIBUTE: The MetC branch defines an attr call bike_fac
+   <    that indicates if byways are considered "part of the inventory".
+   <    We allow users to favor these byways in their route finds. -->
+
+<!--
+      visible="{this.bikeways_box_is_visible}"
+      includeInLayout="{this.bikeways_box_is_visible}">
+-->
+   <mx:VBox
+      id="widget_container"
+      styleName="optgroupZeroes"
+      width="100%"
+      verticalGap="0"
+      paddingTop="0"
+      paddingBottom="2"
+      visible="false"
+      includeInLayout="{this.widget_container.visible}"
+      >
+
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle"
+         horizontalGap="2"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0">
+
+         <mx:CheckBox
+            id="use_bikeways"
+            label=""
+            change="this.on_bikeways_checked();"
+            />
+
+         <mx:HBox
+            horizontalGap="2"
+            paddingLeft="5"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            verticalAlign="middle"
+            >
+            <!-- BUG nnnn: Statewide UI: The name of this icon should be from
+                           Conf_Instance; see: Conf.transit_services.icon -->
+            <mx:Image
+               id="metropolitan_council_icon"
+               visible="false"
+               includeInLayout="{this.metropolitan_council_icon.visible}"
+               source=
+            "@Embed(source='/assets/img/metropolitan_council_logo-20x20.png')"
+               click=
+                  "{this.use_bikeways.selected = !this.use_bikeways.selected}"
+               />
+
+            <mx:Label
+               id="use_bikeways_label"
+               text="Prefer roadways with bike facilities"
+               toolTip=
+"Try to find a bike route that uses as many bike trails, marked on-road bike lanes, bicycle boulevards, or bikeable shoulders as possible."
+               fontWeight="normal"
+               click=
+                  "{this.use_bikeways.selected = !this.use_bikeways.selected}"
+               paddingTop="2"
+               />
+
+         </mx:HBox>
+
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

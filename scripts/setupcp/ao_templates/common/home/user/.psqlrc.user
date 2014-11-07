@@ -1,0 +1,31 @@
+
+/* Set your search path to the instance of Cyclopath you normally use. */
+
+SET search_path TO minnesota, public;
+--SET search_path TO colorado, public;
+
+/* Display query times. */
+
+\timing on
+
+/* Leave short query responses as terminal output, but for longer output, 
+   use the pager. 
+   
+   NOTE: If you always want to use the pager, use 'always'. */
+
+\pset pager on
+--\pset pager always
+
+/* 
+    NOTE: Though the command exists, most users cannot set log_statement 
+
+            cycling=> SET log_statement TO "ALL";
+            ERROR:  permission denied to set parameter "log_statement"
+
+          Instead, if you want verbose logfile output, set
+    
+            log_statement = 'all'
+ 
+          in your postgresql.conf 
+    */
+

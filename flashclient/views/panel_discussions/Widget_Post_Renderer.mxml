@@ -1,0 +1,871 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attachment_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   paddingTop="3"
+   paddingBottom="3"
+   paddingLeft="7"
+   paddingRight="7"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   keyFocusChange="this.on_key_focus_change(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.core.UITextField;
+      import mx.events.CollectionEvent;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+      import mx.utils.StringUtil;
+      import mx.utils.UIDUtil;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import grax.User;
+      import gwis.GWIS_Commit;
+      import items.Attachment;
+      import items.Geofeature;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import items.links.Link_Geofeature;
+      import items.links.Link_Post;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Post_Rr');
+
+      // *** Instance variables
+
+      protected var post:Post;
+      protected var rendered:Boolean = false;
+
+      protected var watcher_height:ChangeWatcher;
+
+      protected var editing_enabled:* = null;
+      protected var thread_title:String = null;
+
+      // *** Instance methods
+
+      // Hack to prevent text controls from scrolling, while being selecable:
+      // http://viconflex.blogspot.com/2008/08/
+      //                               mxcontrolstext-preventing-scroll-on.html
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+         UITextField(this.post_body.getChildAt(0)).addEventListener(
+            Event.SCROLL, this.on_scroll);
+         UITextField(this.post_body.getChildAt(0)).alwaysShowSelection = true;
+
+         m4_DEBUG('on_creation_complete: w:', this.width, '/ h:', this.height);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this, 'height', this.on_change_height);
+
+         this.on_change_height();
+      }
+
+      //
+      public function on_change_height(ev:Event=null) :void
+      {
+         m4_DEBUG2('on_change_height: w:', this.width, '/ h:', this.height,
+                   '/ this:', this);
+
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+         G.map.callLater(t_panel.reset_datagrid_height);
+      }
+
+      //
+      protected function on_edit_post_body_text_area_change() :void
+      {
+         m4_DEBUG('on_edit_post_body_text_area_change');
+
+         this.save_btn_enable_maybe();
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         // Register the children.
+         this.register_widgets([
+            this.placebox_r,
+            this.placebox_rw,
+            ]);
+      }
+
+      //
+      private function on_scroll(event:Event) :void
+      {
+         // EXPLAIN: MAGIC NUMBERS: What's 2? What's 1?
+         if (UITextField(this.post_body.getChildAt(0)).scrollV == 2) {
+            UITextField(this.post_body.getChildAt(0)).scrollV = 1;
+         }
+      }
+
+      //
+      protected function on_title_or_body_change() :void
+      {
+         m4_DEBUG('on_title_or_body_change: title.text:', this.title.text);
+
+         // NO: m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         //Thread.dirty_post = true;
+         var tpanel:Panel_Item_Thread;
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+         tpanel.dirty_post = true;
+
+         this.post.body = this.body.text;
+         if (this.post.first_post) {
+            (this.panel_attachment as Thread).name_ = this.title.text;
+            tpanel.widget_name_header.item_name_control.text = this.title.text;
+         }
+
+         this.post_btn_enable_maybe();
+
+         this.edit_post_body_text_area.text = '';
+         this.edit_post_body_text_area.visible = false;
+         this.edit_post_body_text_area.includeInLayout = false;
+      }
+
+      //
+      public function save_btn_enable_maybe() :void
+      {
+         m4_DEBUG('save_btn_enable_maybe: post.body:', this.post.body);
+         m4_DEBUG('save_btn_enable_maybe: body.text:', this.body.text);
+         m4_DEBUG2('save_btn_enable_maybe: edit_post_body_text_area.text:',
+                   this.edit_post_body_text_area.text);
+
+         if (this.post.body != this.edit_post_body_text_area.text) {
+            this.post_edit_save_button.enabled = true;
+            this.post_edit_cancel_button.enabled = true;
+         }
+         else {
+            this.post_edit_save_button.enabled = false;
+            this.post_edit_cancel_button.enabled = false;
+         }
+      }
+
+      //
+      public function post_btn_enable_maybe() :void
+      {
+         m4_DEBUG('post_btn_enable_maybe');
+
+         var tpanel:Panel_Item_Thread;
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+
+         if ((StringUtil.trim(this.body.text).length > 0)
+             && ((this.post.first_post)
+                 ? (StringUtil.trim(this.title.text).length > 0)
+                 : true)) {
+            this.post_btn.enabled = true;
+         }
+         else {
+            this.post_btn.enabled = false;
+         }
+      }
+
+      //
+      override public function set data(value:Object) :void
+      {
+         var read_only:Boolean;
+
+         m4_VERBOSE('set data:', value);
+
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         m4_DEBUG('set data: this.post: 1:', this.post);
+
+         // If you start editing a post and then post a new post (without
+         // saving the post edit), the renderer gets reused and the editing
+         // box moves to the next post in the list (and its body reflects
+         // the previous post). The easiest thing to do is just reset editing
+         // after saving a new post, or if we detect that the data for this
+         // renderer is changing. (We could move the editing box to the
+         // previous item in the list, but that seems tedious.)
+         var reset_editing:Boolean = false;
+         if (value !== this.post) {
+            reset_editing = true;
+         }
+
+         this.post = (value as Post);
+         m4_ASSURT(this.post !== null);
+
+         m4_DEBUG('set data: this.post: 2:', this.post);
+
+         super.data = this.post;
+
+         var tpanel:Panel_Item_Thread;
+         tpanel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(tpanel !== null);
+
+         if (reset_editing) {
+            this.post_edit_button_init();
+         }
+
+         // MAGIC NUMBERS: Hard-coded widget heights herein...
+         if (this.post.first_post) {
+
+            m4_ASSERT_SOFT(this.post.stack_id == 0);
+
+            this.change_state('NewPost');
+            this.setStyle('backgroundColor', '0xffffff');
+            this.title_box.percentHeight = 100;
+            this.body_header_first.includeInLayout = true;
+            this.body_header_reply.includeInLayout = false;
+            this.body.height = 160;
+            this.minHeight = 230;
+            this.title.text = (this.panel_attachment as Thread).name_;
+            this.body.text = this.post.body;
+            read_only = false;
+
+            if (!this.placebox_rw.pbox_inited) {
+               this.placebox_rw.places_init_post(this.post, read_only);
+            }
+            else {
+               // We're here from DataGridBase.setupColumnItemRenderer
+               // setting data = .... So... don't complain.
+               //
+               // But, argh, aren't datagrid widgets reused?
+               // Or what if this.post is different??
+               m4_WARNING('set data: already initialised:', this.placebox_rw);
+            }
+
+            if (G.tabs.discussions.post_auto_attach) {
+               // [mm]: I think this is used when the user clicks "Start a
+               //       discussion about this item" from the geofeature
+               //       details panel.
+               for each (var gf:Geofeature in G.map.selectedset) {
+                  var link_gf:Link_Geofeature;
+                  link_gf = this.placebox_rw.place_add_post(gf.stack_id);
+               }
+               G.tabs.discussions.post_auto_attach = false;
+            }
+         } // end if: this.post.first_post
+         else if (this.post.reply_post) {
+            m4_ASSERT(this.post.stack_id == 0);
+
+            this.change_state('NewPost');
+            this.setStyle('backgroundColor', '0xffffff');
+            // MAYBE: What not just set it not visible? This confused [lb]
+            // because every where else we use visible to hide widgets.
+            this.title_box.height = 0;
+            this.body_header_first.includeInLayout = false;
+            this.body_header_reply.includeInLayout = true;
+            this.body.height = 80;
+            this.minHeight = 151;
+            this.body.text = this.post.body;
+            read_only = false;
+            this.placebox_rw.places_init_post(this.post, read_only);
+         } // end else if: this.post.reply_post
+         else {
+            m4_ASSERT(this.post.stack_id > 0);
+
+            this.change_state('');
+            this.minHeight = 0;
+            this.clearStyle('backgroundColor');
+
+            this.post_body.text = this.post.body;
+
+            // The server sends this.post.created_user as the username,
+            // hostname, or IP address. For the last editor, it's split
+            // into this.post.edited_user, edited_host, and edited_addr.
+            /* We could do this:
+                  var created_user:String;
+                  if (!User.is_anonymous(this.post.edited_user)) {
+                     created_user = this.post.edited_user;
+                  }
+                  else if (this.post.edited_host) {
+                     created_user = this.post.edited_host;
+                  }
+                  else if (this.post.edited_addr) {
+                     created_user = this.post.edited_addr;
+                  }
+                  else {
+                     m4_ASSERT_SOFT(false);
+                     created_user = 'anonymous';
+                  }
+               but it's easier to just use this.post.created_user.
+            */
+            var whowhen_text:String = this.post.created_date
+                           + ' by ' + this.post.created_user;
+            if (this.post.version > 1) {
+               var num_adverb:String;
+               if (this.post.version == 2) {
+                  num_adverb = 'once';
+               }
+               else if (this.post.version == 3) {
+                  num_adverb = 'twice';
+               }
+               else {
+                  num_adverb =
+                     String(this.post.version - 1)
+                     + ' '
+                     + Inflector.pluralize('time', (this.post.version != 2));
+               }
+               whowhen_text +=
+                  //' (edited '
+                  ' -- edited '
+                  + num_adverb
+                  //+ ')'
+                  ;
+            }
+            this.whowhen.text = whowhen_text;
+
+            m4_DEBUG('set data: post.polarity:', this.post.polarity);
+
+            if (this.post.polarity > 0) {
+               this.dislike.includeInLayout = false;
+               this.like.includeInLayout = true;
+            }
+            else if (this.post.polarity < 0) {
+               this.dislike.includeInLayout = true;
+               this.like.includeInLayout = false;
+            }
+            else {
+               this.dislike.includeInLayout = false;
+               this.like.includeInLayout = false;
+            }
+
+            // Fetch all places.
+            // 2012.08.17: For why? The places list is not used hereafter.
+            var places:Array = new Array();
+
+            var lpost:Link_Post;
+            for each (lpost in tpanel.post_geos) {
+               if (lpost.lhs_stack_id == this.post.stack_id) {
+                  places.push(lpost.gf_name);
+               }
+            }
+            // MAYBE: 2012.08.17: What're we suppose to do with the places
+            //                    collection? This is dead code from CcpV1.
+
+            read_only = true;
+            this.placebox_r.places_init_post(this.post, read_only);
+            // See also similar code in Panel_Item_Thread/Widget_Post_Renderer.
+            var show_places:Boolean;
+            show_places = (this.placebox_r.link_geofeature_count > 0);
+            this.placebox_box.visible = show_places;
+            this.placebox_box.includeInLayout = show_places;
+
+            if (this.editing_enabled === null) {
+               this.post_edit_button_init();
+            }
+         } // end else if: (!this.post.first_post) && (!this.post.reply_post)
+
+         m4_DEBUG2('set data: editing_enabled:',
+            (this.editing_enabled !== null) ? this.editing_enabled : 'null');
+      }
+
+      //
+      protected function on_enter_state_new_post() :void
+      {
+         m4_DEBUG('on_enter_state_new_post');
+         //m4_DEBUG2('set data: parentDocument:',
+         //          this.parentDocument);
+         //m4_DEBUG2('set data: parentDocument.parentDocument:',
+         //          this.parentDocument.parentDocument);
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+         m4_DEBUG_CLLL('>callLater: reset_datagrid_height [places_init]');
+         G.map.callLater(t_panel.reset_datagrid_height);
+
+      }
+
+      //
+      protected function on_key_focus_change(event:FocusEvent) :void
+      {
+         if (event.shiftKey) {
+            // Tabbing back
+            if (this.post_btn.contains(this.getFocus())) {
+               event.preventDefault();
+               this.body.setFocus();
+            }
+            else if (this.body.contains(this.getFocus())) {
+               event.preventDefault();
+               this.title.setFocus();
+            }
+         }
+         else {
+            // Tabbing forth
+            if (this.title.contains(this.getFocus())) {
+               event.preventDefault();
+               this.body.setFocus();
+            }
+            else if (this.body.contains(this.getFocus())) {
+               event.preventDefault();
+               this.post_btn.setFocus();
+            }
+         }
+      }
+
+      //
+      protected function on_post_click() :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         var our_thread:Thread = (this.panel_attachment as Thread);
+         m4_ASSERT(our_thread !== null);
+
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+
+         m4_DEBUG('on_post_click: unwired_post:', t_panel.unwired_post);
+         var new_post:Post = t_panel.unwired_post;
+         if (new_post === null) {
+            // The previous save failed, so we've already come through
+            // and wired the post...
+            new_post = our_thread.posts[our_thread.posts.length-1];
+            m4_ASSERT(new_post !== null);
+         }
+         new_post.body = this.body.text;
+         new_post.dirty_set(Dirty_Reason.item_data_oob, true);
+
+         G.grac.prepare_item(new_post, Access_Level.client);
+
+         //new_post.parent_thread = our_thread;
+         our_thread.register_post(new_post);
+
+         G.map.items_add([new_post,]);
+
+         //our_thread.active_post = new_post;
+         // If this is the first post in a new thread, name the thread after
+         // the post.
+         if (our_thread.fresh) {
+            our_thread.name_ = this.title.text;
+         }
+
+   // 2012.08.15: Disable the 'Post' button while the new post is
+   //             being saved.
+   // FIXME: The user still has to hit save which brings up the modal
+   // save dialog, so disabling the Post button is kind of meaningless...
+         this.post_btn.enabled = false;
+
+         // 2013.06.06: Don't forget to turn off attaching, if the user hasn't.
+         this.placebox_rw.attaching_stop();
+
+//.......if save fails... this is wrong
+         // This feels right...
+         t_panel.unwired_post = null;
+         m4_DEBUG('on_post_click: t_panel.unwired_post: set null');
+
+         G.tabs.discussions.thread_post_commit(our_thread, this);
+      }
+
+      //
+      public function on_post_edit_save_button_click(event:MouseEvent=null)
+         :void
+      {
+         m4_DEBUG2('on_post_edit_save_button_click: this.editing_enabled:',
+                   this.editing_enabled);
+
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+
+         if (!this.editing_enabled) {
+
+            this.post_body.visible = false;
+            this.post_body.includeInLayout = false;
+
+            this.edit_post_body_text_area.text = this.post.body;
+            this.edit_post_body_text_area.visible = true;
+            this.edit_post_body_text_area.includeInLayout = true;
+
+            this.post_edit_save_button.text = 'Save';
+
+            this.post_edit_save_button.enabled = true;
+            this.post_edit_save_button.visible = true;
+            this.post_edit_save_button.includeInLayout = true;
+            this.post_edit_cancel_button.enabled = true;
+            this.post_edit_cancel_button.visible = true;
+            this.post_edit_cancel_button.includeInLayout = true;
+
+            if ((t_panel.thread.posts.length > 0)
+                && (t_panel.thread.posts[0] === this.post)) {
+               m4_DEBUG2('on_post_edit_save_btn_clck: thread_title:',
+                         t_panel.thread.name_);
+               this.thread_title = t_panel.thread.name_;
+            }
+
+            this.editing_enabled = true;
+
+            // Is this the first post? If so, enable Title editing.
+            t_panel.post_editing_active(this.post);
+         }
+         else {
+            m4_ASSERT_SOFT(this.post.body != this.body.text);
+            m4_DEBUG('on_post_edit_save_btn_clck: post.body:', this.post.body);
+            m4_DEBUG('on_post_edit_save_btn_clck: body.text:', this.body.text);
+            m4_DEBUG2('on_post_edit_save_btn_clck: edit_post_body_text_area:',
+                      this.edit_post_body_text_area.text);
+
+            this.post.body = this.edit_post_body_text_area.text;
+            this.post.dirty_set(Dirty_Reason.item_revisionless, true);
+            //this.post.dirty_set(Dirty_Reason.item_data_oob, true);
+
+            m4_DEBUG('on_post_edit_save_btn_clck: this.post:', this.post);
+            m4_DEBUG2('on_post_edit_save_btn_clck: t_panel.thread.posts:',
+                      t_panel.thread.posts);
+            var changedset:Set_UUID;
+            if (t_panel.thread.posts[0] === this.post) {
+               // The first post; include the thread.
+               changedset = new Set_UUID([this.post, t_panel.thread,]);
+            }
+            else {
+               // A second or subsequent post.
+               changedset = new Set_UUID([this.post,]);
+            }
+            m4_DEBUG('on_post_edit_save_btn_clck: changedset:', changedset);
+
+            //m4_DEBUG2('on_post_edit_save_: Attachment.all[post.stack_id]:',
+            //          UIDUtil.getUID(Attachment.all[this.post.stack_id]));
+            //m4_DEBUG2('on_post_edit_save_: post:',
+            //          UIDUtil.getUID(this.post));
+
+
+            // BUG nnnn: Posts are saved public-3... so anyone can edit...
+            //           with custom GWIS... yikes! #SECTHREAT
+            // BUG nnnn: Add pageination to thread's post list.
+            var gwis_cmd:GWIS_Commit;
+            gwis_cmd = new GWIS_Commit(
+               changedset,
+               /*changenote=*/'',
+               /*be_silent=*/false,
+               /*callback_load=*/this.on_post_edit_save_commit_load,
+               /*callback_fail=*/this.on_post_edit_save_commit_fail,
+               /*callback_payload=*/null,
+               /*anon_coward=*/false,
+               // So that we don't save map items -- i.e., Very Important:
+               ///*restrict_dirty=*/Dirty_Reason.item_mask_oob,
+               /*restrict_dirty=*/Dirty_Reason.item_revisionless,
+               /*alert_on_activity=*/false,
+               /*command_mgr=*/null);
+
+            gwis_cmd.fetch();
+         }
+      }
+
+      //
+      protected function on_post_edit_save_commit_fail(gwis_req:GWIS_Commit,
+                                                       rset:XML,
+                                                       payload:*=null)
+         :void
+      {
+         m4_DEBUG('on_post_edit_save_commit_fail');
+      }
+
+      //
+      public function on_post_edit_save_commit_load(gwis_req:GWIS_Commit,
+                                                    rset:XML,
+                                                    payload:*=null)
+         :void
+      {
+         m4_DEBUG('on_post_edit_save_commit_load');
+
+         this.post_edit_button_init();
+
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+
+         // Make sure the edited post now indicates that it was edited.
+         t_panel.posts_grid.dataProvider.dispatchEvent(
+            new CollectionEvent(CollectionEvent.COLLECTION_CHANGE));
+      }
+
+      //
+      public function on_post_edit_cancel_button_click(event:MouseEvent=null)
+         :void
+      {
+         m4_DEBUG('on_post_edit_cancel_button_click');
+
+         if (this.thread_title !== null) {
+            var t_panel:Panel_Item_Thread;
+            t_panel = (this.attachment_panel as Panel_Item_Thread);
+            m4_ASSERT(t_panel !== null);
+            t_panel.thread.name_ = this.thread_title;
+            this.thread_title = null;
+         }
+
+         this.post_edit_button_init();
+      }
+
+      //
+      protected function post_edit_button_init() :void
+      {
+         m4_DEBUG('post_edit_button_init');
+
+         this.editing_enabled = false;
+
+         this.post_body.text = this.post.body;
+         this.post_body.visible = true;
+         this.post_body.includeInLayout = true;
+
+         this.edit_post_body_text_area.text = '';
+         this.edit_post_body_text_area.visible = false;
+         this.edit_post_body_text_area.includeInLayout = false;
+
+         // This is a little hacky: we didn't fetch a real post object
+         // (i.e., one with access_level_id, etc.) but we can assume
+         // the user owns this post if the username matches.
+         // Also: ha! the server saves posts as publicly editable.
+         // Also: why not also give arbiters editing rights.
+         var can_edit:Boolean = false;
+         if ((G.user.logged_in)
+             && (G.user.username == this.post.created_user)) {
+            this.post_edit_save_button.text = 'Edit';
+            can_edit = true;
+         }
+         else if (G.item_mgr.active_branch.can_arbit) {
+            this.post_edit_save_button.text = 'Censor';
+            can_edit = true;
+         }
+         this.post_edit_save_button.enabled = can_edit;
+         this.post_edit_save_button.visible = can_edit;
+         this.post_edit_save_button.includeInLayout = can_edit;
+         this.post_edit_cancel_button.enabled = false;
+         this.post_edit_cancel_button.visible = false;
+         this.post_edit_cancel_button.includeInLayout = false;
+
+         var t_panel:Panel_Item_Thread;
+         t_panel = (this.attachment_panel as Panel_Item_Thread);
+         m4_ASSERT(t_panel !== null);
+
+         t_panel.post_editing_inactive(this.post);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="post_box"
+      width="100%"
+      verticalGap="0"
+      paddingRight="14"
+      >
+      <mx:VBox
+         id="read_only"
+         width="100%"
+         verticalGap="0">
+
+         <mx:HBox
+            id="like"
+            paddingLeft="2"
+            paddingTop="2"
+            includeInLayout="false"
+            visible="{this.like.includeInLayout}">
+            <mx:Image
+               source="@Embed('/assets/img/icon_tags_bonus.png')"/>
+            <mx:Label
+               fontStyle="italic"
+               paddingTop="-2"
+               text="I like this route."/>
+         </mx:HBox>
+         <mx:HBox
+            id="dislike"
+            paddingLeft="2"
+            paddingTop="2"
+            includeInLayout="false"
+            visible="{this.dislike.includeInLayout}">
+            <mx:Image
+               source="@Embed('/assets/img/icon_tags_penalty.png')"/>
+            <mx:Label
+               fontStyle="italic"
+               paddingTop="-2"
+               text="I dislike this route."/>
+         </mx:HBox>
+
+         <!-- 2012.08.17: Let users select post text (set selectable). -->
+         <!-- FIXME: MAGIC_NUMBERS: We are coupled to G.app.left_panel.width
+         <           and use magic numbers to calculate widths... lame. -->
+         <mx:Text
+            id="post_body"
+            width="{G.app.left_panel.width - 100}"
+            condenseWhite="true"
+            paddingBottom="2"
+            selectable="true"/>
+         <mx:TextArea
+            id="edit_post_body_text_area"
+            width="100%"
+            height="80"
+            tabIndex="2"
+            visible="false"
+            includeInLayout="{this.edit_post_body_text_area.visible}"
+            change="this.on_edit_post_body_text_area_change();"/>
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            paddingRight="7"
+            horizontalGap="0"
+            verticalAlign="middle">
+            <mx:Label
+               id="whowhen"
+               width="100%"
+               minWidth="0"
+               paddingTop="-2"
+               styleName="small"
+               paddingBottom="-2"
+               fontStyle="italic"
+               selectable="true"/>
+            <views_panel_util:Hyper_Link
+               id="post_edit_save_button"
+               htmlText="Edit"
+               toolTip="Click to edit your post."
+               visible="false"
+               includeInLayout="{this.post_edit_save_button.visible}"
+               enabled="true"
+               click="this.on_post_edit_save_button_click(event);"/>
+            <views_panel_util:Hyper_Link
+               id="post_edit_cancel_button"
+               htmlText="Cancel"
+               toolTip="Click to cancel your edits."
+               visible="false"
+               includeInLayout="{this.post_edit_cancel_button.visible}"
+               enabled="true"
+               click="this.on_post_edit_cancel_button_click(event);"/>
+         </mx:HBox>
+         <mx:HBox
+            id="placebox_box"
+            width="100%"
+            paddingTop="-1"
+            paddingBottom="-1"
+            horizontalGap="0">
+            <mx:Label
+               text="Places: "
+               paddingTop="2"/>
+            <views_panel_items:Widget_Attachment_Place_Box
+               id="placebox_r"
+               link_value_class="Link_Post"
+               width="{G.app.left_panel.width - 90}"/>
+         </mx:HBox>
+      </mx:VBox>
+   </mx:VBox>
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="NewPost"
+         enterState="this.on_enter_state_new_post();"
+         >
+
+         <mx:RemoveChild
+            target="{read_only}" />
+
+         <mx:AddChild
+            relativeTo="{this.post_box}"
+            position="lastChild">
+            <mx:target>
+<!-- FIXME_2013_06_11:
+width="100%"
+width="317"
+-->
+               <!-- NOTE: Setting paddingRight has no effect. -->
+               <mx:VBox
+                  verticalGap="2"
+width="{G.app.left_panel.width - 37}"
+paddingRight="13"
+paddingBottom="17"
+                  >
+                  <mx:HBox
+                     id="title_box"
+                     width="100%"
+                     paddingTop="2">
+                     <mx:Label
+                        text="Title: "
+                        fontWeight="bold" />
+                     <mx:TextInput
+                        id="title"
+                        width="100%"
+                        tabIndex="1"
+                        change="this.on_title_or_body_change();"/>
+                  </mx:HBox>
+                  <mx:Label
+                     id="body_header_first"
+                     fontWeight="bold"
+                     text="Post Body:"
+                     visible="{this.body_header_first.includeInLayout}" />
+                  <mx:HBox
+                     id="body_header_reply"
+                     fontWeight="bold"
+                     width="100%"
+                     backgroundColor="0xDDDDDD"
+                     visible="{this.body_header_reply.includeInLayout}">
+                     <mx:Label
+                        text="Add New Post to this Discussion:" />
+                  </mx:HBox>
+                  <mx:TextArea
+                     id="body"
+                     width="100%"
+                     height="80"
+                     tabIndex="2"
+                     change="this.on_title_or_body_change();"/>
+                  <mx:Grid
+                     id="places_grid"
+                     width="100%"
+                     verticalGap="4"
+                     horizontalGap="0"
+                     borderStyle="solid"
+                     paddingTop="1">
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           verticalAlign="top">
+                           <mx:Label
+                              text="Places: "
+                              fontWeight="bold"
+                              paddingTop="2"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%"
+                           verticalAlign="top">
+                           <views_panel_items:Widget_Attachment_Place_Box
+                              id="placebox_rw"
+                              link_value_class="Link_Post"
+                              expanded="true"
+                              />
+                        </mx:GridItem>
+                     </mx:GridRow>
+                  </mx:Grid>
+                  <mx:HBox
+                     horizontalAlign="right"
+                     width="100%"
+                     paddingTop="2"
+                     paddingBottom="2">
+                     <mx:Button
+                        id="post_btn"
+                        label="Post"
+                        enabled="false"
+                        tabIndex="3"
+                        click="this.on_post_click();"/>
+                  </mx:HBox>
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+      </mx:State>
+
+   </views_panel_items:states>
+
+</views_panel_items:Widget_Attachment_Base>
+

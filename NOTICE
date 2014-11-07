@@ -1,0 +1,22 @@
+Cyclopath Geowiki Platform
+
+Copyright (c) 2006-2013 Regents of the University of Minnesota.
+* For licensing terms, see the file LICENSE.
+
+Portions of this software are copyrighted by others. In particular, this
+software includes:
+
+* Code from Russell and Norvig's Artificial Intelligence: A Modern Approach.
+  Copyright (c) 1998-2002 by Peter Norvig. 
+  See: http://aima.cs.berkeley.edu/python/readme.html
+
+* The Bitstream Vera font. See the .ttf files for details.
+  Copyright (c) 2003 by Bitstream, Inc. Look
+
+* jsdifflib, JavaScript diffing library by Chas Emerick <cemerick@snowtide.com>
+  Copyright (c) 2007-2008 Snowtide Informatics Systems, Inc.
+  See: http://snowtide.com/jsdifflib
+
+* Software derived from Adobe Flex
+  Copyright (c) 2003-2006 Adobe Macromedia Software LLC and its licensors.
+

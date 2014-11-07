@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   creationPolicy="all"
+   layout="vertical"
+   showCloseButton="false"
+   visible="false"
+   paddingLeft="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   width="448"
+   horizontalAlign="left"
+   defaultButton="{ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      // *** Instance variables
+
+      protected var on_ok_real:Function;
+      protected var on_cancel_real:Function;
+      protected var ok_label:String;
+      protected var cancel_label:String;
+
+      // *** Instance methods
+
+      // Show a modal text entry dialog. Arguments:
+      //
+      //   title          - Dialog title
+      //   prompt         - Text within the dialog prompting in more detail
+      //   on_ok          - Function called when OK button is clicked. Takes
+      //                    one argument, the value of the entered string.
+      //   input_required - True if input is required, false otherwise
+      //   on_cancel      - Function called when Cancel button is clicked.
+      //                    Takes no arguments.
+      //   ok_label       - Label for the 'OK' button, defaults to 'OK'.
+      //   cancel_label   - Label for 'Cancel' button, defaults to 'Cancel'.
+      public static function show(title:String,
+                                  prompt:String,
+                                  on_ok:Function,
+                                  input_required:Boolean,
+                                  on_cancel:Function = null,
+                                  ok_label:String = "OK",
+                                  cancel_label:String = "Cancel",
+                                  starting_input_text:String = null) :void
+      {
+         var d:Commit_Changes_Dialog = new Commit_Changes_Dialog();
+         PopUpManager.addPopUp(d, G.app, true);
+
+         if (ok_label !== null) {
+            d.ok.label = ok_label;
+            d.ok.visible = true;
+         }
+         else {
+            d.ok.label = '';
+            d.ok.visible = false;
+         }
+         if (cancel_label !== null) {
+            d.cancel.label = cancel_label;
+            d.cancel.visible = true;
+         }
+         else {
+            d.cancel.label = '';
+            d.cancel.visible = false;
+         }
+
+         d.title = title;
+         d.prompt_w.htmlText = prompt;
+         d.input_fi.required = input_required;
+         d.input_v.required = input_required;
+
+         d.on_ok_real = on_ok;
+         d.on_cancel_real = on_cancel;
+         d.input_v.validate();
+         d.visible = true;
+
+         PopUpManager.centerPopUp(d);
+
+         d.input_set_text(starting_input_text);
+      }
+
+      //
+      protected function input_set_text(text:String) :void
+      {
+         if (text === null) {
+            // just set focus and return
+            this.input_w.setFocus();
+            return;
+         }
+         this.input_w.text = text;
+         this.input_w.setFocus();
+         this.input_w.setSelection(0, text.length);
+         m4_DEBUG_CLLL('>callLater: input_set_text: this.input_scroll [true]');
+         this.callLater(this.input_scroll, [true]);
+      }
+
+      // HACK: The TextInput control ignores the very first request to set
+      // the horizontal scroll position because its the same as the default.
+      // Setting it to 1 and then back to 0 solves the issue.
+      protected function input_scroll(first_try:Boolean) :void
+      {
+         m4_DEBUG_CLLL('<callLater: input_scroll / first_try:', first_try);
+         if (!first_try) {
+            this.input_w.horizontalScrollPosition = 0;
+         }
+         else {
+            this.input_w.horizontalScrollPosition = 1;
+         }
+         if (first_try) {
+            m4_DEBUG_CLLL('>callLater: input_scroll: same [false]');
+            this.callLater(this.input_scroll, [false]);
+         }
+      }
+
+      // *** Event handlers
+
+      // Cancel button clicked
+      protected function on_cancel() :void
+      {
+         if (this.on_cancel_real !== null) {
+            this.on_cancel_real(this);
+         }
+         PopUpManager.removePopUp(this);
+      }
+
+      // OK button clicked.
+      protected function on_ok() :void
+      {
+         if (this.on_ok_real !== null) {
+            this.on_ok_real(/*changenote=*/this.input_w.text,
+                            /*activate_alerts=*/this.email_me.selected);
+         }
+         PopUpManager.removePopUp(this);
+      }
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Text
+      id="prompt_w"
+      width="100%"/>
+
+   <mx:Form
+      id="input_form"
+      width="100%">
+      <mx:FormItem
+         id="input_fi"
+         width="100%">
+         <mx:TextInput
+            id="input_w"
+            width="100%"/>
+      </mx:FormItem>
+   </mx:Form>
+
+   <mx:HBox>
+      <mx:CheckBox
+         id="email_me"
+         />
+      <mx:Text
+         text=
+      "Send an email if anyone comments on or reverts my revision."
+         />
+   </mx:HBox>
+
+   <mx:HBox
+      horizontalAlign="right"
+      width="100%">
+      <mx:HBox>
+         <mx:Button
+            id="cancel"
+            click="this.on_cancel();"
+            includeInLayout="{this.cancel.visible}"/>
+         <mx:Button
+            id="ok"
+            click="this.on_ok();"
+            includeInLayout="{this.ok.visible}"/>
+      </mx:HBox>
+   </mx:HBox>
+
+   <mx:Validator
+      id="input_v"
+      source="{input_w}"
+      property="text"
+      triggerEvent="change"
+      valid="this.ok.enabled=true;"
+      invalid="this.ok.enabled=false;"/>
+
+</mx:TitleWindow>
+

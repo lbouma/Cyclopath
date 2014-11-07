@@ -1,0 +1,299 @@
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# FIXME: Delete this file. [lb] wants it checked in once
+#        so there's a record of this file. It tries to build
+#        both main.swf and pdf_printer.swf. But it doesn't
+#        quite work: the compilation fails on some null error.
+#        But using two Makefiles works (that is, Makefile and
+#        Makefile-pdf).
+
+# Directory name of build output
+#   e.g., ccp/flashclient/build/
+OUT_APP = build
+OUT_MOD = build-print
+
+# Fcsh Wrapper and Flex build config
+MXMLC = ./fcsh-wrap
+MXMLC_CONFIG = mxmlc-config.xml
+MXMLC_CONFIG_APP = mxmlc-config.xml
+MXMLC_CONFIG_MOD = mxmlc-print.xml
+# DEVS: Specify -debug=true to use fdb.
+# DEVS: Specify -benchmark=true to ... um?
+# EXPLAIN: What's -benchmark=true do? Says: "output performance benchmark".
+# DEVS: If you develop cross-domain, you might have to use use-network:
+#        mxmlx --help advanced use-network
+#        "toggle whether the SWF is flagged for access to network resources"
+MXMLC_ARGS = \
+	-load-config+=$(MXMLC_CONFIG) \
+	-use-network
+#	-debug=true
+#	-benchmark=true
+# MAYBE: Do we want -debug=true?
+
+MXMLC_ARGS_APP = \
+	-load-config+=$(MXMLC_CONFIG_APP) \
+	-use-network \
+	-link-report=report.xml
+
+MXMLC_ARGS_MOD = \
+	-load-config+=$(MXMLC_CONFIG_MOD) \
+	-use-network \
+	-load-externs=report.xml
+
+# m4 Preprocessor config
+M4_ARGS = \
+	--prefix-builtins \
+	macros.m4 # filename for macro definitions
+
+# Extensions that are run through m4; all other files are copied directly
+M4_EXT = .as .mxml
+
+# # These are list of application mxml files to ignore when building modules.
+OTHER_MXML_APP = pdf_printer.mxml
+# OTHER_MXML_MOD = main.mxml
+OTHER_BUILD_DIRS_APP = $(OUT_MOD)
+OTHER_BUILD_DIRS_MOD = $(OUT_APP)
+
+# Ctags config
+
+# The machine must support exuberant ctags. I'm not sure that version 5 is an
+# absolute, but it's what [lb]'s been using.
+ctags_version := $(shell ctags --version | grep "Exuberant Ctags 5")
+
+# Ctags config
+CTAGLANGS = \
+--langdef=actionscript \
+--langmap=actionscript:.as \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1/f, function, functions/ \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+[(set|get)]*[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1 \2/p,property, properties/ \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*var[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/v,variable, variables/ \
+--regex-actionscript=/.*\.prototype \.([A-Za-z0-9 ]+)=([ \t]?)function( [ \t]?)*\(/\1/ f,function, functions/ \
+--regex-actionscript=/^[ \t]*class[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/c,class, classes/ \
+
+# All files within cwd and subdirectories, excluding any files that match one
+# of the space-delimited regexes in X_*. Note that regexes must match _all_ of
+# the path and filename in question (e.g., "*b" doesn't match "abc").
+X_APP = \./$(OUT_APP)/.* \./$(OUT_MOD)/.* .*\.svn.* .*\.pid .*\.m4 .*~ .*\.swf pdf_printer.mxml
+SRC_APP = $(shell find . \( $(foreach i, $(X_APP), ! -regex '$(i)') \) -xtype f -print)
+# NOTE: Not ignoring main.mxml for modules.
+X_MOD = \./$(OUT_MOD)/.* \./$(OUT_APP)/.* .*\.svn.* .*\.pid .*\.m4 .*~ .*\.swf
+SRC_MOD = $(shell find . \( $(foreach i, $(X_MOD), ! -regex '$(i)') \) -xtype f -print)
+
+# all files in SRC prepended with OUT_APP
+OUT_SRC_APP = $(foreach src, $(SRC_APP), $(OUT_APP)/$(src))
+OUT_SRC_MOD = $(foreach src, $(SRC_MOD), $(OUT_MOD)/$(src))
+
+# we need this target to prevent make from deleting intermediate files
+# for some reason, it considers build/main.mxml an intermediate file and
+# deletes it after every make, which is not what we want
+#.SECONDARY:
+#.SECONDARY: $(OUT_APP)/main.mxml
+.SECONDARY: $(OUT_APP)/main.mxml $(OUT_MOD)/pdf_printer.mxml
+
+# DEVS: Recomment if you want files copied out of VirtualBox to your Window
+#       dev folder, so that you may debug using fdb (which doesn't work well
+#       until Linux).
+#all: ctags macros $(OUT_APP)/main.swf
+all: ctags macros $(OUT_APP)/main.swf $(OUT_APP)/.swf wincopy
+#all: ctags macros $(OUT_APP)/main.swf $(OUT_MOD)/pdf_printer.swf wincopy
+main: ctags macros $(OUT_APP)/main.swf wincopy
+pdf: $(OUT_MOD)/pdf_printer.swf
+
+$(OUT_APP)/main.swf: $(OUT_APP)/BUILD_ID.mxml $(OUT_SRC_APP)
+$(OUT_MOD)/pdf_printer.swf: $(OUT_MOD)/BUILD_ID.mxml $(OUT_SRC_MOD)
+$(OUT_APP)/r_tree.swf: $(OUT_APP)/r_tree.mxml $(OUT_APP)/R_Tree.as $(OUT_APP)/R_Tree_App.as
+$(OUT_APP)/diffdemo.swf: $(OUT_APP)/diffdemo.mxml $(OUT_APP)/difflib/*.as
+
+# EXPLAIN: What's .PHONY for?
+# DEVS: See comments above. Recomment if you want to debug on Windows host.
+#.PHONY: clean ctags macros
+.PHONY: clean ctags macros wincopy
+
+clean:
+	$(MXMLC) killall || true
+	rm -rf FW.*.pid
+	rm -rf $(OUT_APP)
+	rm -rf $(OUT_MOD)
+
+ctags:
+	@if [[ -n "$(ctags_version)" ]]; then                    \
+	   echo "========================================";      \
+	   echo "*** Generating ctags";                          \
+	   echo "========================================";      \
+	   echo "$(ctags_version)";                              \
+	   ctags -R -f ../pyserver/tags ../pyserver/;            \
+	   ctags -R -f ../services/tags ../services/;            \
+	   ctags -R -f ../scripts/tags  ../scripts/;             \
+	   ctags -R --exclude=build --exclude=build-print;       \
+	else                                                     \
+	   echo "*** Skipping ctags: exuberant ctags not found"; \
+	fi
+
+# Move the m4 macros file into place if not already there
+# 2011.08.15: I [lb] think this is going to confuse developers
+#             if we default to production. Let's try the other.
+macros:
+	@if [[ ! -f "macros.m4" ]]; then             \
+	   echo "*** Using development m4 macros";   \
+	   cp -f macros_development.m4 macros.m4;    \
+	fi
+
+# Copy the build/ files to Windows space if this is that kind of machine.
+# This is so DEVS can use fdb, which is buggy under Linux.
+# SYNTAX: Don't forget the semi-colons after each line or you'll get:
+#         /bin/sh: -c: line 4: syntax error: unexpected end of file
+# FIXME: The hard-coded path to /win.... for checkin, make ccpv2_trunk...
+wincopy:
+	@if [[ -e "/win/Cycloplan/cp_2628/" ]]; then             \
+	   echo "*** Copying build files to Windows";            \
+	   rsync -t -a -z $(OUT_APP)/ /win/Cycloplan/cp_2628/;   \
+	fi
+#? rsync -t -a -z $(OUT_MOD)/ /win/Cycloplan/cp_2628/;
+
+# HACK: build the BUILD_ID files
+$(OUT_APP)/BUILD_ID.mxml: $(SRC_APP)
+	mkdir -m 2775 -p $(OUT_APP)
+	../scripts/util/build_id.pl --mxml > $(OUT_APP)/BUILD_ID.mxml
+	../scripts/util/build_id.pl --date > $(OUT_APP)/BUILD_DATE.mxml
+	../scripts/util/build_id.pl --python > ../pyserver/VERSION.py
+	chmod 664 ../pyserver/VERSION.py
+#
+$(OUT_MOD)/BUILD_ID.mxml: $(SRC_MOD)
+	mkdir -m 2775 -p $(OUT_MOD)
+	../scripts/util/build_id.pl --mxml > $(OUT_MOD)/BUILD_ID.mxml
+	../scripts/util/build_id.pl --date > $(OUT_MOD)/BUILD_DATE.mxml
+	../scripts/util/build_id.pl --python > ../pyserver/VERSION.py
+	chmod 664 ../pyserver/VERSION.py
+
+#%.swf: %.mxml
+#	rm -f $@
+#	$(MXMLC) $(MXMLC_ARGS) $<
+#	chmod 664 $@
+
+#$(OUT_APP)/main.swf: %.mxml
+#$(OUT_APP)/main.swf: $(OUT_SRC_APP)/%.mxml
+#$(OUT_APP)/main.swf: %.mxml
+#	@echo "==== main.swf/APP: '$@' | '$(@D)/$(@F)'"
+#main.swf: $(OUT_APP)/%.mxml
+#	echo "build-app-1: \$@: $@ | \$<: $<"
+main.swf: %.mxml
+	echo "build-app-1: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_APP) $<
+	chmod 664 $@
+#
+# This causes:
+#   make: *** No rule to make target `%.mxml', needed by `build/main.swf'.  Stop.
+#$(OUT_APP)/main.swf: %.mxml
+#	rm -f $@
+#	$(MXMLC) $(MXMLC_ARGS_APP) $<
+#	chmod 664 $@
+#	@echo "==== %.swf/APP: '$@' | '$(@D)/$(@F)'"
+#
+# This catches just build/main.swf:
+#	echo "build-app-2: \$@: $@ | \$<: $<"
+$(OUT_APP)/%.swf: %.mxml
+	echo "build-app-2: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_APP) $(OUT_APP)/$<
+	chmod 664 $@
+#
+#	echo "build-app-3: \$@: $@ | \$<: $<"
+$(OUT_APP)/%.swf: $(OUT_APP)/%.mxml
+	echo "build-app-3: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_APP) $<
+	chmod 664 $@
+
+#	echo "build-mod-1: \$@: $@ | \$<: $<"
+pdf_printer.swf: %.mxml
+	echo "build-mod-1: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_MOD) $<
+	chmod 664 $@
+#
+#	echo "build-mod-2: \$@: $@ | \$<: $<"
+$(OUT_MOD)/%.swf: %.mxml
+	echo "build-mod-2: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_MOD) $(OUT_MOD)/$<
+	chmod 664 $@
+#
+#	echo "build-mod-3: \$@: $@ | \$<: $<"
+$(OUT_MOD)/%.swf: $(OUT_MOD)/%.mxml
+	echo "build-mod-3: \$@: $@ | \$<: $<"
+	rm -f $@
+	$(MXMLC) $(MXMLC_ARGS_MOD) $<
+	chmod 664 $@
+
+# Checks if the suffix of the target is in M4_EXT; if it is, then the file is
+# run through m4, otherwise it is copied.
+#
+#	NOTE: OUT_APP excludes pdf_printer.mxml and OUT_MOD excludes main.mxml,
+#	      otherwise we get some peculiar Flex warnings (though the
+#	      executable still compiles).
+#
+# 2013.03.20: Ignore the condition when the .swf isn't the same as the target.
+#             For some reason, adding build-print causes this to happen now.
+#               ... && "$@" != "$(@D)/$(@F)" ...
+#
+# 2013.03.20: [lb] thought maybe we could ignore other modules' mxml files,
+#             because Flex outputs a bunch of warnings on main.mxml (but
+#             stills compiles). So, skipping:
+#	             ... @if [[ ! '$(OTHER_MXML_APP)' =~ '$(@F)' ]]; then ...
+#	             ... @if [[ ! '$(OTHER_MXML_MOD)' =~ '$(@F)' ]]; then ...
+#	           Here's the warning:
+#	             Warning: CSS type selectors are not supported in components:
+#
+# SYNC_ME: The next two target recipes and the same. CxPx. C.f. etc.
+#
+#	@echo "==== M4/APP: $$<: $<"
+#	@echo "==== M4/APP:   : $@"
+#	@echo "==== M4/APP:  D: $(@D)"
+#	@echo "==== M4/APP:  F: $(@F)"
+#	@if [[ '$(OTHER_MXML_APP)' =~ '$(@F)' ]]; then    					\
+#	  	false;																		\
+#	fi
+$(OUT_APP)/%: %
+	@if [[ '$(OTHER_BUILD_DIRS_APP)' =~ '$(@D)' ]]; then				\
+	  	false;																		\
+	fi
+	@mkdir -m 2775 -p $(@D)
+	@if [[ -n '$(findstring $(suffix $(@F)), .swf)'                \
+	       && "$@" != "$(@D)/$(@F)" ]]; then                       \
+	   echo "*** Found rogue app .swf file ($<) for $@ - please remove it!"; \
+	   false;                                                      \
+	fi
+	@if [[ -n '$(findstring $(suffix $(@F)), $(M4_EXT))' ]]; then  \
+	   echo "@m4 -> $@";                                           \
+	   m4 $(M4_ARGS) $< > $@;                                      \
+	elif [[ -z '$(findstring $(suffix $(@F)), .swf)' ]]; then      \
+	   echo "@cp -> $@";                                           \
+	   cp -p $< $@;                                                \
+	fi                                                             \
+#
+#	@echo "==== M4/MOD: $$<: $<"
+#	@echo "==== M4/MOD:  : $@"
+#	@echo "==== M4/MOD: D: $(@D)"
+#	@echo "==== M4/MOD: F: $(@F)"
+#	@echo "==== M4/MOD: suffix: $(suffix $(@F))"
+#	@echo "==== M4/MOD: basename: $(basename $(@F))"
+$(OUT_MOD)/%: %
+	@if [[ '$(OTHER_BUILD_DIRS_MOD)' =~ '$(@D)' ]]; then				\
+	  	false;																		\
+	fi
+	@mkdir -m 2775 -p $(@D)
+	@if [[ -n '$(findstring $(suffix $(@F)), .swf)'                \
+	       && "$@" != "$(@D)/$(@F)" ]]; then                       \
+	   echo "*** Found rogue app .swf file ($<) for $@ - please remove it!"; \
+	   false;                                                      \
+	fi
+	@if [[ -n '$(findstring $(suffix $(@F)), $(M4_EXT))' ]]; then  \
+	   echo "@m4 -> $@";                                           \
+	   m4 $(M4_ARGS) $< > $@;                                      \
+	elif [[ -z '$(findstring $(suffix $(@F)), .swf)' ]]; then      \
+	   echo "@cp -> $@";                                           \
+	   cp -p $< $@;                                                \
+	fi                                                             \
+

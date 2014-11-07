@@ -1,0 +1,616 @@
+" Vim Syntax file
+" Language:			ActionScript 3 Identifier
+" Maintainer:		WarGrey<juzhenliang@gmail.com>
+" Last Change:		Sat Jan 23 23:00:59 CST 2010
+
+
+
+highligh def link asClasses Type
+highligh asAIRClasses ctermfg=darkcyan guifg=darkcyan
+highligh def link asInterfaces Function
+highligh asAIRInterfaces ctermfg=darkblue guifg=darkblue
+highligh def link asFunctions Function
+highligh asAIRFunctions ctermfg=darkblue guifg=darkblue
+highligh def link asConstants Constant
+highligh asAIRConstants ctermfg=darkred guifg=darkred
+
+" Top Level
+syn keyword asFunctions Array Boolean decodeURI decodeURIComponent encodeURI encodeURIComponent escape int isFinite isNaN isXMLName Number Object parseFloat parseInt String trace uint unescape Vector XML XMLList
+syn keyword asClasses ArgumentError arguments Array Boolean Class Date DefinitionError Error EvalError Function int Math Namespace Number Object QName RangeError ReferenceError RegExp SecurityError String SyntaxError TypeError uint URIError Vector VerifyError XML XMLList
+syn keyword asConstants Infinity -Infinity NaN undefined
+
+" air.net
+syn keyword asAIRClasses ServiceMonitor SocketMonitor URLMonitor
+
+" air.update
+syn keyword asAIRClasses ApplicationUpdater ApplicationUpdaterUI
+
+" air.update.events
+syn keyword asAIRClasses DownloadErrorEvent StatusFileUpdateErrorEvent StatusFileUpdateEvent StatusUpdateErrorEvent StatusUpdateEvent UpdateEvent
+
+" com.adobe.fiber.runtime.lib
+syn keyword asClasses CollectionFunc ConversionFunc DateTimeFunc MathFunc StringFunc
+
+" com.adobe.fiber.services
+syn keyword asInterfaces IFiberManagingService IFiberService
+
+" com.adobe.fiber.services.wrapper
+syn keyword asClasses AbstractServiceWrapper DataServiceWrapper HTTPServiceWrapper RemoteObjectServiceWrapper WebServiceWrapper
+
+" com.adobe.fiber.styles
+syn keyword asInterfaces ILocalizeableMessage IStyle
+syn keyword asClasses LocalizeableMessage Style StyleValidator
+
+" com.adobe.fiber.util
+syn keyword asClasses FiberUtils
+
+" com.adobe.fiber.valueobjects
+syn keyword asInterfaces IModelInstance IModelType IPropertyIterator IValueObject
+syn keyword asClasses AbstractEntityMetadata AvailablePropertyIterator
+
+" com.adobe.viewsource
+syn keyword asClasses ViewSource
+
+" flash.accessibility
+syn keyword asClasses Accessibility AccessibilityImplementation AccessibilityProperties
+
+" flash.data
+syn keyword asAIRClasses EncryptedLocalStore SQLCollationType SQLColumnNameStyle SQLColumnSchema SQLConnection SQLIndexSchema SQLMode SQLResult SQLSchema SQLSchemaResult SQLStatement SQLTableSchema SQLTransactionLockType SQLTriggerSchema SQLViewSchema
+
+" flash.desktop
+syn keyword asAIRClasses DockIcon Icon InteractiveIcon InvokeEventReason NativeApplication NativeDragActions NativeDragManager NativeDragOptions NotificationType SystemTrayIcon Updater
+syn keyword asClasses Clipboard ClipboardFormats ClipboardTransferMode
+
+" flash.display
+syn keyword asInterfaces IBitmapDrawable IGraphicsData IGraphicsFill IGraphicsPath IGraphicsStroke
+syn keyword asAIRClasses FocusDirection NativeMenu NativeMenuItem NativeWindow NativeWindowDisplayState NativeWindowInitOptions NativeWindowResize NativeWindowSystemChrome NativeWindowType Screen
+syn keyword asClasses ActionScriptVersion AVM1Movie Bitmap BitmapData BitmapDataChannel BlendMode CapsStyle ColorCorrection ColorCorrectionSupport DisplayObject DisplayObjectContainer FrameLabel GradientType Graphics GraphicsBitmapFill GraphicsEndFill GraphicsGradientFill GraphicsPath GraphicsPathCommand GraphicsPathWinding GraphicsShaderFill GraphicsSolidFill GraphicsStroke GraphicsTrianglePath InteractiveObject InterpolationMethod JointStyle LineScaleMode Loader LoaderInfo MorphShape MovieClip PixelSnapping Scene Shader ShaderData ShaderInput ShaderJob ShaderParameter ShaderParameterType ShaderPrecision Shape SimpleButton SpreadMethod Sprite Stage StageAlign StageDisplayState StageQuality StageScaleMode SWFVersion TriangleCulling
+
+" flash.errors
+syn keyword asClasses EOFError IllegalOperationError InvalidSWFError IOError MemoryError ScriptTimeoutError StackOverflowError
+syn keyword asAIRClasses DRMManagerError SQLError SQLErrorOperation
+
+" flash.events
+syn keyword asInterfaces IEventDispatcher
+syn keyword asAIRClasses BrowserInvokeEvent DRMAuthenticateEvent DRMAuthenticationCompleteEvent DRMAuthenticationErrorEvent DRMErrorEvent DRMStatusEvent FileListEvent HTMLUncaughtScriptExceptionEvent InvokeEvent NativeDragEvent NativeWindowBoundsEvent NativeWindowDisplayStateEvent OutputProgressEvent ScreenMouseEvent SQLErrorEvent SQLEvent SQLUpdateEvent
+syn keyword asClasses ActivityEvent AsyncErrorEvent ContextMenuEvent DataEvent ErrorEvent Event EventDispatcher EventPhase FocusEvent FullScreenEvent HTTPStatusEvent IMEEvent IOErrorEvent KeyboardEvent MouseEvent NetStatusEvent ProgressEvent SampleDataEvent SecurityErrorEvent ShaderEvent StatusEvent SyncEvent TextEvent TimerEvent
+
+" flash.external
+syn keyword asClasses ExternalInterface
+
+" flash.filesystem
+syn keyword asAIRClasses File FileMode FileStream
+
+" flash.filters
+syn keyword asClasses BevelFilter BitmapFilter BitmapFilterQuality BitmapFilterType BlurFilter ColorMatrixFilter ConvolutionFilter DisplacementMapFilter DisplacementMapFilterMode DropShadowFilter GlowFilter GradientBevelFilter GradientGlowFilter ShaderFilter
+
+" flash.geom
+syn keyword asClasses ColorTransform Matrix Matrix3D Orientation3D PerspectiveProjection Point Rectangle Transform Utils3D Vector3D
+
+" flash.html
+syn keyword asAIRClasses HTMLHistoryItem HTMLHost HTMLLoader HTMLPDFCapability HTMLWindowCreateOptions
+
+" flash.media
+syn keyword asFunctions scanHardware
+syn keyword asClasses Camera ID3Info Microphone Sound SoundChannel SoundCodec SoundLoaderContext SoundMixer SoundTransform Video
+
+" flash.net
+syn keyword asFunctions getClassByAlias navigateToURL registerClassAlias sendToURL
+syn keyword asInterfaces IDynamicPropertyOutput IDynamicPropertyWriter
+syn keyword asAIRClasses URLRequestDefaults
+syn keyword asClasses FileFilter FileReference FileReferenceList LocalConnection NetConnection NetStream NetStreamInfo NetStreamPlayOptions NetStreamPlayTransitions ObjectEncoding Responder SharedObject SharedObjectFlushStatus Socket URLLoader URLLoaderDataFormat URLRequest URLRequestHeader URLRequestMethod URLStream URLVariables XMLSocket
+
+" flash.net.drm
+syn keyword asAIRClasses AuthenticationMethod DRMContentData DRMManager DRMPlaybackTimeWindow DRMVoucher LoadVoucherSetting
+
+" flash.printing
+syn keyword asClasses PrintJob PrintJobOptions PrintJobOrientation
+
+" flash.profiler
+syn keyword asFunctions showRedrawRegions
+
+" flash.sampler
+syn keyword asFunctions clearSamples getGetterInvocationCount getInvocationCount getMemberNames getSampleCount getSamples getSetterInvocationCount getSize isGetterSetter pauseSampling startSampling stopSampling
+syn keyword asClasses DeleteObjectSample NewObjectSample Sample StackFrame
+
+" flash.security
+syn keyword asAIRInterfaces IURIDereferencer
+syn keyword asAIRClasses ReferencesValidationSetting RevocationCheckSettings SignatureStatus SignerTrustSettings XMLSignatureValidator
+
+" flash.system
+syn keyword asFunctions fscommand
+syn keyword asClasses ApplicationDomain Capabilities IME IMEConversionMode JPEGLoaderContext LoaderContext Security SecurityDomain SecurityPanel System
+
+" flash.text
+syn keyword asClasses AntiAliasType CSMSettings Font FontStyle FontType GridFitType StaticText StyleSheet TextColorType TextDisplayMode TextExtent TextField TextFieldAutoSize TextFieldType TextFormat TextFormatAlign TextLineMetrics TextRenderer TextSnapshot
+
+" flash.text.engine
+syn keyword asClasses BreakOpportunity CFFHinting ContentElement DigitCase DigitWidth EastAsianJustifier ElementFormat FontDescription FontLookup FontMetrics FontPosture FontWeight GraphicElement GroupElement JustificationStyle Kerning LigatureLevel LineJustification RenderingMode SpaceJustifier TabAlignment TabStop TextBaseline TextBlock TextElement TextJustifier TextLine TextLineCreationResult TextLineMirrorRegion TextLineValidity TextRotation TypographicCase
+
+" flash.text.ime
+syn keyword asInterfaces IIMEClient
+syn keyword asClasses CompositionAttributeRange
+
+" flash.ui
+syn keyword asClasses ContextMenu ContextMenuBuiltInItems ContextMenuClipboardItems ContextMenuItem Keyboard KeyLocation Mouse MouseCursor
+
+" flash.utils
+syn keyword asFunctions clearInterval clearTimeout describeType escapeMultiByte getDefinitionByName getQualifiedClassName getQualifiedSuperclassName getTimer setInterval setTimeout unescapeMultiByte
+syn keyword asInterfaces IDataInput IDataOutput IExternalizable
+syn keyword asAIRClasses CompressionAlgorithm
+syn keyword asClasses ByteArray Dictionary Endian Proxy Timer
+
+" flash.xml
+syn keyword asClasses XMLDocument XMLNode XMLNodeType
+
+" flashx.textLayout
+syn keyword asClasses BuildInfo
+
+" flashx.textLayout.compose
+syn keyword asInterfaces IFlowComposer ISWFContext ITextLineCreator IVerticalJustificationLine
+syn keyword asClasses FlowComposerBase FlowDamageType StandardFlowComposer TextFlowLine TextFlowLineLocation TextLineRecycler
+
+" flashx.textLayout.container
+syn keyword asInterfaces ISandboxSupport
+syn keyword asClasses ColumnState ContainerController ScrollPolicy TextContainerManager
+
+" flashx.textLayout.conversion
+syn keyword asInterfaces ITextExporter ITextImporter
+syn keyword asClasses ConversionType PlainTextExporter TextConverter
+
+" flashx.textLayout.edit
+syn keyword asInterfaces IEditManager IInteractionEventHandler ISelectionManager
+syn keyword asClasses EditingMode EditManager ElementRange SelectionFormat SelectionManager SelectionState TextClipboard TextScrap
+
+" flashx.textLayout.elements
+syn keyword asInterfaces IConfiguration IFormatResolver
+syn keyword asClasses BreakElement Configuration ContainerFormattedElement DivElement FlowElement FlowGroupElement FlowLeafElement GlobalSettings InlineGraphicElement InlineGraphicElementStatus LinkElement LinkState OverflowPolicy ParagraphElement ParagraphFormattedElement SpanElement SpecialCharacterElement SubParagraphGroupElement TabElement TCYElement TextFlow TextRange
+
+" flashx.textLayout.events
+syn keyword asClasses CompositionCompleteEvent DamageEvent FlowElementMouseEvent FlowOperationEvent SelectionEvent StatusChangeEvent TextLayoutEvent UpdateCompleteEvent
+
+" flashx.textLayout.factory
+syn keyword asClasses StringTextLineFactory TextFlowTextLineFactory TextLineFactoryBase TruncationOptions
+
+" flashx.textLayout.formats
+syn keyword asInterfaces ITabStopFormat ITextLayoutFormat
+syn keyword asClasses BackgroundColor BaselineOffset BaselineShift BlockProgression Direction FormatValue IMEStatus JustificationRule LeadingModel LineBreak TabStopFormat TextAlign TextDecoration TextJustify TextLayoutFormat TLFTypographicCase VerticalAlign WhiteSpaceCollapse
+
+" flashx.textLayout.operations
+syn keyword asClasses ApplyElementIDOperation ApplyElementStyleNameOperation ApplyElementUserStyleOperation ApplyFormatOperation ApplyFormatToElementOperation ApplyLinkOperation ApplyTCYOperation ClearFormatOnElementOperation ClearFormatOperation CompositeOperation CopyOperation CutOperation DeleteTextOperation FlowElementOperation FlowOperation FlowTextOperation InsertInlineGraphicOperation InsertTextOperation ModifyInlineGraphicOperation PasteOperation RedoOperation SplitParagraphOperation UndoOperation
+
+" flashx.textLayout.utils
+syn keyword asClasses CharacterUtil NavigationUtil
+
+" flashx.undo
+syn keyword asInterfaces IOperation IUndoManager
+syn keyword asClasses UndoManager
+
+" mx.accessibility
+syn keyword asClasses AccConst AccImpl AccordionHeaderAccImpl AdvancedDataGridAccImpl AlertAccImpl ButtonAccImpl CheckBoxAccImpl ColorPickerAccImpl ComboBaseAccImpl ComboBoxAccImpl DataGridAccImpl DateChooserAccImpl DateFieldAccImpl LabelAccImpl LinkButtonAccImpl ListAccImpl ListBaseAccImpl MenuAccImpl MenuBarAccImpl PanelAccImpl RadioButtonAccImpl SliderAccImpl TabBarAccImpl TitleWindowAccImpl TreeAccImpl UIComponentAccProps
+
+" mx.automation
+syn keyword asInterfaces IAutomationClass IAutomationClass2 IAutomationEnvironment IAutomationEventDescriptor IAutomationManager IAutomationManager2 IAutomationMethodDescriptor IAutomationMouseSimulator IAutomationObject IAutomationObjectHelper IAutomationPropertyDescriptor IAutomationTabularData
+syn keyword asClasses Automation AutomationClass AutomationError AutomationEventDescriptor AutomationHelper AutomationID AutomationIDPart AutomationManager AutomationMethodDescriptor AutomationPropertyDescriptor
+
+" mx.automation.delegates.advancedDataGrid
+syn keyword asClasses AdvancedDataGridAutomationImpl AdvancedDataGridBaseExAutomationImpl AdvancedDataGridGroupItemRendererAutomationImpl AdvancedDataGridItemRendererAutomationImpl AdvancedListBaseAutomationImpl AdvancedListBaseContentHolderAutomationImpl OLAPDataGridAutomationImpl OLAPDataGridGroupRendererAutomationImpl
+
+" mx.automation.delegates.charts
+syn keyword asClasses AreaSeriesAutomationImpl AxisRendererAutomationImpl BarSeriesAutomationImpl BubbleSeriesAutomationImpl CartesianChartAutomationImpl ChartBaseAutomationImpl ColumnSeriesAutomationImpl HLOCSeriesBaseAutomationImpl LegendAutomationImpl LegendItemAutomationImpl LineSeriesAutomationImpl PieSeriesAutomationImpl PlotSeriesAutomationImpl SeriesAutomationImpl
+
+" mx.automation.delegates
+syn keyword asClasses DragManagerAutomationImpl TextFieldAutomationHelper
+
+" mx.automation.delegates.containers
+syn keyword asClasses AccordionAutomationImpl ApplicationAutomationImpl BoxAutomationImpl CanvasAutomationImpl DividedBoxAutomationImpl FormAutomationImpl FormItemAutomationImpl PanelAutomationImpl TabNavigatorAutomationImpl ViewStackAutomationImpl
+
+" mx.automation.delegates.controls
+syn keyword asClasses AlertAutomationImpl AlertFormAutomationImpl ButtonAutomationImpl ButtonBarAutomationImpl CheckBoxAutomationImpl ColorPickerAutomationImpl ComboBaseAutomationImpl ComboBoxAutomationImpl DataGridAutomationImpl DataGridItemRendererAutomationImpl DateChooserAutomationImpl DateFieldAutomationImpl LabelAutomationImpl LinkBarAutomationImpl ListAutomationImpl ListBaseAutomationImpl ListBaseContentHolderAutomationImpl ListItemRendererAutomationImpl MenuAutomationImpl MenuBarAutomationImpl MenuBarItemAutomationImpl MenuItemRendererAutomationImpl NavBarAutomationImpl NumericStepperAutomationImpl PopUpButtonAutomationImpl ProgressBarAutomationImpl RadioButtonAutomationImpl ScrollBarAutomationImpl SliderAutomationImpl SWFLoaderAutomationImpl TextAreaAutomationImpl TextInputAutomationImpl TileBaseAutomationImpl TileListItemRendererAutomationImpl ToggleButtonBarAutomationImpl ToolTipAutomationImpl TreeAutomationImpl TreeItemRendererAutomationImpl VideoDisplayAutomationImpl
+
+" mx.automation.delegates.core
+syn keyword asClasses ContainerAutomationImpl RepeaterAutomationImpl ScrollControlBaseAutomationImpl UIComponentAutomationImpl UITextFieldAutomationImpl
+
+" mx.automation.delegates.flashflexkit
+syn keyword asClasses ContainerMovieClipAutomationImpl FlexContentHolderAutomationImpl UIMovieClipAutomationImpl
+
+" mx.automation.events
+syn keyword asClasses AdvancedDataGridHeaderShiftEvent AdvancedDataGridItemSelectEvent AutomationAirEvent AutomationDragEvent AutomationDragEventWithPositionInfo AutomationEvent AutomationRecordEvent AutomationReplayEvent ChartSelectionChangeEvent EventDetails ListItemSelectEvent MarshalledAutomationEvent MenuShowEvent TextSelectionEvent
+
+" mx.binding
+syn keyword asInterfaces IBindingClient
+
+" mx.binding.utils
+syn keyword asClasses BindingUtils ChangeWatcher
+
+" mx.charts.chartClasses
+syn keyword asInterfaces IAxis IAxisRenderer IBar IChartElement IChartElement2 IColumn IDataCanvas IStackable IStackable2
+syn keyword asClasses AxisBase AxisLabelSet BoundedValue CartesianCanvasValue CartesianChart CartesianDataCanvas CartesianTransform ChartBase ChartElement ChartItemDragProxy ChartLabel ChartState DataDescription DataTip DataTransform DateRangeUtilities DualStyleObject GraphicsUtilities HLOCSeriesBase InstanceCache LegendData NumericAxis PolarChart PolarDataCanvas PolarTransform RenderData Series StackedSeries
+
+" mx.charts
+syn keyword asClasses AreaChart AxisLabel AxisRenderer BarChart BubbleChart CandlestickChart CategoryAxis ChartItem ColumnChart DateTimeAxis GridLines HitData HLOCChart Legend LegendItem LinearAxis LineChart LogAxis PieChart PlotChart
+
+" mx.charts.effects
+syn keyword asClasses SeriesEffect SeriesInterpolate SeriesSlide SeriesZoom
+
+" mx.charts.effects.effectClasses
+syn keyword asClasses SeriesEffectInstance SeriesInterpolateInstance SeriesSlideInstance SeriesZoomInstance
+
+" mx.charts.events
+syn keyword asClasses ChartEvent ChartItemEvent LegendMouseEvent
+
+" mx.charts.renderers
+syn keyword asClasses AreaRenderer BoxItemRenderer CandlestickItemRenderer CircleItemRenderer CrossItemRenderer DiamondItemRenderer HLOCItemRenderer LineRenderer ShadowBoxItemRenderer ShadowLineRenderer TriangleItemRenderer WedgeItemRenderer
+
+" mx.charts.series
+syn keyword asClasses AreaSeries AreaSet BarSeries BarSet BubbleSeries CandlestickSeries ColumnSeries ColumnSet HLOCSeries LineSeries PieSeries PlotSeries
+
+" mx.charts.series.items
+syn keyword asClasses AreaSeriesItem BarSeriesItem BubbleSeriesItem ColumnSeriesItem HLOCSeriesItem LineSeriesItem LineSeriesSegment PieSeriesItem PlotSeriesItem
+
+" mx.charts.series.renderData
+syn keyword asClasses AreaSeriesRenderData BarSeriesRenderData BubbleSeriesRenderData ColumnSeriesRenderData HLOCSeriesRenderData LineSeriesRenderData PieSeriesRenderData PlotSeriesRenderData
+
+" mx.charts.styles
+syn keyword asClasses HaloDefaults
+
+" mx.collections
+syn keyword asInterfaces ICollectionView IGroupingCollection IGroupingCollection2 IHierarchicalCollectionView IHierarchicalCollectionViewCursor IHierarchicalData IList ISummaryCalculator IViewCursor
+syn keyword asClasses ArrayCollection ArrayList AsyncListView CursorBookmark DefaultSummaryCalculator Grouping GroupingCollection GroupingCollection2 GroupingField HierarchicalCollectionView HierarchicalCollectionViewCursor HierarchicalData ItemResponder ListCollectionView Sort SortField SummaryField SummaryField2 SummaryObject SummaryRow XMLListCollection
+
+" mx.collections.errors
+syn keyword asClasses ChildItemPendingError CollectionViewError CursorError ItemPendingError SortError
+
+" mx.containers.accordionClasses
+syn keyword asClasses AccordionHeader
+
+" mx.containers
+syn keyword asClasses Accordion ApplicationControlBar Box BoxDirection Canvas ControlBar DividedBox Form FormHeading FormItem FormItemDirection Grid GridItem GridRow HBox HDividedBox Panel TabNavigator Tile TileDirection TitleWindow VBox VDividedBox ViewStack
+
+" mx.containers.dividedBoxClasses
+syn keyword asClasses BoxDivider
+
+" mx.containers.errors
+syn keyword asClasses ConstraintError
+
+" mx.containers.utilityClasses
+syn keyword asInterfaces IConstraintLayout
+syn keyword asClasses ConstraintColumn ConstraintRow PostScaleAdapter
+
+" mx.controls.advancedDataGridClasses
+syn keyword asInterfaces IAdvancedDataGridRendererProvider
+syn keyword asClasses AdvancedDataGridBase AdvancedDataGridBaseSelectionData AdvancedDataGridColumn AdvancedDataGridColumnGroup AdvancedDataGridDragProxy AdvancedDataGridGroupItemRenderer AdvancedDataGridHeaderInfo AdvancedDataGridHeaderRenderer AdvancedDataGridItemRenderer AdvancedDataGridListData AdvancedDataGridRendererDescription AdvancedDataGridRendererProvider AdvancedDataGridSortItemRenderer FTEAdvancedDataGridItemRenderer MXAdvancedDataGridItemRenderer SortInfo
+
+" mx.controls
+syn keyword asInterfaces IFlexContextMenu
+syn keyword asAIRClasses FileSystemComboBox FileSystemDataGrid FileSystemEnumerationMode FileSystemHistoryButton FileSystemList FileSystemSizeDisplayMode FileSystemTree FlexNativeMenu HTML
+syn keyword asClasses AdvancedDataGrid AdvancedDataGridBaseEx Alert Button ButtonBar ButtonLabelPlacement CheckBox ColorPicker ComboBase ComboBox DataGrid DateChooser DateField FormItemLabel HorizontalList HRule HScrollBar HSlider Image Label LinkBar LinkButton List Menu MenuBar MXFTETextInput NavBar NumericStepper OLAPDataGrid PopUpButton PopUpMenuButton ProgressBar ProgressBarDirection ProgressBarLabelPlacement ProgressBarMode RadioButton RadioButtonGroup RichTextEditor Spacer SWFLoader TabBar Text TextArea TextInput TileList ToggleButtonBar ToolTip Tree VideoDisplay VRule VScrollBar VSlider
+
+" mx.controls.dataGridClasses
+syn keyword asClasses DataGridBase DataGridColumn DataGridDragProxy DataGridHeader DataGridHeaderBase DataGridItemRenderer DataGridListData DataGridLockedRowContentHolder FTEDataGridItemRenderer MXDataGridItemRenderer
+
+" mx.controls.listClasses
+syn keyword asInterfaces IDropInListItemRenderer IListItemRenderer
+syn keyword asClasses AdvancedListBase BaseListData ListBase ListBaseContentHolder ListBaseSeekPending ListBaseSelectionData ListData ListItemDragProxy ListItemRenderer ListRowInfo MXItemRenderer TileBase TileBaseDirection TileListItemRenderer
+
+" mx.controls.menuClasses
+syn keyword asInterfaces IMenuBarItemRenderer IMenuDataDescriptor IMenuItemRenderer
+syn keyword asClasses MenuBarItem MenuItemRenderer MenuListData
+
+" mx.controls.olapDataGridClasses
+syn keyword asClasses OLAPDataGridGroupRenderer OLAPDataGridHeaderRendererProvider OLAPDataGridItemRendererProvider OLAPDataGridRendererProvider
+
+" mx.controls.scrollClasses
+syn keyword asClasses ScrollBar ScrollBarDirection ScrollThumb
+
+" mx.controls.sliderClasses
+syn keyword asClasses Slider SliderDataTip SliderDirection SliderLabel SliderThumb
+
+" mx.controls.textClasses
+syn keyword asClasses TextRange
+
+" mx.controls.treeClasses
+syn keyword asInterfaces ITreeDataDescriptor ITreeDataDescriptor2
+syn keyword asClasses DefaultDataDescriptor MXTreeItemRenderer TreeItemRenderer TreeListData
+
+" mx.controls.videoClasses
+syn keyword asClasses CuePointManager VideoError
+
+" mx.core
+syn keyword asInterfaces IBorder IButton IChildList IConstraintClient IContainer IDataRenderer IDeferredContentOwner IDeferredInstance IDeferredInstantiationUIComponent IFactory IFlexAsset IFlexDisplayObject IFlexModule IFlexModuleFactory IFontContextComponent IIMESupport IInvalidating ILayoutElement IMXMLObject INavigatorContent IProgrammaticSkin IPropertyChangeNotifier IRawChildrenContainer IRectangularBorder IRepeater IRepeaterClient ISelectableList IStateClient IStateClient2 ISWFBridgeGroup ISWFBridgeProvider ISWFLoader ITextInput IToggleButton IToolTip ITransientDeferredInstance IUIComponent IUID IUITextField IVisualElement IVisualElementContainer
+syn keyword asAIRInterfaces IWindow
+syn keyword asAIRClasses FlexHTMLLoader Window WindowedApplication
+syn keyword asClasses Application BitmapAsset ButtonAsset ByteArrayAsset ClassFactory ComponentDescriptor Container ContainerCreationPolicy ContainerLayout ContextualClassFactory DeferredInstanceFromClass DeferredInstanceFromFunction DesignLayer DragSource EdgeMetrics EventPriority FlexBitmap FlexGlobals FlexLoader FlexMovieClip FlexShape FlexSimpleButton FlexSprite FlexTextField FlexVersion FontAsset FTETextField LayoutContainer MovieClipAsset MovieClipLoaderAsset MXMLObjectAdapter Repeater ScrollControlBase ScrollPolicy SoundAsset SpriteAsset SWFBridgeGroup TextFieldAsset UIComponent UIComponentCachePolicy UIComponentDescriptor UIFTETextField UITextField UITextFormat
+
+" mx.core.windowClasses
+syn keyword asAIRClasses StatusBar TitleBar
+
+" mx.data
+syn keyword asInterfaces IAccessPrivileges IChangeObject IManaged IPagedList ITokenResponder
+syn keyword asClasses AccessPrivileges CacheDataDescriptor Conflict ConflictDetector Conflicts DataManager DataService DataServiceAdapter DataStore ItemReference ManagedAssociation ManagedObjectProxy ManagedOperation ManagedQuery ManualSyncConfiguration MessageBatch MessageCacheItem MessagingDataServiceAdapter PageInformation RPCDataManager RPCDataServiceAdapter UpdateCollectionRange
+
+" mx.data.errors
+syn keyword asClasses DataServiceError NoDataAvailableError UnresolvedConflictsError
+
+" mx.data.events
+syn keyword asClasses DataConflictEvent DataServiceFaultEvent DataServiceResultEvent UnresolvedConflictsEvent
+
+" mx.data.messages
+syn keyword asClasses DataErrorMessage DataMessage PagedMessage SequencedMessage UpdateCollectionMessage
+
+" mx.data.mxml
+syn keyword asClasses DataService
+
+" mx.data.utils
+syn keyword asClasses Managed
+
+" mx.effects
+syn keyword asInterfaces IAbstractEffect IEffect IEffectInstance IEffectTargetHost
+syn keyword asClasses AddChildAction AddItemAction AnimateProperty Blur CompositeEffect DefaultListEffect DefaultTileListEffect Dissolve Effect EffectInstance EffectManager EffectTargetFilter Fade Glow Iris MaskEffect Move Parallel Pause RemoveChildAction RemoveItemAction Resize Rotate Sequence SetPropertyAction SetStyleAction SoundEffect Tween TweenEffect UnconstrainItemAction WipeDown WipeLeft WipeRight WipeUp Zoom
+
+" mx.effects.easing
+syn keyword asClasses Back Bounce Circular Cubic Elastic Exponential Linear Quadratic Quartic Quintic Sine
+
+" mx.effects.effectClasses
+syn keyword asClasses ActionEffectInstance AddChildActionInstance AddItemActionInstance AddRemoveEffectTargetFilter AnimatePropertyInstance BlurInstance CompositeEffectInstance DissolveInstance FadeInstance GlowInstance HideShowEffectTargetFilter IrisInstance MaskEffectInstance MoveInstance ParallelInstance PauseInstance PropertyChanges RemoveChildActionInstance RemoveItemActionInstance ResizeInstance RotateInstance SequenceInstance SetPropertyActionInstance SetStyleActionInstance SoundEffectInstance TweenEffectInstance UnconstrainItemActionInstance WipeDownInstance WipeLeftInstance WipeRightInstance WipeUpInstance ZoomInstance
+
+" mx.events
+syn keyword asAIRClasses AIREvent FileEvent FlexNativeMenuEvent FlexNativeWindowBoundsEvent
+syn keyword asClasses AdvancedDataGridEvent AdvancedDataGridEventReason BrowserChangeEvent CalendarLayoutChangeEvent ChildExistenceChangedEvent CloseEvent CollectionEvent CollectionEventKind ColorPickerEvent CubeEvent CuePointEvent DataGridEvent DataGridEventReason DateChooserEvent DateChooserEventDetail DividerEvent DragEvent DropdownEvent DynamicEvent EffectEvent EventListenerRequest FlexEvent FlexMouseEvent FocusRequestDirection IndexChangedEvent InterDragManagerEvent InterManagerRequest InvalidateRequestData ItemClickEvent ListEvent ListEventReason MenuEvent MetadataEvent ModuleEvent MoveEvent NumericStepperEvent PropertyChangeEvent PropertyChangeEventKind Request ResizeEvent ResourceEvent RSLEvent SandboxMouseEvent ScrollEvent ScrollEventDetail ScrollEventDirection SliderEvent SliderEventClickTarget StateChangeEvent StyleEvent SWFBridgeEvent SWFBridgeRequest ToolTipEvent TreeEvent TweenEvent ValidationResultEvent VideoEvent
+
+" mx.filters
+syn keyword asInterfaces IBitmapFilter
+syn keyword asClasses BaseDimensionFilter BaseFilter
+
+" mx.flash
+syn keyword asClasses ContainerMovieClip UIMovieClip
+
+" mx.formatters
+syn keyword asClasses CurrencyFormatter DateBase DateFormatter Formatter NumberBase NumberBaseRoundType NumberFormatter PhoneFormatter SwitchSymbolFormatter ZipCodeFormatter
+
+" mx.geom
+syn keyword asClasses CompoundTransform RoundedRectangle Transform TransformOffsets
+
+" mx.graphics
+syn keyword asInterfaces IFill IStroke
+syn keyword asClasses BitmapFill BitmapFillMode GradientBase GradientEntry GradientStroke ImageSnapshot LinearGradient LinearGradientStroke RadialGradient RadialGradientStroke RectangularDropShadow SolidColor SolidColorStroke Stroke
+
+" mx.graphics.codec
+syn keyword asInterfaces IImageEncoder
+syn keyword asClasses JPEGEncoder PNGEncoder
+
+" mx.graphics.shaderClasses
+syn keyword asClasses ColorBurnShader ColorDodgeShader ColorShader ExclusionShader HueShader LuminosityMaskShader LuminosityShader SaturationShader SoftLightShader
+
+" mx.logging
+syn keyword asInterfaces ILogger ILoggingTarget
+syn keyword asClasses AbstractTarget Log LogEvent LogEventLevel LogLogger
+
+" mx.logging.errors
+syn keyword asClasses InvalidCategoryError InvalidFilterError
+
+" mx.logging.targets
+syn keyword asClasses LineFormattedTarget TraceTarget
+
+" mx.managers
+syn keyword asInterfaces IBrowserManager IFocusManager IFocusManagerComplexComponent IFocusManagerComponent IFocusManagerContainer IFocusManagerGroup IHistoryManagerClient ILayoutManager ILayoutManagerClient IMarshalSystemManager ISystemManager IToolTipManagerClient
+syn keyword asAIRClasses WindowedSystemManager
+syn keyword asClasses BrowserManager CursorManager CursorManagerPriority DragManager FocusManager HistoryManager LayoutManager PopUpManager PopUpManagerChildList SystemManager ToolTipManager
+
+" mx.messaging.channels
+syn keyword asClasses AMFChannel HTTPChannel NetConnectionChannel PollingChannel RTMPChannel SecureAMFChannel SecureHTTPChannel SecureRTMPChannel SecureStreamingAMFChannel SecureStreamingHTTPChannel StreamingAMFChannel StreamingConnectionHandler StreamingHTTPChannel
+
+" mx.messaging
+syn keyword asClasses AbstractConsumer AbstractProducer AdvancedChannelSet Channel ChannelSet Consumer FlexClient MessageAgent MessageResponder MultiTopicConsumer MultiTopicProducer Producer SubscriptionInfo
+
+" mx.messaging.config
+syn keyword asClasses ConfigMap ServerConfig
+
+" mx.messaging.errors
+syn keyword asClasses ChannelError InvalidChannelError InvalidDestinationError MessageSerializationError MessagingError NoChannelAvailableError
+
+" mx.messaging.events
+syn keyword asClasses ChannelEvent ChannelFaultEvent MessageAckEvent MessageEvent MessageFaultEvent
+
+" mx.messaging.management
+syn keyword asClasses Attribute MBeanAttributeInfo MBeanConstructorInfo MBeanFeatureInfo MBeanInfo MBeanOperationInfo MBeanParameterInfo ObjectInstance ObjectName
+
+" mx.messaging.messages
+syn keyword asInterfaces IMessage ISmallMessage
+syn keyword asClasses AbstractMessage AcknowledgeMessage AsyncMessage CommandMessage ErrorMessage HTTPRequestMessage MessagePerformanceUtils RemotingMessage SOAPMessage
+
+" mx.modules
+syn keyword asInterfaces IModule IModuleInfo
+syn keyword asClasses Module ModuleBase ModuleLoader ModuleManager
+
+" mx.netmon
+syn keyword asClasses NetworkMonitor
+
+" mx.olap.aggregators
+syn keyword asClasses AverageAggregator CountAggregator MaxAggregator MinAggregator SumAggregator
+
+" mx.olap
+syn keyword asInterfaces IOLAPAttribute IOLAPAxisPosition IOLAPCell IOLAPCube IOLAPCustomAggregator IOLAPDimension IOLAPElement IOLAPHierarchy IOLAPLevel IOLAPMember IOLAPQuery IOLAPQueryAxis IOLAPResult IOLAPResultAxis IOLAPSchema IOLAPSet IOLAPTuple
+syn keyword asClasses OLAPAttribute OLAPAxisPosition OLAPCell OLAPCube OLAPDimension OLAPElement OLAPHierarchy OLAPLevel OLAPMeasure OLAPMember OLAPQuery OLAPQueryAxis OLAPResult OLAPResultAxis OLAPSchema OLAPSet OLAPTrace OLAPTuple
+
+" mx.preloaders
+syn keyword asInterfaces IPreloaderDisplay
+syn keyword asClasses DownloadProgressBar Preloader SparkDownloadProgressBar
+
+" mx.printing
+syn keyword asClasses FlexPrintJob FlexPrintJobScaleType PrintAdvancedDataGrid PrintDataGrid PrintOLAPDataGrid
+
+" mx.resources
+syn keyword asInterfaces IResourceBundle IResourceManager
+syn keyword asClasses Locale ResourceBundle ResourceManager
+
+" mx.rpc
+syn keyword asInterfaces IResponder
+syn keyword asClasses AbstractInvoker AbstractOperation AbstractService AsyncRequest AsyncResponder AsyncToken CallResponder Fault Responder
+
+" mx.rpc.events
+syn keyword asClasses AbstractEvent FaultEvent HeaderEvent InvokeEvent ResultEvent WSDLLoadEvent XMLLoadEvent
+
+" mx.rpc.http
+syn keyword asClasses AbstractOperation HTTPMultiService HTTPService Operation SerializationFilter
+
+" mx.rpc.http.mxml
+syn keyword asClasses HTTPService
+
+" mx.rpc.livecycle
+syn keyword asClasses DocumentReference Fault FaultResponse JobId JobStatus
+
+" mx.rpc.mxml
+syn keyword asInterfaces IMXMLSupport
+syn keyword asClasses Concurrency
+
+" mx.rpc.remoting
+syn keyword asClasses Operation RemoteObject
+
+" mx.rpc.remoting.mxml
+syn keyword asClasses Operation RemoteObject
+
+" mx.rpc.soap
+syn keyword asInterfaces ISOAPEncoder
+syn keyword asClasses AbstractWebService LoadEvent Operation SOAPFault SOAPHeader WebService
+
+" mx.rpc.soap.mxml
+syn keyword asClasses Operation WebService
+
+" mx.rpc.wsdl
+syn keyword asClasses WSDLBinding
+
+" mx.rpc.xml
+syn keyword asInterfaces IXMLDecoder IXMLEncoder IXMLSchemaInstance
+syn keyword asClasses QualifiedResourceManager SchemaTypeRegistry SimpleXMLDecoder SimpleXMLEncoder
+
+" mx.skins
+syn keyword asClasses Border ProgrammaticSkin RectangularBorder
+
+" mx.skins.halo
+syn keyword asAIRClasses ApplicationTitleBarBackgroundSkin StatusBarBackgroundSkin WindowBackground WindowCloseButtonSkin WindowMaximizeButtonSkin WindowMinimizeButtonSkin WindowRestoreButtonSkin
+syn keyword asClasses AccordionHeaderSkin ActivatorSkin AdvancedDataGridHeaderHorizontalSeparator ApplicationBackground BrokenImageBorderSkin BusyCursor ButtonBarButtonSkin ButtonSkin CheckBoxIcon ColorPickerSkin ComboBoxArrowSkin DataGridColumnDropIndicator DataGridColumnResizeSkin DataGridHeaderBackgroundSkin DataGridHeaderSeparator DataGridSortArrow DateChooserIndicator DateChooserMonthArrowSkin DateChooserYearArrowSkin DefaultDragImage HaloBorder HaloColors HaloFocusRect LinkButtonSkin LinkSeparator ListDropIndicator MenuBarBackgroundSkin NumericStepperDownSkin NumericStepperUpSkin PanelSkin PopUpButtonSkin PopUpIcon PopUpMenuIcon ProgressBarSkin ProgressIndeterminateSkin ProgressMaskSkin ProgressTrackSkin RadioButtonIcon ScrollArrowSkin ScrollThumbSkin ScrollTrackSkin SliderHighlightSkin SliderThumbSkin SliderTrackSkin SwatchPanelSkin SwatchSkin TabSkin TitleBackground ToolTipBorder
+
+" mx.skins.spark
+syn keyword asClasses AccordionHeaderSkin BorderSkin ButtonBarFirstButtonSkin ButtonBarLastButtonSkin ButtonBarMiddleButtonSkin ButtonSkin CheckBoxSkin ColorPickerSkin ComboBoxSkin ContainerBorderSkin DataGridHeaderBackgroundSkin DataGridHeaderSeparatorSkin DataGridSortArrow DateChooserNextMonthSkin DateChooserNextYearSkin DateChooserPrevMonthSkin DateChooserPrevYearSkin DateChooserRollOverIndicatorSkin DateChooserSelectionIndicatorSkin DateChooserTodayIndicatorSkin DefaultButtonSkin EditableComboBoxSkin LinkButtonSkin MenuArrow MenuArrowDisabled MenuCheck MenuCheckDisabled MenuItemSkin MenuRadio MenuRadioDisabled MenuSeparatorSkin PanelBorderSkin PopUpButtonSkin ProgressBarSkin ProgressBarTrackSkin ProgressIndeterminateSkin ProgressMaskSkin RadioButtonSkin ScrollBarDownButtonSkin ScrollBarThumbSkin ScrollBarTrackSkin ScrollBarUpButtonSkin SliderThumbSkin SliderTrackHighlightSkin SliderTrackSkin SparkSkinForHalo StepperDecrButtonSkin StepperIncrButtonSkin TabSkin TextInputBorderSkin
+
+" mx.skins.wireframe
+syn keyword asClasses AccordionHeaderSkin BorderSkin ButtonBarFirstButtonSkin ButtonBarLastButtonSkin ButtonBarMiddleButtonSkin ButtonSkin CheckBoxSkin ColorPickerSkin ComboBoxSkin ContainerBorderSkin ControlBarSkin DataGridHeaderBackgroundSkin DataGridHeaderSeparatorSkin DataGridSortArrow DateChooserNextMonthSkin DateChooserNextYearSkin DateChooserPrevMonthSkin DateChooserPrevYearSkin DateChooserRollOverIndicatorSkin DateChooserSelectionIndicatorSkin DateChooserTodayIndicatorSkin DefaultButtonSkin DividerSkin DropDownSkin EditableComboBoxSkin EmphasizedButtonSkin LinkButtonSkin MenuArrow MenuArrowDisabled MenuBarItemSkin MenuBarSkin MenuCheck MenuCheckDisabled MenuRadio MenuRadioDisabled MenuSeparatorSkin MenuSkin PanelBorderSkin PopUpButtonSkin ProgressBarSkin ProgressBarTrackSkin ProgressIndeterminateSkin ProgressMaskSkin RadioButtonSkin ScrollBarDownButtonSkin ScrollBarThumbSkin ScrollBarTrackSkin ScrollBarUpButtonSkin SliderThumbSkin SliderTrackHighlightSkin SliderTrackSkin StepperDecrButtonSkin StepperIncrButtonSkin TabSkin TextAreaSkin TextInputSkin TitleWindowCloseButtonDownSkin TitleWindowCloseButtonOverSkin TitleWindowCloseButtonUpSkin ToolTipSkin WindowedApplicationSkin
+
+" mx.skins.wireframe.windowChrome
+syn keyword asClasses CloseButtonSkin MaximizeButtonSkin MinimizeButtonSkin RestoreButtonSkin StatusBarSkin TitleBarSkin
+
+" mx.states
+syn keyword asInterfaces IOverride
+syn keyword asClasses AddChild AddItems OverrideBase RemoveChild SetEventHandler SetProperty SetStyle State Transition
+
+" mx.styles
+syn keyword asInterfaces IAdvancedStyleClient ISimpleStyleClient IStyleClient IStyleManager IStyleManager2 IStyleModule
+syn keyword asClasses CSSCondition CSSConditionKind CSSSelector CSSStyleDeclaration StyleManager StyleProxy
+
+" mx.utils
+syn keyword asInterfaces IXMLNotifiable
+syn keyword asClasses ArrayUtil Base64Decoder Base64Encoder ColorUtil DisplayUtil GraphicsUtil HSBColor LoaderUtil NameUtil ObjectProxy ObjectUtil OnDemandEventDispatcher OrderedObject RPCObjectUtil RPCStringUtil RPCUIDUtil SecurityUtil SHA256 StringUtil UIDUtil URLUtil XMLNotifier XMLUtil
+
+" mx.validators
+syn keyword asInterfaces IValidatorListener
+syn keyword asClasses CreditCardValidator CreditCardValidatorCardType CurrencyValidator CurrencyValidatorAlignSymbol DateValidator EmailValidator NumberValidator NumberValidatorDomainType PhoneNumberValidator RegExpValidationResult RegExpValidator SocialSecurityValidator StringValidator ValidationResult Validator ZipCodeValidator ZipCodeValidatorDomainType
+
+" org.osmf.display
+syn keyword asClasses ScaleMode
+
+" org.osmf.events
+syn keyword asClasses LoadEvent MediaPlayerStateChangeEvent TimeEvent
+
+" org.osmf.layout
+syn keyword asClasses LayoutUtils
+
+" org.osmf.media
+syn keyword asClasses MediaPlayer MediaPlayerState
+
+" org.osmf.net
+syn keyword asClasses StreamType
+
+" spark.accessibility
+syn keyword asClasses ButtonBarBaseAccImpl ButtonBaseAccImpl CheckBoxAccImpl ComboBoxAccImpl DropDownListBaseAccImpl ListAccImpl ListBaseAccImpl NumericStepperAccImpl PanelAccImpl RadioButtonAccImpl RichEditableTextAccImpl SliderBaseAccImpl SpinnerAccImpl TabBarAccImpl TextBaseAccImpl TitleWindowAccImpl ToggleButtonAccImpl VideoPlayerAccImpl
+
+" spark.components
+syn keyword asInterfaces IItemRenderer IItemRendererOwner
+syn keyword asAIRClasses Window WindowedApplication
+syn keyword asClasses Application BorderContainer Button ButtonBar ButtonBarButton CheckBox ComboBox DataGroup DataRenderer DropDownList Group HGroup HScrollBar HSlider Label List NavigatorContent NumericStepper Panel PopUpAnchor PopUpPosition RadioButton RadioButtonGroup ResizeMode RichEditableText RichText Scroller SkinnableContainer SkinnableDataContainer Spinner TabBar TextArea TextInput TextSelectionHighlighting TileGroup TitleWindow ToggleButton VGroup VideoDisplay VideoPlayer VScrollBar VSlider
+
+" spark.components.mediaClasses
+syn keyword asClasses DynamicStreamingVideoItem DynamicStreamingVideoSource MuteButton ScrubBar VolumeBar
+
+" spark.components.supportClasses
+syn keyword asClasses ButtonBarBase ButtonBarHorizontalLayout ButtonBase DisplayLayer DropDownController DropDownListBase GroupBase ItemRenderer ListBase ListItemDragProxy OverlayDepth Range ScrollBarBase Skin SkinnableComponent SkinnableContainerBase SkinnableTextBase SliderBase TextBase ToggleButtonBase TrackBase
+
+" spark.components.windowClasses
+syn keyword asAIRClasses TitleBar
+
+" spark.core
+syn keyword asInterfaces IGraphicElement ISharedDisplayObject IViewport
+syn keyword asClasses DisplayObjectSharingMode MaskType NavigationUnit SpriteVisualElement
+
+" spark.effects.animation
+syn keyword asInterfaces IAnimationTarget
+syn keyword asClasses Animation Keyframe MotionPath RepeatBehavior SimpleMotionPath
+
+" spark.effects
+syn keyword asClasses AddAction Animate AnimateColor AnimateFilter AnimateTransform AnimateTransform3D AnimateTransitionShader CallAction CrossFade Fade Move Move3D RemoveAction Resize Rotate Rotate3D Scale Scale3D SetAction Wipe WipeDirection
+
+" spark.effects.easing
+syn keyword asInterfaces IEaser
+syn keyword asClasses Bounce EaseInOutBase EasingFraction Elastic Linear Power Sine
+
+" spark.effects.interpolation
+syn keyword asInterfaces IInterpolator
+syn keyword asClasses HSBInterpolator MultiValueInterpolator NumberInterpolator RGBInterpolator
+
+" spark.effects.supportClasses
+syn keyword asClasses AddActionInstance AnimateColorInstance AnimateFilterInstance AnimateInstance AnimateTransformInstance AnimateTransitionShaderInstance CallActionInstance FadeInstance RemoveActionInstance ResizeInstance SetActionInstance
+
+" spark.events
+syn keyword asClasses DropDownEvent ElementExistenceEvent IndexChangeEvent RendererExistenceEvent TextOperationEvent TitleWindowBoundsEvent TrackBaseEvent
+
+" spark.filters
+syn keyword asClasses BevelFilter BlurFilter ColorMatrixFilter ConvolutionFilter DisplacementMapFilter DropShadowFilter GlowFilter GradientBevelFilter GradientFilter GradientGlowFilter ShaderFilter
+
+" spark.layouts
+syn keyword asClasses BasicLayout ColumnAlign HorizontalAlign HorizontalLayout RowAlign TileLayout TileOrientation VerticalAlign VerticalLayout
+
+" spark.layouts.supportClasses
+syn keyword asClasses DropLocation LayoutBase
+
+" spark.primitives
+syn keyword asClasses BitmapImage Ellipse Graphic Line Path Rect RectangularDropShadow
+
+" spark.primitives.supportClasses
+syn keyword asClasses FilledElement GraphicElement StrokedElement
+
+" spark.skins
+syn keyword asClasses SparkSkin
+
+" spark.skins.spark
+syn keyword asClasses ApplicationSkin BorderContainerSkin ButtonBarFirstButtonSkin ButtonBarLastButtonSkin ButtonBarMiddleButtonSkin ButtonBarSkin ButtonSkin CheckBoxSkin ComboBoxButtonSkin ComboBoxSkin ComboBoxTextInputSkin DefaultButtonSkin DefaultComplexItemRenderer DefaultItemRenderer DropDownListButtonSkin DropDownListSkin ErrorSkin FocusSkin HighlightBitmapCaptureSkin HScrollBarSkin HScrollBarThumbSkin HScrollBarTrackSkin HSliderSkin HSliderThumbSkin HSliderTrackSkin ListDropIndicator ListSkin NumericStepperSkin NumericStepperTextInputSkin PanelSkin RadioButtonSkin ScrollBarDownButtonSkin ScrollBarLeftButtonSkin ScrollBarRightButtonSkin ScrollBarUpButtonSkin ScrollerSkin SkinnableContainerSkin SkinnableDataContainerSkin SpinnerDecrementButtonSkin SpinnerIncrementButtonSkin SpinnerSkin TabBarButtonSkin TabBarSkin TextAreaSkin TextInputSkin TitleWindowCloseButtonSkin TitleWindowSkin ToggleButtonSkin VideoPlayerSkin VScrollBarSkin VScrollBarThumbSkin VScrollBarTrackSkin VSliderSkin VSliderThumbSkin VSliderTrackSkin
+
+" spark.skins.spark.mediaClasses.fullScreen
+syn keyword asClasses FullScreenButtonSkin MuteButtonSkin PlayPauseButtonSkin ScrubBarSkin ScrubBarThumbSkin ScrubBarTrackSkin VolumeBarSkin VolumeBarThumbSkin VolumeBarTrackSkin
+
+" spark.skins.spark.mediaClasses.normal
+syn keyword asClasses FullScreenButtonSkin MuteButtonSkin PlayPauseButtonSkin ScrubBarSkin ScrubBarThumbSkin ScrubBarTrackSkin VolumeBarSkin VolumeBarThumbSkin VolumeBarTrackSkin
+
+" spark.skins.spark.windowChrome
+syn keyword asClasses CloseButtonSkin MacCloseButtonSkin MacMaximizeButtonSkin MacMinimizeButtonSkin MacTitleBarSkin MaximizeButtonSkin MinimizeButtonSkin RestoreButtonSkin TitleBarSkin
+
+" spark.skins.wireframe
+syn keyword asClasses ApplicationSkin ButtonBarFirstButtonSkin ButtonBarLastButtonSkin ButtonBarMiddleButtonSkin ButtonBarSkin ButtonSkin CheckBoxSkin ComboBoxButtonSkin ComboBoxSkin DefaultButtonSkin DropDownListButtonSkin DropDownListSkin HScrollBarSkin HScrollBarThumbSkin HScrollBarTrackSkin HSliderSkin HSliderThumbSkin HSliderTrackSkin ListSkin NumericStepperSkin NumericStepperTextInputSkin PanelSkin RadioButtonSkin ScrollBarDownButtonSkin ScrollBarLeftButtonSkin ScrollBarRightButtonSkin ScrollBarUpButtonSkin SpinnerDecrementButtonSkin SpinnerIncrementButtonSkin SpinnerSkin TabBarButtonSkin TabBarSkin TextAreaSkin TextInputSkin TitleWindowCloseButtonSkin TitleWindowSkin ToggleButtonSkin VideoPlayerSkin VScrollBarSkin VScrollBarThumbSkin VScrollBarTrackSkin VSliderSkin VSliderThumbSkin VSliderTrackSkin
+
+" spark.skins.wireframe.mediaClasses
+syn keyword asClasses FullScreenButtonSkin MuteButtonSkin PlayPauseButtonSkin ScrubBarSkin ScrubBarThumbSkin ScrubBarTrackSkin VolumeBarSkin VolumeBarThumbSkin VolumeBarTrackSkin
+
+" spark.skins.wireframe.mediaClasses.fullScreen
+syn keyword asClasses FullScreenButtonSkin
+
+" spark.utils
+syn keyword asClasses BitmapUtil LabelUtil TextFlowUtil

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: This should probably derive from Panel_Item_Geofeature, like
+            Panel_Item_Route does. -->
+<views_panel_items:Panel_Item_Versioned
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}">
+
+   <mx:Script><![CDATA[
+
+      // BUG nnnn: Implement tracks and track_points.
+
+      import items.feats.Track;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Track');
+
+      // *** Instance variables
+
+      protected var track:Track;
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Track Details';
+      }
+
+   ]]></mx:Script>
+
+</views_panel_items:Panel_Item_Versioned>
+

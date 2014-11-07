@@ -1,0 +1,6 @@
+// FIXME_2013_06_11
+// FIXME: Implement this control, or maybe just fix the generic text edit
+//        control that attributes use.
+//
+//        Though maybe Cycle Route is special, e.g., if we want user to be
+//        able to highlight all line segments in a route (like tag highlights).

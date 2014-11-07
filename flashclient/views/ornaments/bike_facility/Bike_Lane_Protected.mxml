@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="bike_facil"
+   attr_key_name="protect_ln"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_ProLane');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         // Per
+         // http://www.leg.wa.gov/CodeReviser/Documents/InstructionsOnStyle.pdf
+         // on-road is hyphenated.
+         //
+         // See: https://en.wikipedia.org/wiki
+         //       /Segregated_cycle_facilities#On_road:_cycle_track
+         //
+         var html_hint:String = (
+            'Also known as a Cycle Track, or Buffered Bike Lane, '
+            + 'a Protected Bike Lane is an exclusive, on-road '
+            + 'bicycle facility that is physically separated from motor '
+            + 'vehicle traffic. It is part of the road right-of-way, '
+            + 'and it is distinct from sidewalks and bike lanes. '
+            + '<a href="http://en.wikipedia.org/wiki/Segregated_cycle_facilities#On_road:_cycle_track>[Wikipedia]</a>'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

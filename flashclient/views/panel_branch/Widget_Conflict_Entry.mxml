@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import items.links.Branch_Conflict;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Cfx_Ety');
+
+      // *** Startup and Show methods
+
+      //
+      override protected function repopulate() :void
+      {
+m4_DEBUG('repopulate: this.parent:', this.parent); // Just curious...
+         super.repopulate();
+      }
+
+      // *** Instance methods
+
+      //
+      protected function toggle_entry(bc:Branch_Conflict) :void
+      {
+         m4_DEBUG('toggle_entry');
+      }
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         var bc:Branch_Conflict = (this.data as Branch_Conflict);
+         m4_DEBUG('on_data_change');
+      }
+
+      //
+      protected function on_click_select() :void
+      {
+         m4_DEBUG('on_click_select');
+      }
+
+      //
+      protected function on_click_details() :void
+      {
+         m4_DEBUG('on_click_details');
+      }
+
+      //
+      protected function on_click_lookat() :void
+      {
+         m4_DEBUG('on_click_lookat');
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="4"
+      dataChange="this.on_data_change(event);"
+      click="this.toggle_entry(this.data as Branch_Conflict);">
+
+      <mx:CheckBox
+         id="conflict_select_cbox"
+         height="18"
+         label=""
+         toolTip=""
+         click="this.on_click_select();" />
+
+      <mx:Label
+         width="100%"
+         minWidth="0"
+         text="{data.name_}"
+         toolTip="{data.name_}"
+         toolTipShown="this.on_entry_tooltip_shown();"/>
+
+      <views_panel_util:Button_Small
+         label="details"
+         height="16"
+         toolTip="Click to see details about the changes."
+         click="this.on_click_details();" />
+
+      <views_panel_util:Button_Small
+         label="lookat"
+         height="16"
+         toolTip="Click to see the items on the map."
+         click="this.on_click_lookat();" />
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

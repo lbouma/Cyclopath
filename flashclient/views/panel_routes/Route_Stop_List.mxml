@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2010 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   paddingLeft="4"
+   paddingTop="4"
+   paddingRight="4"
+   paddingBottom="4"
+   horizontalGap="0"
+   width="100%"
+   verticalAlign="middle"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.collections.ArrayList;
+      import mx.controls.listClasses.IListItemRenderer;
+      import mx.core.DragSource;
+      import mx.events.CollectionEvent;
+      import mx.events.DragEvent;
+      import mx.managers.DragManager;
+
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import utils.misc.Strutil;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Rt_Stop_L');
+
+      // *** Instance variables
+
+      protected var route:Route;
+      protected var dest_rstops:Array;
+
+      // *** Instance methods
+
+      //
+      protected function drag_accept(event:DragEvent) :void
+      {
+         if (event.dragSource.hasFormat('route_stop')) {
+            m4_TALKY2('drag_accept: accepting drag:',
+                      Strutil.class_name_tail(String(event.target)));
+            DragManager.acceptDragDrop(this.grid_rstops);
+            event.preventDefault();
+         }
+         else {
+            m4_TALKY2('drag_accept: rejecting drag:',
+                      Strutil.class_name_tail(String(event.target)));
+         }
+      }
+
+      //
+      protected function drag_over(event:DragEvent) :void
+      {
+         // Yikes. This slows down the mouse: m4_VERBOSE('drag_over');
+         this.grid_rstops.showDropFeedback(event);
+         event.preventDefault();
+      }
+
+      //
+      protected function drag_drop(event:DragEvent) :void
+      {
+         var dests:ArrayList = new ArrayList(this.dest_rstops);
+         m4_TALKY('drag_drop: no. dests:', dests.length);
+
+         var drag_stop:Route_Stop =
+            (event.dragSource.dataForFormat('route_stop') as Route_Stop);
+         m4_TALKY('drag_drop: drag_stop:', drag_stop);
+
+         var new_list_index:int;
+         var old_list_index:int;
+
+         new_list_index = this.grid_rstops.calculateDropIndex(event);
+         old_list_index = dests.getItemIndex(drag_stop);
+         m4_TALKY2('drag_drop/1: new_list_index:', new_list_index,
+                   '/ old_list_index:', old_list_index);
+
+         event.preventDefault();
+         this.grid_rstops.hideDropFeedback(event);
+
+         if (new_list_index != old_list_index) {
+
+            if (old_list_index < new_list_index) {
+               // The list index is one too many because it includes the
+               // dragged entry in the count.
+               new_list_index--;
+            }
+
+            // Adjust the route list widget.
+            dests.removeItemAt(old_list_index);
+            dests.addItemAt(drag_stop, new_list_index);
+            this.grid_rstops.dataProvider = dests.source;
+
+            this.reorder_route_stop(drag_stop, old_list_index, new_list_index);
+         }
+      }
+
+      //
+      protected function reorder_route_stop(drag_stop:Route_Stop,
+                                            old_list_index:int,
+                                            new_list_index:int) :void
+      {
+         // In CcpV1, we'd delete all unnamed, "non-destination" route stops.
+         // But, with my [lb]'s user hat on, that behavior iterates me. Let's
+         // play nice and find a good spot for the moved stop.
+
+         var rearranged:Array = new Array();
+         var important_index:int = -1;
+         var last_stop:Route_Stop = null;
+         var dirty_next_stop:Boolean = false;
+
+         m4_TALKY('reorder_rs: edit_stops.len:', this.route.edit_stops.length);
+
+         for (var i:int = 0; i < this.route.edit_stops.length; i++) {
+
+            var rt_stop:Route_Stop = (this.route.edit_stops[i] as Route_Stop);
+
+            if (rt_stop !== drag_stop) {
+               // If the last stop was the moved stop's old or new index,
+               // we need to mark the stop that follows it as dirty.
+               if (dirty_next_stop) {
+                  m4_TALKY('reorder_rs: dirty_next_stop: i:', i, '/', rt_stop);
+                  // The last stop was the dragged stop's old or new location,
+                  // so the route stops on either side are dirty. The is the
+                  // route stop following the dragged stop's old or new locat.
+                  rt_stop.dirty_stop = true;
+                  // This does feel weird -- bumping version -- because the
+                  // route stop itself didn't change (like, x,y is the same),
+                  // only the segments between this stop and the one before it.
+                  // But this is how CcpV1 does it and [lb] doesn't want to
+                  // try new things quite yet...
+                  m4_TALKY('reorder_rs: bump vers: rt_stop:', rt_stop);
+                  rt_stop.stop_version += 1;
+                  dirty_next_stop = false;
+               }
+
+               // "Worthy" route stops are shown in the route list.
+               if (rt_stop.is_stop_worthy) {
+
+                  important_index += 1;
+
+                  if (important_index == new_list_index) {
+                     // This is the position at which to inject the stop.
+                     if (drag_stop.is_stop_valid) {
+                        drag_stop.dirty_stop = true;
+                        m4_TALKY('reorder_rs: bump vers: drag_stop:', rt_stop);
+                        drag_stop.stop_version += 1;
+                     }
+                     rearranged.push(drag_stop);
+                     if (last_stop !== null) {
+                        m4_TALKY3('reorder_rs: important_i:', important_index,
+                                  '/ i:', i, '/ last_stop:', last_stop,
+                                  '/', rt_stop);
+                        // Mark the stop dirty so the route command knows
+                        // where the first dirty segment starts.
+                        //
+                        // MAYBE: Check last_stop.is_valid?? Do we care?
+                        last_stop.dirty_stop = true;
+                        // Maybe also bump the version ([lb] not too sure how
+                        // version is used; I know it's just a client value,
+                        // used by the route stop command, I think, to help
+                        // with do_, redo and undo; the old code always bumped
+                        // the version when marking a stop dirty, so might as
+                        // well do that here, too...
+                        m4_TALKY('reorder_rs: bump vers: last/1:', last_stop);
+                        last_stop.stop_version += 1;
+                     }
+                     else {
+                        m4_TALKY2('reorder_rs: important_i:', important_index,
+                                  '/ i:', i, '/ !last_stop /', rt_stop);
+                        m4_ASSERT_SOFT(important_index == 0);
+                     }
+                     dirty_next_stop = true;
+                  }
+                  else {
+                     // else, not the target index we're after.
+                     m4_TALKY2('reorder_rs: important_index:', important_index,
+                               '/ i:', i, '/', rt_stop);
+                  }
+
+               }
+               else {
+                  // else, not a "worthy" stop, so not indexable.
+                  m4_TALKY('reorder_rs: !stop_worthy / i:', i, '/', rt_stop);
+               }
+
+               rearranged.push(rt_stop);
+               last_stop = rt_stop;
+            }
+            else {
+               // This is rt_stop === drag_stop, which is the one being moved.
+               // We've moved this stop, so the ones before it and after it
+               // are dirty, since their segments are now different.
+               m4_TALKY('reorder_rs: at old index / i:', i, '/', rt_stop);
+               if (last_stop !== null) {
+                  last_stop.dirty_stop = true;
+                  m4_TALKY('reorder_rs: bump vers: last_stop/2:', last_stop);
+                  last_stop.stop_version += 1;
+               }
+               dirty_next_stop = true;
+            }
+         }
+
+         m4_TALKY('reorder_rs: rearranged.len:', rearranged.length);
+         this.route.edit_stops_set(rearranged);
+
+         Route_Editor_UI.notify_stop_changed(rt_stop);
+      }
+
+      //
+      protected function focus_rstop(index:int) :void
+      {
+         m4_VERBOSE('focus_rstop: index:', index);
+         var entry:Route_Stop_Entry;
+         entry = (this.grid_rstops.indexToItemRenderer(index)
+                  as Route_Stop_Entry);
+         if (entry !== null) {
+            entry.address_label.setFocus();
+         }
+      }
+
+      //
+      protected function on_added_renderer_maybe(event:Event) :void
+      {
+         //m4_VERBOSE('on_added_renderer_maybe: ev.target:', ev.target);
+         var renderer:Route_Stop_Entry = (event.target as Route_Stop_Entry);
+         if (renderer !== null) {
+            m4_VERBOSE('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Route_Stop_Entry can also use its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+
+         //m4_DEBUG('on_added_renderer_maybe: this.height:', this.height);
+         //m4_DEBUG2('on_added_renderer_maybe: grid_rstops.h:',
+         //          this.grid_rstops.height);
+      }
+
+      //
+      public function resize_stop_list() :void
+      {
+         m4_DEBUG('resize_stop_list: this.height.1:', this.height);
+         var initial_height:int = this.height;
+         var total_height:int = 0;
+         var num_renderers:int = 0;
+         num_renderers = this.grid_rstops.dataProvider.length;
+         //m4_DEBUG('resize_stop_list: this.height:', this.height);
+         //m4_DEBUG2('resize_stop_list: grid_rstops.h:',
+         //          this.grid_rstops.height);
+         //m4_DEBUG2('resize_stop_list: this.paddingTop:',
+         //          this.getStyle('paddingTop'));
+         //m4_DEBUG2('resize_stop_list: this.paddingBottom:',
+         //          this.getStyle('paddingBottom'));
+         //m4_DEBUG2('resize_stop_list: grid_rstops.paddingTop:',
+         //          this.grid_rstops.getStyle('paddingTop'));
+         //m4_DEBUG2('resize_stop_list: grid_rstops.paddingBottom:',
+         //          this.grid_rstops.getStyle('paddingBottom'));
+         //m4_DEBUG2('resize_stop_list: grid_rstops.verticalGap:',
+         //          this.grid_rstops.getStyle('verticalGap'));
+         //m4_DEBUG2('resize_stop_list: grid_rstops.leading:',
+         //          this.grid_rstops.getStyle('leading'));
+         //m4_DEBUG('resize_stop_list: num_renderers:', num_renderers);
+         for (var idex:int = 0; idex < num_renderers; idex++) {
+            var item:IListItemRenderer;
+            item = this.grid_rstops.indexToItemRenderer(idex);
+            if (item !== null) {
+               var entry:Route_Stop_Entry = (item as Route_Stop_Entry);
+               //m4_DEBUG('resize_stop_list: entry.height:', entry.height);
+               //m4_DEBUG2('resize_stop_list: entry_enclosure.height:',
+               //          entry.entry_enclosure.height);
+               //m4_DEBUG2('resize_stop_list: entry.paddingTop:',
+               //          entry.getStyle('paddingTop'));
+               //m4_DEBUG2('resize_stop_list: entry.paddingBottom:',
+               //          entry.getStyle('paddingBottom'));
+               total_height += entry.height;
+               total_height += entry.getStyle('paddingTop');
+               total_height += entry.getStyle('paddingBottom');
+               if ((idex + 1) == num_renderers) {
+                  // We show an extra row...
+                  //total_height += Route_Stop_Entry.Route_Stop_Entry_Height;
+                  total_height += entry.entry_enclosure.height;
+               }
+               total_height += this.grid_rstops.getStyle('verticalGap')
+            }
+            // else, called via show_addy_resolver before entries ready.
+         }
+         if (total_height > 0) {
+            //m4_DEBUG('resize_stop_list: total_height/1:', total_height);
+            this.grid_rstops.height = total_height;
+            //this.grid_rstops.rowCount =  Math.max(2,
+            //   this.grid_rstops.dataProvider.length + 1);
+
+            total_height += this.getStyle('paddingTop');
+            total_height += this.getStyle('paddingBottom');
+            //m4_DEBUG('resize_stop_list: total_height/2:', total_height);
+            this.height = total_height;
+         }
+         // else, called via show_addy_resolver before entries ready.
+         if (initial_height != this.height) {
+            m4_DEBUG('resize_stop_list: this.height.2:', this.height);
+            this.grid_rstops.dataProvider.dispatchEvent(
+               new CollectionEvent(CollectionEvent.COLLECTION_CHANGE));
+         }
+      }
+
+      //
+      public function update(rt:Route) :void
+      {
+         this.dest_rstops = new Array();
+         for each (var rstop:Route_Stop in rt.edit_stops) {
+            if (rstop.is_stop_worthy) {
+               this.dest_rstops.push(rstop);
+            }
+         }
+
+         m4_DEBUG3('update: dest_rstops.len:', this.dest_rstops.length,
+                     '/ rt:', rt.toString(),
+                     '/ rt.edit_stops.length:', rt.edit_stops.length);
+
+         this.grid_rstops.rowCount = this.dest_rstops.length;
+         this.grid_rstops.dataProvider = this.dest_rstops;
+         this.route = rt;
+
+         if (Route_Editor_UI.new_stop !== null) {
+            // Scroll the new route_stop into view, and make it focused.
+            var new_i:int = this.dest_rstops.indexOf(Route_Editor_UI.new_stop);
+            // validateNow() is required for scrollToIndex() to work.
+            this.grid_rstops.validateNow();
+            this.grid_rstops.scrollToIndex(new_i);
+            m4_DEBUG_CLLL('>callLater: update: this.focus_rstop');
+            this.callLater(this.focus_rstop, [new_i,]);
+         }
+      }
+
+   ]]></mx:Script>
+
+   <!-- BUG nnnn: 2013.09.21: [lb] is seeing the entries scroll up one when
+        adding route destinations. This might be like the Text_Mousewheelless
+        problem, where the list scrolls by one sometimes (although in this
+        case, I'm not using the mouse wheel). So add one to the rowCount. -->
+   <mx:DataGrid
+      id="grid_rstops"
+      width="100%"
+      minHeight="0"
+      rowCount="{Math.max(2, this.grid_rstops.dataProvider.length + 1)}"
+      borderStyle="solid"
+      borderColor="0xFFFFFF"
+      sortableColumns="false"
+      draggableColumns="false"
+      selectedIndex="-1"
+      showHeaders="false"
+      headerHeight="0"
+      dragEnter="this.drag_accept(event);"
+      dragDrop="this.drag_drop(event);"
+      dragOver="this.drag_over(event);"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      borderThickness="0"
+      selectable="false"
+      allowMultipleSelection="false"
+      alternatingItemColors="[#FFFFFF, #FFFFFF]"
+      added="this.on_added_renderer_maybe(event);"
+
+      variableRowHeight="true"
+      >
+      <!--
+      rowHeight="30"
+
+      MAYBE: Can you drag route stop entries to different postitions?
+      allowDragSelection="false"
+
+      # This causes runtime error:
+      # "Property rowIndex not found on String and there is no default value."
+      editedItemPosition="null"
+
+      Route reactions set the rowCount to a minimum of 4...
+      rowCount="{Math.min(4, this.dataProvider.length)}"
+      verticalScrollPolicy="on"
+
+      MAYBE: [lb] was fiddling with editable and selectable so rows don't get
+             highlighted if you cannot edit the route. But these don't do much.
+      editable="false"
+      selectable="false"
+      -->
+
+      <mx:columns>
+
+         <mx:DataGridColumn
+            itemRenderer="views.panel_routes.Route_Stop_Entry"/>
+
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

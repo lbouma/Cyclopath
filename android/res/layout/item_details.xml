@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<ScrollView
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content">
+<LinearLayout
+  android:orientation="vertical"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content">
+  
+  <!-- Header -->
+  
+  <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+      <ImageButton android:id="@+id/edit_btn"
+                   android:src="@android:drawable/ic_menu_edit"
+                   android:layout_height="50dp"
+                   android:layout_width="50dp"
+                   android:layout_alignParentRight="true"
+                   android:layout_alignParentTop="true"
+                   android:layout_marginTop="5dp"
+                   android:contentDescription="@string/item_details_edit" />
+      <TextView android:id="@+id/item_details_title"
+                android:layout_width="fill_parent"
+                android:layout_height="wrap_content"
+                android:textSize="30sp"
+                android:textColor="#FFFFFF"
+                android:layout_toLeftOf="@+id/edit_btn"
+                android:text=""
+                android:focusable="true"
+                android:focusableInTouchMode="true" />
+  </RelativeLayout>
+  <EditText android:id="@+id/item_name"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/item_name_hint"
+            android:text=""
+            android:visibility="gone"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="5dp" />
+
+  <!-- Misc Section (e.g. track length and duration) -->
+  
+  <LinearLayout
+            android:id="@+id/item_misc"
+            android:orientation="vertical"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
+  
+  <!-- Ratings Section -->
+  
+  <TextView android:id="@+id/item_rating_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/item_details_ratings"
+            android:visibility="gone"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:layout_marginTop="10dp"/>
+  <RatingBar
+      android:id="@+id/item_rating"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:numStars="5"
+      android:stepSize="1"
+      android:visibility="gone"
+      android:layout_gravity="center_horizontal" />
+  <TextView android:id="@+id/item_rating_description"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:visibility="gone"
+            android:layout_gravity="center_horizontal"
+            android:textSize="15sp"/>
+  <TextView android:id="@+id/item_rating_estimated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:visibility="gone"
+            android:layout_gravity="center_horizontal"
+            android:textSize="15sp"/>
+
+  <!-- Tags Section -->
+  
+  <LinearLayout
+            android:id="@+id/item_tags_group"
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content">
+  <TextView android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/item_details_tags"
+            android:textSize="20sp"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="10dp" />
+  <TextView android:id="@+id/item_tags_text"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/item_details_loading"
+            android:layout_marginLeft="5dp"
+            android:textStyle="italic"
+            android:textSize="15sp" />
+  
+  <LinearLayout
+            android:id="@+id/item_tags_list"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginLeft="5dp"
+            android:layout_marginRight="5dp" />
+  <RelativeLayout
+            android:id="@+id/item_tags_new"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
+    <Button android:id="@+id/tag_edit_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_marginRight="5dp"
+            android:text="@string/item_add_tag"/>
+   <AutoCompleteTextView android:text=""
+             android:id="@+id/tag_edit"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+             android:hint="@string/item_add_tag_hint"
+             android:layout_toLeftOf="@+id/tag_edit_btn"
+             android:layout_marginLeft="5dp"/>
+  </RelativeLayout>
+  </LinearLayout>
+  
+  <!-- Notes Section -->
+  
+  <TextView android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/item_details_notes"
+            android:textSize="20sp"
+            android:textColor="#FFFFFF"
+            android:layout_marginTop="10dp" />
+  <TextView android:id="@+id/item_notes_text"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:textStyle="italic"
+            android:text="@string/item_details_loading"
+            android:layout_marginLeft="5dp"
+            android:textSize="15sp" />
+  <LinearLayout android:id="@+id/item_notes_list"
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"/>
+  <RelativeLayout
+            android:id="@+id/item_notes_new"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
+    <Button android:id="@+id/note_edit_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:layout_marginRight="5dp"
+            android:text="@string/item_add_note"/>
+   <EditText android:text=""
+             android:inputType="textMultiLine"
+             android:minLines="3"
+             android:gravity="top|left"
+             android:id="@+id/note_edit"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+             android:hint="@string/item_add_note_hint"
+             android:layout_toLeftOf="@+id/note_edit_btn"
+             android:layout_marginLeft="5dp"/>
+  </RelativeLayout>
+
+  <!-- Others Section -->
+  <LinearLayout
+    android:id="@+id/bottom_btns"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone">
+    <View
+      android:layout_width="fill_parent"
+      android:layout_height="1dp"
+      android:background="@android:color/darker_gray"
+      android:layout_marginTop="3dp"
+      android:layout_marginBottom="6dp"/>
+    <LinearLayout
+      android:orientation="horizontal"
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center">
+	   <Button
+	     android:id="@+id/discard_btn"
+	     android:layout_width="wrap_content"
+	     android:layout_height="wrap_content"
+	     android:text="@string/track_editor_discard"
+	     android:minWidth="150dp" />
+	   <Button
+	     android:id="@+id/save_btn"
+	     android:layout_width="wrap_content"
+	     android:layout_height="wrap_content"
+	     android:text="@string/track_editor_save"
+	     android:minWidth="150dp" />
+    </LinearLayout>
+  </LinearLayout>
+  
+</LinearLayout>
+</ScrollView>

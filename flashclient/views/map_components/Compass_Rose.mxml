@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- CcpV2: This widget is no longer used. It's eigth arrow buttons that users
+            can press to pan the map. But it's not an obvious control (it's
+            hard to tell what it does by looking at it) and it doesn't seem
+            extremely useful, anyway. -->
+
+<mx:Canvas
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns="*"
+   width="{compass_size}"
+   height="{compass_size}">
+
+   <mx:Script><![CDATA[
+
+      // *** Instance variables
+
+      public var pointiness:Number = 0.80;
+      [Bindable] public var big_len:Number = 20;
+      [Bindable] public var big_wid:Number = big_len * pointiness;
+      [Bindable] public var small_len:Number = 13;
+      [Bindable] public var small_wid:Number = small_len * pointiness;
+      [Bindable] public var big_offset:Number = big_len + 2;
+      [Bindable] public var small_offset:Number = small_len + 6;
+      [Bindable] public var compass_size:Number = 2 * big_offset + big_len;
+      protected var sma:Number = Conf.pan_step_small;
+      protected var big:Number = Conf.pan_step_large;
+
+   ]]></mx:Script>
+
+   <!-- Diagonal arrows -->
+   <utils_misc:Arrow_Button
+      horizontalCenter="{-small_offset}"
+      verticalCenter="{-small_offset}"
+      height="{small_len}"
+      width="{small_wid}"
+      rotation="-45"
+      click="G.map.pan_frac(sma, sma);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="{small_offset}"
+      verticalCenter="{-small_offset}"
+      height="{small_len}"
+      width="{small_wid}"
+      rotation="45"
+      click="G.map.pan_frac(-sma, sma);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="{small_offset}"
+      verticalCenter="{small_offset}"
+      height="{small_len}"
+      width="{small_wid}"
+      rotation="135"
+      click="G.map.pan_frac(-sma, -sma);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="{-small_offset}"
+      verticalCenter="{small_offset}"
+      height="{small_len}"
+      width="{small_wid}"
+      rotation="-135"
+      click="G.map.pan_frac(sma, -sma);"/>
+
+   <!-- Cardinal arrows -->
+   <utils_misc:Arrow_Button
+      horizontalCenter="0"
+      verticalCenter="{-big_offset}"
+      height="{big_len}"
+      width="{big_wid}"
+      rotation="0"
+      click="G.map.pan_frac(0, sma);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="{big_offset}"
+      verticalCenter="0"
+      height="{big_len}"
+      width="{big_wid}"
+      rotation="90"
+      click="G.map.pan_frac(-sma, 0);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="0"
+      verticalCenter="{big_offset}"
+      height="{big_len}"
+      width="{big_wid}"
+      rotation="180"
+      click="G.map.pan_frac(0, -sma);"/>
+   <utils_misc:Arrow_Button
+      horizontalCenter="{-big_offset}"
+      verticalCenter="0"
+      height="{big_len}"
+      width="{big_wid}"
+      rotation="-90"
+      click="G.map.pan_frac(sma, 0);"/>
+
+   <!-- center -->
+   <!--
+   <Circle
+      horizontalCenter="0"
+      verticalCenter="0"
+      height="{2*big_offset/1.414}"
+      width="{2*big_offset/1.414}" />
+   -->
+
+</mx:Canvas>
+

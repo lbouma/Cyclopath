@@ -1,0 +1,16 @@
+This file documents Cyclopath security procedures. It is not secret, but it is
+placed here in the codebase and not on the wiki as defense-in-depth.
+
+
+Password Management and Log-In
+------------------------------
+
+The goal here is to be approximately as secure as MediaWiki, as the same
+usernames and passwords travel through there. As in MW, we transfer passwords
+in the clear on login, but subsequent requests are authenticated using an
+opaque token. All data is transferred using plain HTTP, no SSL.
+
+The token consists of the MD5 hash of concatenation of the hashed
+password/salt plus several other items hopefully unique to the particular
+client (e.g. IP address, user agent). The goal is to make it difficult to take
+someone's token and use it to authenticate from somewhere else.

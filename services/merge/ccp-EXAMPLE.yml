@@ -1,0 +1,107 @@
+
+
+FIXME: Delete this file
+
+
+# Cyclopath Import Config.
+
+# SYNC_ME: We use a shim class to object-ify this Yaml. Without the object, we
+# access attributes using nested dictionaries. But I am not a big fan of 
+# dicts within dicts. E.g., would you rather write, 
+#   conf['source_def']['roadmatcher']['shpf_name']
+# or,
+#   conf.source_def.roadmatcher.shpf_name
+# ?
+!!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Base
+
+# NOTE: WGS84 is similar to NAD83 (that is, within a meter around Mpls) so if 
+# your projection looks good in Arc but is not quite right, check the project.
+# And maybe some day we'll support different projections. For now this _must_
+# be NAD83.
+source_srs: NAD83
+
+# *** Cyclopath context.
+
+ccp_src:
+
+   !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+
+   # The revision ID of the original Cyclopath data.
+   revision_id: 14124
+
+   # Original export context.
+   #branch: Public
+   #branch: 0
+   branch: "Minnesota"
+
+ccp_dst:
+
+   !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+
+   # 
+   commit_message_prefix: Metc Bikeways Import
+
+   # The branch (name or id) or branch_id (id) of the destination branch.
+   # Metc Bikeways 2011 - Test 01
+   #branch_id: 2401776
+   branch: "Metc Bikeways 2012"
+
+   # The group (name or id) or group_id (id) of the target group.
+   # 2388691 Public (939250 records)
+   # 2397396 _user_anon_minnesota (0 records)
+   # 2396780 landonb (202 records)
+   # I'm not convinced about this.
+   #group_id: 2388691
+   # FIXME: Make 'Public' a magic/reserved word? Like _prefixes?
+   #group: Public
+   permissions:
+      # I thought about doing permissions for item types. I.e., editor access
+      # to byways and attribute link values, and client access to attributes. 
+      # But that seems unnececssarily complicated.
+      #- !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      #  group       : "Metc Bikeways 2011 - Test 01"
+      #  access_level: editor
+      #- !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      #  group       : Public
+      #  access_level: viewer
+      - !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+        group       : Public
+        access_level: editor
+
+# *** Shapefile details.
+
+import_type: roadmr
+
+shapefs: 
+
+   # These two shapefs are used if the import_type is roadmatcher.
+
+   roadmr:
+      !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      shpf_name: Export_Output.shp
+      shpf_layr: Export_Output
+      fname_origin: Origin
+      origin_vals_cyclop:
+         - Cyclopath
+      origin_vals_agency:
+         - Bikeways
+         - bikeways
+
+   agency:
+      !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      shpf_name: Bikeways.shp
+      shpf_layr: Bikeways
+      # FIXME: OBJECTID applies to RoadMatcher shpf.
+
+   # This source is used if import_type is cyclopath.
+
+   cyclop:
+      !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      shpf_name: 
+      shpf_layr: 
+
+   target:
+      !!python/object:merge.ccp_merge_conf.Ccp_Merge_Conf_Shim
+      shpf_name: bikeways_target.shp
+      shpf_layr: 
+

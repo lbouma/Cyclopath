@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Versioned
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import items.Attachment;
+      import items.Geofeature;
+      import items.Item_Versioned;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Attc');
+
+      // *** Instance variables
+
+      protected var attachment_:Attachment;
+
+      // Dictionaries maintaining collections of link-geofeatures added/removed
+      // when in the place attachment "lock" mode. These are added/removed from
+      // the map when exiting from the lock mode so while in the lock mode,
+      // UI.attachment_highlights_update() uses these collections to ensure
+      // that the correct features are [de-]highlighted.
+      public var link_gfs_added_predirty:Dictionary = new Dictionary();
+      public var link_gfs_removed_predirty:Dictionary = new Dictionary();
+
+      // *** Getters and setters
+
+      //
+      public function get attachment() :Attachment
+      {
+         return this.attachment_;
+      }
+
+      //
+      public function set attachment(attachment:Attachment) :void
+      {
+         this.attachment_ = attachment;
+         if (this.attachment_ !== null) {
+            this.items_selected = new Set_UUID([this.attachment_,]);
+         }
+         else {
+            this.items_selected = null;
+         }
+      }
+
+      // *** Base class overrides
+
+      //
+      override protected function delete_alert_handler(event:CloseEvent) :void
+      {
+         super.delete_alert_handler(event);
+         if (event.detail == Alert.OK) {
+            // If an Attachment was deleted, redraw the items on the map,
+            // possibly removing the Attachment-exist highlight.
+            // FIXME: Do other Attachments need something similar?
+            //        What about when One-Way changes?
+            G.map.selectedset_redraw();
+         }
+      }
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_preinitialize');
+         super.on_preinitialize(ev);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         // Not calling: this.change_state(this.panel_base_state);
+         // The Panel_Item_Versioned class set this.panel_default_state.
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+//         m4_DEBUG('repopulate: this.attc:', this.attc);
+//         m4_ASSERT(this.attc === G.item_mgr.active_attachment);
+         super.repopulate();
+         m4_DEBUG('repopulate: apanel:', this);
+      }
+
+      // *** More base class overrides
+
+      //
+      override protected function get on_delete_click_warning() :String
+      {
+         var item_type:String;
+         var the_warning:String;
+
+// FIXME: Should this be moved to Panel_Item_Annotation or does this also apply
+//        to threads/posts and attributes??
+//        PROBABLY: do diff warning for attr
+//
+         // NOTE Assuming homogenous array of Objects
+         the_warning = 'This '
+            + this.attc.friendly_name.toLowerCase()
+            + ' will be removed from all map items to which it applies.'
+            + ' Are you sure?';
+         m4_DEBUG('on_delete_click_warning: ' + the_warning);
+         return the_warning;
+      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_DEBUG('on_enter_state_base');
+         super.on_enter_state_base();
+         // Tell the widgets whose their daddy/mommy/parentty.
+         // this.register_widgets([]);
+      }
+
+      //
+      override public function on_panel_hide() :void
+      {
+         super.on_panel_hide();
+
+         m4_DEBUG('on_panel_hide');
+
+//         //? m4_ASSERT(this.attc === G.item_mgr.active_attachment);
+//         m4_DEBUG('on_panel_hide: this.attc:', this.attc);
+//         m4_DEBUG(' .. active_attachment:', G.item_mgr.active_attachment);
+//
+//         m4_ASSERT(this.attc !== null);
+//
+//         this.attc.set_selected(false);
+//???:
+         // Setting the attachment not selected also clears some item_mgr vars:
+         //  G.item_mgr.active_attachment.set_selected(false);
+         //  G.item_mgr.lock_active_attachment = false;
+
+         UI.attachment_highlights_update();
+         G.map.highlight_manager.set_layer_visible(
+            Conf.attachment_highlight, false);
+         G.map.highlight_manager.set_layer_visible(
+            Conf.attachment_hover_highlight, false);
+      }
+
+      //
+      override public function on_panel_show() :void
+      {
+         super.on_panel_show();
+
+         m4_INFO('on_panel_show');
+
+         G.map.highlight_manager.set_layer_visible(
+            Conf.attachment_highlight, true);
+         G.map.highlight_manager.set_layer_visible(
+            Conf.attachment_hover_highlight, true);
+         UI.attachment_highlights_update();
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get attc() :Attachment
+      {
+         m4_ASSERT(false);
+         return null;
+      }
+
+      //
+      public function set attc(at:Attachment) :void
+      {
+         m4_ASSERT(false);
+      }
+
+      // *** Base class overrides
+
+      //
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         m4_ASSERT(false); // Not used.
+         return false; // Attachment panels show attachments, not feats.
+      }
+
+      // ***
+
+      // These are for Annotation, Post and Thread panels that all use the
+      // same widget, Widget_Attachment_Place_Box.
+
+      //
+      public function predirty_reset() :void
+      {
+         this.link_gfs_added_predirty = new Dictionary();
+         this.link_gfs_removed_predirty = new Dictionary();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+<!-- This is a dummy Array for the default state, since derived states don't
+     tend to define them (unlike the Geofeature panel, which has a default
+     child component, the Attachment panel doesn't start with any components.
+     Failure to define these will result in
+      ArgumentError: Undefined state 'state_base'.
+      ...\frameworks\projects\framework\src\mx\core\UIComponent.as|7330|
+         mx.core::UIComponent/getState()
+     -->
+   <views_panel_items:states>
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+      </mx:State>
+      <mx:State
+         name="{this.panel_default_state}"
+         basedOn="{this.panel_base_state}"
+         enterState="this.on_enter_state_default();"
+         >
+      </mx:State>
+   </views_panel_items:states>
+
+</views_panel_items:Panel_Item_Versioned>
+

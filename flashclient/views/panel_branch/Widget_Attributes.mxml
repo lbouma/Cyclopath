@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import items.attcs.Attribute;
+      import items.utils.Item_Type;
+      import utils.misc.Logging;
+      import views.commands.Attribute_Create;
+      import views.panel_base.Detail_Panel_Base;
+
+// 20111230: FIXME:
+// 1. (2013.03.25: FIXED): attr management list does not resize when i try to
+//    make panels narrower.
+// 2. delete button is super silly and out of place now --
+//    how does it fit into the new design?
+//    consider byway panel with also has the merge blocks button
+//  maybe delete button belongs on groups panel?
+// 6. FIXME: rename all "blocks" to "streets" or "roads"..... or "paths"??
+// 3. double click to edit attribute, also arrow keys like on maps panel
+//
+// 4. get rid of edit selected attribute and edit buttons and make each of the
+// items a hyperlink?
+//
+// 5. BUG nnnn: My new attrs table isn't good enough. Should be compact. No
+// scroll bar. Less explanation. Maybe make a switch button? Let users choose
+// their view? Could bikeability and tags be made into simple controls in the
+// attrs list so one doesn't have to switch back to basic tab?
+//
+// 8. can you make the tags widget use less space with small, square buttons
+// with little or no space between them? or maybe there are not many multi-
+// tagged items so just make sure the tag widget scrolls and has a max height.
+
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Br_Adv');
+
+      // *** Startup handlers
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         G.item_mgr.addEventListener('attributesLoaded',
+                                     this.on_attributes_loaded);
+      }
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         this.register_widgets([
+            this.attribute_list,
+            ]);
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_attributes_loaded(ev:Event) :void
+      {
+         // Update the attribute list
+         this.attribute_list.update();
+         // Update geofeatures that visualize attributes.
+         // FIXME: For now, just updating everything.
+         m4_DEBUG('on_attributes_loaded: geofeatures_redraw');
+         G.map.geofeatures_redraw();
+      }
+
+      //
+      // Similar: Widget_Field/Widget_Attributes: on_click_attribute_new.
+      protected function on_click_attribute_new() :void
+      {
+         var done:Boolean = false;
+         // Create a new Attribute
+         var attr:Attribute = new Attribute();
+         // Create a command to do/undo adding the attribute to the system
+         // NOTE The new Attribute is just that: new. We can fiddle with it all
+         //      we want until we call do_().
+         attr.name_ = 'My New Attribute';
+         attr.value_type = 'integer'; // FIXME Magic string
+         attr.applies_to_type_id = Item_Type.GEOFEATURE; // or, all feat types
+         var cmd:Attribute_Create = new Attribute_Create(attr);
+         G.map.cm.do_(cmd);
+         // The attr(s) being created are considered hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         this.attribute_list.update();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- C.f. Groups tab... make a widget for the double-outlined
+   <    box. -->
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="0"
+      paddingTop="-4"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="3"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Branch Attributes"/>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      styleName="optgroupLbDblOuter"
+      >
+      <mx:VBox
+         width="100%"
+         height="100%"
+         styleName="optgroupLbDblInner"
+         verticalGap="2"
+         >
+
+         <mx:VBox
+            width="100%"
+            paddingRight="3"
+            verticalGap="0">
+            <mx:Label
+               text="Manage Attributes"
+               fontWeight="bold"
+               paddingBottom="-2"
+               />
+            <mx:Text
+               leading="0"
+               condenseWhite="true"
+               mouseEnabled="false"
+               mouseChildren="false"
+               width="100%"
+               >
+               <mx:htmlText><![CDATA[
+            Items on the map have attributes. Define them here.
+               ]]></mx:htmlText>
+            </mx:Text>
+         </mx:VBox>
+
+         <mx:HBox
+            width="100%"
+            height="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            >
+            <views_panel_branch:Widget_Attribute_List
+               id="attribute_list"
+               height="100%"
+               />
+         </mx:HBox>
+
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            paddingLeft="0"
+            paddingRight="0"
+            horizontalAlign="left"
+            >
+            <mx:Spacer
+               width="100%"/>
+            <views_panel_util:Hyper_Link
+               id="widget_attribute_add"
+               htmlText="Create a new attribute"
+               toolTip=
+            "Click to create a new attribute that you can apply to items."
+               styleName="labelminor"
+               visible="true"
+               includeInLayout="{this.widget_attribute_add.visible}"
+               click="this.on_click_attribute_new();" />
+         </mx:HBox>
+
+      </mx:VBox>
+   </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

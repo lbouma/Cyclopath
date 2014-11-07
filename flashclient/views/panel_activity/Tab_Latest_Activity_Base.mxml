@@ -1,0 +1,781 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   horizontalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+
+      import gwis.utils.Query_Filters;
+      import items.Geofeature;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.AutoComplete;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.panel_items.Panel_Item_Versioned;
+      import views.panel_util.Filter_Combobo_Widget;
+      import views.panel_util.Paginator_Widget;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('+Lat_Act_Bas');
+
+      // MAGIC_NUMBER: See get_filter_by_definitions.
+      public static const filter_by_selected_item_index:int = 9;
+      public static const filter_by_revision_id_index:int = 12;
+
+      // *** Instace variables
+
+      public var qfs:Query_Filters = new Query_Filters();
+
+      // HACK: Derived classes must set this to their combobobox widget. We do
+      // it this way rather than defining the combobobox in this file, because
+      // if we did that, derived classes would be forced to use state changes
+      // to add visual elements to themselves... and [lb] is lazy today.
+      public var filter_by_widget:Filter_Combobo_Widget;
+
+      protected var filter_by_selected_item_dirty:Boolean = false;
+
+      // ***
+
+      //
+      protected function on_click_filter_by_widget(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click_filter_by_widget: ev:', ev);
+         // Because on_click_panel calls this.stage.focus = null.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_click_panel(ev:MouseEvent) :void
+      {
+         m4_DEBUG2('on_click_panel:',
+                   Strutil.class_name_tail(String(ev.target)));
+
+         this.stage.focus = null;
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+         m4_ASSERT(this.filter_by_widget !== null);
+      }
+
+      //
+      protected function on_g_initialized_event(event:Event=null) :void
+      {
+         if (G.initialized) {
+            m4_DEBUG('on_g_initd_evt: addEvntLstnr: itemsSelectedChanged');
+            G.map.addEventListener('itemsSelectedChanged',
+                                   this.on_items_selected_changed);
+         }
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         // We can't setup the dropdown until G.user is set.
+         // Too early: this.set_filter_by_data_provider();
+
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+
+         m4_DEBUG('on_initialize: addEventListener: regionsLoaded');
+         G.item_mgr.addEventListener('regionsLoaded',
+                                     this.on_regions_loaded);
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange', this.on_branch_change);
+
+         m4_DEBUG('on_initialize: addEventListener: g_initialized_event');
+         G.app.addEventListener('g_initialized_event',
+                                this.on_g_initialized_event);
+
+         this.addEventListener(MouseEvent.CLICK, this.on_click_panel);
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_remove_event');
+         super.on_remove_event(ev);
+         G.item_mgr.removeEventListener('regionsLoaded',
+                                 this.on_regions_loaded);
+         G.app.removeEventListener('user_event_change', this.on_user_change);
+         G.app.removeEventListener('branchChange', this.on_branch_change);
+      }
+
+      //
+      protected function on_items_selected_changed(event:Event=null) :void
+      {
+         m4_DEBUG2('on_items_selectd_chgd: filter_by_selected_item_dirty=true',
+                   '/ itemsSelectedChanged');
+         // Mark the panel dirty, so the next time it shows, if the
+         // show-what's-selected option is active, we'll refresh the list.
+         this.filter_by_selected_item_dirty = true;
+         G.panel_mgr.panels_mark_dirty([this,]);
+      }
+
+      // ***
+
+      //
+      public function on_branch_change(event:Event) :void
+      {
+         m4_DEBUG('on_branch_change');
+         this.fetch_list(/*update_paginator_count=*/true);
+      }
+
+      //
+      protected function on_regions_loaded(event:Event) :void
+      {
+         m4_DEBUG('on_regions_loaded');
+         this.filter_by_widget.set_ac_dp(G.map.regions_list);
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_user_change');
+         this.set_filter_by_data_provider();
+      }
+
+      // ***
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate');
+
+         if ((this.filter_by_widget.filter_by_combo.dataProvider === null)
+             || (this.filter_by_widget.filter_by_combo.dataProvider.length
+                 == 0)) {
+            m4_DEBUG2('repopulate: filter_by_combo.dataProvider:',
+                      this.filter_by_widget.filter_by_combo.dataProvider);
+            this.set_filter_by_data_provider();
+         }
+
+         if (this.filter_by_selected_item_dirty) {
+            m4_DEBUG('repopulate: filter_by_selected_item_dirty=false');
+            this.filter_by_selected_item_dirty = false;
+            m4_DEBUG2('repopulate: this.filter_by_widget.selectedId:',
+                      this.filter_by_widget.selectedId);
+            if (this.filter_by_widget.selectedId
+                == Tab_Latest_Activity_Base.filter_by_selected_item_index) {
+               this.filter_by_widget.on_combo_change();
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function get_filter_by_data_provider(
+         subject_plural:String='',
+         subject_abbrev:String='') :ArrayCollection
+      {
+         m4_DEBUG('get_filter_by_data_provider:', subject_plural);
+         var dp:Array;
+         dp = this.get_filter_by_definitions(subject_plural, subject_abbrev);
+         // m4_DEBUG(' .. get_filter_by_definitions.length:', dp.length);
+         var filtered_defs:ArrayCollection = new ArrayCollection();
+         for each (var obj:Object in dp) {
+            // m4_DEBUG(' .. label:', obj.label);
+            if ((obj.include_check === null)
+                || (obj.include_check())) {
+               filtered_defs.addItem(obj);
+            }
+         }
+         // m4_DEBUG(' .. filtered_defs.length:', filtered_defs.length);
+         return filtered_defs;
+      }
+
+      //
+      protected function get_filter_by_definitions(
+         subject_plural:String='',
+         subject_abbrev:String='') :Array
+      {
+         var combo_defs:Array = new Array();
+         combo_defs = [
+            // MAYBE: Is 'id' really necessary? It makes rearranging the list
+            //        tediouser.
+            { id: 1,
+               // E.g., "Show all recent changes"
+               label: "Show all " + subject_plural,
+               widget: null, input_label:'', focus: null,
+               include_check: null,
+               callback: this.on_filter_show_all },
+            { id: 2,
+               // E.g., "Search user discussions"
+               // E.g., "Filter by containing text"
+               // [mm] suggests:
+               //  label: 'Filter by containing text',
+               //  but [lb] thinks 'filter by containing' sounds funny
+               label: "Search " + subject_plural,
+               widget: TextInput, input_label: '', focus: null,
+               include_check: this.get_filter_okay_text_search,
+               callback: this.on_filter_text_search },
+            // For Discussions panels.
+            { id: 3,
+               // E.g., "Show reactions I have not read"
+               label: "Show " + subject_abbrev + " I have not read",
+               widget: null, input_label:'', focus: null,
+               include_check: this.get_filter_okay_items_unread,
+               callback: this.on_filter_items_unread },
+            //
+            { id: 4,
+               // E.g., "Show discussions that I'm watching"
+               label: "Show " + subject_abbrev + " that I'm watching",
+               widget: null, input_label:'', focus: null,
+               include_check: this.get_filter_okay_item_watchers,
+               callback: this.on_filter_item_watchers },
+            { id: 5,
+               // label: "Show " + subject_abbrev
+               //        + " in a particular region",
+               label: "Filter by a particular region",
+               widget: AutoComplete, input_label: 'Region:',
+               focus: this.on_region_focus,
+               include_check: null,
+               callback: this.on_filter_regions_named },
+
+            // BUG_JUL_2014: [lb] sees Pageinator say "1-20 of 3 revisions"
+            //               so obviously count is not being loaded.
+            //               Also, same problem with "Search by item ID"
+            //               Item IDs: 4096222 says 1 revision but there
+            //               are twenty in the list. Oh, I created 4096222
+            //               as a new byway and saved it in test database,
+            //               and the revision matches are no where near it.
+            { id: 6,
+               // label: "Show " + subject_abbrev
+               //        + " in regions I'm watching",
+               label: "Filter by regions I'm watching",
+               widget: null, input_label:'', focus: null,
+               include_check: this.get_filter_okay_regions_watched,
+               callback: this.on_filter_regions_watched },
+
+
+// BUG_FALL_2013
+// BUG nnnn: The discussion filters aren't showing the correct total number of
+//           results (paginator problem).
+
+// BUG_FALL_2013
+// FIXME: Is this broken?
+// BUG nnnn: Implement filtering by other items a user
+//           is watching, since users can watch any item
+//           in the system.
+            { id: 7,
+               // label: "Show " + subject_abbrev
+               //        + " in other items I'm watching",
+               label: "Filter by other items I'm watching",
+               widget: null, input_label:'', focus: null,
+               include_check: this.get_filter_okay_others_watched,
+               callback: this.on_filter_others_watched },
+
+            //
+            { id: 8,
+               // label: "Show " + subject_abbrev
+               //        + " about visible items",
+               label: "Filter by what's visible on the map",
+               widget: null, input_label:'', focus: null,
+               include_check: null,
+               callback: this.on_filter_viewport },
+            // This is _the_lamest_ filter of all.
+            // (Actually, this is used when linking from Geofeature details
+            //  panel to list of discussions about selected map items....)
+            //
+            // BUG nnnn: When you switch the map selection (open or close
+            //           panels; select things on the map) the discussion
+            //           list doesn't always automatically update (it's
+            //           pretty good, but still not perfect; just a few
+            //           corner cases remain).
+            { id: Tab_Latest_Activity_Base.filter_by_selected_item_index,
+               // label: "Show " + subject_abbrev
+               //        // + " about selected map items",
+               //        + " about items selected on the map",
+               //        // + " about selected items on the map",
+               label: "Filter by what's selected on the map",
+               widget: null, input_label:'', focus: null,
+               include_check: null,
+               callback: this.on_filter_items_selected },
+            // For Discussions panels.
+            { id: 10,
+               // label: "Show " + subject_abbrev
+               //        // + " about items near my edits",
+               //        // + " about items near where I've edited",
+               //        + " near where I've edited",
+               label: "Filter by where I've edited",
+               widget: null, input_label:'', focus: null,
+               include_check: this.get_filter_okay_near_map_edits,
+               callback: this.on_filter_near_my_edits },
+            // For Recent Changes panel.
+            { id: 11,
+               // label: "Show changes made by a specific user",
+               label: "Filter by a specific user",
+               widget: TextInput, input_label: 'Username:',
+               focus: null,
+               include_check: this.get_filter_okay_specific_user,
+               callback: this.on_filter_by_user },
+            // For Recent Changes panel.
+            { id: Tab_Latest_Activity_Base.filter_by_revision_id_index,
+               // label: "Show changes in a specific revision",
+               label: "Search by revision number",
+               widget: TextInput, input_label: 'Revision IDs:',
+               focus: null,
+               include_check: this.get_filter_okay_specific_revision,
+               callback: this.on_filter_by_revision },
+            // For Recent Changes panel.
+            //
+            // BUG nnnn: 2014.07.07: This filter seems broken. E.g.,
+            //           searching '1400013' returns revision w/ no
+            //           activity overlapping that item (the dinkytown
+            //           trench), just a bunch of other "random" results.
+            { id: 13,
+               label: "Search by item ID",
+               widget: TextInput, input_label: 'Item IDs:',
+               focus: null,
+               include_check: this.get_filter_okay_specific_stack_id,
+               callback: this.on_filter_by_stack_id },
+            ];
+         return combo_defs;
+      }
+
+      //
+      protected function set_filter_by_data_provider() :void
+      {
+         this.filter_by_widget.set_provider(
+            this.get_filter_by_data_provider());
+      }
+
+      // ***
+
+      //
+      protected function on_region_focus() :void
+      {
+         this.filter_by_widget.set_ac_dp(G.map.regions_list);
+      }
+
+      // ***
+
+      //
+      protected function get_filter_okay_text_search() :Boolean
+      {
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_regions_watched() :Boolean
+      {
+         // MAYBE: We could disable this option if we knew that the user did
+         //        not have any item watchers on regions, but we only lazy-load
+         //        item watchers, when the user needs them. So maybe we could
+         //        ask the server for a count of a user's region watchers.
+         return (G.user.logged_in);
+         // MAYBE: 2013.03.29: We don't always fetch regions or item watchers
+         // any more, so we don't know if the user has one or more watched
+         // regions, otherwise we'd disable (and maybe hide) the filter.
+      }
+
+      //
+      protected function get_filter_okay_others_watched() :Boolean
+      {
+         // This filter is used by discussions and reactions.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_items_unread() :Boolean
+      {
+         // This filter is used by discussions and reactions.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_near_map_edits() :Boolean
+      {
+         // This filter is used by discussions and reactions.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_specific_user() :Boolean
+      {
+         // This filter is used by recent changes.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_specific_revision() :Boolean
+      {
+         // This filter is used by recent changes.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_specific_stack_id() :Boolean
+      {
+         // This filter is used by recent changes.
+         return false;
+      }
+
+      //
+      protected function get_filter_okay_item_watchers() :Boolean
+      {
+         return false;
+      }
+
+      // ***
+
+      //
+      public function on_filter_show_all() :void
+      {
+         m4_DEBUG('on_filter_show_all');
+         var qfs:Query_Filters = new Query_Filters();
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      // Currently, this is only used by the discussions panels.
+      protected function on_filter_text_search() :void
+      {
+         m4_DEBUG('on_filter_text_search');
+         var qfs:Query_Filters = new Query_Filters();
+         //qfs.filter_by_text_exact = this.filter_by_widget.get_text();
+         qfs.filter_by_text_loose = this.filter_by_widget.get_text();
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      protected function on_filter_items_unread() :void
+      {
+         m4_DEBUG('on_filter_items_unread');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_unread = true;
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/false);
+         }
+      }
+
+      //
+      protected function on_filter_item_watchers() :void
+      {
+         m4_DEBUG('on_filter_item_watchers');
+         var qfs:Query_Filters = new Query_Filters();
+         // MAGIC_NUMBER: This is/was an enum. 1: use current rev. 2: historic.
+         qfs.filter_by_watch_item = 1; // true;
+         this.on_filter_use_visible_items(qfs);
+      }
+
+      //
+      protected function on_filter_regions_named() :void
+      {
+         m4_DEBUG('on_filter_regions_named');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_regions = this.filter_by_widget.get_text();
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      protected function on_filter_regions_watched() :void
+      {
+         m4_DEBUG('on_filter_regions_watched');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_watch_geom = true;
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/false);
+         }
+      }
+
+      //
+      protected function on_filter_others_watched() :void
+      {
+         m4_DEBUG('on_filter_others_watched');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_watch_feat = true;
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/false);
+         }
+      }
+
+      //
+      protected function on_filter_viewport() :void
+      {
+         var qfs:Query_Filters = new Query_Filters();
+         // See comments below: This filter is only good at vector zoom level.
+         // At raster zoom, we don't have geofeature stack IDs.
+         this.on_filter_use_visible_items(qfs);
+      }
+
+      //
+      // So far, this is just used by the discussions panels.
+      protected function on_filter_items_selected() :void
+      {
+         m4_DEBUG('on_filter_items_selected');
+         var qfs:Query_Filters = new Query_Filters();
+         if (this.qfs != qfs) {
+            // The selectedset only applies to the active panel.
+            // So this doesn't work:
+            //   for each (var gf:Geofeature in G.map.selectedset) {
+            //      qfs.about_stack_ids.push(gf.stack_id);
+            //   }
+            // Go through the list of open panels instead.
+            for each (var o:Object in G.panel_mgr.panel_lookup) {
+               var item_pnl:Panel_Item_Versioned;
+               item_pnl = (o as Panel_Item_Versioned);
+               m4_DEBUG('on_filter_items_selected: item_pnl:', item_pnl);
+               if (item_pnl !== null) {
+                  for each (var gf:Geofeature in item_pnl.feats_selected) {
+                     qfs.about_stack_ids.push(gf.stack_id);
+                  }
+               }
+            }
+            m4_DEBUG2('on_filter_selected: qfs.about_stack_ids:',
+                      qfs.about_stack_ids);
+            this.qfs = qfs;
+            if (this.qfs.about_stack_ids.length == 0) {
+               this.clear_list();
+            }
+            else {
+               this.fetch_list(/*update_paginator_count=*/true);
+            }
+         }
+      }
+
+      //
+      // MAYBE: Would this be useful for route reactions? Or recent changes?
+      //        Currently, Tab_Discussions_Base is the only activity panel
+      //        that uses this filter.
+      protected function on_filter_near_my_edits() :void
+      {
+         m4_DEBUG('on_filter_near_my_edits');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_nearby_edits = true;
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      // This is used by recent changes.
+      protected function on_filter_by_user() :void
+      {
+         m4_DEBUG('on_filter_by_user');
+         var qfs:Query_Filters = new Query_Filters();
+         qfs.filter_by_username
+               = this.filter_by_widget.get_text()
+                 .toLowerCase().replace(/[^a-z0-9\.]/g,'');
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      // This is used by recent changes.
+      protected function on_filter_by_revision() :void
+      {
+         var qfs:Query_Filters = new Query_Filters();
+         var rev_ids:Set_UUID = this.filter_get_user_numbers();
+         qfs.rev_ids = rev_ids.as_Array();
+         m4_DEBUG('on_filter_by_revision: qfs.rev_ids:', qfs.rev_ids);
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      //
+      // This is used by recent changes.
+      protected function on_filter_by_stack_id() :void
+      {
+         m4_DEBUG('on_filter_by_stack_id');
+         var qfs:Query_Filters = new Query_Filters();
+         var stack_ids:Set_UUID = this.filter_get_user_numbers();
+         qfs.only_stack_ids = new Stack_Id_Array();
+         for each (var stack_id:int in stack_ids.as_Array()) {
+            qfs.only_stack_ids.push(stack_id);
+         }
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/false);
+         }
+      }
+
+      //
+      protected function on_filter_use_visible_items(qfs:Query_Filters) :void
+      {
+         // 2013.03.27: [mm] changed this from using a bbox to using a set of
+         //             stack IDs. [lb] had suggested that using stack IDs will
+         //             be faster than running a bbox query against link_values
+         //             (in [lb]'s experience, joining geofeature against
+         //             link_value with a bbox WHERE is expensive, but maybe
+         //             because the attachments are posts, and there aren't
+         //             many posts, the join really wouldn't be that bad;
+         //             but whatever, using stack IDs is simpler and the
+         //             bandwidth spent sending all the stack IDs is probably
+         //             inconsequential).
+         // Old code:
+         //    qfs.include_rect = G.map.view_rect.clone();
+         //
+         // 2013.03.29: [mm] noted to [lb] a problem: at raster zoom level,
+         //             we don't have geofeature stack IDs. So [lb] repaired
+         //             using viewport. The server now makes a temp table of
+         //             all geofeatures a user can see in the viewport. It's
+         //             not the quickest operation but it works and was easy.
+
+         // It's fast to send stack IDs so send those if we have them,
+         // otherwise send the viewport bbox.
+         //
+         // MAYBE: [lb] notes that Geofeature.all contains geofeatures that
+         //        are not visible. If you edit the geometry of a geofeature
+         //        or a link_value of a geofeature, both are kept in memory
+         //        until you save. But this doesn't seem like a huge deal.
+         //        We might just get threads about items we're editing.
+
+         // SEC.: We send a list of geofeature stack IDs that the server uses
+         // to filter the list of threads it finds for us. It's okay that the
+         // server not verify our access to the stack IDs we send -- i.e., we
+         // could send a random set of numbers to trick the server into using
+         // them -- because all we could learn is what random stack ID is
+         // actually a private geofeature attached to a public thread. This
+         // case makes no sense.
+         //
+         // MAYBE: What does make sense is maybe the server not accepting large
+         // viewports -- e.g., what if we're filtering by the state of MN? I
+         // guess we'll find out in testing if this is a burden on the server,
+         // right?
+
+         if (G.map.zoom_is_vector()) {
+            for each (var gf:Geofeature in Geofeature.all) {
+               // MAYBE: Should-Can we check gf.visible?
+               qfs.about_stack_ids.push(gf.stack_id);
+            }
+            m4_DEBUG('on_filter_use_visible_items: qfs.about_stack_ids:', 
+                     qfs.about_stack_ids);
+         }
+         else {
+            //m4_DEBUG2('on_filter_use_visible_itms: include_rect: view_rect:',
+            //          G.map.view_rect.toString());
+            qfs.include_rect = G.map.view_rect.clone();
+         }
+
+         if (this.qfs != qfs) {
+            this.qfs = qfs;
+            this.fetch_list(/*update_paginator_count=*/true);
+         }
+      }
+
+      // ***
+
+      // Clear the list.
+      public function clear_list() :void
+      {
+         m4_ASSURT(false); // Abstract.
+      }
+
+      // Start fetching data to go in the history browser.
+      public function fetch_list(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         m4_ASSURT(false); // Abstract.
+      }
+
+      //
+      protected function fetch_prepare(paginator:Paginator_Widget)
+         :Paginator_Widget
+      {
+         // This is called by either the discussions panel, the route reactions
+         // panel, or the recent changes panel, and paginator is one of
+         // thread_list_pager, history_list_pager.
+         var pw:Paginator_Widget = null;
+
+         // Reset the paginator-related query parameters.
+         this.qfs.pagin_total = false;
+         this.qfs.pagin_count = 0;
+         this.qfs.pagin_offset = 0;
+
+         // If we're fetching a collection of revisions by ID, don't do
+         // pageination. Otherwise do.
+         // FIXME: Does this just apply to Panel_Recent_Changes? Maybe that
+         //        class should override this fcn? [lb] doesn't like this being
+         //        coupled.
+         if (this.qfs.rev_ids.length == 0) {
+            // Set the count and offset of the checkout list.
+            paginator.configure_query_filters(this.qfs);
+            // FIXME: If user messes with filters, that changes the number of
+            // items in the list... should we always get the count, or
+            // invalidate as appropriate?
+            pw = paginator;
+         }
+         else if (!this.qfs.include_geosummary) {
+            this.qfs.pagin_total = true;
+            pw = paginator;
+         }
+         // else, we're just fetching geosummary, so don't mess with the
+         // paginator or get a record count.
+
+         return pw;
+      }
+
+      // ***
+
+      //
+      protected function filter_get_user_numbers(positive_only:Boolean=true)
+         :Set_UUID
+      {
+         // Split one or more somehow-delimited numbers. We're are generous
+         // with our parse.
+         var re:RegExp = /(\d+)/;
+         var numbers:Set_UUID = new Set_UUID();
+         var num_strs:Array = this.filter_by_widget.get_text().split(re);
+         for each (var num_str:String in num_strs) {
+            var the_num:int = int(num_str);
+            if ((!positive_only) || (the_num > 0)) {
+               numbers.add(the_num);
+            }
+         }
+         return numbers;
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+</views_panel_base:Detail_Panel_Widget>
+

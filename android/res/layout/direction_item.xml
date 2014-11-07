@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent"
+  android:orientation="horizontal">
+   <RelativeLayout android:layout_width="fill_parent"
+                   android:layout_height="fill_parent">
+  <ImageView android:id="@+id/direction_img"
+             android:layout_width="40dip"
+             android:layout_height="40dip"
+             android:layout_marginRight="5dip"
+             android:layout_alignParentLeft="true" />
+  <TextView android:id="@+id/direction_distance"
+            android:text="test"
+            android:layout_width="50dip"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="5dip"
+            android:layout_marginRight="7dip"
+            android:layout_alignParentRight="true"
+            android:gravity="right"
+            android:textSize="12dip" />
+  <TextView android:id="@+id/direction_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_toRightOf="@+id/direction_img"
+            android:layout_toLeftOf="@+id/direction_distance" />
+  </RelativeLayout>
+</LinearLayout>

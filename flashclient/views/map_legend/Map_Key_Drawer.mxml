@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   verticalAlign="middle"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   horizontalGap="0"
+   verticalGap="0"
+   creationComplete="this.on_creation_complete(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapKey_Drwr');
+
+      // *** Instance variables
+
+      // The is basically the menu's dataProvider.
+      protected var menu_links:Array;
+      protected var legend_views:Dictionary = new Dictionary();
+
+      // *** Instance methods
+
+      //
+      protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         this.menu_links = [
+            //
+            this.link_cyclopath_about,
+            this.link_legend_branch_list,
+            this.link_legend_branch_manage,
+            this.link_legend_editing_hints,
+            //
+            this.link_map_key_ratings,
+            this.link_map_key_facilities,
+            this.link_map_key_symbols,
+            this.link_map_key_diff,
+            ];
+
+         this.legend_views[this.link_cyclopath_about]
+            = this.view_cyclopath_about;
+         this.legend_views[this.link_legend_branch_list]
+            = this.view_legend_branch_list;
+         this.legend_views[this.link_legend_branch_manage]
+            = this.view_legend_branch_manage;
+         this.legend_views[this.link_legend_editing_hints]
+            = this.view_legend_editing_hints;
+         this.legend_views[this.link_map_key_ratings]
+            = this.view_map_key_ratings;
+         this.legend_views[this.link_map_key_facilities]
+            = this.view_map_key_facilities;
+         this.legend_views[this.link_map_key_symbols]
+            = this.view_map_key_symbols;
+         this.legend_views[this.link_map_key_diff]
+            = this.view_map_key_diff;
+
+         this.resize_to_children();
+      }
+
+      //
+      public function fill_values() :void
+      {
+         // N/a: this.view_cyclopath_about.fill_values();
+         // N/a: this.view_legend_branch_list.fill_values();
+         // N/a: this.view_legend_branch_manage.fill_values();
+         this.view_legend_editing_hints.fill_values();
+         this.view_map_key_ratings.fill_values();
+         this.view_map_key_facilities.fill_values();
+         this.view_map_key_symbols.fill_values();
+         this.view_map_key_diff.fill_values();
+      }
+
+      //
+      public function resize_to_children() :void
+      {
+         //var min_width:int = this.width;
+         //var min_height:int = this.height;
+         var min_width:int = -1;
+         //var min_height:int = -1;
+         var min_height:int = this.menu_container.height;
+         m4_PPUSH('on_creation_complete: mins1:', min_width, min_height);
+         var view:Container;
+         for each (view in this.legend_views) {
+            m4_PPUSH('on_creation_complete: view:', view.width, view.height);
+            if (view.width > min_width) {
+               min_width = view.width;
+            }
+            if (view.height > min_height) {
+               min_height = view.height;
+            }
+         }
+         m4_PPUSH('on_creation_complete: mins2:', min_width, min_height);
+         if ((min_width > 0) && (min_height > 0)) {
+            m4_PPUSH2(' .. first_container.paddingLeft:',
+                      this.first_container.getStyle('paddingLeft'));
+            m4_PPUSH2(' .. first_container.paddingRight:',
+                      this.first_container.getStyle('paddingRight'));
+            m4_PPUSH2(' .. menu_container.width:',
+                      this.menu_container.width);
+            m4_PPUSH2(' .. first_container.horizontalGap:',
+                      this.first_container.getStyle('horizontalGap'));
+            m4_PPUSH2(' .. separator_container.width:',
+                      this.separator_container.width);
+            min_width =
+               0
+               //
+               + this.first_container.getStyle('paddingLeft')
+               //
+               + this.menu_container.width
+               //
+               + this.first_container.getStyle('horizontalGap')
+               + this.separator_container.width
+               + this.first_container.getStyle('horizontalGap')
+               //
+               + min_width
+               // This is a fudge...
+               //+ this.first_container.getStyle('horizontalGap')
+               + this.not_a_view_stack.getStyle('paddingRight')
+               //
+               + this.first_container.getStyle('paddingRight')
+               ;
+            //
+            min_height =
+               0
+               + min_height
+               + this.first_container.getStyle('paddingTop')
+               + this.first_container.getStyle('paddingBottom')
+               //+ this.not_a_view_stack.getStyle('paddingBottom')
+               ;
+            //
+            this.width = min_width;
+            this.height = min_height;
+            m4_PPUSH('on_creation_complete: w/h:', this.width, this.height);
+
+            var key_button:Map_Key_Button = (this.parentDocument
+                                             as Map_Key_Button);
+            m4_ASSERT(key_button !== null);
+            m4_PPUSH3(' .. key_button: w/h:',
+                      key_button.dim_expanded_width,
+                      key_button.dim_expanded_height);
+            key_button.width = min_width;
+            key_button.height = min_height;
+            key_button.keys.width = min_width;
+            key_button.keys.height = min_height;
+            key_button.dim_expanded_width = min_width;
+            key_button.dim_expanded_height = min_height;
+         }
+      }
+
+      // ***
+
+      //
+      protected function drawer_find(ev:MouseEvent) :void
+      {
+         var view:Container;
+         for each (view in this.legend_views) {
+            view.visible = false;
+            view.includeInLayout = false;
+         }
+         if (ev !== null) {
+            view = this.legend_views[ev.target];
+         }
+         else {
+            view = this.view_cyclopath_about;
+         }
+         m4_ASSERT(view !== null);
+         view.visible = true;
+         view.includeInLayout = true;
+      }
+
+      // ***
+
+      // Cyclopath
+
+      //
+      protected function on_link_cyclopath_about(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      // Branches
+
+      //
+      protected function on_link_legend_branch_list(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      //
+      protected function on_link_legend_branch_manage(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      //
+      protected function on_link_legend_editing_hints(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      // Map Keys
+
+      //
+      protected function on_link_map_key_ratings(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      //
+      protected function on_link_map_key_facilities(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      //
+      protected function on_link_map_key_symbols(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      //
+      protected function on_link_map_key_diff(ev:MouseEvent) :void
+      {
+         this.drawer_find(ev);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!--
+   <mx:ViewStack
+      id="keys"
+      selectedIndex="0"
+      resizeToContent="true"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      visible="{this.keys.includeInLayout}"
+      >
+   </mx:ViewStack>
+   -->
+
+   <!-- MAGIC_NUMBER: The content has 8 + 8 padding on the right,
+                      so use 16 on our left. -->
+   <mx:HBox
+      id="first_container"
+      paddingTop="6"
+      paddingBottom="0"
+      paddingLeft="16"
+      paddingRight="6"
+      verticalAlign="top"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="menu_container"
+         height="100%"
+         verticalAlign="top"
+         horizontalAlign="right"
+         verticalGap="0"
+         paddingTop="10"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+
+         <!-- MAYBE: [lb] is putting all the menu choices here, but really this
+                     smells like a job for a widget with a dataProvider. -->
+
+         <!-- -->
+
+         <mx:Label
+            text="Cyclopath"
+            textDecoration="none"
+            paddingTop="3"
+            paddingBottom="1"
+            />
+         <mx:Canvas
+            height="1"
+            width="100%"
+            backgroundColor="{Conf.application_background_color}"
+            />
+         <mx:HBox
+            height="5"
+            width="100%"/>
+
+         <views_map_legend:Legend_Menu_Link
+            id="link_cyclopath_about"
+            htmlText="About"
+            toolTip="Learn more about Cyclopath."
+            click="this.on_link_cyclopath_about(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_legend_branch_list"
+            htmlText="Switch Maps"
+            toolTip="Switch to a different map branch."
+            click="this.on_link_legend_branch_list(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_legend_branch_manage"
+            htmlText="Manage Map"
+            toolTip="Combine changes from two map branches into one branch."
+            click="this.on_link_legend_branch_manage(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_legend_editing_hints"
+            htmlText="Editing Hints"
+            toolTip="Tips to help you edit the map."
+            click="this.on_link_legend_editing_hints(event);"
+            />
+
+         <!-- -->
+
+         <mx:Label
+            text="Map Keys"
+            textDecoration="none"
+            paddingTop="9"
+            paddingBottom="1"
+            />
+         <mx:Canvas
+            height="1"
+            width="100%"
+            backgroundColor="{Conf.application_background_color}"
+            />
+         <mx:HBox
+            height="5"
+            width="100%"/>
+
+         <views_map_legend:Legend_Menu_Link
+            id="link_map_key_ratings"
+            htmlText="Ratings Key"
+            toolTip="Learn what the road colors mean."
+            click="this.on_link_map_key_ratings(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_map_key_facilities"
+            htmlText="Attributes Key"
+            toolTip="See what the different road styles mean."
+            click="this.on_link_map_key_facilities(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_map_key_symbols"
+            htmlText="Other Symbols"
+            toolTip="Learn about the rest of the map."
+            click="this.on_link_map_key_symbols(event);"
+            />
+         <views_map_legend:Legend_Menu_Link
+            id="link_map_key_diff"
+            htmlText="Revision Diffing"
+            toolTip="Learn about symbols used when comparing revisions."
+            click="this.on_link_map_key_diff(event);"
+            visible="false"
+            includeInLayout="{this.link_map_key_diff.visible}"
+            />
+
+         <!-- -->
+
+      </mx:VBox>
+
+      <!-- NOTE: Using backgroundColor means paddingTop/paddingBottom
+                 has no effect on the real height of the "line". -->
+      <mx:HBox
+         id="separator_container"
+         height="100%"
+         verticalAlign="middle"
+         paddingTop="11"
+         paddingBottom="0"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+         <mx:Canvas
+            width="1"
+            height="100%"
+            backgroundColor="{Conf.application_background_color}"
+            />
+      </mx:HBox>
+
+      <!-- This is [lb]'s cheap, not-a-ViewStack, so we don't have to calculate
+           widths nor heights nor resize anything. Note the wiring throughout
+           this class. -->
+      <!-- MAGIC_NUMBER: Because we're explicitly setting width and height (see
+                         above), we want to add the same amount of paddingRight
+                         as the horizontalGap- and we can't add this value to
+                         our width calculation above, because our view panel
+                         with the 100% width will just consume any extra width
+                         we add above. So really we want the extra width here.
+                         -->
+      <mx:VBox
+         id="not_a_view_stack"
+         width="100%"
+         paddingRight="8"
+         paddingBottom="8"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+         <views_map_legend:Cyclopath_About
+            id="view_cyclopath_about"
+            width="100%"
+            height="100%"
+            visible="true"
+            includeInLayout="{this.view_cyclopath_about.visible}"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="off"
+            />
+         <views_map_legend:Legend_Branch_List
+            id="view_legend_branch_list"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_legend_branch_list.visible}"
+            />
+         <views_map_legend:Legend_Branch_Manage
+            id="view_legend_branch_manage"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_legend_branch_manage.visible}"
+            />
+         <views_map_legend:Map_Legend_Editing_Hints
+            id="view_legend_editing_hints"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_legend_editing_hints.visible}"
+            />
+         <!-- -->
+   <!-- FIXME: Set this visible now as a cheat to size the control.
+               So maybe we do have to manually resize, anyway,
+               since we've in a canvas object - we have to tell
+               the map key to resize... -->
+         <views_map_legend:Map_Legend_Byway_Ratings
+            id="view_map_key_ratings"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_map_key_ratings.visible}"
+            />
+         <views_map_legend:Map_Legend_Bike_Facilities
+            id="view_map_key_facilities"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_map_key_facilities.visible}"
+            />
+         <views_map_legend:Map_Legend_Miscellaneous
+            id="view_map_key_symbols"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_map_key_symbols.visible}"
+            />
+         <views_map_legend:Map_Legend_Item_Diff
+            id="view_map_key_diff"
+            width="100%"
+            height="100%"
+            visible="false"
+            includeInLayout="{this.view_map_key_diff.visible}"
+            />
+      </mx:VBox>
+
+   </mx:HBox> <!-- end: first_container -->
+
+   <!-- This is so the sometimes-visible vertical scrollbar doesn't disappear
+   into the right-hand margin. -->
+   <mx:HBox
+      id="second_container"
+      width="1"
+      height="1"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+   </mx:HBox>
+
+</mx:HBox>
+

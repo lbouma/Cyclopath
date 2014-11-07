@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:DataGrid
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   minHeight="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   wordWrap="false"
+   variableRowHeight="true"
+   sortableColumns="false"
+   resizableColumns="false"
+   selectedIndex="-1"
+   showHeaders="true"
+   selectable="true"
+   allowMultipleSelection="false"
+   useRollOver="true"
+   buttonMode="true"
+   mouseEnabled="true"
+   mouseChildren="true"
+   useHandCursor="true"
+   creationComplete="this.update_height();"
+   itemClick="this.on_item_click(event);"
+   >
+   <!-- Don't set rowCount or you'll clip one of the parents.
+      rowCount="{this.dataProvider.length}"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.TextEvent;
+      import mx.events.ListEvent;
+
+      import items.feats.Direction_Step;
+      import items.feats.Route;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##Route_Dirs');
+
+      // *** Instance methods
+
+      //
+      protected function on_item_click(event:ListEvent) :void
+      {
+         // MAGIC_NUMBER: Pick a good zoom for locating stops along a route.
+         var dstep:Direction_Step;
+         dstep = event.currentTarget.selectedItem as Direction_Step;
+         m4_TALKY('on_item_click: event.target:', event.target);
+         Route_Directions.lookat_dstep(dstep);
+      }
+
+      //
+      // This fcn. is static because the inline component is its own class.
+      public static function on_link_click(event:TextEvent) :void
+      {
+         m4_TALKY('on_link_click: event.text:', event.text); // "lookat"
+         // The currentTarget is, e.g., Panel_Item_Route_Cue_Sheet4989.
+         //       VBox4990.route_dir_list.ListBaseContentHolder4996.
+         //       Route_Directions_inlineComponent1_6452.
+         // m4_TALKY('on_link_click: currentTarget:', event.currentTarget);
+         // The target is, e.g.,
+         //  Route_Directions_inlineComponent1_6452.UITextField6453.
+         // m4_TALKY('on_link_click: target:', event.target);
+         // m4_TALKY(' event.currentTarget.data:', event.currentTarget.data);
+
+         var dstep:Direction_Step;
+         dstep = event.currentTarget.data as Direction_Step;
+         Route_Directions.lookat_dstep(dstep);
+      }
+
+      //
+      // See copy: Route_Stop.lookat_rstop/Route_Directions.lookat_dstep.
+      public static function lookat_dstep(dir:Direction_Step) :void
+      {
+         m4_TALKY('lookat_dstep: dir:', dir);
+         // BUG nnnn: Figure this out from the distance to nearby points,
+         //           and/or maybe based on how many geofeatures are in the
+         //           viewport.
+         G.map.pan_and_zoomto(G.map.xform_x_map2cv(dir.coords[0]),
+                              G.map.xform_y_map2cv(dir.coords[1]),
+                              (G.map.zoom_level < 15 ? 15 : G.map.zoom_level)
+                                 // This is 2:1 meters:pixel.
+                              );
+         dir.route.update_cur_dir(dir.coords);
+      }
+
+      //
+      // This is called from Panel_Item_Route_Cue_Sheet.
+      // MAYBE: Rename this 'repopulate', like the Detail_Panel_Base class?
+      //        Or choose a unique name since this class doesn't derive from
+      //        Detail_Panel_Base, so don't conflict with on_panel_show or
+      //        repopulate...
+      public function on_panel_show(rt:Route) :void
+      {
+         m4_DEBUG('on_panel_show: rt:', rt);
+         // MAGIC_NUMBER: 66 and 46 are just nice widths.
+         if (rt.is_multimodal) {
+            this.time_column.width = 66;
+            this.odo_column.width = 0;
+         }
+         else {
+            this.time_column.width = 0;
+            this.odo_column.width = 46;
+         }
+         this.leg_column.width = 46;
+      }
+
+      //
+      override protected function measure() :void
+      {
+         m4_DEBUG('measure: this:', this);
+         super.measure();
+         this.update_height();
+      }
+
+      //
+      protected function update_height() :void
+      {
+         m4_DEBUG('measure: update_height: ignoring');
+         // FIXME: Statewide UI: [lb] thinks we can delete this fcn.
+         return;
+         /*/
+         if (this.dataProvider) {
+            var h:int =
+               this.headerHeight
+               + this.measureHeightOfItems(0, this.dataProvider.length)
+               + G.app.pad;
+            this.minHeight = h;
+            this.height = h;
+         }
+         /*/
+      }
+
+      //
+      public function update_width() :void
+      {
+         // Since when DataGrids are placed with a TabNavigator or other such
+         // multi-item/multi-view containers, their column widths do not get
+         // respected. Hence, we are setting the width of this data grid 
+         // explicitly based on something that has a fixed width, in this case
+         // the G.app.left_panel. The extra -2 is for the TabNavigator borders.
+         //
+         // Related: https://issues.apache.org/jira/browse/FLEX-985
+         //
+         this.width = G.app.left_panel.width - (4 * G.app.pad) - 2;
+         m4_DEBUG('measure: this.width:', this.width);
+      }
+
+  ]]></mx:Script>
+
+   <mx:columns>
+      <mx:DataGridColumn
+         id="odo_column"
+         headerText="Odo."
+         dataField="total_distance"
+         minWidth="0"
+         width="46"
+         />
+      <mx:DataGridColumn
+         id="time_column"
+         headerText="Time"
+         dataField="time_str"
+         minWidth="0"
+         width="66"
+         />
+      <mx:DataGridColumn
+         headerText="Directions"
+         wordWrap="true"
+         dataField="text"
+         itemRenderer="views.panel_routes.Route_Directions_Entry">
+
+      </mx:DataGridColumn>
+      <mx:DataGridColumn
+         id="leg_column"
+         headerText="Leg"
+         dataField="step_distance"
+         width="46"
+         />
+   </mx:columns>
+
+</mx:DataGrid>
+

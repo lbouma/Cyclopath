@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.events.FlexEvent;
+
+      import items.Geofeature;
+      import items.Link_Value;
+      import items.attcs.Annotation;
+      import items.links.Link_Geofeature;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.App_Action;
+      import views.commands.Geofeatures_Annotation_Add_Del;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Ann_Lst');
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: ev.target:', ev.target);
+         var renderer:Widget_Annotation_Entry = (
+            ev.target as Widget_Annotation_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Annotation_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_TALKY('on_creation_complete: hooking notesLoaded and linksLoaded');
+         G.item_mgr.addEventListener('notesLoaded', this.on_notes_loaded,
+                                     false, 0, true);
+         G.item_mgr.addEventListener('linksLoaded', this.on_links_loaded,
+                                     false, 0, true);
+         super.on_creation_complete(ev);
+      }
+
+      //
+      protected function on_links_loaded(event:Event) :void
+      {
+         m4_TALKY('on_links_loaded/linksLoaded');
+         if (this.items_selected !== null) {
+            // m4_DEBUG2('on_links_loaded/linksLoaded: selected:',
+            //           this.items_selected.toString());
+         }
+         else {
+            // PROBABLY: This is probably not a warning, since we're listening
+            // on the global linksLoaded event, which doesn't necessarily have
+            // anything to do with this.items_selected.
+            //m4_WARNING('on_links_loaded/linksLoaded: nothing selected');
+         }
+         this.mark_dirty_and_show_maybe();
+      }
+
+      //
+      protected function on_notes_loaded(event:Event) :void
+      {
+         m4_DEBUG3('on_notes_loaded: this.items_selected:',
+                   (this.items_selected !== null)
+                     ? this.items_selected.length : 'null');
+         // during map discard, etc. feats can be null
+         this.mark_dirty_and_show_maybe();
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+         this.update_notes_list(new Set_UUID());
+         this.link_notes_empty.visible = true;
+         this.link_notes_empty.includeInLayout = true;
+         this.link_notes_exist.visible = false;
+         this.link_notes_exist.includeInLayout = false;
+         this.widget_annotation_add_a.visible = false;
+         this.widget_annotation_add_a.includeInLayout = false;
+         this.widget_annotation_add_b.visible = false;
+         this.widget_annotation_add_b.includeInLayout = false;
+         //
+         this.widget_start_editing_a.visible = false;
+         this.widget_start_editing_a.includeInLayout = false;
+         this.widget_start_editing_b.visible = false;
+         this.widget_start_editing_b.includeInLayout = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate: calling update_notes_list');
+
+         // Because of depopulate, we can always expected one or more items.
+         m4_ASSERT(this.items_selected.length > 0);
+
+         this.update_notes_list(this.items_selected);
+
+         if (this.dp_box_annot_grid.dataProvider.length > 0) {
+            this.link_notes_empty.visible = false;
+            this.link_notes_empty.includeInLayout = false;
+            this.link_notes_exist.visible = true;
+            this.link_notes_exist.includeInLayout = true;
+         }
+         else {
+            this.link_notes_empty.visible = true;
+            this.link_notes_empty.includeInLayout = true;
+            this.link_notes_exist.visible = false;
+            this.link_notes_exist.includeInLayout = false;
+         }
+
+         // If we didn't define depopulate we'd have to check
+         // items_selected.length as well as creation rights.
+         this.widget_annotation_add_a.visible = false;
+         this.widget_annotation_add_a.includeInLayout = false;
+         this.widget_annotation_add_b.visible = false;
+         this.widget_annotation_add_b.includeInLayout = false;
+         //
+         this.widget_start_editing_a.visible = false;
+         this.widget_start_editing_a.includeInLayout = false;
+         this.widget_start_editing_b.visible = false;
+         this.widget_start_editing_b.includeInLayout = false;
+         //
+         if ((this.items_selected.length > 0)
+             && (G.item_mgr.create_allowed_get(Annotation))
+             && (G.map.rev_workcopy !== null)) {
+            if (G.app.mode.is_allowed(App_Action.item_annotate)) {
+               this.widget_annotation_add_a.visible = true;
+               this.widget_annotation_add_a.includeInLayout = true;
+               this.widget_annotation_add_b.visible = true;
+               this.widget_annotation_add_b.includeInLayout = true;
+            }
+            else {
+               this.widget_start_editing_a.visible = true;
+               this.widget_start_editing_a.includeInLayout = true;
+               this.widget_start_editing_b.visible = true;
+               this.widget_start_editing_b.includeInLayout = true;
+            }
+         }
+      }
+
+      //
+      public function update_notes_list(the_items:Set_UUID) :void
+      {
+         var o:Object;
+         var gf:Geofeature;
+         var an:Annotation;
+         var all_annots:Dictionary = new Dictionary();
+         var feat_attcs:Array;
+         var linked_annots:ArrayCollection;
+
+         m4_DEBUG('update_notes_list: the_items.length', the_items.length);
+
+         // Go through each of the geofeatures...
+         for each (gf in the_items) {
+
+            if (gf.is_vgroup_old && gf.counterpart_gf !== null) {
+               continue; // new version will add the link_values
+            }
+
+            // Find all of the Annotations linked to this Geofeature.
+            feat_attcs = Link_Value.attachments_for_item(gf, Annotation);
+
+            // Compile a list of annotations linked to the selected
+            // geofeatures.
+            for each (an in feat_attcs) {
+               if (!(an.base_id in all_annots)) {
+                  all_annots[an.base_id] = an;
+               }
+               // else, another geofeature in this.feats_selected is attached
+               //       to the same note, and we've already added it.
+            }
+         }
+
+         // We now have a collection of unique Annotations linked to from the
+         // set of Geofeatures in the_items; change the collection from a
+         // Dictionary to an Array so we can attach it as the dataProvider to
+         // our list of Annotations on the Detail Panel's Basic tab.
+         linked_annots = new ArrayCollection();
+         for each (o in all_annots) {
+            linked_annots.addItem((o as Annotation));
+         }
+         // MAGIC_NUMBER: Show at 2 rows if there are zero or one items, and
+         //               show 3 rows if there are two or more items.
+         // MAGIC_NUMBER: The default height of a DataGrid is 6 rows plus the
+         //               header, each being 20 pixels tall, or 120 pixels.  We
+         //               just want three rows plus the header, or 80 pixels.
+         //               NOTE: We don't show the header but 80 pixels still
+         //               seems right. The height for two rows is... 60 pixels.
+         const row_height_min:int = 60;
+         const row_height_max:int = 80;
+         if (linked_annots.length <= 1) {
+            this.dp_box_annot_grid.maxHeight = row_height_min;
+         }
+         else {
+            this.dp_box_annot_grid.maxHeight = row_height_max;
+         }
+         this.dp_box_annot_grid.dataProvider = linked_annots;
+      }
+
+// FIXME: Check types for create rights and set enabled as appropriate.
+//           Tags: "Enter tags..." text, "X" button, Editbox/"+"
+//           Notes: "Add Note" button, "X" button
+//           Discussions: "Start New" button
+//        Strategy:
+//           "X" button means user can edit link
+//           Editbox/"+", "Add Note", "Start New" mean user
+//              can create associated item type, but also a link.
+//            + Can I check link creation rights on details panel open?
+//           (FIXME: Make sure on_panel_show isn't called unnecessarily often)
+
+      //
+      protected function on_click_annotation_new() :void
+      {
+         var feats_add:Set_UUID = this.items_selected.clone();
+         var feats_del:Set_UUID = new Set_UUID();
+
+         m4_ASSERT(G.map.rev_workcopy !== null);
+         m4_ASSERT(G.app.mode.is_allowed(App_Action.item_annotate));
+
+         var annot:Annotation = new Annotation(null, G.map.rev_workcopy);
+         annot.comments = 'New Note';
+
+         // Create a command so the user can undo this operation. The command
+         // adds the new note to the system and creates a link to attach it to
+         // the selected map items.
+
+         var cmd:Geofeatures_Annotation_Add_Del;
+         cmd = new Geofeatures_Annotation_Add_Del(
+            annot, feats_add, feats_del, Link_Geofeature);
+         G.map.cm.do_(cmd);
+         // The note(s) and link_value(s) should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         if (cmd.is_prepared) {
+            m4_DEBUG('on_click_annotation_new: success');
+            // Update the annotations widget, which uses the collection
+            // of selected itms to populate the widget list, and we want
+            // our new annotation to appear.
+            this.update_notes_list(feats_add);
+            // Switch to the annotation panel so that the user can edit it.
+            annot.prepare_and_activate_panel();
+         }
+         else {
+            // else, user is not allowed to create annotations or isn't allowed
+            //       to create link_value to the geofeature. The user has been
+            //       alerted they don't have permissions, so nothing to do.
+            m4_DEBUG('on_click_annotation_new: failed');
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Notes"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <!-- Not using the style that similar widgets use:
+            styleName="looknfeelCleanInner"
+           -->
+      <mx:VBox
+         paddingLeft="{G.app.pad}"
+         paddingTop="4"
+         paddingRight="{G.app.pad}"
+         paddingBottom="0"
+         width="100%"
+         verticalGap="2"
+         >
+
+         <mx:HBox
+            id="link_notes_empty"
+            width="100%"
+            horizontalGap="0"
+            verticalAlign="bottom"
+            visible="false"
+            includeInLayout="{this.link_notes_empty.visible}">
+            <mx:Label
+               id="link_notes_empty_preamble"
+               text="No notes."
+               visible="true"
+               includeInLayout="{this.link_notes_empty_preamble.visible}"
+               />
+            <mx:Spacer
+               width="100%"/>
+            <!-- SYNC_ME: Same Hyper_Link in link_notes_empty/_exist. -->
+            <views_panel_util:Hyper_Link
+               id="widget_annotation_add_a"
+               htmlText="Create a new note"
+               toolTip=
+                  "Click to create a new note about the selected item(s)."
+               visible="true"
+               includeInLayout="{this.widget_annotation_add_a.visible}"
+               click="this.on_click_annotation_new();"/>
+               <!--
+               styleName="labelminor"
+               -->
+            <mx:Label
+               id="widget_start_editing_a"
+               htmlText="Click &quot;Editing&quot; to add notes"
+               toolTip=
+"Click the button marked &quot;Editing&quot; that's above the map to add notes to the selected item(s)."
+               fontStyle="italic"
+               visible="true"
+               includeInLayout="{this.widget_start_editing_a.visible}"/>
+               <!--
+               styleName="labelminor"
+               -->
+         </mx:HBox>
+
+         <mx:VBox
+            id="link_notes_exist"
+            width="100%"
+            horizontalGap="0"
+            verticalGap="0"
+            visible="false"
+            includeInLayout="{this.link_notes_exist.visible}">
+            <!-- MAGIC_NUMBER: maxHeight=80 is 3 rows. See comments above. -->
+            <mx:DataGrid
+               id="dp_box_annot_grid"
+               width="100%"
+               maxHeight="80"
+               borderStyle="solid"
+               borderColor="0xb7babc"
+               sortableColumns="false"
+               verticalScrollPolicy="auto"
+               showHeaders="false"
+               headerHeight="0"
+               added="this.on_added_renderer_maybe(event);"
+               >
+               <!--borderColor="0x333333"-->
+               <mx:columns>
+                  <!-- headerText="Notes" -->
+                  <mx:DataGridColumn
+                     dataField="Annotation"
+                     itemRenderer="views.panel_items.Widget_Annotation_Entry"/>
+               </mx:columns>
+            </mx:DataGrid>
+            <!-- SYNC_ME: Same Hyper_Link in link_notes_empty/_exist. -->
+            <mx:HBox
+               width="100%"
+               paddingTop="4"
+               paddingBottom="0"
+               paddingLeft="0"
+               paddingRight="0"
+               horizontalAlign="left"
+               >
+               <mx:Spacer
+                  width="100%"/>
+               <views_panel_util:Hyper_Link
+                  id="widget_annotation_add_b"
+                  htmlText="Create a new note"
+                  toolTip=
+                     "Click to create a new note about the selected item(s)."
+                  styleName="labelminor"
+                  visible="true"
+                  includeInLayout="{this.widget_annotation_add_b.visible}"
+                  click="this.on_click_annotation_new();" />
+               <mx:Label
+                  id="widget_start_editing_b"
+                  htmlText="Click &quot;Editing&quot; to add notes"
+                  toolTip=
+   "Click the button marked &quot;Editing&quot; that's above the map to add notes to the selected item(s)."
+                  fontStyle="italic"
+                  visible="true"
+                  includeInLayout="{this.widget_start_editing_a.visible}"/>
+                  <!--
+                  styleName="labelminor"
+                  -->
+            </mx:HBox>
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

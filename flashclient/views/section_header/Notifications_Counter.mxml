@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns="*">
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctH_NtfCtr');
+
+      // *** Instance attributes
+
+      // *** Instance methods
+
+   ]]></mx:Script>
+
+</mx:HBox>
+

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+      import flash.events.MouseEvent;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.events.DataGridEvent;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Checkout_Base;
+      import items.jobsq.Work_Item;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Wgt_BRtes_Ls');
+
+      [Bindable] public var data_grid_content:ArrayCollection
+         = new ArrayCollection();
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         //m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Analysis_Cell__Action = (
+            ev.target as Widget_Analysis_Cell__Action);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Analysis_Cell__Action can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      public function on_broutes_list_change() :void
+      {
+         m4_DEBUG('on_broutes_list_change');
+      }
+
+      //
+      protected function on_header_release(evt:DataGridEvent) :void
+      {
+         m4_DEBUG('on_header_release:', evt);
+         // FIXME: Sort-by. Resend Paginator request after indicating sort-by.
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         /* FIXME: Listen to revision changes to update rev control.
+         m4_DEBUG('on_initialize: listen on revision change.');
+         G.item_mgr.addEventListener('revisionChange',
+                                     this.on_current_rev_change);
+         */
+         /* FIXME: Does this class periodically ask the server for
+         *         changes, or if anything changed? Like, a hash
+         *         value or something? Or maybe get last job ID,
+         *         or jobs since last ID? */
+      }
+
+      //
+      protected function on_key_up(evt:KeyboardEvent) :void
+      {
+         m4_DEBUG('on_key_up:', evt.charCode);
+      }
+
+      //
+      public function consume_work_items(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         // NOTE: Nonwiki_Item doesn't have a lookup of work items, so it
+         //       should be safe to use gwis_req.resp_items (for normal items,
+         //       we shouldn't, because we want to use the item that's already
+         //       in the system, e.g., using Geofeature.all).
+         var work_items:Array = gwis_req.resp_items;
+         m4_DEBUG('consume_work_items: received:', work_items.length);
+         this.data_grid_content = new ArrayCollection();
+         for each (var work_item:Work_Item in work_items) {
+            this.data_grid_content.addItem(work_item);
+         }
+         // MAYBE: This is hacky. Force the parent's hand.
+         var widget_analysis:Widget_Analysis = (this.dp as Widget_Analysis);
+         widget_analysis.broutes_list_pager.p_collect = this.data_grid_content;
+         widget_analysis.broutes_list_pager.update_pagination_text();
+      }
+
+      //
+      public function reset_list() :void
+      {
+         m4_DEBUG('reset_list');
+         this.data_grid_content = new ArrayCollection();
+      }
+
+   ]]></mx:Script>
+
+   <mx:DataGrid
+      id="branch_list"
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      allowMultipleSelection="false"
+      dataProvider="{this.data_grid_content}"
+      draggableColumns="true"
+      resizableColumns="true"
+      headerRelease="this.on_header_release(event)"
+      added="this.on_added_renderer_maybe(event);"
+      change="this.on_broutes_list_change();"
+      keyUp="this.on_key_up(event);"
+      rowCount="4"
+      >
+
+      <mx:columns>
+         <!--
+         <mx:DataGridColumn
+            dataField="Branch"
+            headerText=""
+            itemRenderer="views.panel_branch.Widget_Shapefile_Entry"
+            />
+         <mx:DataGridColumn
+            id="odo_column"
+            headerText="Odo."
+            dataField="total_distance"
+            width="46"
+            minWidth="0"/>
+            -->
+         <mx:DataGridColumn
+            headerText="Status"
+            dataField="status_text"
+            minWidth="0"
+            showDataTips="true"
+            dataTipField="job_stage_msg"/>
+         <mx:DataGridColumn
+            headerText="Name"
+            dataField="name_"
+            minWidth="0"/>
+         <mx:DataGridColumn
+            headerText="No."
+            dataField="n"
+            minWidth="0"/>
+         <mx:DataGridColumn
+            headerText="Actions"
+            minWidth="0"
+            itemRenderer="views.panel_branch.Widget_Analysis_Cell__Action"
+            />
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

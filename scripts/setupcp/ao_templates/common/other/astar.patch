@@ -1,0 +1,36 @@
+--- /ccp/dev/cp/pyserver/tmp/astar.py	2014-04-23 03:41:58.783781093 -0500
++++ /ccp/dev/cp_2628/pyserver/astar.py	2014-04-23 03:50:38.429248265 -0500
+@@ -18,7 +18,18 @@
+ __all__ = ['astar_path', 'astar_path_length']
+ 
+ 
+-def astar_path(G, source, target, heuristic=None, weight='weight'):
++# This is my first patch! http://jungels.net/articles/diff-patch-ten-minutes.html
++#
++# Once:
++# diff -u /usr/local/lib/python2.7/dist-packages/networkx/algorithms/shortest_paths/astar.py \
++#      /path/to/my/edited/astar.py \
++#      > /ccp/dev/cp/scripts/setupcp/ao_templates/common/other/astar.patch
++# Many:
++# patch /ccp/opt/usr/lib/python2.6/site-packages/networkx-1.8.1-py2.6.egg/networkx/algorithms/shortest_paths/astar.py \
++#      < /ccp/dev/cp/scripts/setupcp/ao_templates/common/other/astar.patch
++
++# [lb] Add pload for functon callback.
++def astar_path(G, source, target, heuristic=None, weight='weight', pload=None):
+     """Return a list of nodes in a shortest path between source and target
+     using the A* ("A-star") algorithm.
+ 
+@@ -108,7 +119,12 @@
+         for neighbor, w in G[curnode].items():
+             if neighbor in explored:
+                 continue
+-            ncost = dist + w.get(weight, 1)
++            # [lb] Add try/except. Assume not a function, so
++            # that non-function weights are faster (don't raise).
++            try:
++               ncost = dist + w.get(weight, 1)
++            except TypeError:
++               ncost = dist + w.get(weight)(w, pload)
+             if neighbor in enqueued:
+                 qcost, h = enqueued[neighbor]
+                 # if qcost < ncost, a longer path to neighbor remains

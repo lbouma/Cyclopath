@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   title="Feedback on this Route"
+   borderAlpha="1"
+   width="512"
+   layout="vertical"
+   defaultButton="{ok}"
+   showCloseButton="true"
+   close="this.submit_maybe(false);"
+   backgroundColor="{Conf.private_color}"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      import gwis.GWIS_Route_Feedback_Unedited;
+      import items.feats.Route;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Rt_FeedbPpp');
+
+      // *** Instance variables
+
+      public var route:Route;
+
+      // *** Instance methods
+
+      // No validation - all fields are optional
+      protected function submit_maybe(ok:Boolean) :void
+      {
+         var gwis_save:GWIS_Route_Feedback_Unedited;
+         if (ok) {
+            gwis_save = new GWIS_Route_Feedback_Unedited(
+               this.route,
+               this.purpose.selectedItem.value,
+               int(this.satisfaction.selectedValue),
+               this.comments.text,
+               this);
+            gwis_save.fetch();
+         }
+         else {
+            PopUpManager.removePopUp(this);
+         }
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Text
+      width="100%"
+      text="Help improve Cyclopath's directions by submitting the following feedback about your route. All questions are optional, and this information will be kept private."/>
+
+   <mx:HRule
+      width="100%"
+      strokeWidth="1"/>
+
+   <mx:Label
+      fontWeight="bold"
+      text="1. What is your primary purpose for this route?"/>
+   <mx:Box
+      paddingLeft="65">
+      <mx:ComboBox
+         id="purpose"
+         rowCount="8">
+         <mx:dataProvider>
+            <mx:Array>
+               <mx:Object
+                  value=""
+                  label="Pick one..."/>
+               <mx:Object
+                  value="exercise"
+                  label="Exercise/workout"/>
+               <mx:Object
+                  value="recreation"
+                  label="Recreation/fun"/>
+               <mx:Object
+                  value="commute"
+                  label="Commuting (travel between home and work)"/>
+               <mx:Object
+                  value="transport"
+                  label="General transportation (not commuting)"/>
+               <mx:Object
+                  value="other"
+                  label="Other (please elaborate below)"/>
+            </mx:Array>
+         </mx:dataProvider>
+      </mx:ComboBox>
+   </mx:Box>
+
+   <mx:Label
+      fontWeight="bold"
+      text="2. How satisfied are you with these directions?"/>
+   <mx:VBox
+      paddingLeft="65">
+      <mx:RadioButtonGroup
+         id="satisfaction"/>
+      <mx:RadioButton
+         value="1"
+         label="Very dissatisfied"
+         groupName="satisfaction"/>
+      <mx:RadioButton
+         value="2"
+         label="Dissatisfied"
+         groupName="satisfaction"/>
+      <mx:RadioButton
+         value="3"
+         label="Neutral"
+         groupName="satisfaction"/>
+      <mx:RadioButton
+         value="4"
+         label="Satisfied"
+         groupName="satisfaction"/>
+      <mx:RadioButton
+         value="5"
+         label="Very satisfied"
+         groupName="satisfaction"/>
+   </mx:VBox>
+
+   <mx:Label
+      fontWeight="bold"
+      text="3. Other Comments:"/>
+   <mx:TextArea
+      id="comments"
+      height="64"
+      width="100%" />
+
+   <mx:HBox
+      width="100%"
+      verticalAlign="bottom">
+      <views_panel_util:Help_Link
+         click_url="/Pink_Is_Private"
+         fontStyle="italic"
+         text="More Info"
+         textAlign="right"/>
+         <!-- text="Pink is Private" -->
+      <mx:Spacer
+         width="100%"/>
+      <mx:Button
+         label="Cancel"
+         click="this.submit_maybe(false);"/>
+      <mx:Button
+         id="ok"
+         label="Submit Feedback"
+         click="this.submit_maybe(true);"/>
+   </mx:HBox>
+
+</mx:TitleWindow>
+

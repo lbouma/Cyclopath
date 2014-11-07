@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   title="Landmarks Experiment"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   verticalGap="3"
+   defaultButton="{this.popup_agree_btn}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.managers.PopUpManager;
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Landmark_Exp_Part2_Begin;
+      import items.utils.Landmark;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_routes.Landmark_Experiment_Instructions;
+      import views.panel_util.Alert_Dialog;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Exp_Pop');
+
+      protected static const instructions:String =
+         "<b>Cyclopath needs your help to test an experimental feature for rating landmarks in route directions as useful or not.</b><br /><br />"
+         + "Because this is part of an experiment, please read the following information before proceeding:<br />";
+
+      protected static const consent_form:String =
+         "<b>Background Information.</b> The purpose of this study is to evaluate an interface for rating landmarks for route directions in Cyclopath. The findings from this study will help us refine our design, and they will also inform the design of other, similar systems."
+         + "<br /><br /><b>Procedures.</b> You will be shown five routes three times each (15 routes in total), for which you will be able to select familiarity and rate landmarks as useful or not. We estimate that completing the work will take about 20-30 minutes."
+         + "<br /><br /><b>Compensation.</b> There is no compensation for participating."
+         + "<br /><br /><b>Risks and Benefits of Being In the Study.</b> There are no significant risks to participation, and there is no direct benefit to participants."
+         + "<br /><br /><b>Confidentiality.</b> We may share with others or publish things you do or tell us as part of this study, but only in aggregate or in ways which cannot identify you. If you make any map edits while participating in this study, those edits will be normal Cyclopath edits; they are saved indefinitely, publically available, and credited to your username. If you send us questions about the study by e-mail, we may keep these e-mails (and those we send to you) indefinitely unless you ask us not to. As with all e-mail, we cannot assure confidentiality of these e-mails."
+         + "<br /><br /><b>Voluntary Nature of the Study.</b> Participation is voluntary. Your decision whether or not to participate will not affect your current or future relations with the University of Minnesota. If you decide to participate, you are free to not answer any question or withdraw at any time without affecting those relationships."
+         + "<br /><br /><b>Contacts and Questions.</b> The researcher conducting this study is Fernando Torre. If you have any questions now or later, you are encouraged to contact him by email at torre@cs.umn.edu."
+         + "<br /><br />If you have any questions or concerns regarding this study and would like to talk to someone other than the researchers, you are encouraged to contact the Research Subjects' Advocate Line, D528 Mayo, 420 Delaware St. SE, Minneapolis, MN 55455, 612-625-1650.";
+
+      protected static const agreement:String =
+         "<b>By clicking \"I Agree\", you indicate that you are at least 18 years old and that you agree to participate in the experiment described above.</b>";
+
+      // *** Instance attributes.
+
+      protected var waiting_on_login:Boolean = false;
+
+      // *** Instance methods.
+
+      //
+      protected function agree(ok:Boolean) :void
+      {
+         if (ok) {
+            if (!G.user.logged_in) {
+               m4_DEBUG('agree: opening login popup');
+               G.user.login_popup_open();
+               this.waiting_on_login = true;
+            }
+            else {
+               this.waiting_on_login = false;
+               // Note that the popup stays open while this request is
+               // outstanding but that the Update_Supplemental processor
+               // ignores the duplicate requests.
+               m4_DEBUG('agree: sending: GWIS_Landmark_Exp_Begin');
+               
+               // request trial information
+               var gwis_cmd:GWIS_Landmark_Exp_Part2_Begin =
+                        new GWIS_Landmark_Exp_Part2_Begin(experiment_load);
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(gwis_cmd);
+               m4_ASSERT_SOFT(!found_duplicate);
+            }
+         }
+         else {
+            // User clicked Cancel.
+            this.waiting_on_login = false;
+            m4_DEBUG('agree: declined: removePopUp');
+            PopUpManager.removePopUp(this);
+         }
+      }
+
+      //
+      protected function experiment_load(gwis_req:GWIS_Landmark_Exp_Part2_Begin,
+                                         xml:XML) :void
+      {
+         G.map.landmark_exp_routes = new Array();
+         G.map.landmark_exp_route_users = new Array();
+         var x:XML;
+         // Set route list
+         for each (x in xml.lmrk_exp.route_p2) {
+            G.map.landmark_exp_routes.push(x.@route_system_id);
+            G.map.landmark_exp_route_users.push(x.@route_user_id);
+         }
+
+         if (G.map.landmark_exp_routes.length > 0) {
+            G.app.landmark_experiment_panel.next_rt_btn.label =
+               'Go to Route '
+               + String(Landmark.experiment_count
+                        + 1
+                        - G.map.landmark_exp_routes.length)
+               + ' of ' + String(Landmark.experiment_count);
+
+            UI.popup(new Landmark_Experiment_Instructions());
+            G.map.landmark_exp_validation_active = true;
+            G.app.landmark_experiment_panel.visible = true;
+
+         }
+         else {
+            G.app.landmark_experiment_panel.next_rt_btn.enabled = false;
+            m4_DEBUG('experiment_load: experiment already complete');
+            // The user already completed the experiment.
+            Alert_Dialog.show(
+               'Experiment Already Complete',
+               "Thanks for your interest in doing the experiment again, "
+               + "but it looks like you've already completed it once. "
+               + "We appreciate your enthusiasm, but you'll have to wait "
+               + "until we start the next part of the experiment.<br/><br/>"
+               + "Thank you!!",
+               /*html=*/true);
+         }
+         PopUpManager.removePopUp(this);
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         m4_DEBUG('titleWindow_close: removePopUp');
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Text
+      width="500"
+      paddingBottom="{G.app.pad}"
+      htmlText="{Landmark_Experiment_Popup.instructions}"/>
+   <mx:HBox
+      width="100%"
+      height="200"
+      paddingLeft="3"
+      paddingTop="3"
+      borderThickness="1"
+      borderStyle="solid">
+      <mx:Text
+         width="100%"
+         htmlText="{Landmark_Experiment_Popup.consent_form}"/>
+   </mx:HBox>
+   <mx:Text
+      width="500"
+      paddingTop="7"
+      htmlText="{Landmark_Experiment_Popup.agreement}"/>
+   <mx:HBox
+      width="100%"
+      horizontalAlign="right"
+      paddingTop="7">
+      <mx:Button
+         id="popup_cancel_btn"
+         label="Cancel"
+         click="this.agree(false);"/>
+      <mx:Button
+         id="popup_agree_btn"
+         label="I Agree. Let's get started"
+         click="this.agree(true);"/>
+   </mx:HBox>
+
+</mx:TitleWindow>

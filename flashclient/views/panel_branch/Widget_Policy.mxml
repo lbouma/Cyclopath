@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Policy');
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Policy_Entry = (
+            ev.target as Widget_Policy_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Policy_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate: Calling update');
+super.repopulate();
+this.update();
+      }
+
+      //
+      public function update() :void
+      {
+      }
+
+   ]]></mx:Script>
+
+   <mx:DataGrid
+      id="dp_box_access_edit_grid"
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      showHeaders="false"
+      headerHeight="0"
+      added="this.on_added_renderer_maybe(event);"
+      >
+
+      <mx:columns>
+         <mx:DataGridColumn
+            dataField=""
+            headerText="New Item Policy"
+            />
+         <!-- FIXME Implement
+            itemRenderer="views.panels.Widget_Policy_Entry" / >   -->
+<!--            headerText="Item Creation Policy" -->
+
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

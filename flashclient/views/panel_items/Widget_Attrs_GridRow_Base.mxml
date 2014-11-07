@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:GridRow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   horizontalGap="0"
+   >
+
+   <mx:Script><![CDATA[
+
+      //import mx.controls.ComboBox;
+      import mx.controls.Label;
+      import mx.controls.Text;
+      import mx.core.Container;
+      import mx.states.*;
+
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.App_Action;
+      //import views.commands.UI_Wrapper_Attr_Link;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_GRB');
+
+      // *** Instance variables
+
+      public var attr:Attribute;
+
+      // This class derives directly from GridRow and not Detail_Panel_Widget
+      // so we need to manage the pointer to our parent component ourself.
+      //[Bindable]
+      protected var dp:Detail_Panel_Base;
+
+      // Based on the attribute's value_type, we use one of a handful of
+      // different controls.
+      //public var combo_input:ComboBox;
+
+      // The derived classes populate these... just so we can reuse code and
+      // confuse devs (the real reason is because the MXML is in the child
+      // classes).
+      protected var attr_name_:Label;
+      protected var value_hints_:Text;
+      protected var value_units_:Label;
+      protected var box_edit_control_:Container;
+      protected var box_view_control_:Container;
+      protected var label_view_value_:Text;
+
+      // *** Instance methods
+
+      //
+      public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         this.dp = dp;
+      }
+
+      //
+      public function get attribute() :Attribute
+      {
+         return this.attr;
+      }
+
+      //
+      public function set attribute(attr_:Attribute) :void
+      {
+         m4_TALKY('set attribute:', attr_);
+
+         this.attr = attr_;
+
+         m4_TALKY('this.attr.name_:', this.attr.name_);
+         m4_TALKY('this.attr.value_type:', this.attr.value_type);
+
+         m4_ASSERT(!this.attr.uses_custom_control);
+
+         m4_TALKY('this.dp:', this.dp);
+         if (this.dp !== null) {
+            this.setup_attr_controls();
+         }
+         else {
+            m4_WARNING('set attribute: details panel not set yet');
+         }
+      }
+
+      //
+      protected function setup_attr_controls() :void
+      {
+         m4_TALKY('this.dp.items_selected:', this.dp.items_selected);
+         m4_ASSERT(this.dp.items_selected.length > 0);
+
+         // NOTE: Ignoring this.attrs. We need actual lvals.
+         var can_edit_lvals:Boolean = false;
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit))) {
+            var attr_set:Set_UUID = new Set_UUID([this.attr,]);
+            var attrs_links:Set_UUID = Link_Value.items_get_link_values(
+                                          attr_set, this.dp.items_selected);
+            can_edit_lvals = true;
+            if (attrs_links.length > 0) {
+               can_edit_lvals = Objutil.consensus_b(
+                  attrs_links, 'can_edit', false);
+            }
+         }
+
+         // MAYBE: If one or more selected items do not have link_values, we
+         // should really check that the user can create link_values between
+         // the selected items and the attribute.
+
+         // Set the ID of the new control to the stack ID of the attribute
+         // so that our UI Wrapper class can find it.
+         this.id = '' + this.attr.stack_id;
+
+         if (this.attr_name_ === null) {
+            m4_WARNING('this:', this);
+         }
+
+         // Display the attribute's name and hints
+         this.attr_name_.text = this.attr.name_;
+         this.value_hints_.text = this.attr.value_hints;
+         this.value_units_.text = this.attr.value_units;
+
+         if (can_edit_lvals) {
+            this.box_edit_control_.visible = true;
+            this.box_edit_control_.includeInLayout = true;
+            this.box_view_control_.visible = false;
+            this.box_view_control_.includeInLayout = false;
+         }
+         else {
+            this.box_edit_control_.visible = false;
+            this.box_edit_control_.includeInLayout = false;
+            this.box_view_control_.visible = true;
+            this.box_view_control_.includeInLayout = true;
+
+            var common_value:String = Attribute.consensus(
+                        this.dp.items_selected, this.attr);
+            if (!common_value) {
+               common_value = 'N/a';
+               this.label_view_value_.setStyle('fontStyle', 'italic');
+            }
+            this.label_view_value_.text = common_value;
+            this.label_view_value_.toolTip = common_value;
+         }
+
+         this.setup_attr_controls_specific(can_edit_lvals);
+      }
+
+      //
+      public function set_enabled(is_enabled:Boolean) :void
+      {
+         m4_ASSERT(false); // Abstract.
+      }
+
+      //
+      protected function setup_attr_controls_specific(
+         can_edit_lvals:Boolean) :void
+      {
+         m4_ASSERT(false); // Abstract.
+      }
+
+      // ***
+
+      //
+      // BUG nnnn/MEH: This is for text attributes with a limited set of input
+      // values. Think Bike Facility widget, but without using a custom
+      // control.
+      /*
+      protected function init_as_combo(opts:Array) :void
+      {
+         m4_VERBOSE('init_as_combo');
+         m4_ASSERT(this.combo_input === null);
+         this.combo_input = new ComboBox();
+         this.combo_input.dataProvider = opts;
+         this.combo_input.selectedIndex = 0;// ?????????????????????
+         this.combo_input.width = 180; // FIXME: MAGIC No. See other maxWidth
+         // Wire the control.
+
+         // FIXME: Make this a UI_Wrapper_ComboBox, right??
+         views.commands.UI_Wrapper_Attr_Link.wrap(
+            this.combo_input, 'selectedItem',
+            this.dp.items_selected,
+            this.attr, 'text');
+         // But this is wrong, because the opts is an Array, but not of XML.
+         //views.commands.UI_Wrapper_ComboBox.wrap(
+         //   this.combo_input, this.dp.items_selected, '??');
+         // ... add it to the griditem
+         // FIXME: See comment below; use Label if Link_Value not editable.
+         this.box_edit_control.addChildAt(this.combo_input, 0);
+      }
+      */
+
+      // ***
+
+   ]]></mx:Script>
+
+</mx:GridRow>
+

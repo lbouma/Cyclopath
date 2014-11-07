@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns="*"
+   initialize="this.on_initialize();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+
+      import utils.misc.Logging;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctH_ActCtr');
+
+      // *** Instance attributes
+
+      // The username say "loading..." until the username is really loaded.
+      protected var username:String = "loading...";
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize() :void
+      {
+         G.app.addEventListener("user_event_change", this.on_user_change);
+      }
+
+      // ***
+
+      //
+      protected function get_user_cbox_label(item:Object) :String
+      {
+         return this.username;
+      }
+
+      //
+      protected function on_change() :void
+      {
+         m4_DEBUG2('on_change: action:',
+                   this.banner_cbox_user_controls.selectedItem.action);
+         // This is New Hack City. The 'action' property is the name of one of
+         // our functions. This is a sneaky way to execute said named function.
+         this[this.banner_cbox_user_controls.selectedItem.action]();
+         // Make sure to reset the selectedIndex or you won't be able to select
+         // the same option two times in a row (Flex just ignores it).
+         this.banner_cbox_user_controls.selectedIndex = -1;
+      }
+
+      //
+      public function on_action_my_item_alerts() :void
+      {
+         m4_DEBUG('on_action_my_item_alerts');
+         G.panel_mgr.panel_activate(G.tabs.settings.watchers_panel);
+      }
+
+      //
+      // FIXME: Statewide UI: See comments below; implement or delete this.
+      /*/
+      protected function on_action_my_preferences() :void
+      {
+         m4_DEBUG2('on_action_my_preferences');
+      }
+      /*/
+
+      //
+      public function on_action_join() :void
+      {
+         m4_DEBUG('on_action_join');
+         UI.mediawiki('?title=Special:UserLogin&amp;type=signup');
+      }
+
+      //
+      public function on_action_log_in() :void
+      {
+         m4_DEBUG('on_action_log_in');
+         G.user.login_or_logout();
+      }
+
+      //
+      public function on_action_this_is_just_a_splitter() :void
+      {
+         m4_DEBUG('on_action_this_is_just_a_splitter');
+      }
+
+      //
+      public function on_action_log_out() :void
+      {
+         m4_DEBUG('on_action_log_out');
+         G.user.login_or_logout();
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         this.banner_button_user_join.visible = !G.user.logged_in;
+         this.banner_button_user_login.visible = !G.user.logged_in;
+         this.banner_cbox_user_controls.visible = G.user.logged_in;
+         this.username = G.user.username;
+         this.banner_cbox_user_controls.text = this.username;
+      }
+
+   ]]></mx:Script>
+
+   <!-- Join button (current, to be replaced) -->
+   <views_panel_util:Help_Link
+      id="help_link_sign_up"
+      click_url="?title=Special:UserLogin&amp;type=signup"
+      color="#ffffff"
+      linkIcon="true"
+      text="New User?"
+      paddingTop="4"
+      visible="true"
+      includeInLayout="{this.help_link_sign_up.visible}"
+      />
+
+   <!-- Join button -->
+   <mx:Button
+      id="banner_button_user_join"
+      label="Join"
+      fillColors="{[Conf.save_button_fill_light,
+                    Conf.save_button_fill_dark,]}"
+      toolTip=""
+      enabled="true"
+      height="26"
+      visible="true"
+      includeInLayout="{this.banner_button_user_join.visible}"
+      click="this.on_action_join();"
+      />
+
+   <!-- Login button -->
+   <mx:Button
+      id="banner_button_user_login"
+      label="Log In"
+      styleName="headerbutton"
+      toolTip=""
+      enabled="true"
+      height="26"
+      visible="true"
+      includeInLayout="{this.banner_button_user_login.visible}"
+      click="this.on_action_log_in();"
+      />
+
+   <!-- Account control -->
+   <!-- FIXME: MAGIC_NUMBER: Setting minWidth based on trial and error.
+               We should really calculate the minimumWidth based on the
+               widest of the Labels in the list. Note that we have to
+               access the ComboBox list and cannot just access its children.
+               See: Combo_Box_V2, specifically setting dropdownFactory and
+               itemRenderer and then the renderer should tell the ComboBox
+               about its width.
+        FIXME: If we implement previous, then we can set
+               dropdownWidth in stead of minWidth.... -->
+   <!-- NOTE: The Flex docs suggest selectedIndex="-1" and selectedItem="null"
+              by default, but it's actually getting set to 0, because if you
+              don't specify these and then select the first item in the list,
+              we don't get the 'change' event. -->
+   <mx:ComboBox
+      id="banner_cbox_user_controls"
+      toolTip=""
+      enabled="true"
+      height="26"
+      selectionColor="0xFFFFFF"
+      labelFunction="get_user_cbox_label"
+      visible="false"
+      includeInLayout="{this.banner_cbox_user_controls.visible}"
+      change="this.on_change();"
+      selectedIndex="-1"
+      selectedItem="null"
+
+      minWidth="140"
+      >
+      <mx:dataProvider>
+            <!-- NOTE: We use our own class and not mx:Object so we can use
+                       [Bindable], otherwise we'll get a Flex warning, e.g.,
+                           warning: unable to bind to property 'label' on class
+                           'Object' (class is not an IEventDispatcher)
+                       Note that [lb] tried using ObjectProxy in this class but
+                       it doesn't work with the inline itemRenderer below. But
+                       our shim Object is super-simple, and we can set it
+                       params inline here, so it's all good.
+                       -->
+         <mx:Array>
+            <!-- Formerly:
+                   label="My Places"
+                   label="My Item Watchers"
+                   -->
+            <views_section_header:Acct_Control_Option
+               label="My Item Alerts"
+               action="on_action_my_item_alerts"/>
+            <!--
+            <mx:views_section_header:Acct_Control_Option
+               label="My Preferences"
+               action="on_action_my_preferences"/>
+            -->
+            <!-- FIXME/BUG nnnn: Show a splitter line. "Dangerous" logging out
+                                 action too close to safe item-alerts action.
+            <views_section_header:Acct_Control_Option
+               label=""
+               action="on_action_this_is_just_a_splitter"/>
+            -->
+            <views_section_header:Acct_Control_Option
+               label="Log Out"
+               action="on_action_log_out"/>
+         </mx:Array>
+      </mx:dataProvider>
+      <mx:itemRenderer>
+         <mx:Component>
+            <mx:Label
+               text="{this.data.label}"
+               paddingRight="2"/>
+         </mx:Component>
+      </mx:itemRenderer>
+   </mx:ComboBox>
+
+</mx:HBox>
+

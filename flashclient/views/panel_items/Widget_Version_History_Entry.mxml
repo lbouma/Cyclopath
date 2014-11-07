@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   paddingLeft="4"
+   paddingRight="4"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   dataChange="this.entry_update();"
+   doubleClickEnabled="true"
+   doubleClick="this.on_double_click(event);"
+   mouseOver="this.on_list_entry_mouseover(event);"
+   mouseOut="this.on_list_entry_mouseout(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.geom.Point;
+      import flash.text.TextLineMetrics;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.controls.Button;
+      import mx.controls.Menu;
+      import mx.events.FlexEvent;
+
+      import grax.User;
+      import items.Geofeature;
+      import utils.geom.Dual_Rect;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+      import views.panel_items.Panel_Item_Geofeature;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Wgt_VHistEnt');
+
+      // ***
+
+      protected var watcher_width:ChangeWatcher;
+      protected var watcher_width_outer:ChangeWatcher;
+
+      // ***
+
+      public function entry_update() :void
+      {
+         m4_TALKY2('entry_update: this.data:', (this.data !== null)
+                                 ? this.data.toXMLString() : 'null');
+
+         // The server returns:
+         //    <item_history>
+         //       <row
+         //          iv.system_id
+         //          iv.branch_id
+         //          iv.stack_id
+         //          iv.version
+         //          iv.deleted
+         //          iv.reverted
+         //          iv.name
+         //          iv.valid_start_rid
+         //          iv.valid_until_rid
+         //          is.edited_date
+         //          is.edited_user
+         //          is.edited_addr
+         //          is.edited_host
+         //          is.edited_note
+         //          //is.edited_what
+         //          rev.timestamp
+         //          rev.username
+         //          rev.comment
+         //
+         // and for routes:
+         //          rt.source
+         //          rt.details
+         //          rt.beg_addr
+         //          rt.fin_addr
+         //          rt.rsn_len
+         //          --, rt.travel_mode
+         //          rt_ps.travel_mode
+         //          rt_ps.p1_priority
+         //          rt_ps.p2_depart_at
+         //          rt_ps.p2_transit_pref
+         //          rt_ps.p3_weight_attr
+         //          rt_ps.p3_weight_type
+         //          rt_ps.p3_rating_pump
+         //          rt_ps.p3_burden_pump
+         //          rt_ps.p3_spalgorithm
+         //          rt_ps.tags_use_defaults
+
+         // C.f. Rev_Grid_Renderer.on_data_change. Kinda.
+
+         var username:String = this.data.@edited_user;
+         if (username.charAt(0) == '_') {
+            if (User.is_anonymous(username)) {
+               username = this.data.@edited_host;
+               // Does this work/make sense?:
+               if (!username) {
+                  username = this.data.@edited_addr;
+               }
+            }
+            if (username == 'localhost.localdomain') {
+               username = 'localhost';
+            }
+         }
+         // FIXME-MAYBE: For anon, use 
+
+         //this.label_whom.text = 'Vers. ' + this.data.@version;
+         this.label_whom.text = 'v' + this.data.@version;
+         if (this.data.@edited_date) {
+            // Routes are saved revisionlessly, so instead of
+            // revision.timestamp we use route.edited_date.
+            this.label_when.text = this.data.@edited_date;
+         }
+         else {
+            // The revision ID is probably valid... assuming that
+            // a missing edited_date indicates a revisioned item.
+            m4_ASSERT_SOFT(false); // We always get @edited_date.
+            this.label_whom.text +=
+               ' (Rev. ' + this.data.@valid_start_rid + ')';
+            this.label_when.text = this.data.@edited_date;
+         }
+         this.label_whom.text += ' by ' + username;
+         //this.label_whom.toolTip = this.label_whom.text;
+         //this.label_when.toolTip = this.label_when.text;
+
+         this.item_deleted.visible = Boolean(int(this.data.@deleted));
+         this.item_reverted.visible = Boolean(int(this.data.@reverted));
+
+         this.item_name_lbl.text = '"' + this.data.@name + '"';
+
+         var tlm:TextLineMetrics =
+            this.item_name_lbl.measureText(
+                  this.item_name_lbl.text);
+         m4_PPUSH4('entry_update: tlm.width:', tlm.width,
+            '/ item_name_lbl.width:', this.item_name_lbl.width,
+            '/ item_name_container.width:',
+            this.item_name_container.width);
+         if (tlm.width > this.item_name_lbl.width) {
+            //this.item_name_lbl.toolTip = this.data.@text;
+            this.item_name_lbl.toolTip = this.data.@name;
+         }
+         else {
+            this.item_name_lbl.toolTip = '';
+         }
+
+         m4_DEBUG('entry_update: this.dp:', this.dp);
+
+         // The this.dp is unset because Widget_Version_History's
+         // set detail_panel called after its on_added_renderer_maybe.
+         // So using parentDocument.
+         var version_history:Widget_Version_History;
+         version_history = (this.parentDocument as Widget_Version_History);
+
+         var gf_panel:Panel_Item_Geofeature;
+         gf_panel = (version_history.detail_panel as Panel_Item_Geofeature);
+         m4_DEBUG('entry_update: gf_panel:', gf_panel);
+
+         var some_feat:Geofeature;
+         some_feat = (gf_panel.items_selected.item_get_random() as Geofeature);
+         m4_DEBUG('entry_update: some_feat:', some_feat);
+         m4_ASSERT_SOFT(some_feat.stack_id == this.data.@stack_id);
+
+         m4_DEBUG2('entry_update: versions_active:', gf_panel.versions_active,
+                   '/ vers:', this.data.@version);
+         if ((gf_panel.versions_active !== null)
+             && (gf_panel.versions_active.is_member(
+                           int(this.data.@version)))) {
+            this.version_load_hide_show.htmlText = "Hide";
+            this.version_load_hide_show.enabled = true;
+            this.version_revert.enabled = true;
+         }
+         else if (some_feat.version == this.data.@version) {
+            // This is the latest version of the item.
+            if (some_feat.visible) {
+               this.version_load_hide_show.htmlText = "Hide";
+            }
+            else {
+               this.version_load_hide_show.htmlText = "Show";
+            }
+            this.version_load_hide_show.enabled = true;
+            this.version_revert.enabled = false;
+         }
+         else {
+            var past_versions:Array;
+            past_versions = G.item_mgr.past_versions[some_feat.stack_id];
+            if ((past_versions === null)
+                || (past_versions[int(this.data.@version)] === undefined)) {
+               this.version_load_hide_show.htmlText = "Load";
+               this.version_revert.enabled = false;
+            }
+            else if (past_versions[int(this.data.@version)].visible) {
+               this.version_load_hide_show.htmlText = "Hide";
+               this.version_revert.enabled = true;
+            }
+            else {
+               this.version_load_hide_show.htmlText = "Show";
+               this.version_revert.enabled = false;
+            }
+            this.version_load_hide_show.enabled = true;
+         }
+
+         if (version_history.version_cmds[int(this.data.@version)]
+             !== undefined) {
+            // There's an outstanding request for this item version.
+            this.version_load_hide_show.enabled = false;
+         }
+
+         var active_version:int = 0;
+         active_version = gf_panel.active_version_number(
+                           some_feat, this.data.@version);
+         if (active_version > 0) {
+            this.version_revert.enabled = false;
+         }
+
+         var revert_ok:Boolean = gf_panel.is_action_actionable('item-revert');
+         if ((active_version == 0)
+             || (active_version != int(this.data.@version))) {
+            if (some_feat.version == int(this.data.@version)) {
+               m4_DEBUG2('entry_update: edited: latest version:',
+                         some_feat.version);
+               this.version_revert.visible = false;
+               this.version_active.visible = false;
+               this.version_edited.visible = true;
+            }
+            else {
+               m4_DEBUG2('entry_update: edited: older version:',
+                         this.data.@version);
+               this.version_revert.visible = revert_ok; // "Revert to"
+               this.version_active.visible = false; // "At Version"
+               this.version_edited.visible = false; // "Edited"
+            }
+         }
+         else {
+            // I.e., active_version == int(this.data.@version)
+            m4_DEBUG('entry_update: active_version:', active_version);
+            // active_version > 0, so this is the unedited latest version,
+            // or the user "reverted to" and hasn't edited since then.
+            this.version_revert.visible = false;
+            this.version_active.visible = true;
+            this.version_edited.visible = false;
+         }
+      }
+
+      //
+      public function on_change_width(event:Event=null) :void
+      {
+         m4_PPUSH('on_change_width: this.width:', this.width);
+         // The parent's width seems to be the same as ours.
+         m4_PPUSH2('on_change_width: parentDocument.width:',
+                   this.parentDocument.width);
+         // And then the addr label might be ridiculously too large.
+         // E.g., look for the "megamall" point, whose name is very long.
+         m4_PPUSH2('on_change_width: item_name_container.width:',
+                   this.item_name_container.width);
+         //
+         m4_PPUSH2('on_change_width: item_name_row_container.width:',
+                   this.item_name_row_container.width);
+         //
+         m4_PPUSH2('on_change_width: version_load_hide_show.width:',
+                   this.version_load_hide_show.width);
+         m4_PPUSH2('on_change_width: version_revert.width:',
+                   this.version_revert.width);
+         m4_PPUSH2('on_change_width: item_name_row_spacer.width:',
+                   this.item_name_row_spacer.width);
+
+         m4_DEBUG('on_change_width: data:', this.data.toXMLString());
+         var vers_history:Widget_Version_History;
+         vers_history = (this.parentDocument as Widget_Version_History);
+         m4_PPUSH2('on_change_width: vers_history.width:',
+                   vers_history.width);
+         // Its parent is either an Address_Resolver or a Route_Stop_Entry.
+         m4_PPUSH2('on_change_width: vers_history.parentDocument.width:',
+                   vers_history.parentDocument.width);
+
+         if (this.parentDocument.width > 0) {
+
+            ////this.item_name_lbl.toolTip = '';
+            //this.item_name_lbl.toolTip = this.data.@name;
+
+            // MAGIC_NUMBER: We uses different labels ("Load", "Show",
+            //               Hide"), so the container width varies.
+            //               Use 32, which is the widest value seen.
+            var version_load_hide_show_width:int = 32;
+            if (version_load_hide_show_width
+                < this.version_load_hide_show.width) {
+               m4_WARNING2('on_change_width: wider than 32:',
+                           this.version_load_hide_show.width);
+               version_load_hide_show_width =
+                  this.version_load_hide_show.width;
+            }
+
+            var max_width:int
+               //= this.parentDocument.width
+               = vers_history.parentDocument.width
+               - version_load_hide_show_width
+               //- this.version_revert.width
+               - this.version_active.width
+               //- this.version_edited.width
+               - this.item_name_row_spacer.width
+               // MAGIC_NUMBER: There are 4 items in the HBox.
+               - (this.item_name_row_container.getStyle('horizontalGap') * 4)
+               - this.item_name_row_container.getStyle('paddingLeft')
+               - this.item_name_row_container.getStyle('paddingRight')
+               //
+               // Hrmm... we're still too wide...
+               //- this.item_name_container.getStyle('paddingLeft')
+               //- this.item_name_container.getStyle('paddingRight')
+               // MAGIC_NUMBER: So Sayeth the Pixel Pusher: "Sixteen".
+               - 16
+               ;
+            m4_PPUSH('on_change_width: max_width:', max_width);
+
+            var tlm:TextLineMetrics =
+               this.item_name_lbl.measureText(
+                     this.item_name_lbl.text);
+            m4_PPUSH4('on_change_width: tlm.width:', tlm.width,
+               '/ item_name_lbl.width:', this.item_name_lbl.width,
+               '/ item_name_container.width:',
+               this.item_name_container.width);
+            if (tlm.width > max_width) {
+//            if (max_width < this.item_name_container.width) {
+               this.item_name_container.maxWidth = max_width;
+               //if (this.data !== null) {
+               //   this.item_name_lbl.toolTip = this.data.@text;
+               //}
+               this.item_name_lbl.maxWidth =
+                  max_width
+                  - this.item_name_container.getStyle('paddingLeft')
+                  - this.item_name_container.getStyle('paddingRight');
+            }
+         }
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_width = ChangeWatcher.watch(
+            this.item_name_container, 'width', this.on_change_width);
+         this.watcher_width_outer = ChangeWatcher.watch(
+            this.item_name_row_container, 'width', this.on_change_width);
+         this.on_change_width();
+      }
+
+      //
+      protected function on_double_click(ev:MouseEvent=null) :void
+      {
+         m4_DEBUG('on_double_click: ev:', ev);
+         //... no...: this.on_version_load_click();
+      }
+
+      //
+      public function on_list_entry_mouseover(event:MouseEvent=null) :void
+      {
+         m4_TALKY('on_list_entry_mouseover');
+      }
+
+      //
+      public function on_list_entry_mouseout(event:MouseEvent=null) :void
+      {
+         m4_TALKY('on_list_entry_mouseout');
+         var version_history:Widget_Version_History;
+         version_history = (this.parentDocument as Widget_Version_History);
+         version_history.version_history_list.selectedIndex = -1;
+         //version_history.version_history_list.clearSelected();
+         version_history.version_history_list.selectedItem = null;
+
+         this.stage.focus = null;
+      }
+
+      // ***
+
+      //
+      public function on_version_load_click(event:MouseEvent=null) :void
+      {
+         m4_DEBUG('on_version_load_click: data:', this.data.toXMLString());
+
+         // De-enable button while we're fetching, just to look less weird.
+         this.version_load_hide_show.enabled = false;
+
+         var version_history:Widget_Version_History;
+         version_history = (this.parentDocument as Widget_Version_History);
+         version_history.version_load_hide_show(this.data as XML);
+      }
+
+      //
+      public function on_version_revert_click(event:MouseEvent=null) :void
+      {
+         m4_DEBUG2('on_version_revert_click: data:',
+                   this.data.toXMLString());
+
+         var version_history:Widget_Version_History;
+         version_history = (this.parentDocument as Widget_Version_History);
+         version_history.version_revert(this.data as XML);
+      }
+
+      //
+      public function on_version_lookat_click(event:MouseEvent=null) :void
+      {
+         m4_DEBUG('on_version_lookat_click: data:', this.data.toXMLString());
+
+         var version_history:Widget_Version_History;
+         version_history = (this.parentDocument as Widget_Version_History);
+
+         var gf_panel:Panel_Item_Geofeature;
+         gf_panel = (version_history.detail_panel as Panel_Item_Geofeature);
+         m4_DEBUG('on_version_lookat_click: gf_panel:', gf_panel);
+
+         var some_feat:Geofeature;
+         some_feat = (gf_panel.items_selected.item_get_random() as Geofeature);
+         m4_DEBUG('on_version_lookat_click: some_feat:', some_feat);
+         m4_ASSERT_SOFT(some_feat.stack_id == this.data.@stack_id);
+
+         var past_versions:Array;
+         past_versions = G.item_mgr.past_versions[some_feat.stack_id];
+         if (past_versions !== null) {
+            m4_DEBUG('on_version_lookat_click: past_versions:', past_versions);
+            var old_feat:Geofeature = null;
+            old_feat = past_versions[int(this.data.@version)];
+            if (old_feat !== null) {
+               m4_DEBUG('on_version_lookat_click: old_feat:', old_feat);
+               G.map.lookat(old_feat);
+            }
+         }
+         // else, no old_feat, so not loaded; do nothing.
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      verticalAlign="middle"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      horizontalAlign="middle"
+      horizontalGap="0"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0">
+      <mx:Label
+         id="label_whom"
+         text=""
+         truncateToFit="true"
+         maxWidth="{this.width - 4 - 4
+                    - this.label_when.width
+                    - this.item_deleted.width
+                    - this.item_reverted.width
+                    }"
+         />
+      <mx:Spacer
+         width="100%"
+         />
+      <mx:Label
+         id="label_when"
+         text=""
+         paddingLeft="2"
+         paddingRight="3"
+         />
+      <mx:Label
+         id="item_deleted"
+         text="d"
+         visible="false"
+         fontWeight="bold"
+         paddingRight="-11"
+         toolTip="Item version was deleted."
+         />
+      <mx:Label
+         id="item_reverted"
+         text="r"
+         visible="false"
+         fontWeight="bold"
+         paddingRight="-11"
+         toolTip="Item version was reverted."
+         />
+   </mx:HBox>
+
+   <mx:HBox
+      id="item_name_row_container"
+      width="100%"
+      horizontalAlign="middle"
+      horizontalGap="2"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="6"
+      paddingRight="6">
+      <mx:HBox
+         id="item_name_container"
+         width="100%"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off">
+         <mx:Label
+            id="item_name_lbl"
+            text=""
+            truncateToFit="true"
+            click="this.on_version_lookat_click(event);"/>
+      </mx:HBox>
+      <views_panel_util:Hyper_Link
+         id="version_load_hide_show"
+         htmlText="View"
+         toolTip="Click to load and view this version of the item."
+         enabled="true"
+         visible="true"
+         includeInLayout="true"
+         click="this.on_version_load_click(event);"/>
+
+      <mx:Canvas
+         id="revert_btn_canvas"
+         width="{this.version_active.width}"
+         height="100%"
+         verticalScrollPolicy="off"
+         horizontalScrollPolicy="off">
+         <views_panel_util:Hyper_Link
+            id="version_revert"
+            htmlText="Revert to"
+            toolTip="Click to revert the item to this version."
+            enabled="false"
+            visible="false"
+            includeInLayout="true"
+            click="this.on_version_revert_click(event);"/>
+<!-- [lb] not sure "Revert" is the best name. -->
+         <!--
+         htmlText="Reload"
+         htmlText="Revert"
+         htmlText="Revert to"
+         -->
+         <mx:Label
+            id="version_active"
+            text="At Version"
+            toolTip="This version of the item is currently active."
+            enabled="true"
+            visible="false"
+            includeInLayout="true"
+            fontWeight="bold"/>
+         <mx:Label
+            id="version_edited"
+            htmlText="Edited"
+            toolTip="This version of the item has been edited."
+            enabled="true"
+            visible="false"
+            includeInLayout="true"/>
+      </mx:Canvas>
+
+      <!-- MAGIC_NUMBER: This matches the width of address_container
+                         in Address_Resolver (or addr_crazyclear_btn). -->
+      <mx:Spacer
+         id="item_name_row_spacer"
+         width="16"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

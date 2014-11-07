@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# This INIT INFO block is required, per
+#   http://wiki.debian.org/LSBInitScripts
+
+### BEGIN INIT INFO
+# Provides:          cyclopath-routed
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start daemon at boot time
+# Description:       Enable service provided by daemon.
+### END INIT INFO
+
+# To install:
+#   sudo mv -f cyclopath-routed /etc/init.d/
+#   sudo chmod 755 /etc/init.d/cyclopath-routed
+#   sudo chown root /etc/init.d/cyclopath-routed
+#   sudo chgrp root /etc/init.d/cyclopath-routed
+#   sudo update-rc.d cyclopath-routed defaults
+
+cd /export/scratch/ccp/dev/cp/services
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v1 $@" www-data
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v2 $@" www-data
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v3 $@" www-data
+

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_FindRte');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         // Note that the dp is Panel_Routes_Box, not Panel_Routes_New.
+         // Panel_Routes_New is parentDocument.
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:HRule
+      width="100%"
+      strokeWidth="1"/>
+
+   <mx:HBox
+      width="100%"
+      paddingLeft="0"
+      paddingTop="3"
+      paddingRight="0"
+      paddingBottom="6"
+      horizontalAlign="left"
+      verticalAlign="middle"
+      >
+      <mx:Button
+         id="find_route"
+         label="Find Route"
+         enabled="true"
+         fillColors="{[Conf.save_button_fill_light,
+                       Conf.save_button_fill_dark,]}"
+         mouseOver="this.parentDocument.geocode_start_both()"
+         click="this.parentDocument.submit_route_request();"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

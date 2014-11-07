@@ -1,0 +1,40 @@
+Copyright (c) 2008-2013 GroupLens Research and Regents of the University
+of Minnesota. All rights reserved. This data product may not be used for
+commercial applications. No part of this data product is allowed to be
+reproduced without permission and is exclusively distributed by GroupLens
+Research and the University of Minnesota.
+
+GroupLens Research, Regents of the University of Minnesota, and its researchers
+and staff cannot guarantee the correctness of the data, its suitability for any
+particular purpose, or the validity of results based on the use of this data
+product.
+
+This data product may be used for any research purposes under the following
+conditions:
+
+ * The user may not state or imply any endorsement from GroupLens Research
+   or the University of Minnesota.
+
+ * The user must acknowledge the use of the data product in publications
+   resulting from the use of the data. The user must also send GroupLens
+   Research an electronic or paper copy of those publications: please email
+   info@cyclopath.org or use http://www.grouplens.org/contact
+
+ * The user may not redistribute the data product or any derivative thereof
+   without separate permission.
+
+ * The user may not use this information for any commercial or revenue-bearing
+   purposes without first obtaining permission from a faculty member of
+   GroupLens Research.
+
+Warranties and Disclaimers: This data product is licensed 'as is' and
+without any warranty of any kind, either express, implied, or arising by
+statute, custom, course of dealing, or trade usage. The user, or licensor,
+specifically disclaims any and all implied warranties or conditions of title,
+non-infringement, accuracy or completeness, the presence or absence of errors,
+fitness for a particular purpose, merchantability, or otherwise.
+
+Limitation of liability: In no event shall GroupLens Research, Regents of the
+University of Minnesota, its affiliates or employees be liable to you for any
+damages arising out of the use or inability to use this data product (including
+but not limited to loss of data or inaccurate data).

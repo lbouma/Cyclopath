@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attributes_Assign
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.containers.GridRow;
+      import mx.events.DropdownEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+      import mx.states.*;
+
+      import items.Item_Revisioned;
+      import items.feats.Byway;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+      import views.commands.Attribute_Control_One_Way;
+      import views.commands.Attribute_Control_Z_Level;
+      import views.commands.Item_Delete;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_A_B');
+
+      protected static const tooltip_z_index:String =
+         'If two blocks intersect, they should have the same z-index.'
+         + 'Otherwise, the block which is the overpass should have a greater '
+         + 'z-index than the block which is the underpass.';
+
+      // *** Instance methods
+
+      //
+      protected function on_oneway_rotate_click() :void
+      {
+         var cmd:Attribute_Control_One_Way;
+         // cmd = new Attribute_Control_One_Way(
+         //             this.items_selected.clone(),
+         //             '/byway/one_way'));
+         cmd = new Attribute_Control_One_Way(this.items_selected.clone());
+         G.map.cm.do_(cmd);
+         // The item(s) being oneway-changed should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+      }
+
+      //
+      protected function on_z_change() :void
+      {
+         var cmd:Attribute_Control_Z_Level;
+         cmd = new Attribute_Control_Z_Level(
+                     this.items_selected.clone(),
+                     this.z_level_edit.value);
+         G.map.cm.do_(cmd);
+         // The item(s) being z-changed should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         this.old_or_curr_one_way_text.text = Item_Revisioned.consensus(
+            this.items_selected, 'one_way_str',
+            /*default_=*/'', /*on_empty=*/'');
+
+         var z_user:int = Objutil.consensus(
+            this.items_selected, 'z_user');
+         this.z_level_edit.value = z_user;
+         //this.z_level_view.text = String(z_user);
+         this.z_level_view.text = String(
+            Item_Revisioned.consensus(
+               this.items_selected, 'z_user',
+               /*default_=*/'', /*on_empty=*/''));
+
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit))
+             && (this.dp.access_level_can_edit)) {
+            this.one_way_button.visible = true;
+            this.z_level_edit.visible = true;
+            this.z_level_view.visible = false;
+            this.one_way_button.includeInLayout = true;
+            this.z_level_edit.includeInLayout = true;
+            this.z_level_view.includeInLayout = false;
+         }
+         else {
+            this.one_way_button.visible = false;
+            this.z_level_edit.visible = false;
+            this.z_level_view.visible = true;
+            this.one_way_button.includeInLayout = false;
+            this.z_level_edit.includeInLayout = false;
+            this.z_level_view.includeInLayout = true;
+         }
+      }
+
+      //
+      override public function populate_grid(item_class:Class=null) :void
+      {
+         m4_TALKY('populate_grid');
+         m4_ASSERT((item_class === null) || (item_class === Byway));
+         /*
+         var attr:Attribute;
+         attrs = new Dictionary();
+         for each (attr in Attribute.all) {
+            // Check each attribute and see it we using a custom control or
+            // not. The boolean is stored in the database, and it tells us
+            // whether or not our client implements a custom control for
+            // setting the attribute value (hence, the value is very much
+            // tied to the flashclient code).
+            if (!attr.uses_custom_control) {
+               attrs[attr.name_] = attr;
+            }
+         }
+         // Send the attr lookup, excluding our custom controls, to the parent,
+         // which'll make GridRows for 'em and add them as children
+         */
+         super.populate_grid(Byway);
+         // Now add our custom-control-overrides for one-way and z-level
+         // NOTE The one way value is an Attribute, but Z-Level is a
+         //      Geofeature property
+         this.grid_attrs.push(this.one_way_gridrow);
+         this.grid_attrs.push(this.z_level_gridrow);
+         var idx:int = 0;
+         this.grid_attrs_1.addChildAt(this.one_way_gridrow, idx);
+         idx += 1;
+         this.grid_attrs_1.addChildAt(this.z_level_gridrow, idx);
+         idx += 1;
+      }
+
+      //
+      override protected function set_enabled(is_enabled:Boolean) :void
+      {
+m4_ASSERT(false); // FIXME: Is this called? Can be deleted?
+         super.set_enabled(is_enabled);
+         this.one_way_button.enabled = is_enabled;
+         this.z_level_edit.enabled = is_enabled;
+      }
+
+   ]]></mx:Script>
+
+   <mx:Array id="byway_attr_gridrows">
+
+      <!-- Direction (One Way) -->
+      <mx:GridRow
+         id="one_way_gridrow"
+         width="100%"
+         horizontalGap="0"
+         >
+         <mx:GridItem
+            horizontalAlign="left"
+            verticalAlign="middle"
+            width="100%"
+            height="100%"
+            >
+            <mx:VBox
+               width="100%"
+               height="100%"
+               verticalGap="0">
+               <mx:Label
+                  text="Direction"
+                  fontWeight="bold"
+                  paddingTop="2"/>
+               <mx:Text
+                  text="Direction of traffic (one-way or two-way)."
+                  width="100%"
+                  styleName="labelminor"
+                  paddingTop="-6"
+                  leading="0"/>
+            </mx:VBox>
+         </mx:GridItem>
+         <mx:GridItem
+            horizontalAlign="center"
+            verticalAlign="middle"
+            height="100%"
+            colSpan="2"
+            >
+            <!-- CAVEAT: See comments below about using VBox here and not HBox.
+                 -->
+            <mx:VBox
+               horizontalAlign="center"
+               verticalAlign="middle"
+               verticalGap="0"
+               width="100%"
+               height="100%"
+               >
+               <mx:Label
+                  id="old_or_curr_one_way_text"
+                  fontStyle="italic"/>
+               <mx:Label
+                  id="counterpart_one_way_text"
+                  fontStyle="italic"
+                  visible="false"
+                  includeInLayout="{this.counterpart_one_way_text.visible}"/>
+               <views_panel_util:Button_Small
+                  id="one_way_button"
+                  label="Change"
+                  click="this.on_oneway_rotate_click();"
+                  visible="true"
+                  includeInLayout="{this.one_way_button.visible}"
+                  />
+            </mx:VBox>
+         </mx:GridItem>
+      </mx:GridRow>
+
+      <!-- Bridge (Z-level) -->
+      <mx:GridRow
+         id="z_level_gridrow"
+         width="100%"
+         height="100%"
+         horizontalGap="0"
+         >
+         <mx:GridItem
+            horizontalAlign="left"
+            verticalAlign="middle"
+            width="100%"
+            height="100%"
+            >
+            <mx:VBox
+               width="100%"
+               height="100%"
+               verticalGap="0">
+               <!--
+               <mx:Label
+                  text="Bridge level"
+                  fontWeight="bold"
+                  paddingTop="2"/>
+               <mx:Label
+                  text="Indicate an underpass or overpass"
+                  styleName="labelminor"
+                  paddingTop="-7"/>
+               -->
+               <!-- FIXME: If this is too wide, you'll abut the
+                           details_main_box scrollbar. -->
+               <!--
+                  text="Underpass/Overpass &quot;Z-index&quot;"
+                  text="Bridge Level &quot;Z-index&quot;"
+                  -->
+               <mx:Label
+                  text="Underpass/Overpass"
+                  fontWeight="bold"
+                  paddingTop="2"
+                  toolTip="{Widget_Attrs_Assign_Byway.tooltip_z_index}"/>
+               <mx:Text
+                  text=
+"Roads with larger values pass over roads with lower values. Roads with the same value intersect. Also called the &quot;z-index&quot;."
+                  width="100%"
+                  styleName="labelminor"
+                  paddingTop="-6"
+                  leading="0"
+                  toolTip="{Widget_Attrs_Assign_Byway.tooltip_z_index}"/>
+               <!--
+   text="Blocks with larger values pass over blocks with lower values. If two blocks intersect, they have the same value."
+   text="Blocks with larger values pass over blocks with lower values. Use the same value for blocks that intersect."
+   -->
+            </mx:VBox>
+         </mx:GridItem>
+         <mx:GridItem
+            horizontalAlign="center"
+            verticalAlign="middle"
+            height="100%"
+            colSpan="2"
+            >
+            <!-- CAVEAT: Use VBox and not HBox as the One True GridItem Child.
+                         If you use a HBox, it won't claim its 100% width, and
+                         the single digit z-level will appear left-justified
+                         in the cell, which makes it seem out-of-place
+                         when compared to the other attributes in the
+                         table. (Update: This problem might have been caused
+                         by not setting includeInLayout explicitly; see next
+                         comment.)
+                         -->
+            <mx:VBox
+               horizontalAlign="center"
+               verticalAlign="middle"
+               verticalGap="0"
+               width="100%"
+               height="100%"
+               >
+               <!-- CAVEAT: Trying to tie includeInLayout to visible doesn't
+                    work, e.g., you can't:
+                        includeInLayout="{this.z_level_view.visible}"
+                    [lb] is not sure why. So we have to toggle both
+                    includeInLayout and visible in the code, above.
+                    -->
+               <mx:Label
+                  id="z_level_view"
+                  visible="false"
+                  includeInLayout="{this.z_level_view.visible}"
+                  />
+               <mx:NumericStepper
+                  id="z_level_edit"
+                  minimum="1"
+                  maximum="9"
+                  stepSize="1"
+                  change="this.on_z_change();"
+                  visible="true"
+                  includeInLayout="{this.z_level_edit.visible}"
+                  />
+            </mx:VBox>
+         </mx:GridItem>
+      </mx:GridRow>
+
+   <!-- The remaining Attribute controls are created and added in on_panel_show
+        based on the Attribute definitions we get from the server. -->
+
+   </mx:Array> <!-- /byway_attr_gridrows -->
+
+</views_panel_items:Widget_Attributes_Assign>
+

@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Attachment
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   verticalGap="0"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.TextArea;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.utils.Query_Filters;
+      import items.Attachment;
+      import items.Geofeature;
+      import items.Link_Value;
+      import items.attcs.Annotation;
+      import items.links.Link_Geofeature;
+      import items.utils.Stack_Id_Array;
+      import utils.difflib.SequenceMatcher;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+      import views.base.App_Action;
+      import views.base.UI;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Annot');
+
+      protected static var hint_text_common:String =
+           " Click &quot;Add New Places&quot; and select items on"
+         +  " the map to add them to the note."
+         + " You can close the note at any time."
+         + " It will be saved when you click &quot;Save Map&quot;.";
+
+      protected static var hint_text_new:String =
+         "Write the new note in the box."
+         + hint_text_common;
+
+      protected static var hint_text_edit:String =
+         "You can edit the note in the box."
+         + hint_text_common;
+
+      // MAYBE: Delete these labels. There were used in CcpV1. The user had to
+      //        first click 'Add To', and then the button would change to
+      //        'Add Selected' and then the user could select items on the map
+      //        (if the user didn't click 'Add To', selecting items on the map
+      //        would cause the note to go away and the item details panel to
+      //        reappear).
+      // protected static const ADD_LABEL:String = 'Add To';
+      // protected static const ADD_SPECIAL:String = 'Add Selected';
+      // protected static const RM_LABEL:String = 'Remove From';
+      // protected static const RM_SPECIAL:String = 'Remove Selected';
+
+      // *** Instance variables
+
+      protected var annotation_:Annotation;
+
+      public var fetched_links:Boolean = false;
+
+      // *** Simple base class overrides
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'About the Note';
+      }
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Annotation;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+
+         var multiple_lines:Boolean = true
+         this.comments.init('text_', multiple_lines);
+         // Leave required false, so that empty names are okay.
+         this.comments.required = false;
+         // Don't use the label-edit toggler action.
+         this.comments.use_label_toggle = false;
+         //
+
+// FIXME_2013_06_11: Shouldn't we disable this if not editable?
+         this.comments.edit_enabled = true;
+
+         // Delay calling super until now. The item_name_control needs to
+         // be inited first, because super calls on_panel_show.
+         super.on_creation_complete(ev);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_DEBUG('on_initialize:', this);
+
+         this.widget_gia_sharing.footer_lock = true;
+         this.widget_gia_sharing.outside_scroll_area = false;
+
+         this.register_widgets([
+            this.widget_gia_sharing,
+            this.placebox,
+            ]);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate');
+
+         // No need for this here. Panel_Item_Attachment::on_panel_[hide/show]
+         // should handle it.
+         // G.map.highlight_manager.set_layer_visible(
+         //    Conf.attachment_highlight, true);
+
+         // Is there a diff. btw. item.rev_is_working and G.map.rev_workcopy?
+         if (this.annotation.rev_is_working) {
+
+            this.comments.use_html = false;
+            this.comments.text = this.annotation.comments;
+            this.comments.features.add(this.annotation);
+
+            (this.comments.editor as TextArea).editable = true;
+
+            this.comments.editor.setStyle("borderStyle", "inset");
+
+            // If it was Diff, switch back
+            // FIXME: Split diffs into new classes
+            this.change_state(this.panel_default_state);
+
+            // Fetch link-geofeatures for this annotation.
+            if (!this.annotation.fresh) {
+               m4_DEBUG('repopulate: link_geofeatures_fetch');
+               this.link_geofeatures_fetch();
+            }
+            else {
+               // New note.
+               var link_geofeatures:Array = new Array();
+               var link_gf:Link_Geofeature;
+               var links:Set_UUID;
+               links = Link_Value.item_get_link_values(this.annotation);
+               for each (var lval:Link_Value in links) {
+                  link_gf = (lval as Link_Geofeature);
+                  if (link_gf !== null) {
+                     m4_DEBUG('repopulate: link_gf:', link_gf);
+                     link_geofeatures.push(link_gf);
+                  }
+                  else {
+                     m4_WARNING('repopulate: not link_gf:', link_gf);
+                  }
+               }
+
+               this.link_geofeatures_init(link_geofeatures);
+
+               this.annot_edit_hint.htmlText =
+                  Panel_Item_Annotation.hint_text_new;
+            }
+            this.annot_edit_hint.visible = true;
+         }
+         else {
+            m4_DEBUG('repopulate: not annotation.rev_is_working');
+
+            // [lb] tried using a Text() component but TextArea works better:
+            // the Text was rendering 100% tall with no scrollbar and getting
+            // clipped.
+            // this.comments.texterer.mouseEnabled = false;
+            // this.comments.texterer.mouseChildren = false;
+            // Nope: this.comments.edit_enabled = false;
+            (this.comments.editor as TextArea).editable = false;
+
+            //this.comments.editor.setStyle("borderStyle", "none");
+            this.comments.editor.setStyle("borderStyle", "inset");
+
+            this.annot_edit_hint.htmlText = '';
+            this.annot_edit_hint.visible = false;
+
+            if ((this.annotation.rev_is_diffing)
+                && (!this.annotation.is_vgroup_static)) {
+
+               var a2:Annotation;
+               a2 = this.annotation.counterpart_untyped as Annotation;
+               m4_ASSERT(this.annotation !== a2);
+
+               this.comments.use_html = true;
+               if (a2 === null) {
+                  if (this.annotation.is_vgroup_old) {
+                     this.comments.text = SequenceMatcher.diff_html(
+                                       this.annotation.comments, '');
+                  }
+                  else {
+                     this.comments.text = SequenceMatcher.diff_html(
+                                       '', this.annotation.comments);
+                  }
+               }
+               else {
+                  m4_ASSERT(a2.counterpart_untyped === this.annotation);
+                  if (this.annotation.is_vgroup_old) {
+                     m4_ASSERT(a2.is_vgroup_new);
+                     this.comments.text = SequenceMatcher.diff_html(
+                              this.annotation.comments, a2.comments);
+                  }
+                  else {
+                     m4_ASSERT((this.annotation.is_vgroup_new)
+                               && (a2.is_vgroup_old));
+                     this.comments.text = SequenceMatcher.diff_html(
+                              a2.comments, this.annotation.comments);
+                  }
+               }
+
+               // Fetch link_gfs to populate the place widget.
+               this.link_geofeatures_fetch();
+            }
+            else {
+               this.comments.use_html = false;
+               this.comments.text = this.annotation.comments;
+            }
+
+            this.comments.features.clear();
+         }
+
+         // Pad the TextArea text away from the TextArea box (and scrollbar and
+         // border).
+         this.comments.editor.setStyle('paddingLeft', 3);
+         this.comments.editor.setStyle('paddingTop', 3);
+         this.comments.editor.setStyle('paddingRight', 3);
+         this.comments.editor.setStyle('paddingBottom', 3);
+
+         // needed because it seems that clicking the edit button to get here
+         // causes an item click event to be registered in the annotation list
+         // viewer, resetting the toggled annotation when it should be null.
+         //
+         G.item_mgr.highlighted_attachment = null;
+      }
+
+      // ***
+
+      //
+      override public function attachment_highlights_update() :Array
+      {
+         // NOTE: Not calling super.attachment_highlights_update();
+
+         var to_h:Array = new Array();
+         var gf_dirty:Geofeature;
+
+         // Return all of the geofeatures attached to this note (well,
+         // all of the loaded geofeatures, at any rate).
+
+         // FIXME: Also, look at the annotation panel's dirty_highlight_*
+         //        for more/fewer geofeatures to highlight.
+
+         if (this.attachment !== null) {
+
+            // Initial set of highlights.
+            var to_h_dict:Dictionary = new Dictionary();
+            var to_h_initial:Array;
+            to_h_initial = Link_Value.items_for_attachment(this.attachment);
+            for each (gf_dirty in to_h_initial) {
+               to_h_dict[gf_dirty.stack_id] = gf_dirty;
+            }
+
+            // More highlights.
+            var lg_a:Link_Geofeature;
+            for each (lg_a in this.link_gfs_added_predirty) {
+               if (!(lg_a.rhs_stack_id in to_h_dict) 
+                   && (Geofeature.all[lg_a.rhs_stack_id] !== null)) {
+                  to_h_dict[lg_a.rhs_stack_id] =
+                     Geofeature.all[lg_a.rhs_stack_id];
+               }
+            }
+
+            // Fewer highlights.
+            var lg_r:Link_Geofeature;
+            for each (lg_r in this.link_gfs_removed_predirty) {
+               if (lg_r.rhs_stack_id in to_h_dict) {
+                  delete to_h_dict[lg_r.rhs_stack_id];
+               }
+            }
+
+            // Compile final list.
+            for each (gf_dirty in to_h_dict) {
+               to_h.push(gf_dirty);
+            }
+         }
+
+         return to_h;
+      }
+
+      //
+      override public function close_cleanup(was_active:Boolean) :void
+      {
+         super.close_cleanup(was_active);
+         m4_DEBUG2('close_cleanup:', was_active,
+                   '/ pbox_attc_mode:', this.placebox.attachment_mode);
+         if (this.placebox.attachment_mode) {
+            this.placebox.attaching_stop(was_active);
+         }
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         super.on_remove_event(ev);
+         m4_ASSERT(this.items_selected === null);
+         this.annotation.annotation_panel = null;
+         m4_ASSERT(this.annotation === null);
+      }
+
+      // ***
+
+      //
+      protected function consume_link_feats_fail(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_WARNING('consume_link_feats_fail');
+
+         this.fetched_links = false;
+      }
+
+      //
+      protected function consume_link_feats_okay(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_DEBUG('consume_link_feats_okay');
+
+         // Check that the annotation is still open.
+
+         // Get the active panel, which isn't necessarily an item panel.
+         var active_panel:Detail_Panel_Base;
+         active_panel = G.panel_mgr.effectively_active_panel;
+
+         // See if the active panel is an Annotation panel, specifically this
+         // annotation panel.
+         var annotation_panel:Panel_Item_Annotation;
+         annotation_panel = (active_panel as Panel_Item_Annotation);
+         if ((annotation_panel !== null) && (annotation_panel === this)) {
+            // NOTE: link_geofeatures_init makes sure to discard and replace
+            //       existing items with the newly created items that
+            //       resp_items is.
+            this.link_geofeatures_init(gwis_req.resp_items);
+         }
+         else {
+            m4_WARNING('Annotation panel has changed or gone away.');
+         }
+      }
+
+      //
+      protected function link_geofeatures_fetch() :void
+      {
+         m4_DEBUG2('link_geofeatures_fetch: fetched_links:',
+                   this.fetched_links);
+
+         if (!this.fetched_links) {
+
+            var qfs:Query_Filters = new Query_Filters();
+
+            qfs.only_lhs_stack_ids = new Stack_Id_Array();
+            qfs.only_lhs_stack_ids.push(this.annotation.stack_id);
+
+            var callback_load:Function = this.consume_link_feats_okay;
+            var callback_fail:Function = this.consume_link_feats_fail;
+
+            var gwis_req:GWIS_Checkout_Versioned_Items =
+               new GWIS_Checkout_Versioned_Items(
+                  Link_Geofeature.class_item_type, // item_type
+                  new utils.rev_spec.Current(),    // rev
+                  null,                            // buddy_ct
+                  qfs,                             // query_filters
+                  null,                            // update_req
+                  null,                            // resp_items
+                  callback_load,                   // callback_load
+                  callback_fail);                  // callback_fail
+            gwis_req.attc_type = 'annotation';
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_req);
+            m4_ASSERT_SOFT(!found_duplicate);
+
+            this.fetched_links = true;
+
+            this.placebox.mark_for_reinit();
+
+            this.annot_edit_hint.htmlText =
+               Panel_Item_Annotation.hint_text_edit;
+         }
+      }
+
+      //
+      protected function link_geofeatures_init(link_geofeatures:Array) :void
+      {
+         m4_DEBUG2('link_geofeatures_init: no. received:',
+                   link_geofeatures.length);
+         
+         // Add received link-geofeatures to the map, so proper highlighting
+         // can happen.
+         for each (var link_gf:Link_Geofeature in link_geofeatures) {
+            // Remove the older Link_Value and replace it with the
+            // newly-fetched Link_Geofeature.
+            if (link_gf.stack_id in Link_Value.all) {
+               G.map.item_discard(Link_Value.all[link_gf.stack_id]);
+            }
+            G.map.items_add([link_gf,]);
+         }
+
+         // Initialise dirty lists.
+         this.predirty_reset();
+
+         // Initialise place box in read-write mode.
+         this.placebox.places_init_annotation(
+            this.annotation,
+            link_geofeatures,
+            (!G.app.mode.is_allowed(App_Action.item_annotate)));
+
+         // Force highlights update.
+         UI.attachment_highlights_update();
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get annotation() :Annotation
+      {
+         return (this.attachment as Annotation);
+      }
+
+      //
+      public function set annotation(annotation:Annotation) :void
+      {
+         this.attachment = annotation;
+      }
+
+      //
+      override public function get attc() :Attachment
+      {
+         return this.annotation;
+      }
+
+      //
+      override public function set attc(at:Attachment) :void
+      {
+         m4_ASSERT(false);
+         this.annotation = (at as Annotation);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      styleName="looknfeelCleanOuter"
+      paddingTop="0"
+      >
+
+      <mx:Text
+         id="annot_edit_hint"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="0"
+         fontStyle="italic"
+         leading="0"
+         text=""
+         visible="false"
+         includeInLayout="{this.annot_edit_hint.visible}"
+         />
+
+      <mx:Label
+         styleName="labelmajor"
+         text="User Notes"
+         paddingTop="0"
+         paddingBottom="4"
+         />
+
+      <mx:VBox
+         width="100%"
+         height="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:VBox
+            width="100%"
+            height="100%"
+            >
+            <views_commands:Text_Field_Editable
+               id="comments"
+               width="100%"
+               height="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               />
+         <!--
+            height="100%"
+            -->
+         </mx:VBox>
+
+         <mx:HBox
+            width="100%"
+            paddingTop="4"
+            >
+            <mx:Label
+               text="Places: "
+               paddingTop="2"
+               paddingLeft="0"
+               paddingRight="0"
+               />
+            <views_panel_items:Widget_Attachment_Place_Box
+               id="placebox"
+               link_value_class="Link_Geofeature"
+               />
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+   <views_panel_items:Widget_Gia_Sharing
+      id="widget_gia_sharing"
+      width="100%"
+      visible="true"
+      includeInLayout="{this.widget_gia_sharing.visible}"
+      />
+
+</views_panel_items:Panel_Item_Attachment>
+

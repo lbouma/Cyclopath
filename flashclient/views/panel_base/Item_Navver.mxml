@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Statewide UI: If you get rid of the item navver but keep the title
+                          and the help link, rename this file. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   verticalGap="0"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Item_Navvr');
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      paddingTop="0"
+      paddingLeft="0"
+      horizontalGap="0"
+      horizontalAlign="left"
+      verticalAlign="middle"
+      width="100%">
+      <mx:Label
+         id="nav_panel_title"
+         styleName="labelmajorer"
+         width="100%"
+         paddingLeft="0"
+         />
+      <mx:HBox
+         id="nav_help_jumper"
+         width="100%"
+         horizontalAlign="right"
+         verticalAlign="top"
+         >
+<!-- FIXME/BUG nnnn: Write the help wiki pages.
+                     And, probably, different panels should link to
+                      sub-sections of the help, or to different help
+                      pages. -->
+         <views_panel_util:Help_Link
+            id="unimplemented_help_link"
+            click_url="/Welcome"
+            text="Help [?]"
+            fontStyle="italic"
+
+   visible="{Conf_Instance.debug_goodies}"
+   includeInLayout="{this.unimplemented_help_link.visible}"
+            />
+      </mx:HBox>
+   </mx:HBox>
+
+</mx:VBox>
+

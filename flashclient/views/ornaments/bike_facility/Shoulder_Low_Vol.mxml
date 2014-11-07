@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="bike_facil"
+   attr_key_name="shld_lovol"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+   <!-- FIXME: Bikeways shapefile: 
+      attr_key_name="bk_shouldr"
+      -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_Bk_Shld');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         //
+         var html_hint:String = (
+            /*
+            'This is a low-volume highway with a "bikeable" shoulder. '
+            + 'A bikeable shoulder is paved and is four feet or wider. '
+            + 'If the highway has rumble strips, the shoulder width '
+            + 'is the narrower of the distance between the right-most '
+            + 'edge line marking and the edge of the paved shoulder, '
+            + 'or the distance between the rumble strip and the edge '
+            + 'of the shoulder (the latter applies when the rumble strip '
+            + 'is in the shoulder, rather than being on top of the edge '
+            + 'line marking). For example, a four foot shoulder with a rumble '
+            + 'strip down the middle of the shoulder is not considered '
+            + 'bikeable, since the effectively bikeable shoulder is '
+            + 'only two feet (and you will find that some cyclists '
+            + 'feel more comfortable biking in the traffic lane rather '
+            + 'than on the shoulder).'
+            */
+            'A low-volume highway with a "bikeable" shoulder. '
+            + 'A bikeable shoulder is paved and is four feet wide or wider. '
+            + 'If the highway has rumble strips, the shoulder width '
+            + 'is calculated from the edge of the rumble strip, rather '
+            + 'than from the edge of the lane marking.'
+            //+ ' For example, a four foot shoulder with a rumble '
+            //+ 'strip down the middle of the shoulder is not considered '
+            //+ 'bikeable, because the effectively shoulder width is '
+            //+ 'only two feet.'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

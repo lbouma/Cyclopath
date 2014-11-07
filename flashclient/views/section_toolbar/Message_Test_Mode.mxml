@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_util:Fadeawayable_VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_section_toolbar="views.section_toolbar.*"
+   backgroundColor="0xDDDDDD"
+   borderStyle="none"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   initialize="this.on_initialize()"
+   width="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.effects.Fade;
+      import mx.effects.Resize;
+      import mx.events.EffectEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ItemClickEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Msg_TestMde');
+
+      // *** Instance attributes
+
+      protected var test_accepted:Boolean = false;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize() :void
+      {
+         m4_DEBUG('on_initialize');
+      }
+
+      //
+      protected function on_accept_sandbox() :void
+      {
+         this.test_accepted = true;
+         this.component_fade_away();
+      }
+
+      //
+      protected function on_link_dismiss_message() :void
+      {
+         this.component_fade_away();
+      }
+
+      //
+      override protected function on_effect_resize_fwd_end(ev:EffectEvent)
+         :void
+      {
+         super.on_effect_resize_fwd_end(ev);
+
+         if (this.test_accepted) {
+            G.app.edit_restriction = false;
+         }
+         G.app.main_toolbar.setup_viewing_or_editing(
+            /*editing_okay=*/this.test_accepted,
+            /*hide_options=*/!this.test_accepted);
+
+         // This is a hack: Tell the Map Key to resize, otherwise when the user
+         // opens it, it'll look funny.
+         G.app.map_key.on_canvas_change_dimensions();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      paddingLeft="6"
+      paddingRight="6"
+      paddingTop="6"
+      paddingBottom="6"
+      verticalAlign="middle"
+      backgroundColor="0xcccccc"
+      horizontalGap="0"
+      verticalGap="3"
+      >
+
+      <mx:HBox
+         width="100%"
+         height="100%"
+         backgroundColor="0xcccccc"
+         >
+
+         <mx:Text
+            id="pyserver_message_text"
+            leading="0"
+            condenseWhite="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            width="100%"
+            >
+            <!--
+<i>Please note:</i>
+We've disabled Editing until we're confident the new site is working well.
+If you want to try editing anyway, click "I want to test Editing" &#8212; you
+can try using the editing tools, but your changes will not be saved.
+
+We made a lot of changes, so we've disabled Editing while we test the new site.
+If you want to try editing anyway, click "I want to test Editing" &#8212; you
+can try using the editing tools, but your changes will not be saved.
+
+In the meantime, you can help us test, if you want (but your edits won't be saved).
+
+<i>Please note:</i>
+Editing is disabled until we've tested thoroughly.
+The editing features will be disabled throughout July for testing.
+
+We've disabled editing while we rigorously test the new site.
+We'll enable Editing after we've rigorously tested the new site.
+            -->
+            <mx:htmlText><![CDATA[
+<i>Please note:</i>
+We've disabled editing until the new site is well tested.
+            ]]></mx:htmlText>
+         </mx:Text>
+
+      </mx:HBox>
+
+      <mx:HBox
+         width="100%"
+         height="100%"
+         horizontalAlign="right"
+         backgroundColor="0xcccccc"
+         horizontalGap="6"
+         verticalAlign="middle"
+         >
+
+         <views_panel_util:Hyper_Link
+            id="link_accept_sandbox"
+            text="I'll help test Editing"
+            toolTip=
+"If you want to try editing anyway, click here &#8212; you can try using the editing tools, but your changes will not be saved.."
+            enabled="true"
+            click="this.on_accept_sandbox();"
+            color="0xffffff"
+            />
+
+         <!--
+            text="Dismiss..."
+         -->
+         <views_panel_util:Hyper_Link
+            id="link_dismiss_message"
+            text="No, thanks"
+            toolTip="Click to hide this message."
+            enabled="true"
+            click="this.on_link_dismiss_message();"
+            color="0xffffff"
+            />
+
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_util:Fadeawayable_VBox>
+

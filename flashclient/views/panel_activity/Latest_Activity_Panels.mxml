@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_activity="views.panel_activity.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_history="views.panel_history.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import mx.controls.TextInput;
+      import mx.core.Container;
+      import mx.events.ChildExistenceChangedEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.events.StateChangeEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_LatAct');
+
+      // MAGIC_NUMBER: See activity_tabs which defines what tabs are displayed.
+      public static const clicker_index_discussions:int = 0;
+      // 2013.10.24: [lb] is hiding the reactions tab until route reactions is
+      //             re-implemented (it was disabled already in CcpV1 but the
+      //             reactions are still viewable, which is kind of weird:
+      //             you can't thumbs-up-or-down new routes, but you can
+      //             keep commenting on old route reactions? If I was a real
+      //             user, this stale feature's presence would seem very
+      //             peculiar to me.
+      //public static const clicker_index_reactions:int = 1;
+      //public static const clicker_index_revisions:int = 2;
+      public static const clicker_index_revisions:int = 1;
+
+      // *** Instance variables
+
+      // *** Base class getters and setters
+
+      //
+      override public function get help_url() :String
+      {
+         return "/User_Manual/Latest_Activity";
+      }
+
+      // *** Base class overrides
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         //
+         this.register_widgets([
+            this.general,
+            // this.reactions,
+            this.changes_panel,
+            ]);
+         // 2012.08.17: Listen to user_event_change so we can fix our widgets.
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_remove_event');
+         super.on_remove_event(ev);
+         G.app.removeEventListener('user_event_change', this.on_user_change);
+      }
+
+      //
+      override public function get panel_active_child() :Detail_Panel_Base
+      {
+         // Return the selected ViewStack child. Ignore tab_clicker.
+         var sub_panel:Detail_Panel_Base = (this.activity_tabs.selectedChild
+                                            as Detail_Panel_Base);
+         return sub_panel;
+      }
+
+      //
+      // HACK_ATTACK: The tab_clicker (ToggleButtonBar) is (unfortunately)
+      //              not wired to activity_tabs (ViewStack), so we have to
+      //              do some index math ourselves.
+      //              MAGIC_NUMBERS: All your tab indices are belong to us.
+      override public function set panel_active_child(dpanel:Detail_Panel_Base)
+         :void
+      {
+         if (dpanel === this.general) {
+            this.select_general();
+         }
+         // else if (dpanel === this.reactions) {
+         //    this.select_reactions();
+         // }
+         else if (dpanel === this.changes_panel) {
+            this.select_changes();
+         }
+         else {
+            m4_ASSERT(false);
+         }
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         // return 'Latest Activity';
+         return 'Activity';
+      }
+
+      //
+      override public function panel_toolTip_get() :String
+      {
+         var tt:String =
+// 'Read Discussions and Route Reactions, and Explore Recent Edits to the Map.'
+// 'Read discussions and route reactions, and explore recent edits to the map.'
+            'Read discussions and explore recent edits to the map.';
+         return tt;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         // No-op.
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_tab_change() :void
+      {
+         m4_VERBOSE2('on_tab_change: selectedIndex:',
+                     this.tab_clicker.selectedIndex);
+         // FIXME: MAGIC_NUMBERS: These are the tab indices.
+         //        How come this isn't auto-wired? Seems weird we need an index
+         //        and then need to set selectedChild...
+         if (this.tab_clicker.selectedIndex ==
+               Latest_Activity_Panels.clicker_index_discussions) {
+            this.activity_tabs.selectedChild = this.general;
+            G.sl.event('ui/discussion_tab/open', {tab_clicker: 'posts'});
+         }
+         // 2013.10.24: We're hiding reactions until reimplemented.
+         //             See: BUG nnnn.
+         // else if (this.tab_clicker.selectedIndex == 
+         //       Latest_Activity_Panels.clicker_index_reactions) {
+         //    this.activity_tabs.selectedChild = this.reactions;
+         //    G.sl.event('ui/discussion_tab/open', {tab_clicker: 'reactions'});
+         // }
+         else if (this.tab_clicker.selectedIndex ==
+               Latest_Activity_Panels.clicker_index_revisions) {
+            this.activity_tabs.selectedChild = this.changes_panel;
+            G.sl.event('ui/discussion_tab/open', {tab_clicker: 'revisions'});
+         }
+      }
+
+      //
+      public function select_general() :void
+      {
+         m4_VERBOSE('select_general');
+         this.tab_clicker.selectedIndex =
+            Latest_Activity_Panels.clicker_index_discussions;
+         this.activity_tabs.selectedChild = this.general;
+      }
+
+      // 2013.10.24: We're hiding reactions until reimplemented.
+      //             See: BUG nnnn.
+      // //
+      // public function select_reactions() :void
+      // {
+      //    m4_VERBOSE('select_reactions');
+      //    this.tab_clicker.selectedIndex =
+      //       Latest_Activity_Panels.clicker_index_reactions;
+      //    this.activity_tabs.selectedChild = this.reactions;
+      // }
+
+      //
+      public function select_changes() :void
+      {
+         m4_VERBOSE('select_changes');
+         this.tab_clicker.selectedIndex =
+            Latest_Activity_Panels.clicker_index_revisions;
+         this.activity_tabs.selectedChild = this.changes_panel;
+      }
+
+      // ***
+
+      //
+      public function on_user_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_user_change');
+         // Aren't panels always marked dirty on login/out?
+         // Or do we have to repopulate()
+
+// FIXME: route reactions. this is in on_panel_show, which is removed... but
+//        I'm guessing this fcn. is okay and we can delete this comment.
+         if (G.user.logged_in) {
+// FIXME: route reactions. implement this:
+            //this.wr_option.includeInLayout = true;
+            //this.mark_as_read.visible = true;
+         }
+         else {
+// FIXME: route reactions. implement this:
+            //this.wr_option.includeInLayout = false;
+            //this.mark_as_read.visible = false;
+         }
+      }
+
+      // ***
+
+      //
+      public function set_correct_heights() :void
+      {
+         if (this.general) {
+            this.general.set_correct_heights();
+         }
+         // if (this.reactions) {
+         //    this.reactions.set_correct_heights();
+         // }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      horizontalAlign="center">
+
+      <!-- NOTE: This is not wired to dataProvider. Instead, we use
+      <          MAGIC_NUMBERs to wire this to the activity_tabs
+      <          ViewStack.
+      <    EXPLAIN: Is there a benefit to not using the inherent
+      <             nature of a ToggleButtonBar by setting its
+      <             dataProvider="activity_tabs"? -->
+      <!-- FIXME: Use dataProvider="activity_tabs" so we don't have to use
+      <           MAGIC_NUMBER tab indices above. -->
+      <mx:ToggleButtonBar
+         id="tab_clicker"
+         itemClick="this.on_tab_change();"
+         paddingBottom="2"
+         horizontalGap="7">
+         <mx:dataProvider>
+            <!-- This can be an Array of Strings or of Objects with up to three
+                 attributes: label, icon, and toolTip.
+                 -->
+            <mx:Array>
+               <mx:Object
+                  label="Discussions"
+                  toolTip=
+                     "Read and participate in discussions about map items."
+                  />
+
+<!--
+
+BUG nnnn: Reimplement route reactions.
+
+OY! This hasn't work since Oct, 2012. It only ran from April, 2012.
+And the panel remained and you could see old reactions, but you
+couldn't create new ones.
+
+The route list is alright, but:
+1. The post panel doesn't link to the route.
+   (There's no link_value between the post and the route?)
+
+               <mx:Object
+                  label="Reactions"
+                  toolTip="See people's reactions to users' bike routes."
+                  />
+-->
+
+               <mx:Object
+                  label="Revisions"
+                  toolTip="Explore recent changes to the map."
+                  />
+            </mx:Array>
+         </mx:dataProvider>
+      </mx:ToggleButtonBar>
+
+      <!-- MAGIC_NUMBER: Add 26 for good measure. -->
+      <mx:HRule
+         id="lat_act_hrule"
+         width="{this.tab_clicker.width + 26}"
+         strokeWidth="1"/>
+
+      <mx:ViewStack
+         id="activity_tabs"
+         width="100%"
+         height="100%">
+
+         <!-- General Discussions Tab -->
+         <views_panel_discussions:Tab_Discussions_Posts
+            id="general"
+            thread_type="general"
+            label="Discussions"
+            />
+
+         <!-- Reactions Tab -->
+<!--
+
+OY! 
+         <views_panel_discussions:Tab_Discussions_Reactions
+            id="reactions"
+            thread_type="reaction"
+            label="Reactions"
+            />
+-->
+
+         <!-- Revision History Tab -->
+         <views_panel_history:Panel_Recent_Changes
+            id="changes_panel"
+            label="Revisions"
+            />
+
+      </mx:ViewStack>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Base>
+

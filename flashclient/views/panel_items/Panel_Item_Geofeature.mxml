@@ -1,0 +1,655 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Versioned
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   width="100%"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+
+      import grax.Dirty_Reason;
+      import items.Geofeature;
+      import items.Item_Versioned;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.base.App_Action;
+      import views.commands.Item_Reversion;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_items.Widget_Version_History;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Geofeat');
+
+      // ***
+
+      // The user can view other versions of the item and even "revert" the
+      // current item to an old version. This a set of the versions of a
+      // selected item that the user has loaded and chosen to view on the map.
+      public var versions_active:Set = null;
+
+      // ***
+
+      //
+      override protected function on_preinitialize(event:FlexEvent) :void
+      {
+         m4_TALKY('on_preinitialize');
+         super.on_preinitialize(event);
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         m4_TALKY('on_initialize');
+         super.on_initialize(event);
+
+         this.register_widgets([
+            this.panel_item_details,
+            ]);
+
+         this.change_state(this.panel_default_state);
+// hrm: this is old comment before state change was moved here
+// Not calling: this.change_state(this.panel_base_state);
+// The Panel_Item_Versioned class set this.panel_default_state.
+//
+
+      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_TALKY('on_enter_state_base');
+         super.on_enter_state_base();
+      }
+
+      //
+      override protected function on_hide_event(event:FlexEvent) :void
+      {
+         m4_TALKY2('on_hide_event: this:', this,
+                   '/ showing:', this.is_showing);
+         super.on_hide_event(event);
+
+         this.item_versions_cleanup();
+      }
+
+      //
+      override public function on_show_event(event:FlexEvent=null) :void
+      {
+         m4_TALKY2('on_show_event: this:', this,
+                   '/ creation_completed:', this.creation_completed);
+         super.on_show_event(event);
+      }
+
+      //
+      override protected function on_remove_event(event:FlexEvent) :void
+      {
+         m4_VERBOSE('on_remove_event');
+         super.on_remove_event(event);
+      }
+
+      //
+      override public function on_resize(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize: this.height:', this.height);
+         super.on_resize(event);
+         this.panel_item_details.on_resize(event);
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         m4_TALKY('depopulate');
+         super.depopulate();
+
+         G.item_mgr.highlighted_attachment = null;
+
+         this.item_versions_reset();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_TALKY('repopulate');
+         super.repopulate();
+
+         // On repopulate, remove the annotation highlight. We turn on the
+         // highlight if the user clicks a note in the list of notes, and then
+         // we highlight those items on the map that share the annotation.
+         // MAYBE: This behavior may be incorrect... but [lb] hasn't tested
+         //        everything yet, so assuming this is proper (it's what CcpV1
+         //        does! =).
+         G.item_mgr.highlighted_attachment = null;
+
+         if (this.widget_version_history !== null) {
+            var version_history_show:Boolean;
+            version_history_show = this.widget_version_history_show;
+            this.widget_version_history.visible = version_history_show;
+            this.widget_version_history.includeInLayout = version_history_show;
+         }
+      }
+
+      // ***
+
+      //
+      override public function set items_selected(items_selected:Set_UUID)
+         :void
+      {
+         m4_TALKY2('set items_selected:',
+                   (items_selected !== null) ? items_selected.length : 'null');
+         if ((items_selected !== null)
+             && ((items_selected.length != 1)
+                 || (!items_selected.equals(this.items_selected)))) {
+            this.item_versions_reset();
+         }
+         super.items_selected = items_selected;
+         if ((this.items_selected !== null)
+              && (this.items_selected.length == 1)) {
+            this.item_version_init();
+         }
+      }
+
+      // ***
+
+      // The Region and Waypoint classes override feat_is_compatible to prevent
+      // users from selecting multiple regions or waypoints, unless the user is
+      // diffing.
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         var multi_okay:Boolean = true;
+         return this.panel_supports_feat_impl(feat, multi_okay);
+      }
+
+      // ***
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function get feats_selected() :Set_UUID
+      {
+         // NOTE: We're ignoring Detail_Panel_Base's feats_selected.
+         //       The Geofeature uses items_selected for its own panel.
+         return this.items_selected;
+      }
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function set feats_selected(feats_selected:Set_UUID)
+         :void
+      {
+         // NOTE: Calling set items_selected, not feats_selected.
+         super.items_selected = feats_selected;
+         // We could reset feats_ordered_ but when we set the geofeature(s)
+         // selected they'll make sure to add themselves to it.
+      }
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function get items_selected() :Set_UUID
+      {
+         // The base class just return this.items_selected_, which can be null
+         // for certain panels types, but all geofeature panels should at least
+         // have an empty set.
+         if (this.items_selected_ === null) {
+            this.items_selected_ = new Set_UUID();
+         }
+         return super.items_selected;
+      }
+
+      // Returns the panel that owns the component that receives scrollbar.
+      override public function get scroll_owner() :Detail_Panel_Base
+      {
+         return this.panel_item_details;
+      }
+
+      // Returns the component that gets scrollbarred.
+      override public function get vertical_scrollbar_target()
+         :Container
+      {
+         return this.panel_item_details.vertical_scrollbar_target;
+      }
+
+      // *** Event handlers
+
+      //
+      override protected function on_click_panel(event:MouseEvent) :void
+      {
+         m4_VERBOSE2('_click_pnl:',
+                     Strutil.class_name_tail(String(event.target)));
+
+         // Skipping: super.on_click_panel();
+
+         //m4_TALKY2('on_click_panel: target is type:',
+         //          String(Introspect.get_constructor(event.target)));
+         if (event.target === this.panel_item_details.details_main_box) {
+            // Steal focus from whatever edit control may have the focus.
+            // FIXME: Can we tell what has focus?
+            m4_TALKY('on_click_panel: Stealing focus from:', this.stage.focus);
+            this.stage.focus = null;
+         }
+      }
+
+      //
+      override protected function get on_delete_click_warning() :String
+      {
+         var item_type:String;
+         var the_warning:String;
+         var gf_random:Geofeature = (this.items_selected.item_get_random()
+                                     as Geofeature);
+         m4_ASSERT(gf_random is Geofeature);
+         var capitalize_words:Boolean = false;
+         // NOTE Assuming homogenous array of Objects
+         //the_warning = 'The selected '
+         //   + Inflector.pluralize(
+         //      gf_random.friendly_name.toLowerCase(),
+         //      this.items_selected.length != 1)
+         //   + ' will be deleted. Are you sure?';
+         the_warning = 'The '
+            + this.items_selected_label(capitalize_words)
+            + ' will be deleted. Are you sure?';
+
+         m4_TALKY('on_delete_click_warning: ' + the_warning);
+         return the_warning;
+      }
+
+      //
+      override public function on_view_history_click() :void
+      {
+         // Not calling base class fcn.: it soft asserts to alert it's a noop.
+         //  No: super.on_view_history_click();
+
+         m4_ASSERT_SOFT(this.items_selected.length == 1);
+
+         var some_feat:Geofeature;
+         some_feat = (this.items_selected.item_get_random() as Geofeature);
+
+         if (!some_feat.has_history) {
+            m4_TALKY('on_view_history_click: fetching item version history');
+         }
+         else {
+            // The command should be outstanding; once the item has a history,
+            // the view history action should be removed from the action list
+            // because the version history widget is showing.
+            //
+            // This should be a no-op: update_supplemental should recognize
+            // the duplicate gwis request and not send it.
+            //
+            m4_TALKY('on_view_history_click: re-fetching version history?');
+         }
+
+         this.widget_version_history.fetch_history(
+                  this.on_view_history_fetch_okay);
+      }
+
+      //
+      public function on_view_history_widget_ready() :void
+      {
+         m4_TALKY('on_view_history_widget_ready');
+         // No-op.
+      }
+
+      //
+      public function on_view_history_fetch_okay() :void
+      {
+         m4_TALKY('on_view_history_fetch_okay');
+
+         // MAYBE: Scroll to the widget? Can we use its y value wrt parent?
+         m4_TALKY3('on_view_history_fetch_okay: x / y:',
+                   this.widget_version_history.x,
+                   '/', this.widget_version_history.y);
+
+         this.widget_version_history.visible = true;
+         this.widget_version_history.includeInLayout = true;
+      }
+
+      // ***
+
+      //
+      protected function item_versions_cleanup() :void
+      {
+         if (this.items_selected.length == 1) {
+            var some_feat:Geofeature;
+            some_feat = (this.items_selected.item_get_random()
+                         as Geofeature);
+            m4_TALKY('item_versions_cleanup: some_feat:', some_feat);
+            var past_versions:Array;
+            past_versions = G.item_mgr.past_versions[some_feat.stack_id];
+            m4_TALKY('item_versions_cleanup: past_versions:', past_versions);
+            if (past_versions !== null) {
+               m4_TALKY2('item_versions_cleanup: past_versions.length:',
+                         past_versions.length);
+               for each (var gf:Geofeature in past_versions) {
+                  if ((gf !== null) && (gf !== some_feat)) {
+                     m4_TALKY('item_versions_cleanup: gf:', gf);
+                     gf.visible = false;
+                     gf.draw();
+                  }
+               }
+            }
+         }
+         else {
+            m4_TALKY('item_versions_cleanup: nothing to do');
+         }
+      }
+
+      //
+      protected function item_version_init(version_feat:Geofeature=null)
+         :Array
+      {
+         m4_ASSERT_SOFT(this.items_selected.length == 1);
+
+         if (this.versions_active === null) {
+            this.versions_active = new Set();
+         }
+
+         var master_feat:Geofeature;
+         master_feat = (this.items_selected.item_get_random()
+                        as Geofeature);
+         m4_TALKY('item_version_init: master_feat:', master_feat);
+
+         m4_ASSERT_SOFT((version_feat === null)
+                        || (master_feat.stack_id == version_feat.stack_id));
+
+         // The past_versions lookup is part of Item_Manager so that we
+         // don't discard versions of items that we've retrieved...
+         // at least not when the panel is trashed, but we will on item
+         // discard.
+         var past_versions:Array;
+         past_versions = G.item_mgr.past_versions[master_feat.stack_id];
+
+         if (past_versions === null) {
+            past_versions = new Array();
+            // Always put the original working item at the end of the list
+            // (at index = no. versions).
+            past_versions.length = master_feat.version + 1;
+            past_versions[master_feat.version] = master_feat;
+            // Note that the index is 0-based, which is usually version-1,
+            // but here we want to remember the working version of the item.
+            G.item_mgr.past_versions[master_feat.stack_id] = past_versions;
+            if (!master_feat.dirty) {
+               master_feat.reversion_version = master_feat.version;
+            }
+         }
+         // else, good to go: we've already checked out this version.
+
+         m4_TALKY('item_version_init: past_versions:', past_versions);
+
+         m4_DEBUG('item_version_init: addEventListener: itemReversionReset');
+         master_feat.addEventListener('itemReversionReset',
+                                      this.on_item_reversion_reset);
+
+         return past_versions;
+      }
+
+      //
+      protected function item_versions_reset() :void
+      {
+         m4_TALKY('item_versions_reset');
+         this.item_versions_cleanup();
+         this.versions_active = null;
+         if (this.widget_version_history !== null) {
+            m4_TALKY('item_versions_reset: resetting version history widget');
+            this.widget_version_history.clear_history();
+            this.widget_version_history.visible = false;
+            this.widget_version_history.includeInLayout = false;
+         }
+      }
+
+      //
+      public function on_item_reversion_reset(ev:Event) :void
+      {
+         m4_DEBUG('on_item_reversion_reset: itemReversionReset');
+         this.version_history_list_tickle();
+      }
+
+      //
+      public function item_version_load(old_feat:Geofeature) :void
+      {
+         m4_TALKY('item_version_load: old_feat:', old_feat);
+         // Re-enable the View button, since either the command succeeded
+         // or it didn't, but either way we should re activate the button.
+         this.version_history_list_tickle();
+         if (old_feat !== null) {
+            this.item_version_load_really(old_feat);
+         }
+      }
+
+      //
+      public function item_version_load_really(old_feat:Geofeature) :void
+      {
+         //m4_TALKY('item_version_load_: old_feat:', old_feat);
+         var past_versions:Array = this.item_version_init(old_feat);
+
+         if (past_versions[old_feat.version] === undefined) {
+            old_feat.reversion_version = old_feat.version;
+            past_versions[old_feat.version] = old_feat;
+         }
+         else {
+            m4_ASSERT_SOFT(past_versions[old_feat.version] === old_feat);
+            m4_ASSERT_SOFT(false); // This fcn. only called on new old items.
+         }
+
+         // Remember that we're showing/about to be showing this item.
+         this.versions_active.add(old_feat.version);
+
+         // Draw the item on the map...
+         // MAYBE: [lb] is not sure how the item will interact with the user
+         //        (mouse clicks) and with other map items... let's find out!
+         //        I.e., what about map layering?
+
+         old_feat.init_item(/*item_agg=*/null, /*soft_add=*/true);
+
+         // Old versions of routes, e.g., use 1 less than the zplus of the
+         // latest, editable route, so that old versions are drawn beneath
+         // the editable version. And since we don't add old item versions
+         // to the map, we have to make sure they have a layer ready.
+         G.map.layers_add_maybe(old_feat);
+
+         G.map.layers[old_feat.zplus].addChild(old_feat.sprite);
+
+         m4_TALKY('item_version_load_: is_drawable', old_feat.is_drawable);
+         m4_TALKY('item_version_load_: is_labelable', old_feat.is_labelable);
+         old_feat.draw();
+      }
+
+      //
+      public function item_version_show_toggle(item_version:int) :Boolean
+      {
+         var toggled:Boolean = false;
+
+         var past_versions:Array = this.item_version_init();
+
+         var old_feat:Geofeature = (past_versions[item_version] as Geofeature);
+
+         m4_TALKY2('item_version_show_toggle: ver:', item_version,
+                   '/ old_feat:', old_feat);
+
+         if (old_feat !== null) {
+
+            this.versions_active.remove(old_feat.version);
+
+            old_feat.version_history_filter = old_feat.visible;
+            m4_TALKY2('item_version_show_toggle: version_history_filter:',
+                      old_feat.version_history_filter);
+            old_feat.visible = !old_feat.visible;
+
+            // MAYBE: Implement Diff panels for item versions.
+            //        Currently, user can "revert to" the item
+            //        version they want to inspect. Note that
+            //        because we don't load link_values for old
+            //        item versions, it's more meaningful to use
+            //        the revision history's diff to compare item
+            //        states. (At least for Routes, though, which
+            //        don't use link_values, using the item version
+            //        history is meaningful.)
+
+            this.version_history_list_tickle();
+
+            toggled = true;
+         }
+         // else, it's up to the caller to send gwis checkout.
+
+         return toggled;
+      }
+
+      //
+      public function item_version_revert(item_version:int, reason:int=0) :void
+      {
+         if (reason == 0) {
+            reason = Dirty_Reason.item_data;
+         }
+         // Not true:
+         //   m4_ASSERT_SOFT(G.app.mode.is_allowed(App_Action.item_edit));
+         // it should be for non-Routes, but routes are editable when not
+         // in app-editing mode... argh, okay, so it's not app-editing mode
+         // so much as everything-but-route-editing mode, because route editing
+         // mode is separate from map editing mode...
+
+         var master_feat:Geofeature;
+         master_feat = (this.items_selected.item_get_random()
+                        as Geofeature);
+
+         var past_versions:Array;
+         past_versions = G.item_mgr.past_versions[master_feat.stack_id];
+
+         var old_version:Geofeature = past_versions[item_version];
+
+         m4_TALKY('item_version_revert: v:', item_version, '/', master_feat);
+         m4_TALKY('item_version_revert: old_version:', old_version);
+
+         if (old_version !== null) {
+            var reversion_c:Item_Reversion;
+            reversion_c = new Item_Reversion(master_feat, old_version, reason);
+            m4_TALKY('record: item_version_revert: cmd:', reversion_c);
+            this.get_cmd_mgr().do_(reversion_c);
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      public function version_history_list_tickle(reset_history:Boolean=false)
+         :void
+      {
+         if (this.widget_version_history !== null) {
+            if (!reset_history) {
+               this.widget_version_history.version_history_list_tickle();
+            }
+            else {
+               this.widget_version_history.clear_history();
+               this.widget_version_history.fetch_history();
+            }
+         }
+      }
+
+      //
+      public function active_version_number(some_feat:Geofeature,
+                                            item_version:int) :int
+      {
+         var active_version_number:int = 0;
+         if (some_feat.version == item_version) {
+            // This is the latest version of the item.
+            m4_DEBUG('active_version_number: some_feat:', some_feat);
+            if (!some_feat.dirty) {
+               active_version_number = some_feat.version;
+            }
+         }
+         else {
+            // This is an older version of the item.
+            m4_ASSERT_SOFT(some_feat.version > item_version);
+            m4_DEBUG2('active_version_number: reversion_version:',
+                      some_feat.reversion_version);
+            if (some_feat.reversion_version == item_version) {
+               active_version_number = item_version;
+            }
+         }
+         return active_version_number;
+      }
+
+      //
+      public function get widget_version_history() :Widget_Version_History
+      {
+         var the_widget:Widget_Version_History = null;
+         if (this.panel_item_details !== null) {
+            the_widget = this.panel_item_details.widget_version_history;
+         }
+         return the_widget;
+      }
+
+      //
+      public function get widget_version_history_show() :Boolean
+      {
+         var version_history_show:Boolean = false;
+         if (this.items_selected.length == 1) {
+            var some_feat:Geofeature;
+            some_feat = (this.items_selected.item_get_random()
+                         as Geofeature);
+            m4_TALKY2('repopulate: some_feat.has_history:',
+                      some_feat.has_history);
+            if (some_feat.has_history) {
+               m4_TALKY2('repopulate: widget_version_history.visible:',
+                         this.widget_version_history.visible);
+               version_history_show = true;
+            }
+         }
+         return version_history_show
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="panel_item_wrap"
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="0"
+      >
+
+      <views_panel_items:Tab_Geofeature_Details
+         id="panel_item_details"
+         width="100%"
+         height="100%"
+         paddingTop="0"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingBottom="0"
+         verticalScrollPolicy="off"
+         />
+
+   </mx:VBox>
+
+   <mx:Array
+      id="new_states">
+      <mx:State
+         name="{this.panel_default_state}"
+         basedOn="{this.panel_base_state}"
+         enterState="this.on_enter_state_default();"
+         >
+      </mx:State>
+   </mx:Array>
+
+</views_panel_items:Panel_Item_Versioned>
+

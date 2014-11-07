@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: this Splash screen is specific to the colorado instance; we should
+     either make it more general or eventually remove it (see bug 1855). -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   layout="vertical"
+   horizontalAlign="center"
+   title="Welcome to Cyclopath Colorado!"
+   resize="PopUpManager.centerPopUp(this);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.managers.PopUpManager;
+
+   ]]></mx:Script>
+
+   <mx:Image
+      id="img"
+      source="@Embed(source='/assets/img/map_logo_splash_colorado.png')"/>
+
+   <mx:Text
+      width="100%"
+      condenseWhite="true">
+      <mx:htmlText><![CDATA[
+<b>Note:</b> The Colorado version of Cyclopath is still in alpha testing.
+There are still some issues with the road and bike path data that may
+affect the directions you receive.  Learn how you can help improve the
+system by clicking the link below.
+      ]]></mx:htmlText>
+   </mx:Text>
+   <mx:HBox
+      width="100%"
+      verticalAlign="middle"
+      horizontalGap="0">
+      <views_panel_util:Help_Link
+         text="Known Issues"
+         click_url="/Colorado/Known_Issues"
+         fontSize="11"/>
+      <mx:Spacer
+         width="100%" />
+      <mx:Button
+         label="OK"
+         click="PopUpManager.removePopUp(this);"/>
+   </mx:HBox>
+
+</mx:TitleWindow>
+

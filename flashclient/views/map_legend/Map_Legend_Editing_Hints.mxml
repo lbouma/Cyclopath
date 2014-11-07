@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_map_legend:Map_Legend_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   initialize="this.on_initialize(event);"
+   creationComplete="this.on_creation_complete(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import items.utils.Geofeature_Layer;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapLgd_Edit');
+
+      // *** Instance variables
+
+      protected var inited:Boolean = false;
+
+      protected var watch_side_panel_height:ChangeWatcher;
+
+      // *** Instance methods
+
+      //
+      protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete: this:', this);
+
+         this.on_change_height();
+      }
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize: this:', this);
+
+         m4_ASSURT(G.app.side_panel !== null);
+
+         this.watch_side_panel_height = ChangeWatcher.watch(
+            G.app.side_panel, 'height', this.on_change_height);
+      }
+
+      // C.f. Map_Legend_Bike_Facilities.mxml
+      // MAYBE: Combine the two fcns in Map_Legend_Base.mxml
+      public function on_change_height(ev:Event=null, skip_btn:Boolean=false)
+         :void
+      {
+         m4_PPUSH('on_change_height');
+
+         if ((G.app !== null) && (G.app.side_panel !== null)) {
+
+            if (G.app.side_panel.height > 0) {
+
+               var dwr:Map_Key_Drawer = this.parentDocument as Map_Key_Drawer;
+               //var btn:Map_Key_Button = dwr.parentDocument as Map_Key_Button;
+
+               m4_PPUSH2('on_change_height: outer_container.numChildren:',
+                         this.outer_container.numChildren); // numChildren: 2
+
+               var drawer_height_base:int =
+                  0
+                  //
+                  + this.getStyle('paddingTop')
+                  + this.getStyle('paddingBottom')
+                  //
+                  + this.outer_container.getStyle('paddingTop')
+                  + this.outer_container.getStyle('paddingBottom')
+                  + (this.outer_container.getStyle('verticalGap')
+                     * (this.outer_container.numChildren - 1))
+                  //
+                  + this.drawer_panel_header.height
+                  //
+                  ;
+
+               m4_PPUSH2('on_change_height: drawer_height_base- -2:',
+                         drawer_height_base);
+               if (Detail_Panel_Base.has_HorizontalScrollBar_(
+                                       dwr.first_container)) {
+                  drawer_height_base +=
+                     Detail_Panel_Base.get_hsb_height_(dwr.first_container)
+                     //+ 1
+                     ;
+                  m4_PPUSH2('on_change_height: drawer_height_base- -1:',
+                            drawer_height_base);
+               }
+
+               m4_PPUSH2('on_change_height: dwr.height:',
+                         dwr.height);
+
+               var max_height:int = dwr.height - drawer_height_base;
+               m4_PPUSH('on_change_height: max_height:', max_height);
+
+               this.other_box_scroller.height = max_height;
+            }
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="outer_container"
+      width="100%"
+      height="100%"
+      paddingLeft="8"
+      paddingRight="8"
+      paddingTop="8"
+      paddingBottom="16"
+      verticalGap="8"
+      horizontalAlign="center"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="drawer_panel_header"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         verticalGap="0"
+         horizontalAlign="center"
+         >
+         <mx:Label
+            text="Map Editing Hints"
+            fontWeight="bold"/>
+      </mx:VBox>
+
+      <mx:VBox
+         id="other_box_scroller"
+         width="100%"
+         paddingLeft="8"
+         paddingRight="16"
+         paddingTop="8"
+         paddingBottom="8"
+         horizontalGap="0"
+         verticalGap="8"
+         horizontalAlign="center"
+         verticalAlign="top"
+         borderThickness="1"
+         borderStyle="solid"
+         borderColor="0x000000"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="auto"
+         >
+
+         <mx:Text
+            id="ccp_about_text_text"
+            leading="0"
+            condenseWhite="true"
+            mouseEnabled="true"
+            mouseChildren="true"
+            selectable="true"
+            width="100%"
+            >
+            <mx:htmlText><![CDATA[
+You've been warned: This section is incomplete.
+<br/><br/>
+
+
+<ul>
+<li>Double-click endpoint vertex to toggle between sticky and not-sticky.
+ <ul>
+ <li>When sticky, dragging an endpoint drags the whole intersection.
+     The endpoint is colored green when in sticky mode.
+  </li><br/>
+ <li>When not sticky, dragging an endpoint drags the endpoint away from the
+     intersection.
+     The endpoint is colored yellow when not in sticky mode.
+  </li><br/>
+ </ul>
+ </li><br/>
+<li>
+ To delete an internal vertex, select the vertex (click on it), and press the
+ Backspace or Delete key.
+ </li><br/>
+<li>
+ You can connect an endpoint vertex to existing intersections, but if you want
+ to connect the endpoint to the middle of an existing road segment, drop the
+ vertex where you want to create the intersection, and then use the Intersect
+ Roads tool.
+ <ul>
+ <li>If an endpoint vertex is a dangle, or only connected to one road segment,
+     it's colored red. A dangle literally represents a dead end.
+  </li><br/>
+ </ul>
+ </li><br/>
+</ul>
+<br/>
+
+More to come...
+<br/>
+            ]]></mx:htmlText>
+         </mx:Text>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_map_legend:Map_Legend_Base>
+

@@ -1,0 +1,1808 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME/BUG nnnn: Finish implementing this widget.
+     Currently, just branches have 'permissive' style access,
+     so this widget will be used to let branch arbiters control
+     users' access to a branch. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   verticalGap="0"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.desktop.Clipboard;
+      import flash.desktop.ClipboardFormats;
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.core.Container;
+      import mx.core.UITextField;
+      import mx.effects.Fade;
+      import mx.effects.Resize;
+      import mx.events.DropdownEvent;
+      import mx.events.EffectEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import grax.Access_Infer;
+      import grax.Access_Level;
+      import grax.Access_Style;
+      import grax.User;
+      import gwis.GWIS_Grac_Get;
+      import gwis.GWIS_Stealth_Create;
+      import items.Geofeature;
+      import items.Grac_Record;
+      import items.Item_User_Access;
+      //import items.Item_Versioned;
+      import items.gracs.Group_Item_Access;
+      import items.feats.Route;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Inflector;
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Strutil;
+      import utils.rev_spec.*;
+      import views.commands.Command_Scalar_Edit;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Gia_Shr');
+
+      protected static const use_show_hide_more:Boolean = false;
+
+      // ***
+
+      public var footer_lock:Boolean = false;
+      public var outside_scroll_area:Boolean = false;
+
+      protected var scroll_to_bottom_pending:Boolean = false;
+
+      // MAGIC_NUMBERAGE: (And, yes/no, numberage is a real word, look it up:
+      //  straightdope.com/columns/read/2058/whats-the-origin-of-the-suffix-age
+      //  ) the holding_usr_choice_loud is 0, 1, or 2.
+      // Set to "true" when keeping the buttons visible artificially:
+      //   2: Starting to fade out the Make Private/Keep Public widget.
+      //   1: Starting to alpha out the Make Private/Keep Public widget.
+      //   0: Do not show Make Private/Keep Public buttons.
+      protected var holding_usr_choice_loud:int = 0;
+      // Fade effect for public/private usr_choice buttons box.
+      protected var effect_fade:Fade = new Fade();
+      protected var effect_resize_fwd:Resize = new Resize();
+      protected var effect_resize_rwd:Resize = new Resize();
+
+      // This is true while the action dropdown is active (opened).
+      protected var action_opened:Boolean = false;
+
+      // This is how we make the action lookup -- we need handles to the
+      // dataProvider entries.
+      protected var action_opt_create_link:Object;
+      protected var action_opt_donate_public:Object;
+      protected var action_opt_clone_private:Object;
+      protected var action_opt_delete_item:Object;
+      // 2014.05.09: Route History.
+      protected var action_opt_view_history:Object;
+
+      // See enable_stealth_mode(): we show information differently
+      // when we're in footer mode and there's a mother footer above us.
+      protected var running_stealthfully:Boolean = false;
+
+      // *** Instance methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         //this.register_widgets([
+         //   ]);
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+         this.addEventListener(ResizeEvent.RESIZE, this.on_resize_for_real,
+                               false, 0, true);
+
+         // See: get_actions_array.
+         this.action_opt_create_link = {
+            label: 'Create Web link',
+            toolTip: 'Make a Web link to the item that you can share '
+                     + 'with others or keep for yourself.',
+            callback: this.on_action_create_link,
+            enabled: false,
+            visible: true };
+         this.action_opt_donate_public = {
+            label: 'Donate publicly',
+            toolTip: 'Make a public copy of the item and delete '
+                     + 'your private version of the item.',
+            callback: this.on_action_donate_public,
+            enabled: false,
+            visible: false };
+         this.action_opt_clone_private = {
+            label: 'Make private copy',
+            toolTip: 'Make a private copy of the selected item.',
+            callback: this.on_action_clone_private,
+            enabled: false,
+            visible: true };
+         this.action_opt_delete_item = {
+            // We're overwrite the label later, to, e.g., "Delete this route".
+            label: 'Delete item',
+            toolTip: 'Remove the item from the map.',
+            callback: this.on_action_delete_item,
+            enabled: false,
+            visible: false };
+         this.action_opt_view_history = {
+            label: 'View history',
+            toolTip: "Take a look at the item's edit history.",
+            callback: this.on_action_view_history,
+            enabled: false,
+            visible: false };
+      }
+
+      // ***
+
+      //
+      protected function on_resize_for_real(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize_for_real');
+
+         var item_panel:Panel_Item_Versioned;
+         item_panel = (this.dp as Panel_Item_Versioned);
+
+         var scroll_owner:Detail_Panel_Base;
+         scroll_owner = item_panel.scroll_owner;
+
+         var vscrollbar_target:Container = null;
+         vscrollbar_target = scroll_owner.vertical_scrollbar_target;
+
+         scroll_owner.on_resize(null);
+
+         m4_PPUSH(' .. this.footer_lock:', this.footer_lock);
+         m4_PPUSH2('on_resize_for_real: has_VerticalScrollBar()',
+                   scroll_owner.has_VerticalScrollBar());
+
+         if ((vscrollbar_target !== null)
+             && (this.scroll_to_bottom_pending)
+             && (!this.outside_scroll_area)
+             && (scroll_owner.has_VerticalScrollBar())
+             ) {
+            m4_PPUSH2(' .. verticalScrollPosition:',
+                      vscrollbar_target.verticalScrollPosition);
+            m4_PPUSH2(' .. maxVerticalScrollPosition:',
+                      vscrollbar_target.maxVerticalScrollPosition);
+            vscrollbar_target.verticalScrollPosition =
+               vscrollbar_target.maxVerticalScrollPosition;
+         }
+         this.scroll_to_bottom_pending = false;
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_TALKY('depopulate: this.dp:', this.dp.class_name_tail);
+
+         this.box_more_details_header.visible = false;
+
+         //this.label_summary_brief.visible = false;
+         this.label_summary_brief.htmlText = 'Nothing to share';
+         this.label_summary_brief.visible
+            = (!this.running_stealthfully);
+         this.label_summary_brief.includeInLayout
+            = (!this.running_stealthfully);
+
+         this.box_usr_choice_loud.visible = false;
+         this.box_restricted_loud.visible = false;
+         this.label_restricted_loud_user.visible = false;
+         this.label_restricted_loud_anon.visible = false;
+
+         m4_TALKY('depopulate: box_configure_sharing.visible=false');
+         this.box_configure_sharing.visible = false;
+         this.section_sharing_more_details.visible = false;
+         this.section_sharing_weblink.visible = false;
+         this.box_sharing_actions.visible = false;
+
+         this.box_more_details_footer_expanded.visible = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         var some_item:Item_User_Access;
+         some_item = this.items_selected.item_get_random() as Item_User_Access;
+
+         // This is a little hacky/coupled, but it saves us from sub-classing
+         // Widget_Gia_Sharing just for Widget_Route_Footer.
+         var route:Route = (some_item as Route);
+
+         var pluralize:Boolean = (this.items_selected.length > 1);
+         var is_or_are:String = Inflector.pluralize('is', pluralize);
+
+         // NOTE: New routes that aren't saved are not considered fresh,
+         //       because they have valid stack IDs (and because they're
+         //       technically saved on the server).
+         var are_fresh:* = Objutil.consensus(this.items_selected,
+                                             'fresh', undefined);
+
+         // Unlibraried is merely a Route attribute.
+         //  var are_unlibraried:* = Objutil.consensus(this.items_selected,
+         //                                       'unlibraried', undefined);
+         var unlibraried:Boolean = false;
+         if (this.items_selected.length == 1) {
+            // MAYBE: Move Route.unlibraried to Item_Stack.unlibraried.
+            //        Then we could call Objutil.consensus.
+            if (route !== null) {
+               unlibraried = route.unlibraried;
+            }
+         }
+
+         // MAGIC_NUMBER 16 converts to hex.
+         //          '/ access_infers:', this.dp.access_infer_id_amity,
+         //          '/ inferid_union:', this.dp.access_infer_id_union,
+         m4_VERBOSE3('repopulate: are_fresh:', are_fresh,
+                     '/ can_arbit:', this.dp.access_level_can_arbit,
+                     '/ unlibraried:', unlibraried);
+         m4_VERBOSE8('repopulate: access_lvls:', this.dp.access_level_id_amity,
+                     '/ access_styles:', this.dp.access_style_id_amity,
+                     '/ access_infers:',
+                      '0x' + ((this.dp.access_infer_id_amity !== null)
+                       ? this.dp.access_infer_id_amity.toString(16) : 'null'),
+                     '/ inferid_union:',
+                      '0x' + ((this.dp.access_infer_id_union !== null)
+                       ? this.dp.access_infer_id_union.toString(16) : 'null'));
+
+         this.label_summary_brief.htmlText = '';
+
+         //var common_access_level:* = this.dp.access_level_id_amity;
+         var common_access_style:* = this.dp.access_style_id_amity;
+
+         // MAYBE: What's better/easier:
+         //          a. using hidden containers; or
+         //          b. using state changes?
+         //        For now, just using hidden containers.
+
+         this.box_restricted_loud.visible = false;
+         this.section_sharing_more_details.visible = false;
+
+         // See: get_actions_array.
+         this.action_opt_create_link.visible = false;
+         this.action_opt_create_link.enabled = true;
+         this.action_opt_donate_public.visible = false;
+         this.action_opt_donate_public.enabled = true;
+         this.action_opt_clone_private.visible = false;
+         this.action_opt_clone_private.enabled = true;
+         this.action_opt_delete_item.visible = false;
+         this.action_opt_delete_item.enabled = true;
+         this.action_opt_view_history.visible = false;
+         this.action_opt_view_history.enabled = true;
+
+         this.action_opt_delete_item.label = this.dp.button_delete_label;
+         this.action_opt_delete_item.toolTip = this.dp.button_delete_toolTip;
+
+         if (common_access_style == Access_Level.invalid) {
+            // This happens when the select items do not all have the same
+            // access style.
+            this.section_sharing_more_details.visible = true;
+            this.label_summary_brief.htmlText =
+               'The ' + this.dp.items_selected_label()
+               + ' have various access styles and cannot be'
+               + ' display or edited as a group.';
+         }
+         else if ((common_access_style == Access_Style.usr_choice)
+                  || (common_access_style == Access_Style.pub_choice)) {
+            // The user can arbit the new item, in a sense, but really the
+            // user's access level is just editor.
+            m4_ASSERT(this.dp.access_level_can_edit);
+            // FIXME: Can we make it here on version > 1? If so, either
+            //        don't save usr_choice to item_stack or here we need to
+            //        check version == 1.
+            if (are_fresh) {
+               var style_change:int = Objutil.consensus(this.items_selected,
+                                                  'style_change', undefined);
+               this.usr_choices_reset(style_change);
+            }
+            else if (are_fresh === undefined) {
+               this.label_summary_brief.htmlText =
+                  'The ' + this.dp.items_selected_label()
+                  + ' consist of both new and existing items.'
+                  + ' Please edit their permissions individually.';
+               this.section_sharing_more_details.visible = true;
+               this.action_opt_create_link.visible = false;
+            }
+            else { // are_fresh == false.
+               if (this.dp.access_infer_id_amity === null) {
+                  this.label_summary_brief.htmlText =
+                     'The ' + this.dp.items_selected_label()
+                     + ' consist of both public and private items.';
+               }
+               else if (this.dp.access_infer_id_amity
+                        == Access_Infer.pub_editor) {
+                  this.label_summary_brief.htmlText =
+                     'The ' + this.dp.items_selected_label()
+                     + ' ' + is_or_are + ' editable by everyone.';
+               }
+               else if (this.dp.access_infer_id_amity
+                        == Access_Infer.usr_editor) {
+                  this.label_summary_brief.htmlText =
+                     'The ' + this.dp.items_selected_label()
+                     + ' ' + is_or_are + ' private to you.';
+               }
+               else {
+                  m4_ASSERT_SOFT(false);
+                  G.sl.event('error/wdgt_gia_shrng/repop',
+                     {access_infer_id_amity: this.dp.access_infer_id_amity});
+                  this.label_summary_brief.htmlText = '';
+               }
+               this.section_sharing_more_details.visible = true;
+               this.action_opt_create_link.visible = true;
+            }
+         }
+         else if (common_access_style == Access_Style.usr_editor) {
+            m4_ASSERT(this.dp.access_level_can_edit);
+            m4_ASSERT(this.dp.access_infer_id_amity
+                      == Access_Infer.usr_editor);
+            this.section_sharing_more_details.visible = true;
+            //this.label_summary_brief.htmlText =
+            //   'Only you can edit '
+            //   + this.dp.this_or_these_items_clause + '.';
+            this.label_summary_brief.htmlText =
+               'The ' + this.dp.items_selected_label()
+               + ' ' + is_or_are + ' private to you.';
+            this.action_opt_donate_public.visible = true;
+            this.action_opt_delete_item.visible = true;
+            this.action_opt_create_link.visible = true;
+         }
+         else if (common_access_style == Access_Style.pub_editor) {
+            m4_ASSERT(this.dp.access_level_can_edit);
+            m4_ASSERT(this.dp.access_infer_id_amity
+                      == Access_Infer.pub_editor);
+            this.section_sharing_more_details.visible = true;
+            //this.label_summary_brief.htmlText =
+            //   'Everyone can edit '
+            //   + this.dp.this_or_these_items_clause + '.';
+            this.label_summary_brief.htmlText =
+               'The ' + this.dp.items_selected_label()
+               + ' ' + is_or_are + ' editable by everyone.';
+            this.action_opt_clone_private.visible = true;
+            this.action_opt_delete_item.visible = true;
+            this.action_opt_create_link.visible = true;
+         }
+         else if (this.dp.access_level_can_arbit) {
+            if (!unlibraried) {
+               this.action_opt_delete_item.visible = true;
+            }
+            this.action_opt_create_link.visible = true;
+            //
+            if (common_access_style == Access_Style.permissive) {
+               // BUG nnnn: Widget_Gia_Access_List is not a finished component.
+               // DEVS: Fix Widget_Gia_Access_List before using this widget on
+               //       permissively-access_styled items.
+               m4_ASSERT(false);
+            }
+            else if (common_access_style == Access_Style.restricted) {
+
+// new route is not fresh, dur...
+// infer is 4096/others_arbiter -- for restricted, means just user is arbiter?
+// or session ID? -- ERROR: it is session group (2432135) but there's no
+// session ID!
+// 1. missing session ID from database (i was not logged on for this test)
+// 3. log on and test route -- auto-arbit by user.
+//
+// So: You don't need a save button? Or it's just a client-side thing that
+//     shows the tab.
+// then what does an anoymous user see?
+//   maybe they can see permissions tab
+//   (or have to click button to see it)
+//     say "please login" for my lib
+//     allow change public lib
+//     disable and show edit for web link and public perms
+//   'make public' and 'delete route' seem weird as checkboxes...
+// test logging on -- it should update panel to show, ya know...
+//   so on map refresh, can you save the route panels, i guess?
+//     or just make sure all old routes still appear in history
+//     otherwise i don't think you need to keep routes in memory
+//     -- just reload open route panels?
+//     -- maybe you can reload any item types' panels?
+//     ** across logins, reload open panels, right?
+//        how do you choose when and how to reload items?
+//        each panel could hook logged on/off and do a checkout
+//          and callback could rewire panels' items?
+//        
+//
+// FIXME: Session ID missing from GIA -- or is it because I am logged on??
+               if (unlibraried) {
+                  // this.label_summary_brief.htmlText =
+                  //    'Save '
+                  //    + this.dp.this_or_these_items_clause
+                  //    + ' for yourself and to share with friends.';
+                  this.label_summary_brief.visible = false;
+                  this.label_summary_brief.includeInLayout = false;
+                  // No: Use this.box_restricted_loud.visible = true;
+                  this.label_restricted_loud_user.visible = G.user.logged_in;
+                  this.label_restricted_loud_anon.visible = !G.user.logged_in;
+               }
+               else {
+                  this.label_summary_brief.htmlText =
+                     'You own ' + this.dp.this_or_these_items_clause + '.';
+                  //this.action_opt_donate_public.visible = true;
+                  //this.action_opt_delete_item.visible = true;
+               }
+            }
+            else {
+               m4_TALKY('repopulate: common_ac_style:', common_access_style);
+               // 2013.04.17: How is common_access_style 0? access_style_id
+               // must be returning 0 on not set... (converting undefined to
+               // int).
+               m4_ASSERT((common_access_style == 0) // before resp. received?
+                         || (common_access_style == Access_Style.all_denied));
+            }
+         }
+         else {
+            // User is not arbiter and access_style is whatever.
+            this.section_sharing_more_details.visible = true;
+            // FIXME: this.selection_actions.dataProvider
+            if (this.dp.access_level_can_edit) {
+               this.action_opt_create_link.visible = (!are_fresh);
+               this.action_opt_delete_item.visible = true;
+               var verb_tense:String;
+               if (G.map.rev_workcopy !== null) {
+                  verb_tense = 'are';
+               }
+               else {
+                  verb_tense = 'were';
+               }
+               this.label_summary_brief.htmlText =
+                  'You ' + verb_tense + ' allowed to edit '
+                  + this.dp.this_or_these_items_clause + '.';
+            }
+            else {
+               // FIXME: this.selection_actions.dataProvider
+               this.label_summary_brief.htmlText =
+                  'You can only view '
+                  + this.dp.this_or_these_items_clause + '.';
+            }
+            this.action_opt_clone_private.visible = true;
+         }
+
+         // ***
+
+         var created_user:String = Objutil.consensus(
+            this.items_selected, 'created_user', 'more than one user');
+         if ((!G.user.anonymous) && (created_user == G.user.username)) {
+            // Weird. In [lb]'s vim, using single quotes around " (" (a space
+            // followed by a paranthesis) causes cindent() to return incorrent
+            // indents and indenting fails for the remainder of the file. So
+            // if we use single quotes instead of double quotes, make sure
+            // paranthesis are quoted on their own, with no preceeding space.
+            // Not ok: created_user = 'you (' + G.user.username + ')';
+            //created_user = 'you ' + '(' + G.user.username + ')';
+            created_user = 'You ' + '(' + G.user.username + ')';
+         }
+         // BUG nnnn: Item History widget. Load all versions of an item and
+         //           each version's revision to get at editor's name for
+         //           each version.
+         var detail_summary:String = '';
+         if (!unlibraried) {
+            if (!are_fresh) {
+               // This is in passive voice:
+               // detail_summary =
+               //    this.dp.this_or_these_items_capped + ' '
+               //    + Inflector.pluralize('was', pluralize) + ' '
+               //    + 'created by '
+               //    + ((are_fresh)
+               //       ? 'you' : ((created_user !== null)
+               //                  ? created_user : 'an anonymous user'))
+               //    ;
+               // Active voice:
+               detail_summary =
+                  ((are_fresh || unlibraried)
+                   ? 'You' :
+                     (((created_user !== null)
+                       && (!User.is_anonymous(created_user)))
+                      ? created_user : 'An anonymous user'))
+                  + ' created ' + this.dp.this_or_these_items_clause;
+            }
+            else {
+               detail_summary =
+                  'You created ' + this.dp.this_or_these_items_clause;
+            }
+            if (this.items_selected.length == 1) {
+               m4_TALKY('repopulate: this.items_selected.length == 1');
+               // This is a little hacky, but only the Route item tells us its
+               // creation date. For other item types, the creation date can be
+               // gleaned from the revision table, but joining on revision will
+               // probably just slow down fetches even more.
+               // BUG nnnn: Add the creation date to the item cache tables.
+               //           (And by item cache, [lb] means that we maintain
+               //           item cache tables like we do the route finder and
+               //           the tiles: whenever a revision is saved, we
+               //           recompute the item cache, which is all the objects
+               //           and their tags, attrs, etc. that an anoymous user
+               //           can see.  Then, flashclient can quickly get most
+               //           items from the public item cache, and then a second
+               //           request will get the slowly-fetched private items
+               //           (slow because we have to join lots of tables, but
+               //           for the item cache there would be no joining).
+               if (route !== null) {
+                  m4_TALKY2('repopulate: route.created_date:',
+                            route.created_date);
+                  if (route.created_date) {
+                     // E.g., 2013-09-03 11:45:51.699379-05:00
+                     //var period_posit:int = route.created_date.indexOf('.');
+                     // Split at the earlier space (' '), otherwise we two-line
+                     // it (newline it? whatever, printing the time causes a
+                     // linebreak).
+                     var period_posit:int = route.created_date.indexOf(' ');
+                     if (period_posit < 0) {
+                        m4_WARNING2('repopulate: unknown time format:',
+                                    route.created_date);
+                     }
+                     else {
+                        detail_summary +=
+                           ' on ' + route.created_date.substr(0, period_posit);
+                     }
+                  }
+               }
+            }
+         }
+         if (detail_summary) {
+            // E.g., You are allowed to edit this route.
+            //       someuser created this route on 2013-09-10.
+            detail_summary += '.';
+            this.label_more_details.htmlText = detail_summary;
+            this.section_sharing_more_details.visible = true;
+         }
+
+         // MAYBE: Have server send creation date and add that. Except creation
+         //        date is just the date when valid_start_rid revision was
+         //        created... so not sure how best to send. Especially without
+         //        creating additional join noise... maybe when you
+         //        include_item_stack you can also join revision and get the
+         //        date of the revision that way, i.e., lazy-load with
+         //        access_style_id.
+
+         // ***
+
+         var web_link:String = '';
+         if (this.items_selected.length == 1) {
+            web_link = some_item.get_stealth_secret_web_link();
+         }
+         if (web_link) {
+            this.raw_web_link.text = web_link;
+            this.section_sharing_weblink.visible = true;
+            this.action_opt_create_link.visible = false;
+         }
+         else {
+            this.section_sharing_weblink.visible = false;
+            // MEHBUG nnnn: Create links to groups of items.
+            this.action_opt_create_link.visible =
+               (this.items_selected.length == 1)
+               && (this.dp.access_level_can_edit)
+               && (!are_fresh);
+         }
+
+         // ***
+
+         var ipanel:Panel_Item_Versioned = (this.dp as Panel_Item_Versioned);
+
+         if (   (this.action_opt_donate_public.visible)
+             || (this.action_opt_clone_private.visible)) {
+            var item_class:Class = Introspect.get_constructor(some_item);
+            var allowed:Boolean = (G.item_mgr.create_allowed_get(item_class));
+            m4_TALKY('repopulate: allowed:', allowed);
+      // FIXME: Bug nnnn: Not only create_allowed_get, but we also
+      //        need to make sure we can make _public_ items...
+            this.action_opt_donate_public.enabled = allowed;
+      // FIXME: Bug nnnn: Not only create_allowed_get, but we also
+      //        need to make sure we can make _private_ items...
+            this.action_opt_clone_private.enabled = allowed;
+            //
+//            this.action_opt_donate_public.visible &&= editing_enabled;
+//            this.action_opt_clone_private.visible &&= editing_enabled;
+         }
+         if (this.action_opt_delete_item.visible) {
+            this.action_opt_delete_item.enabled ||=
+               this.dp.access_level_can_edit;
+            // 2013.04.30: This doesn't feel right to [lb]. Users should always
+            //             be able to delete routes? What about other item
+            //             types?
+            //this.action_opt_delete_item.visible &&= editing_enabled;
+            this.action_opt_delete_item.visible &&=
+               ipanel.is_action_actionable('item-delete');
+         }
+
+         // ***
+
+         if (this.action_opt_donate_public.visible) {
+            this.action_opt_donate_public.visible &&=
+               ipanel.is_action_actionable('donate-public');
+         }
+
+         if (this.action_opt_clone_private.visible) {
+            this.action_opt_clone_private.visible &&=
+               ipanel.is_action_actionable('clone-private');
+         }
+
+         // ***
+
+         if (this.items_selected.length == 1) {
+            var some_feat:Geofeature = (some_item as Geofeature);
+            if (some_feat !== null) {
+               if (   (!some_feat.has_history)
+                   && (!some_feat.fresh)) {
+                  m4_TALKY('repopulate: showing view history:', some_feat);
+                  this.action_opt_view_history.visible = true;
+               }
+               // else, a new, fresh item (fresh) or an item with history.
+            }
+         }
+
+         // ***
+
+         // FIXME: Bug nnnn: Private copy is not implement. Disabling for now.
+         //        Run clone() on the item selection, maybe move each item
+         //        to the right on the map...
+         //        BUG nnnn: Also, moving selection groups.... select a bunch
+         //        of byways, e.g., and move them as a group.
+         //if (!Conf_Instance.debug_goodies) {
+            this.action_opt_clone_private.visible = false;
+         //}
+
+         this.selection_actions.dataProvider = this.get_actions_array();
+         this.box_sharing_actions.visible =
+            (this.selection_actions.dataProvider.length > 0);
+         this.selection_actions.selectedIndex = -1;
+
+         // ***
+
+         this.update_link_more_or_less_details();
+      }
+
+      // ***
+
+      // The Route_Save_Footer sits on top of this widget and asks us not to
+      // display the header text, ever, and to only show the summary text when
+      // the details box is expanded.
+      public function enable_stealth_mode(disable:Boolean=false) :void
+      {
+         this.sharing_widget_label_ctnr.visible = disable;
+         this.sharing_widget_label_ctnr.includeInLayout = disable;
+
+         this.label_summary_brief.visible = disable;
+         this.label_summary_brief.includeInLayout = disable;
+
+         this.running_stealthfully = (!disable);
+      }
+
+      //
+      protected function get_actions_array() :Array
+      {
+         var actions_arr:Array = new Array();
+         // Only show if at least one enabled?
+         /*
+         if (   (this.action_opt_create_link.enabled)
+             || (this.action_opt_donate_public.enabled)
+             || (this.action_opt_clone_private.enabled)
+             || (this.action_opt_delete_item.enabled)) { ... }
+         */
+         if (this.action_opt_create_link.visible) {
+            actions_arr.push(this.action_opt_create_link);
+         }
+         if (this.action_opt_donate_public.visible) {
+            actions_arr.push(this.action_opt_donate_public);
+         }
+         if (this.action_opt_clone_private.visible) {
+            actions_arr.push(this.action_opt_clone_private);
+         }
+         if (this.action_opt_delete_item.visible) {
+            actions_arr.push(this.action_opt_delete_item);
+         }
+         // A little unorthodox route coupling.
+         if (this.action_opt_view_history.visible) {
+            actions_arr.push(this.action_opt_view_history);
+         }
+         return actions_arr;
+      }
+
+      // *** Fcns. for Access_Style: Permissive
+
+      // *** Fcns. for Access_Style: Restricted
+
+      // *** Fcns. for Access_Style: Usr_Choice
+
+      //
+      protected function on_click_usr_choice_pub() :void
+      {
+         this.usr_choice_choose(Access_Infer.pub_editor);
+      }
+
+      //
+      protected function on_click_usr_choice_usr() :void
+      {
+         this.usr_choice_choose(Access_Infer.usr_editor);
+      }
+
+      //
+      protected function usr_choice_choose(style_change:int) :void
+      {
+         var cmd:Command_Scalar_Edit;
+         cmd = new Command_Scalar_Edit(this.items_selected.clone(),
+                                       'style_change', style_change);
+         G.map.cm.do_(cmd);
+         // The item(s) being edited should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         if (cmd.is_prepared) {
+            m4_TALKY('usr_choice_choose: success');
+            G.grac.user_set_style.add_all(this.items_selected);
+            this.usr_choices_reset(style_change);
+            m4_TALKY2('usr_choice_choose: box_configure_sharing.visible:',
+                      this.box_configure_sharing.visible);
+            m4_TALKY2('usr_choice_choose: box_usr_choice_loud.visible:',
+                      this.box_usr_choice_loud.visible);
+            if (!this.box_configure_sharing.visible) {
+               // MAGIC_NUMBER: See def'n, above; 2 means fade start.
+               this.holding_usr_choice_loud = 2;
+               this.usr_choice_fade_away();
+            }
+         }
+         else {
+            m4_WARNING2('usr_choice_choose: failed: style_change:',
+                        style_change, '/ items:', this.items_selected);
+         }
+      }
+
+      //
+      protected function usr_choice_fade_away() :void
+      {
+         var targets:Array = [this.box_usr_choice_loud,];
+
+         this.effect_fade = new Fade();
+         this.effect_fade.targets = targets;
+         this.effect_fade.duration = 750;
+         this.effect_fade.alphaFrom = 1.0;
+         this.effect_fade.alphaTo = 0.0;
+
+         this.effect_fade.addEventListener(EffectEvent.EFFECT_END,
+                                           this.on_effect_fade_end);
+
+         m4_TALKY('usr_choice_fade_away: effect_fade.play');
+
+         this.effect_fade.end();
+         this.effect_fade.play();
+      }
+
+      //
+      protected function on_effect_fade_end(event:EffectEvent) :void
+      {
+         m4_TALKY('on_effect_fade_end: event:', event, '/ tgt:', event.target);
+         this.effect_fade.end();
+         if ((event.target as Fade).alphaTo == 0.0) {
+            // MAGIC_NUMBER: See def'n, above; 1 means fade over, begin resize.
+            this.holding_usr_choice_loud = 1;
+            this.effect_resize_fwd.target = this.box_usr_choice_loud;
+            this.effect_resize_fwd.duration = 400;
+            this.effect_resize_fwd.heightTo = 0;
+            this.effect_resize_fwd.heightFrom =
+               this.box_usr_choice_loud.height;
+            this.effect_resize_fwd.end();
+            this.effect_resize_fwd.addEventListener(EffectEvent.EFFECT_END, 
+                                             this.on_effect_resize_fwd_end);
+            this.effect_resize_fwd.play();
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      protected function on_effect_resize_fwd_end(event:EffectEvent) :void
+      {
+         this.effect_resize_fwd.end();
+         // MAGIC_NUMBER: See def'n, above; 0 means resize over.
+         this.holding_usr_choice_loud = 0;
+         // Restore the alpha since the window is hidden and we don't fade
+         // it in; we just show it when the user clicks the show link.
+         this.box_usr_choice_loud.alpha = 1.0;
+         this.box_usr_choice_loud.visible = false;
+         this.box_usr_choice_loud.includeInLayout = false;
+         // Restore the height of the box.
+         m4_TALKY2('on_effect_resize_fwd_end: reset height/1:',
+                   this.box_usr_choice_loud.height);
+         this.box_usr_choice_loud.percentHeight = 100;
+         m4_TALKY2('on_effect_resize_fwd_end: heightFrom:',
+                   this.effect_resize_fwd.heightFrom);
+         m4_TALKY2('on_effect_resize_fwd_end: reset height/2:',
+                   this.box_usr_choice_loud.height);
+         // Finally, don't show the set-default checkbox again for this item.
+         //this.box_usr_choice_default.visible = false;
+
+         this.update_link_more_or_less_details(/*scroll_in=*/true);
+      }
+
+      //
+      protected function on_effect_resize_rwd_end(event:EffectEvent) :void
+      {
+         this.effect_resize_rwd.end();
+         this.box_more_details_footer_collapse.percentWidth = 100;
+      }
+
+      //
+      protected function usr_choices_reset(style_change:*) :void
+      {
+         m4_TALKY('usr_choices_reset: style_change:', style_change);
+
+         // var item_fnom:String =
+         //  this.items_selected.item_get_random().friendly_name.toLowerCase();
+         var item_fnom:String = this.dp.identity_get_friendly().toLowerCase();
+         var pluralize:Boolean = (this.items_selected.length > 1);
+
+         // Make the style the default for the item type, maybe.
+         if (this.checkbox_usr_choice_default.selected) {
+            m4_ASSERT(style_change);
+            var item_class:Class = Introspect.get_constructor(
+                        this.items_selected.item_get_random());
+            G.grac.sticky_choice_by_type[item_class] = style_change;
+            // Always reset checkbox in case user changes their mind.
+            this.checkbox_usr_choice_default.selected = false;
+         }
+
+         // Setup the labels.
+         var label_summary:String;
+         // if (style_change == Access_Infer.not_determined) {
+         if (style_change === undefined) {
+            label_summary = 'Some of the ' + this.dp.items_selected_label()
+                            + ' are public and others are private.';
+            // The items have varying styles.
+            // 
+            this.button_usr_choice_usr.label = 'Make Private';
+            this.button_usr_choice_pub.label = 'Make Public';
+            this.button_usr_choice_usr.enabled = true;
+            this.button_usr_choice_pub.enabled = true;
+            //this.link_delete_item.enabled = true;
+            //
+            this.button_usr_choice_usr.setStyle('fillColors',
+               [Conf.save_button_fill_light, Conf.save_button_fill_dark,]);
+            this.button_usr_choice_pub.setStyle('fillColors',
+               [Conf.save_button_fill_light, Conf.save_button_fill_dark,]);
+         }
+         else {
+            // label_summary = 'The ' + this.dp.items_selected_label()
+            //                 + (pluralize ? ' are all' : ' is');
+            ;
+            label_summary = 'The new '
+               + Inflector.pluralize(item_fnom, pluralize)
+               + ' will be ';
+            if (style_change == Access_Infer.usr_editor) {
+               this.button_usr_choice_usr.label = 'Keep Private';
+               this.button_usr_choice_pub.label = 'Make Public';
+               //this.button_usr_choice_usr.enabled = false;
+               //this.button_usr_choice_pub.enabled = true;
+               label_summary += 'private';
+               //
+               this.button_usr_choice_usr.setStyle('fillColors',
+                  [Conf.save_button_fill_light, Conf.save_button_fill_dark,]);
+               this.button_usr_choice_pub.setStyle('fillColors',
+                  [Conf.flex_button_fill_light, Conf.flex_button_fill_dark,]);
+            }
+            else {
+               m4_ASSERT(style_change == Access_Infer.pub_editor);
+               this.button_usr_choice_usr.label = 'Make Private';
+               this.button_usr_choice_pub.label = 'Keep Public';
+               //this.button_usr_choice_usr.enabled = true;
+               //this.button_usr_choice_pub.enabled = false;
+               label_summary += 'public';
+               //
+               this.button_usr_choice_usr.setStyle('fillColors',
+                  [Conf.flex_button_fill_light, Conf.flex_button_fill_dark,]);
+               this.button_usr_choice_pub.setStyle('fillColors',
+                  [Conf.save_button_fill_light, Conf.save_button_fill_dark,]);
+            }
+            label_summary += ' when saved.';
+         }
+         this.label_summary_brief.htmlText = label_summary;
+
+         var more_summary:String = '';
+         if (G.user.logged_in) {
+            /*
+            if (this.items_selected.length == 1) {
+               summary = 'You can make this new ' + item_fnom;
+            }
+            else {
+               summary = 'You can make these new '
+                         + Inflector.pluralize(item_fnom, pluralize);
+            }
+            summary +=
+   ' public or private right now, but you cannot change the permissions after you save.';
+            */
+            //more_summary =
+            //   ' You can switch between public and private right now, '
+            //   + 'but you cannot change permissions once you save.';
+            //more_summary = ' You can only change permissions before saving.';
+            //more_summary = ' You can change permissions until you save.';
+            more_summary = ' You cannot change permissions once you save.';
+
+            var force_pluralize:Boolean = true;
+            this.checkbox_usr_choice_default.label =
+               'Do the same for all new '
+               + Inflector.pluralize(item_fnom, force_pluralize)
+               + '.'
+               ;
+
+            this.button_usr_choices.visible = true;
+            this.button_usr_choices.includeInLayout = true;
+            this.box_usr_choice_default.visible = true;
+            this.box_usr_choice_default.includeInLayout = true;
+         }
+         else {
+            more_summary = ' You can change permissions if you log in.';
+
+            this.button_usr_choices.visible = false;
+            this.button_usr_choices.includeInLayout = false;
+            this.box_usr_choice_default.visible = false;
+            this.box_usr_choice_default.includeInLayout = false;
+         }
+         this.label_summary_usr_choice.htmlText = label_summary + more_summary;
+
+         this.link_delete_item.htmlText = this.dp.button_delete_label;
+         // See Panel_Item_Versioned.button_delete_toolTip_:
+         //this.link_delete_item.toolTip = this.dp.button_delete_toolTip;
+      }
+
+      // *** Fcns. for Access_Style: Uneditable
+
+      //
+      protected function on_click_more_or_less_details() :void
+      {
+         m4_TALKY('on_click_more_or_less_details');
+
+         m4_TALKY2('on_clck_mre_r_lss_details: box_configure_sharing.visible:',
+                   this.box_configure_sharing.visible);
+         m4_TALKY2('on_clck_mre_r_lss_details: box_usr_choice_loud.visible:',
+                   this.box_usr_choice_loud.visible);
+
+         // Toggle the combo visibility.
+         this.box_configure_sharing.visible =
+            !this.box_configure_sharing.visible;
+
+         if (!this.box_configure_sharing.visible) {
+            // MAGIC_NUMBER: See def'n, above; 0 == no alphaize/resize happnin.
+            this.holding_usr_choice_loud = 0;
+         }
+
+         this.update_link_more_or_less_details();
+//         this.on_resize_for_real(null);
+
+// 2013.12.13: [lb] acknowledges the amount of commented-out non-comments
+// that litter the code, but until the complete package, er, until all of
+// Cyclopath is thoroughly tested, I generally leave comments, even confusing
+// comments, because maybe when something breaks and you're investigating
+// it and the trail leads you back here, maybe that day, this might make sense.
+//
+/*/ This doesn't work for Annotation panel unless we check this.dp's type, like
+    above
+         // Always reset scrollbar to the bottom?
+         var gdetails:Tab_Geofeature_Details;
+         gdetails = (this.dp as Panel_Item_Geofeature).panel_item_details;
+         m4_TALKY2('on_click_more_or_less_details: has_VerticalScrollBar()',
+                   gdetails.has_VerticalScrollBar());
+/*/
+// FIXME: This isn't returning true...
+/*/
+//         if (gdetails.has_VerticalScrollBar()) {
+            m4_TALKY('update_link_more_or_less_details: reset scroll');
+            gdetails.details_main_box.verticalScrollPosition =
+               gdetails.details_main_box.maxVerticalScrollPosition;
+//         }
+/*/
+         this.scroll_to_bottom_pending = true;
+
+         var show_summary_brief:Boolean = 
+            ((!this.running_stealthfully)
+             || (this.box_configure_sharing.visible));
+         m4_TALKY('on_clck_m_or_l_dets: shw_summ_brf:', show_summary_brief);
+         this.label_summary_brief.visible = show_summary_brief;
+         this.label_summary_brief.includeInLayout = show_summary_brief;
+      }
+
+      //
+      protected function update_link_more_or_less_details(
+         scroll_in:Boolean=false) :void
+      {
+         m4_TALKY('update_link_more_or_less_details');
+
+         this.box_more_details_header.visible = false;
+         this.box_more_details_footer_collapse.visible = false;
+         this.box_more_details_footer_expanded.visible = false;
+
+         var more_options_needed:Boolean = (
+               (this.section_sharing_more_details.visible)
+            || (this.section_sharing_weblink.visible)
+            || (this.box_sharing_actions.visible));
+
+         var are_fresh:* = Objutil.consensus(this.items_selected,
+                                             'fresh', undefined);
+         m4_TALKY('update_link_more_or_less_details: are_fresh:', are_fresh);
+         var common_access_style:* = this.dp.access_style_id_amity;
+
+         m4_TALKY(' .. common_access_style:', common_access_style);
+         if ((are_fresh)
+             && ((common_access_style == Access_Style.usr_choice)
+                 || (common_access_style == Access_Style.pub_choice))) {
+
+            // See if the user has specified a default choice for new items of
+            // the new item type. The item will already have been configured
+            // with this access_style. We use it to determine if we show the
+            // buttons by default or if we hide them in the more-details box.
+            var has_set_styles:Boolean = G.grac.user_set_style.contains_all(
+                                                         this.items_selected);
+            m4_TALKY('are fresh and choicy: has_set_styles:', has_set_styles);
+            this.box_usr_choice_loud.visible =
+               ((!has_set_styles)
+                || (this.box_configure_sharing.visible)
+                // MAGIC_NUMBER: See def'n, above; 2 means fading out.
+                || (this.holding_usr_choice_loud == 2)
+                );
+            this.box_usr_choice_loud.includeInLayout =
+               ((!has_set_styles)
+                || (this.box_configure_sharing.visible)
+                // MAGIC_NUMBER: See def'n, above; 1/2 == alphaing/fading out.
+                || (this.holding_usr_choice_loud >= 1) // 1 or 2
+                );
+
+// 2013.12.13: This code is untested...
+            var show_summary_brief:Boolean = 
+               ((!this.box_usr_choice_loud.visible)
+                && ((!this.running_stealthfully)
+                    || (this.box_configure_sharing.visible)));
+            m4_TALKY('upd_lnk_m_or_l_dets: shw_summ_brf:', show_summary_brief);
+            this.label_summary_brief.visible = show_summary_brief;
+            this.label_summary_brief.includeInLayout = show_summary_brief;
+            //
+            this.label_summary_usr_choice.visible =
+               (this.box_usr_choice_loud.visible);
+
+            more_options_needed ||= ((!this.box_usr_choice_loud.visible)
+                                     || (this.box_configure_sharing.visible));
+         }
+
+         if (more_options_needed) {
+            var html_text:String;
+            if (!this.box_configure_sharing.visible) {
+               // html_text = 'More Details &#187;';
+               // html_text = 'More Sharing &#187;';
+               // html_text = 'Show Options &#187;';
+               html_text = 'Show More &#187;';
+               if (this.footer_lock) {
+                  this.box_more_details_footer_collapse.visible = true;
+               }
+               else {
+                  this.box_more_details_header.visible = true;
+               }
+            }
+            else {
+               if (Widget_Gia_Sharing.use_show_hide_more) {
+                  // html_text = 'Hide Details &#171;';
+                  // html_text = 'Less Sharing &#171;';
+                  // html_text = 'Hide Options &#171;';
+                  html_text = 'Hide More &#171;';
+                  if (this.footer_lock) {
+                     this.box_more_details_footer_expanded.visible = true;
+                  }
+                  else {
+                     this.box_more_details_header.visible = true;
+                  }
+               }
+               // else, box_configure_sharing is always visible.
+            }
+            this.link_more_details_header.htmlText = html_text;
+            this.link_more_details_footer_collapse.htmlText = html_text;
+            this.link_more_details_footer_expanded.htmlText = html_text;
+
+            if (scroll_in) {
+
+               // a little hack... otherwise, the Show More link temporarily
+               // shows up to the left before redrawing to the right.
+               // Pick a similar box at random...
+               this.box_more_details_footer_collapse.width =
+                  this.box_inner.width
+                  - this.box_inner.getStyle('paddingLeft')
+                  - this.box_inner.getStyle('paddingRight');
+
+               this.effect_resize_rwd.target =
+                  this.box_more_details_footer_collapse;
+               this.effect_resize_rwd.duration = 400;
+               this.effect_resize_rwd.heightTo
+                  this.box_more_details_footer_collapse.height;
+               this.effect_resize_rwd.heightFrom = 0;
+               this.effect_resize_rwd.end();
+               this.effect_resize_rwd.addEventListener(EffectEvent.EFFECT_END,
+                                                    on_effect_resize_rwd_end);
+               this.effect_resize_rwd.play();
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_action_clone_private() :void
+      {
+         m4_TALKY('on_action_clone_private');
+         // MAYBE: Bug nnnn: 'Clone item' feature. Though probably
+         //        not very useful. The action item in the list so
+         //        far is not used.
+         G.alert_broke(true); // FIXME: Do something.
+         m4_ASSERT_SOFT(false);
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_action_create_link() :void
+      {
+         // BUG mmmmaybe: Support one link to multiple items? User could make
+         // a discussion w/ all the items linked, but I'm thinking more of a
+         // deeplink to a _selection_ of items. So if we wanted to satisfy
+         // this possible feature w/ discussions, there should be a
+         // select-all-talked-about button.
+         m4_ASSERT(this.items_selected.length == 1);
+         var item:Item_User_Access = this.items_selected.one()
+                                     as Item_User_Access;
+
+         m4_TALKY('on_action_create_link: item:', item);
+
+         if (!item.stealth_secret) {
+
+            var item_type_str:String = item.get_class_item_type;
+
+            var route:Route = (item as Route);
+            var gia_use_sessid:Boolean =
+               ((route !== null) && (route.unlibraried));
+
+            var callback_load:Function = this.on_action_create_link_okay;
+            var callback_fail:Function = this.on_action_create_link_fail;
+
+            var stack_ids:Stack_Id_Array = new Stack_Id_Array();
+            stack_ids.push(item.stack_id);
+
+            var gwis_req:GWIS_Stealth_Create =
+               new GWIS_Stealth_Create(
+                  stack_ids,
+                  gia_use_sessid,
+                  callback_load,
+                  callback_fail);
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_req);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+         else {
+            // This action shouldn't be active.
+            m4_WARNING('DEVS: You messed up.');
+            this.repopulate();
+         }
+
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_action_create_link_okay(
+         gwis_req:GWIS_Stealth_Create, rset:XML) :void
+      {
+         var item:Item_User_Access;
+
+         var current_rev:utils.rev_spec.Base
+            = new utils.rev_spec.Current();
+
+         if (this.items_selected.length == 1) {
+            item = this.items_selected.one() as Item_User_Access;
+            m4_TALKY2('on_action_create_link_okay: rset:',
+                        rset.toXMLString());
+            for each (var resp:XML in rset..ssecret) {
+               var stack_id:int = resp.@stack_id;
+               var ssecret:String = resp.@ssecret;
+               m4_TALKY(' .. @stack_id:', stack_id, '/ @ssecret:', ssecret);
+               m4_ASSERT(stack_id == item.stack_id);
+               if (stack_id == item.stack_id) {
+                  item.stealth_secret = ssecret;
+
+                  m4_TALKY('on_action_create_link_okay: @acif:', resp.@acif);
+                  if (resp.@acif) {
+                     // Print the item's value first before setting item_stack,
+                     // otherwise an m4_WARNING is spit out (because we want to
+                     // verify that our calculated value matches the servers,
+                     // and here we set the item_stack access_infer_id before
+                     // loading the item's GIA records, which the item needs
+                     // to correctly calculate the access_infer_id).
+                     m4_TALKY2(' .. : item.access_infer_id:',
+                        Strutil.as_hex(item.access_infer_id));
+
+                     item.item_stack.access_infer_id = resp.@acif;
+
+                     m4_TALKY2(' .. : item_stack.access_infer_id:',
+                        Strutil.as_hex(item.item_stack.access_infer_id));
+
+                     item.groups_access = new Dictionary();
+
+                     var resp_gracs:Array = new Array();
+                     GWIS_Grac_Get.grac_resultset_process(
+                        resp, resp_gracs, current_rev);
+                     for each (var gia:Group_Item_Access in resp_gracs) {
+                        m4_TALKY2('on_act_cr_lnk_ok: gia:', gia,
+                                  '/ gia.item:', gia.item);
+                        var updated:Group_Item_Access;
+                        updated = (gia.init_item(G.grac) as Group_Item_Access);
+                     }
+                     // Or...?
+                     //var all_done:Boolean = true;
+                     //all_done = G.grac.items_add(resp_gracs,
+                     //                            /*complete_now=*/true);
+                     m4_TALKY(' .. item.groups_access:', item.groups_access);
+                  }
+
+                  m4_TALKY2('on_action_create_link_okay:',
+                            'signalling stealthSecretLoaded');
+                  item.dispatchEvent(new Event('stealthSecretLoaded'));
+               }
+               else {
+                  m4_WARNING2('on_action_create_link_okay: not the one:',
+                              item.toString());
+               }
+            } // end: for each
+         } // end: if (this.items_selected.length == 1)
+         else {
+            m4_WARNING2('on_action_create_link_okay: no longer the ones:',
+                        this.items_selected.length);
+         }
+
+         m4_TALKY('on_action_create_link_okaa: done: item:', item);
+
+         this.repopulate();
+      }
+
+      //
+      protected function on_action_create_link_fail(
+         gwis_req:GWIS_Stealth_Create, xml:XML) :void
+      {
+         m4_TALKY('on_action_create_link_fail');
+      }
+
+      // ***
+
+      //
+      protected function on_action_delete_item() :void
+      {
+         m4_TALKY('on_action_delete_item');
+         this.dp.on_delete_click();
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_action_view_history() :void
+      {
+         // Callback for action_opt_view_history.
+         m4_TALKY('on_action_view_history');
+         this.dp.on_view_history_click();
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_action_donate_public() :void
+      {
+         m4_TALKY('on_action_donate_public');
+
+         // BUG nnnn: Implement public donate option.
+         G.alert_broke(true); // FIXME: Do something.
+
+         this.selection_actions.selectedIndex = -1;
+      }
+
+      //
+      protected function on_click_selection_actions(event:MouseEvent) :void
+      {
+         m4_VERBOSE('on_click_selection_actions: target:', event.target);
+         // So we don't clear the selection in on_click_panel:
+         //m4_TALKY('on_click_selection_actions: stopPropagation');
+         event.stopPropagation();
+      }
+
+      //
+      public function on_selection_actions_change(event:Event) :void
+      {
+         m4_TALKY('on_selection_actions_change: event:', event);
+         // We're called when the control's dataProvider gets set, which is
+         // really a no-op.
+         if (this.action_opened) {
+            this.selection_actions.selectedItem.callback();
+         }
+         else {
+            m4_TALKY('on_selection_actions_change: ignoring faux event');
+            this.selection_actions.selectedIndex = -1;
+         }
+      }
+
+      //
+      protected function on_selection_actions_open(event:DropdownEvent) :void
+      {
+         m4_VERBOSE('on_selection_actions_open: target:', event.target);
+         this.action_opened = true;
+      }
+
+      //
+      protected function on_selection_actions_close(event:DropdownEvent) :void
+      {
+         m4_VERBOSE('on_selection_actions_close: target:', event.target);
+         this.action_opened = false;
+      }
+
+      // ***
+
+      //
+      protected function on_delete_item_click() :void
+      {
+         m4_TALKY('on_delete_item_click');
+         this.dp.on_delete_click();
+      }
+
+      //
+      protected function on_restricted_save_click() :void
+      {
+         m4_TALKY('on_restricted_save_click');
+      }
+
+      //
+      protected function on_weblink_btn_clipboardize() :void
+      {
+         m4_TALKY('on_weblink_btn_clipboardize');
+         var textToCopy:String = this.raw_web_link.text;
+         var serializable:Boolean = false;
+         Clipboard.generalClipboard.clear();
+         var success:Boolean = Clipboard.generalClipboard.setData(
+            ClipboardFormats.TEXT_FORMAT,
+            //ClipboardFormats.HTML_FORMAT,
+            textToCopy, serializable);
+         m4_TALKY('on_weblink_btn_clipboardize: success:', success);
+      }
+
+      //
+      protected function on_weblink_raw_click(event:MouseEvent) :void
+      {
+         m4_VERBOSE('on_weblink_raw_click');
+         // Because on_click_panel calls this.stage.focus = null.
+         event.stopPropagation();
+      }
+
+      //
+      protected function on_weblink_raw_mouse_up(event:MouseEvent) :void
+      {
+         m4_VERBOSE('on_weblink_raw_mouse_up:');
+
+         var tf:UITextField = this.raw_web_link.mx_internal::getTextField();
+         tf.alwaysShowSelection = true;
+         this.raw_web_link.setFocus();
+
+         //m4_TALKY(' selBeginIndex:', this.raw_web_link.selectionBeginIndex);
+         //m4_TALKY(' selEndIndex:', this.raw_web_link.selectionEndIndex);
+
+         if (this.raw_web_link.selectionBeginIndex
+             == this.raw_web_link.selectionEndIndex) {
+
+            var beginIndex:int = 0;
+            // NOTE: Going to length and not subtracting 1 for zero-basedness.
+            var endIndex:int = this.raw_web_link.text.length;
+            // this.raw_web_link.selectionBeginIndex = beginIndex;
+            // this.raw_web_link.selectionEndIndex = endIndex;
+            this.raw_web_link.setSelection(beginIndex, endIndex);
+
+            this.raw_web_link.horizontalScrollPosition = 0;
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:HBox
+         id="sharing_widget_label_ctnr"
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         verticalAlign="middle"
+         visible="true"
+         includeInLayout="{this.sharing_widget_label_ctnr.visible}"
+         >
+         <mx:Label
+            styleName="labelmajor"
+            text="Sharing"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            />
+         <mx:HBox
+            id="box_more_details_header"
+            width="100%"
+            horizontalAlign="right"
+            visible="false"
+            includeInLayout="{this.box_more_details_header.visible}"
+            >
+            <views_panel_util:Hyper_Link
+               id="link_more_details_header"
+               htmlText="Show More &#187;"
+               click="this.on_click_more_or_less_details();"/>
+         </mx:HBox>
+      </mx:HBox>
+
+      <mx:VBox
+         id="box_inner"
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:Text
+            id="label_summary_brief"
+            mouseChildren="false"
+            mouseEnabled="false"
+            condenseWhite="true"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            visible="true"
+            includeInLayout="{this.label_summary_brief.visible}"
+            >
+            <mx:htmlText><![CDATA[
+               Save this item for yourself and to share with friends.
+            ]]></mx:htmlText>
+         </mx:Text>
+
+         <!-- *** Usr_Choice style -->
+         <mx:VBox
+            id="box_usr_choice_loud"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="1"
+            horizontalGap="0"
+            horizontalAlign="left"
+            visible="false"
+            includeInLayout="false"
+            >
+            <mx:Text
+               id="label_summary_usr_choice"
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               paddingTop="0"
+               paddingBottom="0"
+               visible="true"
+               includeInLayout="{this.label_summary_usr_choice.visible}"
+               />
+            <mx:VBox
+               paddingLeft="6"
+               paddingTop="0"
+               verticalGap="6"
+               horizontalAlign="left">
+               <mx:HBox
+                  id="button_usr_choices"
+                  width="100%"
+                  paddingTop="2"
+                  horizontalGap="8"
+                  horizontalAlign="left"
+                  verticalAlign="middle"
+                  includeInLayout="{this.button_usr_choices.visible}"
+                  >
+                  <mx:Button
+                     id="button_usr_choice_usr"
+                     label="Make Private"
+                     click="this.on_click_usr_choice_usr();"
+                     toolTip=
+"Make your item private if you don't want other users to see it or edit it."
+                     />
+                  <!--
+                  <mx:Spacer
+                     width="100%"/>
+                  -->
+                  <mx:Button
+                     id="button_usr_choice_pub"
+                     label="Make Public"
+                     click="this.on_click_usr_choice_pub();"
+                     toolTip=
+"When you save the map, everyone will be able to see and edit this new item."
+                     />
+               </mx:HBox>
+               <mx:HBox
+                  id="box_usr_choice_default"
+                  width="100%"
+                  paddingTop="3"
+                  horizontalGap="0"
+                  horizontalAlign="left"
+                  includeInLayout="{this.box_usr_choice_default.visible}"
+                  >
+                  <mx:CheckBox
+                     id="checkbox_usr_choice_default"
+                     label="Do the same for for all new items."
+                     toolTip=
+"Check this option to make your choice -- public or private -- the default for any more new items of this type you create during this edit session."
+                     />
+               </mx:HBox>
+               <mx:HBox
+                  width="100%"
+                  horizontalGap="0"
+                  verticalAlign="middle">
+                  <mx:Label
+                     text="Changed your mind?"
+                     />
+                  <views_panel_util:Hyper_Link
+                     id="link_delete_item"
+                     htmlText="Delete Item"
+                     click="this.on_delete_item_click();"
+                     enabled="true"
+                     paddingBottom="1"
+                     toolTip=
+               "Click to remove the new item from the map. It won't be saved."
+                     />
+               </mx:HBox>
+            </mx:VBox>
+         </mx:VBox> <!-- box_usr_choice_loud -->
+
+         <!-- *** Restricted style -->
+         <!-- This is no longer used. See Route_Save_Footer.mxml. -->
+         <mx:VBox
+            id="box_restricted_loud"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            horizontalGap="0"
+            horizontalAlign="left"
+            visible="false"
+            includeInLayout="{this.box_restricted_loud.visible}"
+            >
+            <mx:Text
+               id="label_restricted_loud_user"
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               paddingTop="0"
+               paddingBottom="0"
+               visible="true"
+               includeInLayout="{this.label_restricted_loud_user.visible}"
+               >
+               <mx:htmlText><![CDATA[
+If you like this route, save it.
+We'll keep it in your route list, and you can share it with other users.
+               ]]></mx:htmlText>
+            </mx:Text>
+            <mx:Text
+               id="label_restricted_loud_anon"
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               paddingTop="0"
+               paddingBottom="0"
+               visible="false"
+               includeInLayout="{this.label_restricted_loud_anon.visible}"
+               >
+               <mx:htmlText><![CDATA[
+If you like this route, you can save it if you login.
+We'll keep it in your route list, and you can share it with other users.
+               ]]></mx:htmlText>
+            </mx:Text>
+            <!--
+            <mx:VBox
+               paddingLeft="6"
+               paddingTop="0"
+               verticalGap="6"
+               horizontalAlign="left">
+               <mx:HBox
+                  width="100%"
+                  paddingTop="0"
+                  horizontalGap="8"
+                  horizontalAlign="left">
+                  <mx:Button
+                     id="button_restricted_save"
+                     label="Save"
+                     click="this.on_restricted_save_click();"
+                     toolTip=
+"Save this route so you can find it later and so you can share it with friends."
+                     fillColors="{[Conf.save_button_fill_light,
+                                   Conf.save_button_fill_dark,]}"
+                     />
+               </mx:HBox>
+            </mx:VBox>
+            -->
+         </mx:VBox>
+
+         <!-- If you want the Some More >> / Hide More << button,
+               set box_configure_sharing.visible = false and set
+               2014.07.08: What's the end of that last comment? ^
+               -->
+         <!-- The next three child VBoxes are not visible by default:
+               id="section_sharing_more_details"
+               id="section_sharing_weblink"
+               id="box_sharing_actions"
+               -->
+         <mx:VBox
+            id="box_configure_sharing"
+            width="100%"
+            visible="{!Widget_Gia_Sharing.use_show_hide_more}"
+            includeInLayout="{this.box_configure_sharing.visible}"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="6"
+            paddingLeft="0"
+            >
+
+            <!-- *** Uneditable un-style -->
+            <mx:VBox
+               width="100%"
+               id="section_sharing_more_details"
+               visible="false"
+               includeInLayout="{this.section_sharing_more_details.visible}"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               paddingLeft="0"
+               >
+               <mx:VBox
+                  width="100%"
+                  >
+                  <mx:Text
+                     id="label_more_details"
+                     mouseChildren="false"
+                     mouseEnabled="false"
+                     condenseWhite="true"
+                     width="100%"
+                     />
+               </mx:VBox>
+            </mx:VBox>
+
+            <!-- *** Stealth secret / Web link -->
+            <mx:VBox
+               width="100%"
+               id="section_sharing_weblink"
+               visible="false"
+               includeInLayout="{this.section_sharing_weblink.visible}"
+               paddingTop="4"
+               paddingRight="0"
+               paddingBottom="0"
+               paddingLeft="0"
+               >
+               <mx:HBox
+                  width="100%"
+                  verticalAlign="middle"
+                  horizontalGap="6">
+                  <mx:Label
+                     text="Web link:"
+                     />
+                  <!--
+   text="http://cycloplan.cyclopath.org/help?me&amp;really_really_really_long"
+                  -->
+                  <mx:TextInput
+                     width="67%"
+                     id="raw_web_link"
+                     paddingRight="8"
+                     editable="false"
+                     click="this.on_weblink_raw_click(event);"
+                     mouseUp="this.on_weblink_raw_mouse_up(event);"
+                     text=""
+                     />
+                  <mx:Button
+                     icon=
+                       "@Embed(source='/assets/img/button_link_clipboard.png')"
+                     height="22"
+                     width="22"
+                     cornerRadius="0"
+                     click="this.on_weblink_btn_clipboardize();"
+                     toolTip=
+                        "Copy the Web link to the clipboard."
+                     />
+               </mx:HBox>
+            </mx:VBox>
+
+            <mx:VBox
+               id="box_sharing_actions"
+               width="100%"
+               paddingTop="6"
+               paddingBottom="0"
+               horizontalGap="0"
+               horizontalAlign="left"
+               visible="false"
+               includeInLayout="{this.box_sharing_actions.visible}"
+               >
+               <!-- NOTE: [lb] tried hooking a two other events - dataChange
+                          and enter - but never saw either fire.
+                          -->
+               <views_panel_util:DisabledComboBox
+                  id="selection_actions"
+                  rowCount="4"
+                  fontWeight="normal"
+                  prompt="Actions"
+                  selectedIndex="-1"
+                  click="this.on_click_selection_actions(event);"
+                  change="this.on_selection_actions_change(event);"
+                  open="this.on_selection_actions_open(event);"
+                  close="this.on_selection_actions_close(event);"
+                  toolTip="Click to access more actions."
+                  />
+            </mx:VBox>
+
+         </mx:VBox> <!-- end: box_configure_sharing -->
+
+         <!-- *** The footer/collapsed -->
+
+         <mx:HBox
+            id="box_more_details_footer_collapse"
+            width="100%"
+            paddingTop="0"
+            verticalAlign="center"
+            horizontalAlign="right"
+            visible="false"
+            includeInLayout=
+               "{this.box_more_details_footer_collapse.visible}"
+            >
+            <views_panel_util:Hyper_Link
+               id="link_more_details_footer_collapse"
+               htmlText="Show More &#187;"
+               click="this.on_click_more_or_less_details();"/>
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+   <!--
+      We used to have a big delete button but now that sacred action is one
+      step removed from play and has now become one of the options under
+      Widget_Gia_Sharing.selection_actions.
+      
+      <views_panel_items:Widget_Delete_Item
+         id="widget_delete_item"
+         width="100%"/>
+   -->
+
+   <!-- *** The footer/expanded -->
+
+   <mx:HBox
+      id="box_more_details_footer_expanded"
+      width="100%"
+      styleName="looknfeelCleanInner"
+      paddingTop="0"
+      paddingBottom="2"
+      verticalAlign="center"
+      horizontalAlign="right"
+      visible="false"
+      includeInLayout="{this.box_more_details_footer_expanded.visible}"
+      >
+      <views_panel_util:Hyper_Link
+         id="link_more_details_footer_expanded"
+         htmlText="Hide More &#171;"
+         click="this.on_click_more_or_less_details();"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

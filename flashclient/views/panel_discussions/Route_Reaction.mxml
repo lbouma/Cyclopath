@@ -1,0 +1,644 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+     BUG nnnn: Route reactions ran from Apr to Dec, 2012.
+               (I.e., even in CcpV1, you can't rate routes,
+                though you can still read route reactions,
+                which is weird).
+               Anyway, It'd be nice to finish CcpV2 implementation
+               of route reactions and to re-enable it.
+-->
+
+<!--
+     FIXME: Derive from Detail_Panel_Base?
+     FIXME: Use this.change_state(''); instead of currentState = ?
+-->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.controls.Alert;
+      import mx.managers.PopUpManager;
+
+      import grax.Access_Infer;
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Commit;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import items.feats.Route;
+      import items.links.Link_Post;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+      import views.base.UI;
+      import views.map_components.Please_Wait_Popup;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##Route_Reac');
+
+      // ***
+
+      public var route:Route;
+      public var active_post:Post;
+      public var my_reaction_thread_id:int;
+      public var my_reaction_thread:Thread;
+      protected var sharing_popup:Please_Wait_Popup;
+
+      // *** Constructor
+
+      // Initialise the widget.
+      public function init(rt:Route) :void
+      {
+         if ((this.route === null) || (this.route.stack_id != rt.stack_id)) {
+
+// BUG_FALL_2013: Route Reactions. FIXME: Reimplement route reactions.
+            if (Conf_Instance.debug_goodies) {
+               this.currentState = 'input'; // 'input' or 'thank'.
+            }
+
+            this.active_post = null;
+            this.like.selected = false;
+            this.dislike.selected = false;
+            this.comment.selected = false;
+            this.comment_content.text = '';
+            this.attach_route.selected = true;
+            this.post_anon.selected = false;
+         }
+
+         this.route = rt;
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_click_remind_hide() :void
+      {
+         m4_DEBUG('on_click_remind_hide: calling resize_route_tabs');
+
+         // MAYBE: Use an animation, and show a recover/show link for a few
+         //        seconds. (Otherwise user has to close and re-open route
+         //        to see this panel again... which isn't _that_ bad.)
+         this.visible = false;
+
+         // This is hacky. Ideally, we'd dispatch an event, or the widget
+         // itself would listen on us for a resize event. And we can't use
+         // this.dp since this widget is not a Detail_Panel_Widget.
+         //  (this.dp as Panel_Item_Route).resize_route_tabs();
+         // <a-chooHACK!>
+         // this.route.route_panel.resize_route_tabs();
+         G.map.callLater(this.route.route_panel.resize_route_tabs);
+      }
+
+      // When "Ask Me Later" is clicked...
+      protected function on_click_remind_later() :void
+      {
+         var ask_me_later:Ask_Me_Later_Popup = new Ask_Me_Later_Popup();
+         ask_me_later.reaction_panel = this;
+         UI.popup(ask_me_later, 'email');
+      }
+
+
+      // When Dislike is clicked...
+      protected function on_dislike_click() :void
+      {
+         this.comment.selected = true;
+
+         if (this.dislike.selected) {
+           this.like.selected = false;
+         }
+
+         this.save_like_dislike(-1);
+
+         G.sl.event('ui/reaction/dislike',
+                    {route_id: this.route.stack_id,
+                     polarity: -1});
+      }
+
+      // When Like is clicked...
+      protected function on_like_click() :void
+      {
+         this.comment.selected = true;
+
+         if (this.like.selected) {
+            this.dislike.selected = false;
+         }
+
+         this.save_like_dislike(1);
+
+         G.sl.event('ui/reaction/like',
+                    {route_id: this.route.stack_id,
+                     polarity: 1});
+      }
+
+      // When Post is clicked...
+      protected function on_post_click() :void
+      {
+         // Create new thread and post objects to save reactions if not
+         // already created via a prior like/dislike save.
+         var new_thread:Thread;
+         if (this.active_post === null) {
+            new_thread = this.reaction_create();
+         }
+         else {
+            // Resurrect post.
+            new_thread = new Thread();
+            new_thread.register_post(this.active_post);
+            new_thread.dirty_set(Dirty_Reason.item_data_oob, true);
+
+            // FIXME: I [lb] replaced active_thread
+            //    G.item_mgr.active_thread = new Thread();
+            // so do we need to set selected so thread panel activates?
+            // new_thread.set_selected(true);
+
+            //G.grac.prepare_item(new_thread, Access_Level.viewer);
+            G.grac.prepare_item(new_thread, Access_Level.client);
+            G.map.items_add([new_thread,]);
+
+            new_thread.stack_id = this.active_post.parent_thread.stack_id;
+
+            // MAYBE: Should we correct Attachment.all?
+            //        G.map.items_add([item,]);
+
+            new_thread.name_ = this.route.name_;
+         }
+
+         new_thread.active_post.body = this.comment_content.text;
+
+         // Record the polarity: like/dislike (overwrite if already recorded).
+         // BUG nnnn: Polarity should be a private link_value attribute.
+         //           Piggybacking on the post seems limiting.
+         if (this.like.selected) {
+           new_thread.active_post.polarity = 1;
+         }
+         else if (this.dislike.selected) {
+            new_thread.active_post.polarity = -1;
+         }
+         else {
+            new_thread.active_post.polarity = 0;
+         }
+
+         // Attach the route.
+         // FIXME: Warn about permissions stuff?
+         if (this.attach_route.selected
+
+// FIXME: This is wrong: Checking stealth_secret in CcpV2 isn't as
+//        meaningful... if all we want to do is check if the route is saved or
+//        not... um... 
+             && (this.route.stealth_secret === null)) {
+
+            // If route is dirty, then we cannot attach it right away.
+            // Ask user to save it first.
+            if (this.route.dirty) {
+               // Route has unsaved changes so we cannot get a link.
+               Alert.show('The route has unsaved changes.\n'
+                          + "Please click 'Save Changes' and try again.",
+                          'Cannot attach route');
+               G.sl.event('ui/reaction/post/dirty_route',
+                          {route_id: this.route.stack_id,
+                           polarity: new_thread.active_post.polarity});
+            }
+            else {
+
+// FIXME: This is probably very wrong.
+// FIXME: Is this right?
+               this.route.style_change = Access_Infer.stealth_viewer;
+// MAYBE: stealth_editor
+               this.route.dirty_set(Dirty_Reason.item_schg_oob, true);
+
+               var gwis_share:GWIS_Commit = new GWIS_Commit(
+                  new Set_UUID([this.route,]),
+                  /*changenote=*/'',
+                  /*silent=*/true,
+                  /*callback_load=*/this.on_share_route_load,
+                  /*callback_fail=*/this.on_share_route_fail,
+                  /*callback_payload=*/new_thread,
+                  /*anon_coward=*/false,
+                  // So that we don't save map items:
+                  /*restrict_dirty=*/Dirty_Reason.item_mask_oob,
+                  /*alert_on_activity=*/false,
+                  this.route.route_panel.cmd_mgr);
+
+               var popup_window:Please_Wait_Popup = new Please_Wait_Popup();
+               UI.popup(popup_window);
+               popup_window.init('Attaching route', 'Please wait.', gwis_share,
+                                 false);
+               this.sharing_popup = popup_window;
+
+               gwis_share.fetch();
+
+               G.sl.event('ui/reaction/post/with_share',
+                          {route_id: this.route.stack_id,
+                           polarity: new_thread.active_post.polarity});
+            }
+         }
+         else {
+            this.route_reaction_start_thread(new_thread);
+
+            G.sl.event('ui/reaction/post/no_share',
+                       {route_id: this.route.stack_id,
+                        polarity: new_thread.active_post.polarity});
+         }
+      }
+
+      //
+      protected function on_share_route_load(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         this.on_share_route_cleanup();
+
+         m4_ASSERT(this.route.stack_id > 0);
+         m4_ASSERT(this.route.stealth_secret !== null);
+         m4_ASSERT(this.route.stealth_secret != '');
+
+         var new_thread:Thread = payload;
+         m4_ASSERT(new_thread !== null);
+
+         if (this.route === gwis_req.changed_items[0]) {
+            m4_ASSERT(this.attach_route.selected);
+            this.route_reaction_start_thread(new_thread);
+         }
+         m4_ELSE_SERVED;
+      }
+
+      //
+      protected function on_share_route_fail(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         var thread:Thread = payload;
+         m4_ASSERT(thread !== null);
+
+         // MAYBE: GWIS_Commit display a generic alert, but CcpV1 showed a
+         //        custom alert: Alert.show(text, "Unable to share route");
+         this.on_share_route_cleanup();
+      }
+
+      //
+      protected function on_share_route_cleanup() :void
+      {
+         if (this.sharing_popup !== null) {
+            PopUpManager.removePopUp(this.sharing_popup);
+            this.sharing_popup = null;
+         }
+         m4_ELSE_SERVED;
+      }
+
+      //
+      protected function route_reaction_start_thread(thread:Thread) :void
+      {
+         var tpanel:Panel_Item_Thread = thread.thread_panel;
+         m4_ASSURT(tpanel !== null);
+
+         if (this.attach_route.selected) {
+            var xml:XML = null;
+            var rev:utils.rev_spec.Base = null;
+            // FIXME: This feels funny. Why not just make the Post?
+            var lhs_item:Object = null;
+            var rhs_item:Object = this.route;
+            m4_DEBUG('route_reaction_start_thread: new Link_Post');
+            var lpost:Link_Post = new Link_Post(xml, rev, lhs_item, rhs_item);
+            G.item_mgr.assign_id(lpost);
+            tpanel.post_geos_dirty.push(lpost);
+         }
+
+         // VERIFY: route reactions. This is [lb]'s attempt to decouple.
+         var anon_coward:Boolean = false;
+         if (this.post_anon.selected) {
+            anon_coward = true;
+         }
+
+         G.tabs.discussions.route_reaction_commit(tpanel.thread, anon_coward);
+      }
+
+      // *** Other fcns.
+
+      //
+      protected function on_comment_content_click(ev:MouseEvent) :void
+      {
+         // Stop the Detail_Panel from clearing focus.
+         ev.stopPropagation();
+      }
+
+      // When "View My Reaction" is clicked...
+      protected function on_vmr_click() :void
+      {
+         G.tabs.discussions.thread_open(this.my_reaction_thread);
+      }
+
+      // Returns the comment question based on the button states.
+      protected function question_get(like_selected:Boolean,
+                                      dislike_selected:Boolean) :String
+      {
+         var question:String = null;
+
+         if (like_selected) {
+            question = "Why do you like this route?";
+         }
+         else if (dislike_selected) {
+            question = "Why do you dislike this route?";
+         }
+         else {
+            question = "What do you think about this route?";
+         }
+
+         return question;
+      }
+
+      // Creates basic thread and post objects to save reaction.
+      protected function reaction_create() :Thread
+      {
+         // Create a new thread for the route reaction.
+         var new_thread:Thread = new Thread();
+
+         new_thread.dirty_set(Dirty_Reason.item_data_oob, true);
+
+         //G.grac.prepare_item(new_thread, Access_Level.viewer);
+         G.grac.prepare_item(new_thread, Access_Level.client);
+         G.map.items_add([new_thread,]);
+
+         new_thread.name_ = this.route.name_;
+         new_thread.ttype = 'reaction';
+
+         // We used to set this as the active_thread, but that was to make it
+         // hackeasy for other code to find the thread. But this whole
+         // mechanism breaks down in CcpV2, which supports multiple item
+         // details windows.
+         //   G.item_mgr.active_thread = new Thread();
+         // Skipping new_thread.set_selected(true);
+         // I [lb] think we'll activate the new thread panel after the popup.
+
+         // Create the first post containing the reaction.
+
+         var reaction_post:Post = new Post();
+         reaction_post.dirty_set(Dirty_Reason.item_data_oob, true);
+
+         G.grac.prepare_item(reaction_post, Access_Level.client);
+         G.map.items_add([reaction_post,]);
+
+         new_thread.register_post(reaction_post);
+
+// FIXME: route reactions. make sure notify_users implemented in server
+//          for reactions.
+//         G.item_mgr.active_post.notify_users = [];
+//         G.item_mgr.active_post.notify_purpose = 'rt-reac';
+
+         return new_thread;
+      }
+
+      // Saves a post with only polarity -- no body to the database.
+      protected function save_like_dislike(polarity:int) :void
+      {
+         var new_thread:Thread = this.reaction_create();
+
+         m4_ASSERT(new_thread.posts.length == 1);
+         m4_ASSERT(new_thread.active_post === new_thread.posts[0]);
+
+         new_thread.active_post.polarity = polarity;
+
+         // Back up the active post if we need to resurrect later
+         // (for comment).
+         this.active_post = new_thread.active_post;
+
+         G.tabs.discussions.route_reaction_commit(new_thread);
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get comment_button_enabled() :Boolean
+      {
+         var b_enabled:Boolean = false;
+         if (this.comment_content.text !== null) {
+            b_enabled = true;
+         }
+         else {
+            m4_ASSURT(this.comment_content.text != '');
+         }
+         return b_enabled;
+      }
+
+      //
+      public function set comment_button_enabled(b_enabled:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+
+   ]]></mx:Script>
+
+   <mx:states>
+      <!-- Input State -->
+      <mx:State
+         name="input">
+         <mx:SetProperty
+            target="{this.input_fields}"
+            name="includeInLayout"
+            value="true"/>
+         <mx:SetProperty
+            target="{this.thank_you}"
+            name="includeInLayout"
+            value="false"/>
+      </mx:State>
+      <!-- Thank You State -->
+      <mx:State
+         name="thank">
+         <mx:SetProperty
+            target="{this.input_fields}"
+            name="includeInLayout"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.thank_you}"
+            name="includeInLayout"
+            value="true"/>
+      </mx:State>
+   </mx:states>
+
+   <!-- Input Fields -->
+   <mx:VBox
+      id="input_fields"
+      width="100%"
+      visible="{this.input_fields.includeInLayout}"
+      includeInLayout="false">
+
+      <!-- Buttons -->
+      <mx:HBox
+         width="100%"
+         horizontalGap="6"
+         verticalAlign="middle"
+         >
+         <mx:Button
+            id="like"
+            toggle="true"
+            label="Like"
+            click="this.on_like_click();"
+            toolTip="I like this route."
+            icon="@Embed('/assets/img/icon_tags_bonus.png')"/>
+         <mx:Button
+            id="dislike"
+            toggle="true"
+            label="Dislike"
+            click="this.on_dislike_click();"
+            toolTip="I dislike this route."
+            icon="@Embed('/assets/img/icon_tags_penalty.png')"/>
+
+         <mx:Button
+            id="comment"
+            label="Comment"
+            toggle="true"
+            toolTip="Write a comment about this route."/>
+
+         <mx:Spacer 
+            width="100%"/>
+
+         <!-- Remind -->
+<!-- BUG nnnn: Re-enable Route Reactions, and set:
+visible="{G.user.logged_in}"
+-->
+
+         <mx:VBox
+            id="remind_input"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            verticalGap="0"
+            horizontalAlign="right"
+visible="{G.user.logged_in &amp;&amp; Conf_Instance.debug_goodies}"
+            includeInLayout="{this.remind_input.includeInLayout}"
+            >
+
+            <views_panel_util:Hyper_Link
+               text="Ask me later"
+               click="this.on_click_remind_later();"/>
+
+            <!--
+               text="Not interested"
+               text="Hide this"
+            -->
+            <views_panel_util:Hyper_Link
+               text="No thanks"
+               click="this.on_click_remind_hide();"/>
+
+         </mx:VBox>
+
+      </mx:HBox>
+
+      <!-- Comment Controls -->
+      <mx:VBox
+         id="comment_controls"
+         width="100%"
+         verticalGap="0"
+         paddingTop="2"
+         paddingBottom="2"
+         includeInLayout="{this.comment.selected}"
+         visible="{this.comment_controls.includeInLayout}">
+
+         <!-- Comment Question -->
+         <mx:Text
+            text=
+               "{this.question_get(this.like.selected, this.dislike.selected)}"
+            paddingLeft="-2"
+            paddingTop="-3"
+            paddingBottom="2"
+            width="100%"/>
+
+         <!-- Comment textbox -->
+         <mx:TextArea
+            id="comment_content"
+            width="100%"
+            click="this.on_comment_content_click(event);"
+            />
+
+         <!-- Comment checkboxes -->
+         <mx:HBox
+            width="100%"
+            paddingRight="-5">
+            <mx:CheckBox
+               id="attach_route"
+               label="Show route with post"
+               selected="true"/>
+            <mx:CheckBox
+               id="post_anon"
+               label="Post anonymously"
+               includeInLayout="{G.user.logged_in}"
+               visible="{this.post_anon.includeInLayout}"/>
+         </mx:HBox>
+
+         <!-- Comment button -->
+         <mx:HBox
+            width="100%">
+            <mx:Spacer
+               width="100%"/>
+            <mx:Button
+               id="post_btn"
+               label="Post"
+               click="this.on_post_click();"
+               enabled="{this.comment_button_enabled}"/>
+         </mx:HBox>
+
+      </mx:VBox>
+
+      <!-- Remind Success -->
+      <mx:HBox
+         id="remind_success"
+         paddingLeft="-2"
+         paddingTop="2"
+         width="100%"
+         horizontalGap="0"
+         includeInLayout="false"
+         visible="{this.remind_success.includeInLayout}">
+         <mx:Text
+            paddingTop="-2"
+            paddingBottom="-2"
+            text="Your reminder has been set!"/>
+      </mx:HBox>
+   </mx:VBox>
+
+   <!-- Thank You -->
+   <mx:VBox
+      id="thank_you"
+      width="100%"
+      visible="{this.thank_you.includeInLayout}"
+      includeInLayout="false">
+
+      <!-- Thank You Heading -->
+      <mx:Label
+         text="Thank you for contributing to Cyclopath!"
+         fontWeight="bold"
+         paddingLeft="-2"
+         paddingTop="-3"
+         paddingBottom="-2"/>
+
+      <!-- Thank You Message -->
+      <mx:Text
+         width="100%"
+         paddingLeft="-2"
+         paddingTop="-2"
+         text=
+"You can also contribute to Cyclopath by rating blocks and editing the map itself!"
+         />
+
+      <views_panel_util:Help_Link
+         click_url="/Editing_How-To"
+         text="Click here to learn more."/>
+
+      <!-- View My Reaction -->
+      <mx:Button
+         label="View My Reaction"
+         paddingTop="2"
+         click="this.on_vmr_click();"/>
+
+   </mx:VBox>
+
+</mx:VBox>
+

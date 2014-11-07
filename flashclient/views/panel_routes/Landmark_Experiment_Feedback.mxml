@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   title="Thank You"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   defaultButton="{this.feedback_done}"
+   initialize="this.on_initialize(event);"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);"
+   
+   width="500"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.managers.PopUpManager;
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Landmark_Exp_Begin;
+      import gwis.GWIS_Landmark_Exp_Feedback_Put;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Exp_Fb');
+
+      protected static const instructions_1:String =
+           'Thank you for participating!!'
+         + '<br />'
+         + 'Your time and contributions are greatly appreciated.'
+         + '<br /><br />'
+         + 'Please feel free to send us any comments or feedback you have:'
+         + '<br />';
+
+      protected static const instructions_2:String =
+         'Click "Done" to submit your comments and complete the experiment.';
+
+      // *** Event handlers
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG2('on_initialize: landmark_exp_routes.length:',
+                   G.map.landmark_exp_routes.length);
+         // We could always show the cancel finish-experiment button expect
+         // for the last route, but even then, why not let the user go back
+         // and tweak their landmarks, if they want.
+         this.feedback_cancel.visible = true;
+         this.feedback_cancel.includeInLayout = true;
+      }
+
+      //
+      protected function reenable_experiment() :void
+      {
+         m4_DEBUG('reenable_experiment: show landmark exp floating panel');
+         G.map.landmark_exp_validation_active = true;
+         G.app.landmark_experiment_panel.visible = true;
+         PopUpManager.removePopUp(this);
+      }
+
+      //
+      protected function submit_feedback() :void
+      {
+         // Always save feedback so we can mark in db that trial is complete.
+         // Ignoring: this.feedback_txt.text.length.
+         var gwis_done:GWIS_Landmark_Exp_Feedback_Put =
+            new GWIS_Landmark_Exp_Feedback_Put(this.feedback_txt.text);
+         G.map.update_supplemental(gwis_done);
+
+         PopUpManager.removePopUp(this);
+      }
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event.
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="{G.app.pad}"
+      paddingRight="{G.app.pad}"
+      paddingTop="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+      >
+      <mx:Text
+         width="100%"
+         htmlText="{Landmark_Experiment_Feedback.instructions_1}" />
+      <mx:TextArea
+         id="feedback_txt"
+         width="100%"
+
+         height="200"
+         />
+      <mx:Text
+         width="100%"
+         htmlText="{Landmark_Experiment_Feedback.instructions_2}" />
+      <mx:HBox
+         width="100%"
+         horizontalAlign="right"
+         >
+         <mx:Button
+            id="feedback_cancel"
+            label="Cancel and Return to Experiment"
+            click="this.reenable_experiment();"
+            visible="false"
+            includeInLayout="{this.feedback_cancel.visible}"
+            />
+         <mx:Button
+            id="feedback_done"
+            label="Done"
+            click="this.submit_feedback();"/>
+      </mx:HBox>
+   </mx:VBox>
+
+</mx:TitleWindow>
+

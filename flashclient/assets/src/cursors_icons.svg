@@ -1,0 +1,596 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="297mm"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   version="1.0"
+   sodipodi:docbase="/export/scratch/reid/cyclingproject/flashclient/images"
+   sodipodi:docname="cursors_icons.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective53" />
+    <linearGradient
+       id="linearGradient12352">
+      <stop
+         style="stop-color:#8a4a01;stop-opacity:1;"
+         offset="0"
+         id="stop12354" />
+      <stop
+         style="stop-color:#8f5902;stop-opacity:0;"
+         offset="1"
+         id="stop12356" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient12352"
+       id="linearGradient12532"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.131257,0,0,1.140013,990.7102,208.8142)"
+       x1="1210.9783"
+       y1="256.69318"
+       x2="1212.9139"
+       y2="253.56818" />
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient12362">
+      <stop
+         style="stop-color:#ead7ce;stop-opacity:1;"
+         offset="0"
+         id="stop12364" />
+      <stop
+         style="stop-color:#ead7ce;stop-opacity:0;"
+         offset="1"
+         id="stop12366" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient12362"
+       id="linearGradient12530"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.131257,0,0,1.140013,990.7102,208.8142)"
+       x1="1210.9783"
+       y1="256.69318"
+       x2="1212.9139"
+       y2="253.56818" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ebe6dc"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="1"
+     inkscape:pageshadow="2"
+     inkscape:zoom="4.5658895"
+     inkscape:cx="487.20027"
+     inkscape:cy="1013.8693"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     inkscape:showpageshadow="false"
+     gridtolerance="10000"
+     showgrid="true"
+     inkscape:grid-bbox="true"
+     inkscape:grid-points="true"
+     guidetolerance="10000"
+     inkscape:window-width="1592"
+     inkscape:window-height="1101"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     objecttolerance="10000">
+    <inkscape:grid
+       id="GridFromPre046Settings"
+       type="xygrid"
+       originx="0px"
+       originy="0px"
+       spacingx="1px"
+       spacingy="1px"
+       color="#0000ff"
+       empcolor="#0000ff"
+       opacity="0.2"
+       empopacity="0.4"
+       empspacing="5"
+       visible="true"
+       enabled="true" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g3108"
+       inkscape:export-xdpi="42.990002"
+       inkscape:export-ydpi="42.990002"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_arrow.png">
+      <rect
+         y="7.4209733"
+         x="4.993"
+         height="67"
+         width="67"
+         id="rect2229"
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         sodipodi:nodetypes="csssssss"
+         id="path730"
+         d="M 21.181158,66.139151 C 21.181158,66.139151 21,8.4281689 21,8.4281689 C 21,8.4281689 58.992705,49.106648 58.992705,49.106648 C 58.992705,49.106648 42.577773,48.733006 42.577773,48.733006 C 42.577773,48.733006 53.386682,66.669627 53.386682,66.669627 C 53.386682,66.669627 39.271818,73.362183 39.271818,73.362183 C 39.271818,73.362183 32.933171,52.956367 32.933171,52.956367 C 32.933171,52.956367 21.181158,66.139151 21.181158,66.139151 z "
+         style="font-size:12px;fill-rule:evenodd;stroke:#ffffff;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_arrow.png"
+         inkscape:export-xdpi="42.759998"
+         inkscape:export-ydpi="42.759998" />
+    </g>
+    <g
+       id="g3112"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999">
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect3104"
+         width="70"
+         height="70"
+         x="89"
+         y="3.3621826" />
+      <path
+         transform="translate(31.99969,0)"
+         inkscape:export-ydpi="40.950001"
+         inkscape:export-xdpi="40.950001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 L 59,3.5 z "
+         id="path2205"
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         inkscape:radius="1.9674833"
+         sodipodi:type="inkscape:offset" />
+      <path
+         transform="translate(31.99969,0)"
+         inkscape:export-ydpi="40.950001"
+         inkscape:export-xdpi="40.950001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+         d="M 61,55.3125 C 60.451949,55.309079 59.925354,55.525279 59.537817,55.912817 C 59.150279,56.300354 58.934079,56.826949 58.9375,57.375 L 58.9375,70.375 C 58.934079,70.923051 59.150279,71.449646 59.537817,71.837183 C 59.925354,72.224721 60.451949,72.440921 61,72.4375 L 63.6875,72.4375 C 64.235551,72.440921 64.762146,72.224721 65.149683,71.837183 C 65.537221,71.449646 65.753421,70.923051 65.75,70.375 L 65.75,69.03125 L 67.125,71.40625 C 67.490615,72.044796 68.170442,72.43838 68.90625,72.4375 L 71.5625,72.4375 C 72.019801,72.425117 72.459816,72.260112 72.8125,71.96875 C 73.173529,72.266719 73.625671,72.432136 74.09375,72.4375 L 83.8125,72.4375 C 84.360551,72.440921 84.887146,72.224721 85.274683,71.837183 C 85.662221,71.449646 85.878421,70.923051 85.875,70.375 L 85.875,68.625 L 86.53125,70.9375 C 86.777492,71.821998 87.581869,72.434857 88.5,72.4375 L 90.90625,72.4375 C 91.882205,72.431964 92.718906,71.739071 92.90625,70.78125 L 93.03125,70.125 L 93.1875,70.8125 C 93.387749,71.757905 94.221124,72.435022 95.1875,72.4375 L 97.59375,72.4375 C 98.511881,72.434857 99.316258,71.821998 99.5625,70.9375 L 103.1875,57.9375 C 103.3687,57.31779 103.24732,56.648925 102.85993,56.132398 C 102.47253,55.615871 101.86441,55.312065 101.21875,55.3125 L 98.375,55.3125 C 97.399045,55.318036 96.562344,56.010929 96.375,56.96875 L 96.34375,57.09375 L 96.3125,56.9375 C 96.112251,55.992095 95.278876,55.314978 94.3125,55.3125 L 91.6875,55.3125 C 90.711545,55.318036 89.874844,56.010929 89.6875,56.96875 L 89.65625,57.03125 L 89.65625,56.96875 C 89.468906,56.010929 88.632205,55.318036 87.65625,55.3125 L 84.8125,55.3125 C 84.577868,55.314509 84.345323,55.35679 84.125,55.4375 C 83.914558,55.360227 83.692864,55.317999 83.46875,55.3125 L 74.09375,55.3125 C 73.636449,55.324883 73.196434,55.489888 72.84375,55.78125 C 72.482721,55.483281 72.030579,55.317864 71.5625,55.3125 L 68.90625,55.3125 C 68.358199,55.309079 67.831604,55.525279 67.444067,55.912817 C 67.056529,56.300354 66.840329,56.826949 66.84375,57.375 L 66.84375,58.59375 L 65.53125,56.34375 C 65.165635,55.705204 64.485808,55.31162 63.75,55.3125 L 61,55.3125 z M 84.9375,65.3125 L 85.34375,66.78125 C 85.100387,66.505634 84.787369,66.300553 84.4375,66.1875 C 84.674388,65.941989 84.846248,65.641232 84.9375,65.3125 z "
+         id="path2201"
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         inkscape:original="M 61 57.375 L 61 70.375 L 63.6875 70.375 L 63.6875 61.375 L 68.90625 70.375 L 71.5625 70.375 L 71.5625 57.375 L 68.90625 57.375 L 68.90625 66.21875 L 63.75 57.375 L 61 57.375 z M 74.09375 57.375 L 74.09375 70.375 L 83.8125 70.375 L 83.8125 68.125 L 76.75 68.125 L 76.75 64.75 L 82.96875 64.75 L 82.96875 62.53125 L 76.75 62.53125 L 76.75 59.59375 L 83.46875 59.59375 L 83.46875 57.375 L 74.09375 57.375 z M 84.8125 57.375 L 88.5 70.375 L 90.90625 70.375 L 93.03125 60.21875 L 95.1875 70.375 L 97.59375 70.375 L 101.21875 57.375 L 98.375 57.375 L 96.4375 67.125 L 94.3125 57.375 L 91.6875 57.375 L 89.65625 67.09375 L 87.65625 57.375 L 84.8125 57.375 z "
+         inkscape:radius="2.0495403"
+         sodipodi:type="inkscape:offset" />
+      <path
+         inkscape:export-ydpi="40.950001"
+         inkscape:export-xdpi="40.950001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+         sodipodi:nodetypes="cccc"
+         id="path7714"
+         d="M 91.106494,5.4689647 L 106.96992,52.362195 L 123.78551,42.653707 L 91.106494,5.4689647 z "
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="40.950001"
+         inkscape:export-xdpi="40.950001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+         transform="matrix(1.099893,0,0,1.099893,39.30931,-2.831044)"
+         d="M 107 58.362183 A 10 10 0 1 1  87,58.362183 A 10 10 0 1 1  107 58.362183 z"
+         sodipodi:ry="10"
+         sodipodi:rx="10"
+         sodipodi:cy="58.362183"
+         sodipodi:cx="97"
+         id="path7716"
+         style="opacity:1;fill:#000000;fill-opacity:1;stroke:#ffffff;stroke-width:1.81835866;stroke-linecap:square;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         sodipodi:type="arc" />
+      <path
+         inkscape:export-ydpi="40.950001"
+         inkscape:export-xdpi="40.950001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_geopoint_create.png"
+         id="text1321"
+         d="M 100.89956,70.362183 L 103.57446,70.362183 L 103.57446,57.362183 L 100.89956,57.362183 L 100.89956,66.207176 L 95.745923,57.362183 L 92.999695,57.362183 L 92.999695,70.362183 L 95.674592,70.362183 L 95.674592,61.374527 L 100.89956,70.362183 M 108.75763,64.762732 L 114.98122,64.762732 L 114.98122,62.533649 L 108.75763,62.533649 L 108.75763,59.591262 L 115.48053,59.591262 L 115.48053,57.362183 L 106.08273,57.362183 L 106.08273,70.362183 L 115.80152,70.362183 L 115.80152,68.133102 L 108.75763,68.133102 L 108.75763,64.762732 M 129.60344,70.362183 L 133.20563,57.362183 L 130.37024,57.362183 L 128.42648,67.11664 L 126.32223,57.362183 L 123.683,57.362183 L 121.66791,67.098807 L 119.65282,57.362183 L 116.81743,57.362183 L 120.49095,70.362183 L 122.89836,70.362183 L 125.02044,60.215405 L 127.19603,70.362183 L 129.60344,70.362183"
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L" />
+    </g>
+    <g
+       id="g3120"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999">
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect3106"
+         width="70"
+         height="70"
+         x="170"
+         y="3.3621826" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 235,69.362183 L 219.99969,50.362183 L 232.99969,18.362183 L 207.99969,11.362183"
+         id="path2222"
+         sodipodi:nodetypes="cccc" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9674833"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="path2207"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 L 59,3.5 z "
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.8841,-0.135587)" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="2.0495403"
+         inkscape:original="M 61 57.375 L 61 70.375 L 63.6875 70.375 L 63.6875 61.375 L 68.90625 70.375 L 71.5625 70.375 L 71.5625 57.375 L 68.90625 57.375 L 68.90625 66.21875 L 63.75 57.375 L 61 57.375 z M 74.09375 57.375 L 74.09375 70.375 L 83.8125 70.375 L 83.8125 68.125 L 76.75 68.125 L 76.75 64.75 L 82.96875 64.75 L 82.96875 62.53125 L 76.75 62.53125 L 76.75 59.59375 L 83.46875 59.59375 L 83.46875 57.375 L 74.09375 57.375 z M 84.8125 57.375 L 88.5 70.375 L 90.90625 70.375 L 93.03125 60.21875 L 95.1875 70.375 L 97.59375 70.375 L 101.21875 57.375 L 98.375 57.375 L 96.4375 67.125 L 94.3125 57.375 L 91.6875 57.375 L 89.65625 67.09375 L 87.65625 57.375 L 84.8125 57.375 z "
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         id="path2209"
+         d="M 61,55.3125 C 60.451949,55.309079 59.925354,55.525279 59.537817,55.912817 C 59.150279,56.300354 58.934079,56.826949 58.9375,57.375 L 58.9375,70.375 C 58.934079,70.923051 59.150279,71.449646 59.537817,71.837183 C 59.925354,72.224721 60.451949,72.440921 61,72.4375 L 63.6875,72.4375 C 64.235551,72.440921 64.762146,72.224721 65.149683,71.837183 C 65.537221,71.449646 65.753421,70.923051 65.75,70.375 L 65.75,69.03125 L 67.125,71.40625 C 67.490615,72.044796 68.170442,72.43838 68.90625,72.4375 L 71.5625,72.4375 C 72.019801,72.425117 72.459816,72.260112 72.8125,71.96875 C 73.173529,72.266719 73.625671,72.432136 74.09375,72.4375 L 83.8125,72.4375 C 84.360551,72.440921 84.887146,72.224721 85.274683,71.837183 C 85.662221,71.449646 85.878421,70.923051 85.875,70.375 L 85.875,68.625 L 86.53125,70.9375 C 86.777492,71.821998 87.581869,72.434857 88.5,72.4375 L 90.90625,72.4375 C 91.882205,72.431964 92.718906,71.739071 92.90625,70.78125 L 93.03125,70.125 L 93.1875,70.8125 C 93.387749,71.757905 94.221124,72.435022 95.1875,72.4375 L 97.59375,72.4375 C 98.511881,72.434857 99.316258,71.821998 99.5625,70.9375 L 103.1875,57.9375 C 103.3687,57.31779 103.24732,56.648925 102.85993,56.132398 C 102.47253,55.615871 101.86441,55.312065 101.21875,55.3125 L 98.375,55.3125 C 97.399045,55.318036 96.562344,56.010929 96.375,56.96875 L 96.34375,57.09375 L 96.3125,56.9375 C 96.112251,55.992095 95.278876,55.314978 94.3125,55.3125 L 91.6875,55.3125 C 90.711545,55.318036 89.874844,56.010929 89.6875,56.96875 L 89.65625,57.03125 L 89.65625,56.96875 C 89.468906,56.010929 88.632205,55.318036 87.65625,55.3125 L 84.8125,55.3125 C 84.577868,55.314509 84.345323,55.35679 84.125,55.4375 C 83.914558,55.360227 83.692864,55.317999 83.46875,55.3125 L 74.09375,55.3125 C 73.636449,55.324883 73.196434,55.489888 72.84375,55.78125 C 72.482721,55.483281 72.030579,55.317864 71.5625,55.3125 L 68.90625,55.3125 C 68.358199,55.309079 67.831604,55.525279 67.444067,55.912817 C 67.056529,56.300354 66.840329,56.826949 66.84375,57.375 L 66.84375,58.59375 L 65.53125,56.34375 C 65.165635,55.705204 64.485808,55.31162 63.75,55.3125 L 61,55.3125 z M 84.9375,65.3125 L 85.34375,66.78125 C 85.100387,66.505634 84.787369,66.300553 84.4375,66.1875 C 84.674388,65.941989 84.846248,65.641232 84.9375,65.3125 z "
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.7938,4.990501e-2)" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 172,5.3621826 L 187.86341,52.255382 L 204.67899,42.546903 L 172,5.3621826 z "
+         id="path2211"
+         sodipodi:nodetypes="cccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         d="M 181.69364,70.411953 L 184.36853,70.411953 L 184.36853,57.41198 L 181.69364,57.41198 L 181.69364,66.256956 L 176.54001,57.41198 L 173.79378,57.41198 L 173.79378,70.411953 L 176.46867,70.411953 L 176.46867,61.424313 L 181.69364,70.411953 M 189.5517,64.812511 L 195.77529,64.812511 L 195.77529,62.58343 L 189.5517,62.58343 L 189.5517,59.641061 L 196.2746,59.641061 L 196.2746,57.41198 L 186.8768,57.41198 L 186.8768,70.411953 L 196.59559,70.411953 L 196.59559,68.182903 L 189.5517,68.182903 L 189.5517,64.812511 M 210.3975,70.411953 L 213.99969,57.41198 L 211.1643,57.41198 L 209.22054,67.166419 L 207.11629,57.41198 L 204.47706,57.41198 L 202.46197,67.148582 L 200.44688,57.41198 L 197.61149,57.41198 L 201.28502,70.411953 L 203.69242,70.411953 L 205.81451,60.265196 L 207.99009,70.411953 L 210.3975,70.411953"
+         id="path2213"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         sodipodi:nodetypes="cccc"
+         id="path2215"
+         d="M 235,69.362183 L 220,50.362183 L 232.99969,18.362183 L 207.99969,11.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <g
+       id="g8595"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999"
+       transform="translate(102,-3.828125e-7)">
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9574908"
+         inkscape:original="M 205 44.375 L 205 50.375 L 197 50.375 L 197.1875 56.375 L 205 56.375 L 205 62.375 L 216 53.375 L 205 44.375 z M 197.1875 56.375 L 197 56.375 L 197.1875 56.40625 L 197.1875 56.375 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.25pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         id="path8630"
+         d="M 204.96875,42.40625 C 203.89111,42.417345 203.0251,43.297325 203.03125,44.375 L 203.03125,48.40625 L 197,48.40625 C 196.46587,48.402854 195.95355,48.617851 195.5818,49.001399 C 195.21005,49.384948 195.01117,49.903738 195.03125,50.4375 L 195.1875,55.625 C 195.18742,55.635417 195.18742,55.645833 195.1875,55.65625 C 194.96807,56.20693 195.00998,56.827377 195.30146,57.343549 C 195.59295,57.859721 196.10262,58.21602 196.6875,58.3125 L 196.875,58.34375 C 197.06152,58.370828 197.25098,58.370828 197.4375,58.34375 L 203.03125,58.34375 L 203.03125,62.375 C 203.03024,63.13692 203.47139,63.830209 204.162,64.152047 C 204.85261,64.473886 205.66721,64.3658 206.25,63.875 L 217.25,54.875 C 217.69352,54.503034 217.9497,53.953855 217.9497,53.375 C 217.9497,52.796145 217.69352,52.246966 217.25,51.875 L 206.25,42.875 C 205.89294,42.570174 205.43822,42.403815 204.96875,42.40625 z "
+         transform="translate(1.96875,1.955959)" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path8626"
+         d="M 234,69.362183 L 229,62.362183 L 236,46.362183 L 219,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path8624"
+         d="M 189,69.362183 L 184,62.362183 L 191,46.362183 L 174,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9674833"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="path8616"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 L 59,3.5 z "
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="matrix(0.863322,-0.504653,0.504653,0.863322,118.1883,30.44695)" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 171.99888,5.3602604 L 209.35892,37.838672 L 218.97676,20.97109 L 171.99888,5.3602604 z "
+         id="path8618"
+         sodipodi:nodetypes="cccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect8597"
+         width="70"
+         height="70"
+         x="170"
+         y="3.3621826"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path8609"
+         d="M 189,69.362183 L 184,62.362183 L 191,46.362183 L 174,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.25pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="M 198.96875,52.330959 L 206.96875,52.330959 L 206.96875,46.330959 L 217.96875,55.330959 L 206.96875,64.330959 L 206.96875,58.330959 L 198.96875,58.330959 L 199.14068,58.372084 L 198.96875,52.330959 z "
+         id="path8613" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccccc"
+         id="path8622"
+         d="M 234,69.362183 L 229,62.362183 L 230.75,58.362183 M 234.25,50.362183 L 236,46.362183 L 219,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <g
+       id="g8632"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999"
+       transform="translate(189,-3.828125e-7)">
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9574908"
+         inkscape:original="M 205 44.375 L 205 50.375 L 197 50.375 L 197.1875 56.375 L 205 56.375 L 205 62.375 L 216 53.375 L 205 44.375 z M 197.1875 56.375 L 197 56.375 L 197.1875 56.40625 L 197.1875 56.375 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.25pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         id="path8634"
+         d="M 204.96875,42.40625 C 203.89111,42.417345 203.0251,43.297325 203.03125,44.375 L 203.03125,48.40625 L 197,48.40625 C 196.46587,48.402854 195.95355,48.617851 195.5818,49.001399 C 195.21005,49.384948 195.01117,49.903738 195.03125,50.4375 L 195.1875,55.625 C 195.18742,55.635417 195.18742,55.645833 195.1875,55.65625 C 194.96807,56.20693 195.00998,56.827377 195.30146,57.343549 C 195.59295,57.859721 196.10262,58.21602 196.6875,58.3125 L 196.875,58.34375 C 197.06152,58.370828 197.25098,58.370828 197.4375,58.34375 L 203.03125,58.34375 L 203.03125,62.375 C 203.03024,63.13692 203.47139,63.830209 204.162,64.152047 C 204.85261,64.473886 205.66721,64.3658 206.25,63.875 L 217.25,54.875 C 217.69352,54.503034 217.9497,53.953855 217.9497,53.375 C 217.9497,52.796145 217.69352,52.246966 217.25,51.875 L 206.25,42.875 C 205.89294,42.570174 205.43822,42.403815 204.96875,42.40625 z "
+         transform="translate(-2.987671e-2,1.955933)" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path8636"
+         d="M 236,69.362183 L 229,62.362183 L 236,46.362183 L 219,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="ccc"
+         id="path8638"
+         d="M 191,69.362183 L 184,62.362183 L 174,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9674833"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="path8640"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 L 59,3.5 z "
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="matrix(0.863322,-0.504653,0.504653,0.863322,118.1883,30.44695)" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 171.99888,5.3602604 L 209.35892,37.838672 L 218.97676,20.97109 L 171.99888,5.3602604 z "
+         id="path8642"
+         sodipodi:nodetypes="cccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect8644"
+         width="70"
+         height="70"
+         x="170"
+         y="3.3621826"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path8646"
+         d="M 236,69.362183 L 229,62.362183 L 236,46.362183 L 219,42.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.25pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+         d="M 196.97012,52.330933 L 204.97012,52.330933 L 204.97012,46.330933 L 215.97012,55.330933 L 204.97012,64.330933 L 204.97012,58.330933 L 196.97012,58.330933 L 197.14205,58.372058 L 196.97012,52.330933 z "
+         id="path8648" />
+      <path
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 191,69.362183 L 184,62.362183 L 174,42.362183"
+         id="path8654"
+         sodipodi:nodetypes="ccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccc"
+         id="path2479"
+         d="M 400,32.362183 L 415,22.362183 L 405,7.362183 L 388,8.362183"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="ccc"
+         id="path2487"
+         d="M 400.0809,32.377861 L 385,22.362183 L 388.0809,8.3778607"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_split.png"
+         sodipodi:nodetypes="cccccc"
+         id="path2477"
+         d="M 400,32.362183 L 415,22.362183 L 405,7.3621832 L 388,8.3621832 L 385,22.362183 L 400,32.362183 z"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <g
+       id="g2426"
+       inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_node_build.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999"
+       transform="translate(290,0.1306853)">
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 225,37.231497 L 215,12.231497"
+         id="path2446"
+         sodipodi:nodetypes="cc" />
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect2428"
+         width="70"
+         height="70"
+         x="170"
+         y="3.3621826" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#ffffff;stroke-width:8;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 235,27.231497 L 205,27.231497"
+         id="path2430"
+         sodipodi:nodetypes="cc" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9674833"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="path2432"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 z"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.8841,-0.135587)" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="2.0495403"
+         inkscape:original="M 61 57.375 L 61 70.375 L 63.6875 70.375 L 63.6875 61.375 L 68.90625 70.375 L 71.5625 70.375 L 71.5625 57.375 L 68.90625 57.375 L 68.90625 66.21875 L 63.75 57.375 L 61 57.375 z M 74.09375 57.375 L 74.09375 70.375 L 83.8125 70.375 L 83.8125 68.125 L 76.75 68.125 L 76.75 64.75 L 82.96875 64.75 L 82.96875 62.53125 L 76.75 62.53125 L 76.75 59.59375 L 83.46875 59.59375 L 83.46875 57.375 L 74.09375 57.375 z M 84.8125 57.375 L 88.5 70.375 L 90.90625 70.375 L 93.03125 60.21875 L 95.1875 70.375 L 97.59375 70.375 L 101.21875 57.375 L 98.375 57.375 L 96.4375 67.125 L 94.3125 57.375 L 91.6875 57.375 L 89.65625 67.09375 L 87.65625 57.375 L 84.8125 57.375 z "
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         id="path2434"
+         d="M 61,55.3125 C 60.451949,55.309079 59.925354,55.525279 59.537817,55.912817 C 59.150279,56.300354 58.934079,56.826949 58.9375,57.375 L 58.9375,70.375 C 58.934079,70.923051 59.150279,71.449646 59.537817,71.837183 C 59.925354,72.224721 60.451949,72.440921 61,72.4375 L 63.6875,72.4375 C 64.235551,72.440921 64.762146,72.224721 65.149683,71.837183 C 65.537221,71.449646 65.753421,70.923051 65.75,70.375 L 65.75,69.03125 L 67.125,71.40625 C 67.490615,72.044796 68.170442,72.43838 68.90625,72.4375 L 71.5625,72.4375 C 72.019801,72.425117 72.459816,72.260112 72.8125,71.96875 C 73.173529,72.266719 73.625671,72.432136 74.09375,72.4375 L 83.8125,72.4375 C 84.360551,72.440921 84.887146,72.224721 85.274683,71.837183 C 85.662221,71.449646 85.878421,70.923051 85.875,70.375 L 85.875,68.625 L 86.53125,70.9375 C 86.777492,71.821998 87.581869,72.434857 88.5,72.4375 L 90.90625,72.4375 C 91.882205,72.431964 92.718906,71.739071 92.90625,70.78125 L 93.03125,70.125 L 93.1875,70.8125 C 93.387749,71.757905 94.221124,72.435022 95.1875,72.4375 L 97.59375,72.4375 C 98.511881,72.434857 99.316258,71.821998 99.5625,70.9375 L 103.1875,57.9375 C 103.3687,57.31779 103.24732,56.648925 102.85993,56.132398 C 102.47253,55.615871 101.86441,55.312065 101.21875,55.3125 L 98.375,55.3125 C 97.399045,55.318036 96.562344,56.010929 96.375,56.96875 L 96.34375,57.09375 L 96.3125,56.9375 C 96.112251,55.992095 95.278876,55.314978 94.3125,55.3125 L 91.6875,55.3125 C 90.711545,55.318036 89.874844,56.010929 89.6875,56.96875 L 89.65625,57.03125 L 89.65625,56.96875 C 89.468906,56.010929 88.632205,55.318036 87.65625,55.3125 L 84.8125,55.3125 C 84.577868,55.314509 84.345323,55.35679 84.125,55.4375 C 83.914558,55.360227 83.692864,55.317999 83.46875,55.3125 L 74.09375,55.3125 C 73.636449,55.324883 73.196434,55.489888 72.84375,55.78125 C 72.482721,55.483281 72.030579,55.317864 71.5625,55.3125 L 68.90625,55.3125 C 68.358199,55.309079 67.831604,55.525279 67.444067,55.912817 C 67.056529,56.300354 66.840329,56.826949 66.84375,57.375 L 66.84375,58.59375 L 65.53125,56.34375 C 65.165635,55.705204 64.485808,55.31162 63.75,55.3125 L 61,55.3125 z M 84.9375,65.3125 L 85.34375,66.78125 C 85.100387,66.505634 84.787369,66.300553 84.4375,66.1875 C 84.674388,65.941989 84.846248,65.641232 84.9375,65.3125 z"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.7938,4.990501e-2)" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 172,5.3621826 L 187.86341,52.255382 L 204.67899,42.546903 L 172,5.3621826 z"
+         id="path2436"
+         sodipodi:nodetypes="cccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         d="M 181.69364,70.411953 L 184.36853,70.411953 L 184.36853,57.41198 L 181.69364,57.41198 L 181.69364,66.256956 L 176.54001,57.41198 L 173.79378,57.41198 L 173.79378,70.411953 L 176.46867,70.411953 L 176.46867,61.424313 L 181.69364,70.411953 M 189.5517,64.812511 L 195.77529,64.812511 L 195.77529,62.58343 L 189.5517,62.58343 L 189.5517,59.641061 L 196.2746,59.641061 L 196.2746,57.41198 L 186.8768,57.41198 L 186.8768,70.411953 L 196.59559,70.411953 L 196.59559,68.182903 L 189.5517,68.182903 L 189.5517,64.812511 M 210.3975,70.411953 L 213.99969,57.41198 L 211.1643,57.41198 L 209.22054,67.166419 L 207.11629,57.41198 L 204.47706,57.41198 L 202.46197,67.148582 L 200.44688,57.41198 L 197.61149,57.41198 L 201.28502,70.411953 L 203.69242,70.411953 L 205.81451,60.265196 L 207.99009,70.411953 L 210.3975,70.411953"
+         id="path2438"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         sodipodi:nodetypes="cc"
+         id="path2440"
+         d="M 205,27.231497 L 235,27.231497"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+      <path
+         inkscape:export-ydpi="42.220001"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         sodipodi:nodetypes="cc"
+         id="path2442"
+         d="M 215,12.231497 L 225,37.231497"
+         style="fill:none;fill-opacity:0.75;fill-rule:evenodd;stroke:#000000;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <g
+       id="g2457"
+       inkscape:export-filename="/export/scratch/masli/cp/flashclient/images/cursor_region_create.png"
+       inkscape:export-xdpi="41.139999"
+       inkscape:export-ydpi="41.139999"
+       transform="translate(373.35845,0.379862)">
+      <rect
+         style="opacity:1;fill:none;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-linecap:round;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="rect2461"
+         width="70"
+         height="70"
+         x="170"
+         y="3.3621826" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="1.9674833"
+         inkscape:original="M 59.09375 5.46875 L 74.96875 52.375 L 91.78125 42.65625 L 59.09375 5.46875 z "
+         style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         id="path2465"
+         d="M 59,3.5 C 58.381744,3.5262836 57.81187,3.8418782 57.461555,4.3519864 C 57.11124,4.8620945 57.021299,5.5072824 57.21875,6.09375 L 73.09375,53 C 73.276348,53.570068 73.708515,54.026017 74.267994,54.238862 C 74.827473,54.451707 75.453416,54.398301 75.96875,54.09375 L 92.78125,44.375 C 93.297515,44.076905 93.650801,43.56083 93.741906,42.971686 C 93.83301,42.382543 93.65211,41.783861 93.25,41.34375 L 60.5625,4.15625 C 60.16738,3.7129251 59.593177,3.4717599 59,3.5 z"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.8841,-0.135587)" />
+      <path
+         sodipodi:type="inkscape:offset"
+         inkscape:radius="2.0495403"
+         inkscape:original="M 61 57.375 L 61 70.375 L 63.6875 70.375 L 63.6875 61.375 L 68.90625 70.375 L 71.5625 70.375 L 71.5625 57.375 L 68.90625 57.375 L 68.90625 66.21875 L 63.75 57.375 L 61 57.375 z M 74.09375 57.375 L 74.09375 70.375 L 83.8125 70.375 L 83.8125 68.125 L 76.75 68.125 L 76.75 64.75 L 82.96875 64.75 L 82.96875 62.53125 L 76.75 62.53125 L 76.75 59.59375 L 83.46875 59.59375 L 83.46875 57.375 L 74.09375 57.375 z M 84.8125 57.375 L 88.5 70.375 L 90.90625 70.375 L 93.03125 60.21875 L 95.1875 70.375 L 97.59375 70.375 L 101.21875 57.375 L 98.375 57.375 L 96.4375 67.125 L 94.3125 57.375 L 91.6875 57.375 L 89.65625 67.09375 L 87.65625 57.375 L 84.8125 57.375 z "
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         id="path2467"
+         d="M 61,55.3125 C 60.451949,55.309079 59.925354,55.525279 59.537817,55.912817 C 59.150279,56.300354 58.934079,56.826949 58.9375,57.375 L 58.9375,70.375 C 58.934079,70.923051 59.150279,71.449646 59.537817,71.837183 C 59.925354,72.224721 60.451949,72.440921 61,72.4375 L 63.6875,72.4375 C 64.235551,72.440921 64.762146,72.224721 65.149683,71.837183 C 65.537221,71.449646 65.753421,70.923051 65.75,70.375 L 65.75,69.03125 L 67.125,71.40625 C 67.490615,72.044796 68.170442,72.43838 68.90625,72.4375 L 71.5625,72.4375 C 72.019801,72.425117 72.459816,72.260112 72.8125,71.96875 C 73.173529,72.266719 73.625671,72.432136 74.09375,72.4375 L 83.8125,72.4375 C 84.360551,72.440921 84.887146,72.224721 85.274683,71.837183 C 85.662221,71.449646 85.878421,70.923051 85.875,70.375 L 85.875,68.625 L 86.53125,70.9375 C 86.777492,71.821998 87.581869,72.434857 88.5,72.4375 L 90.90625,72.4375 C 91.882205,72.431964 92.718906,71.739071 92.90625,70.78125 L 93.03125,70.125 L 93.1875,70.8125 C 93.387749,71.757905 94.221124,72.435022 95.1875,72.4375 L 97.59375,72.4375 C 98.511881,72.434857 99.316258,71.821998 99.5625,70.9375 L 103.1875,57.9375 C 103.3687,57.31779 103.24732,56.648925 102.85993,56.132398 C 102.47253,55.615871 101.86441,55.312065 101.21875,55.3125 L 98.375,55.3125 C 97.399045,55.318036 96.562344,56.010929 96.375,56.96875 L 96.34375,57.09375 L 96.3125,56.9375 C 96.112251,55.992095 95.278876,55.314978 94.3125,55.3125 L 91.6875,55.3125 C 90.711545,55.318036 89.874844,56.010929 89.6875,56.96875 L 89.65625,57.03125 L 89.65625,56.96875 C 89.468906,56.010929 88.632205,55.318036 87.65625,55.3125 L 84.8125,55.3125 C 84.577868,55.314509 84.345323,55.35679 84.125,55.4375 C 83.914558,55.360227 83.692864,55.317999 83.46875,55.3125 L 74.09375,55.3125 C 73.636449,55.324883 73.196434,55.489888 72.84375,55.78125 C 72.482721,55.483281 72.030579,55.317864 71.5625,55.3125 L 68.90625,55.3125 C 68.358199,55.309079 67.831604,55.525279 67.444067,55.912817 C 67.056529,56.300354 66.840329,56.826949 66.84375,57.375 L 66.84375,58.59375 L 65.53125,56.34375 C 65.165635,55.705204 64.485808,55.31162 63.75,55.3125 L 61,55.3125 z M 84.9375,65.3125 L 85.34375,66.78125 C 85.100387,66.505634 84.787369,66.300553 84.4375,66.1875 C 84.674388,65.941989 84.846248,65.641232 84.9375,65.3125 L 84.9375,65.3125 z"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001"
+         transform="translate(112.7938,4.990501e-2)" />
+      <path
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+         d="M 172,5.3621826 L 187.86341,52.255382 L 204.67899,42.546903 L 172,5.3621826 z"
+         id="path2469"
+         sodipodi:nodetypes="cccc"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+      <path
+         style="font-size:9px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1pt;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Nimbus Sans L"
+         d="M 181.69364,70.411953 L 184.36853,70.411953 L 184.36853,57.41198 L 181.69364,57.41198 L 181.69364,66.256956 L 176.54001,57.41198 L 173.79378,57.41198 L 173.79378,70.411953 L 176.46867,70.411953 L 176.46867,61.424313 L 181.69364,70.411953 M 189.5517,64.812511 L 195.77529,64.812511 L 195.77529,62.58343 L 189.5517,62.58343 L 189.5517,59.641061 L 196.2746,59.641061 L 196.2746,57.41198 L 186.8768,57.41198 L 186.8768,70.411953 L 196.59559,70.411953 L 196.59559,68.182903 L 189.5517,68.182903 L 189.5517,64.812511 M 210.3975,70.411953 L 213.99969,57.41198 L 211.1643,57.41198 L 209.22054,67.166419 L 207.11629,57.41198 L 204.47706,57.41198 L 202.46197,67.148582 L 200.44688,57.41198 L 197.61149,57.41198 L 201.28502,70.411953 L 203.69242,70.411953 L 205.81451,60.265196 L 207.99009,70.411953 L 210.3975,70.411953"
+         id="path2471"
+         inkscape:export-filename="/export/scratch/reid/cyclingproject/flashclient/images/cursor_byway_create.png"
+         inkscape:export-xdpi="42.220001"
+         inkscape:export-ydpi="42.220001" />
+    </g>
+  </g>
+</svg>

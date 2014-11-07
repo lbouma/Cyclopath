@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Conflct');
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Conflict_Entry = (
+            ev.target as Widget_Conflict_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Conflict_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+   ]]></mx:Script>
+
+<!-- FIXME: Make this a Grid and add to it. See Widget_Gia_Access_List.mxml,
+<           Widget_Attributes_Assign.mxml, etc.
+<           Think also about replacing other similar uses of DataGrid. -->
+
+   <mx:DataGrid
+      id="conflicts_list"
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      added="this.on_added_renderer_maybe(event);"
+      >
+
+      <mx:columns>
+         <mx:DataGridColumn
+            dataField="Branch_Conflict"
+            headerText=""
+            itemRenderer="views.panel_branch.Widget_Conflict_Entry"
+            />
+
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

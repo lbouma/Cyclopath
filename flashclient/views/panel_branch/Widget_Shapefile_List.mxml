@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+      import flash.events.MouseEvent;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.events.DataGridEvent;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Checkout_Base;
+      import items.jobsq.Work_Item;
+      import utils.misc.Logging;
+      //import utils.misc.Timeutil;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Wgt_Mrg_Lst');
+
+      // *** Instance methods
+
+      [Bindable] public var data_grid_content:ArrayCollection =
+         new ArrayCollection();
+
+      // *** Instance methods
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Shapefile_Cell__Action = (
+            ev.target as Widget_Shapefile_Cell__Action);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Shapefile_Cell__Action can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         /* FIXME: Does this class periodically ask the server for
+         *         changes, or if anything changed? Like, a hash
+         *         value or something? Or maybe get last job ID,
+         *         or jobs since last ID? */
+      }
+
+      //
+      public function on_shapeio_list_change() :void
+      {
+         m4_DEBUG('on_shapeio_list_change');
+      }
+
+      //
+      protected function on_key_up(evt:KeyboardEvent) :void
+      {
+         m4_DEBUG('on_key_up:', evt.charCode);
+      }
+
+      //
+      protected function on_header_release(evt:DataGridEvent) :void
+      {
+         m4_DEBUG('on_header_release:', evt);
+         // FIXME: Sort-by. Resend Paginator request after indicating sort-by.
+      }
+
+      //
+      public function reset_list() :void
+      {
+         m4_DEBUG('reset_list');
+         this.data_grid_content = new ArrayCollection();
+      }
+
+      // FIXME: Remove this fcn.
+      public function consume_xml(jql:XML) :void
+      {
+m4_ASSERT(false); // 2013.03.26: is this fcn used?
+
+         // <jobs_queue total="101">
+         //    <row .../>
+         m4_DEBUG('consume_xml:', jql);
+         // FIXME: Figure out the length thingy.
+         m4_ASSERT(jql.length <= 4);
+         //
+         this.data_grid_content = new ArrayCollection();
+         var job_content:XML;
+         for each (job_content in jql.*) {
+            m4_DEBUG('jobs_queue_callback: job:', job_content.toXMLString())
+            m4_DEBUG('jobs_queue_callback: job.id:', job_content.@id)
+            m4_DEBUG('jobs_queue_callback: job.usernm:', job_content.@username)
+            //this.data_grid_content.addItem({
+            //   Date: Timeutil.datetime_to_recency(
+            //         int(job_content.@epoch_modified)),
+            //   Group: job_content.@gpid,
+            //   RevID: job_content.@revision_id,
+            //   Status: job_content.@status_text,
+            //   Tip_Status: 'I like ypples and bynanas.',
+            //   Actions: 'No mas'
+            //   });
+            var row_item:Work_Item = new Work_Item(job_content);
+            this.data_grid_content.addItem(row_item);
+         }
+      }
+
+      //
+      public function consume_work_items(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         // NOTE: GWIS_Checkout_Base does not call update, so we're assuming
+         //       that the work_item does not already exist in a lookup.
+         var work_items:Array = gwis_req.resp_items;
+         m4_DEBUG('consume_work_items: received:', work_items.length);
+         this.data_grid_content = new ArrayCollection();
+         for each (var work_item:Work_Item in work_items) {
+            this.data_grid_content.addItem(work_item);
+         }
+         //
+         var widget_shp:Widget_Shapefiles = (this.dp as Widget_Shapefiles);
+         widget_shp.shapeio_list_pager.p_collect = this.data_grid_content;
+         widget_shp.shapeio_list_pager.update_pagination_text();
+      }
+
+   ]]></mx:Script>
+
+   <!--  The docs
+            http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/
+                                                      mx/controls/DataGrid.html
+         say DataGrid has a property
+            sortableColumns="true|false"
+         but my compiler has none of it. -->
+
+   <mx:DataGrid
+      id="branch_list"
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      selectable="false"
+      allowMultipleSelection="false"
+   dataProvider="{this.data_grid_content}"
+   draggableColumns="true"
+   resizableColumns="true"
+   headerRelease="this.on_header_release(event)"
+      change="this.on_shapeio_list_change();"
+      keyUp="this.on_key_up(event);"
+      added="this.on_added_renderer_maybe(event);"
+rowCount="5"
+      >
+<!-- does row have to be one larger than actual content?
+<    else scroll bar and empty row show anyway? -->
+
+      <mx:columns>
+         <!--
+         <mx:DataGridColumn
+            dataField="Branch"
+            headerText=""
+            itemRenderer="views.panel_branch.Widget_Shapefile_Entry"
+            />
+         <mx:DataGridColumn
+            id="odo_column"
+            headerText="Odo."
+            dataField="total_distance"
+            width="46"
+            minWidth="0"/>
+            -->
+         <mx:DataGridColumn
+            headerText="Status"
+            dataField="status_text"
+            width="70"
+            minWidth="10"
+            showDataTips="true"
+            dataTipField="job_stage_msg"/>
+         <mx:DataGridColumn
+            headerText="Revision"
+            dataField="for_revision_s"
+            width="65"
+            minWidth="10"/>
+         <mx:DataGridColumn
+            headerText="Scope"
+            dataField="for_group_id_s"
+            width="50"
+            minWidth="10"/>
+         <mx:DataGridColumn
+            headerText="Updated"
+            dataField="recency_modified"
+            width="70"
+            minWidth="10"/>
+         <mx:DataGridColumn
+            headerText="Actions"
+            minWidth="50"
+            itemRenderer=
+               "views.panel_branch.Widget_Shapefile_Cell__Action"/>
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

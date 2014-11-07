@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Tag_His');
+
+      // *** Instance methods
+
+      //
+      public function update(geos:Set_UUID) :void
+      {
+         var gf:Geofeature;
+         var tg:Tag;
+         var ag:Link_Value;
+         var all_tags:Dictionary = new Dictionary();
+         //var link_value_tags tag_to_tag_geo:Dictionary;
+         var array:Array;
+         var tag_string:String = "";
+
+         for each (gf in geos) {
+            if ((gf.is_vgroup_old) && (gf.counterpart_gf !== null)) {
+               continue; // new version will add the tags
+            }
+            /*/
+            if (gf is Byway) {
+               //array = Tag_BS.all_tags(gf as Byway);
+               // FIXME CxPx this whole if/else
+               //array = Link_Value.attachments_for_item((gf as Byway),
+               //                                        Tag);
+                //tag_to_tag_geo = G.map.tag_to_tag_bs;
+            }
+            else if (gf is Region) {
+               //array = Tag_Region.all_tags(gf as Region);
+               //array = Link_Value.attachments_for_item((gf as Region),
+               //                                        Tag);
+               //tag_to_tag_geo = G.map.tag_to_tag_region;
+         }
+         else if (gf is Geopoint) {
+            //array = Tag_Point.all_tags(gf as Geopoint);
+            //array = Link_Value.attachments_for_item((gf as Geopoint),
+            //                                        Tag);
+            //tag_to_tag_geo = G.map.tag_to_tag_point;
+         }
+         else {
+            break;
+         }
+         /*/
+         if (!((gf is Byway) || (gf is Region) || (gf is Waypoint))) {
+            break;
+         }
+         array = Link_Value.attachments_for_item(gf, Tag);
+
+         for each (tg in array) {
+            if (!(tg.base_id in all_tags)) {
+               all_tags[tg.base_id] = tg;
+               for each (ag in Link_Value.item_get_link_values(tg, gf)) {
+                  if (ag.rhs_stack_id == gf.base_id) {
+                     if (tag_string.length > 0) {
+                        tag_string = tag_string + ', ';
+                     }
+                     if (ag.is_vgroup_old
+                         && ag.counterpart_untyped === null) {
+                        tag_string = tag_string + '<font color="#ff0000">-'
+                        + tg.text_ + '</font>';
+                        break;
+                     }
+                     else if (ag.is_vgroup_new &&
+                                ag.counterpart_untyped === null) {
+                        tag_string = tag_string + '<font color="#0000ff">+'
+                        + tg.text_ + '</font>';
+                        break;
+                     }
+                     else {
+                        tag_string = tag_string + tg.text_;
+                        break;
+                     }
+                  }
+               }
+            }
+         }
+      }
+      tag_list.htmlText = tag_string;
+   }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingBottom="0"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off">
+
+      <mx:Text
+         id="tag_list">
+      </mx:Text>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

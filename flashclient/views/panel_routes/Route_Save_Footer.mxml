@@ -1,0 +1,1338 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+
+FIXME_2013_06_11
+FIXME: Use this just for editing routes.
+Button should say: Save Route
+For rating and alerts, save changes immediately.
+As for undo/redo of ratings... who cares???
+or should ratings be bundled??? ask group???
+i do like that users are not "weired out"
+by things happening "without their consent"
+maybe an auto-save button for private things?
+what are these... make App_Mode_User
+(haha, [ml] did that same-width trick (but he
+abbreviated Hist! =)
+so, App_Mode_Edit > App_Mode_View/App_Mode_User
+
+anyway...
+undo, redo, reset, auto-save... ug.
+
+
+FIXME: is compile taking a while because this is in main.mxml??
+-->
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.effects.Fade;
+      import mx.effects.Resize;
+      import mx.events.EffectEvent;
+      import mx.events.FlexEvent;
+
+      import grax.Dirty_Reason;
+      import grax.Library_Squelch;
+      import gwis.GWIS_Commit;
+      import gwis.GWIS_Item_Findability_Put;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import views.commands.Command_Manager;
+      import views.map_components.Floating_Tool_Palette;
+      import views.map_components.Please_Wait_Popup;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Rte_SavFtr');
+
+      // ***
+
+      protected var effect_fade:Fade = new Fade();
+      protected var effect_resize:Resize = new Resize();
+
+      protected var outstanding_requests:int = 0;
+      protected var route_saved_alright:Boolean = false;
+
+      // We implement 'state' changes in the code, rather than using the
+      // built-in Flex states, because [lb] has code to do nice transitions
+      // between states... which wasn't implement in MXML (it might be easy
+      // to do, but why bother?).
+      //
+      // The states:
+      //   'view_only': Whether anonymous user or logged in user; cannot edit.
+      //   'login_to_save': Anonymous, new, unedited route.
+      //   'asking_to_save': Logged in, new, unedited route.
+      //   'route_edited': For anonymous or logged in, route has been edited;
+      //   'unedited_route': For anon or logged in, existing unedited route.
+      //   '*__old__': For forcing undo/redo button update.
+      //
+      protected var current_state:String = '';
+
+      protected var watcher_height:ChangeWatcher;
+      protected var fade_in_on_height:Boolean = false;
+      protected var refade_height:int = 0;
+
+      // ***
+
+      //
+      public function current_state_void() :void
+      {
+         // Clients call this so that the next repopulate() does something.
+         m4_DEBUG('current_state_void');
+         this.current_state = '';
+      }
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         m4_DEBUG('set detail_panel:', dp);
+
+         //this.register_widgets([
+         //   ]);
+      }
+
+      //
+      public function effect_resize_play() :void
+      {
+         this.effect_resize.target = this.container_save_new_or_changes;
+         this.effect_resize.duration = 400;
+         this.effect_resize.heightFrom = 0;
+         this.effect_resize.heightTo = this.refade_height;
+
+         this.container_save_new_or_changes.alpha = 1.0;
+         m4_DEBUG('effect_resize_play: +container_save_new_or_changes');
+         this.container_save_new_or_changes.visible = true;
+         this.container_save_new_or_changes.includeInLayout = true;
+         this.container_save_new_or_changes.height = 0;
+         m4_DEBUG2('effect_resize_play: cntr_save_new_or_changes.hgt: reset:',
+                   this.container_save_new_or_changes.height);
+
+         this.effect_resize.end();
+         this.effect_resize.addEventListener(EffectEvent.EFFECT_END,
+                                      this.on_effect_resize_fwd_end);
+         this.effect_resize.play();
+      }
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         m4_DEBUG4('on_change_height: cntr_save_new_or_changes.hgt:',
+                   this.container_save_new_or_changes.height,
+                   '/ fade_in_on_height:', this.fade_in_on_height,
+                   '/ refade_height:', this.refade_height);
+         if (this.fade_in_on_height) {
+            // When we set the height, we'll come back through this fcn.,
+            // so make sure we don't come through here again.
+            this.fade_in_on_height = false;
+            this.refade_height = this.container_save_new_or_changes.height;
+            this.effect_resize_play();
+         }
+         else if (this.container_save_new_or_changes.height > 0) {
+            // [lb] thinks maybe fade_in_on_height isn't working as designed.
+            // So this is a hack to get around when fade_in_on_height would
+            // otherwise be set true because refade_height is 0, but that
+            // fcn. just sets percentHeight to 100, which doesn't trigger
+            // this fcn. because the widget is already at 100% height, it's
+            // just not visible. So here we hack and always record the
+            // latest non-zero height of the container, which should generally
+            // be the height we want again after the fade (since we have to
+            // set the height 0 at the start of the fade).
+            this.refade_height = this.container_save_new_or_changes.height;
+         }
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this.container_save_new_or_changes,
+            'height', this.on_change_height);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         // NOTE: Funny, this.container_save_new_or_changes.height == 1.
+
+         super.repopulate();
+
+         var new_current_state:String;
+
+         if ((this.route === null)
+             || (!this.route.can_edit)) {
+            new_current_state = 'view_only';
+         }
+         else {
+            if (   (!(this.route.route_panel.cmd_mgr.undos_present))
+                && (!(this.route.route_panel.cmd_mgr.redos_present))) {
+               if (!(G.user.logged_in)) {
+                  if (this.route.can_arbit) {
+                     new_current_state = 'login_to_save';
+                  }
+                  else {
+                     new_current_state = 'unedited_route';
+                  }
+               }
+               else if (this.route.unlibraried) {
+                  new_current_state = 'asking_to_save';
+               }
+               else {
+                  new_current_state = 'unedited_route';
+               }
+            }
+            else {
+               new_current_state = 'route_edited';
+            }
+         }
+
+         m4_DEBUG3('repopulate: current_state:',
+            (this.current_state == '') ? 'no curr. state' : this.current_state,
+            '/ new_current_state:', new_current_state);
+
+         if (this.current_state != new_current_state) {
+            this.repopulate_as_state(new_current_state);
+         }
+         else {
+            // The difference is nothing, right, so don't do a refade, but
+            // make sure the height matches, in case the height difference
+            // isn't nothing, but something [greater than zero].
+// Doesn't do anything?:
+            this.container_save_new_or_changes.percentHeight = 100;
+
+            // This does something:
+            if (   (new_current_state == 'route_edited')
+                || (new_current_state == 'login_to_save')
+                || (new_current_state == 'asking_to_save')) {
+               this.twiddle_cmd_mgr_buttons();
+            }
+         }
+      }
+
+      //
+      protected function repopulate_as_state(new_state:String) :void
+      {
+         var was_container_visible:Boolean =
+            this.container_save_new_or_changes.visible;
+         var now_container_visible:Boolean;
+
+         m4_DEBUG('repopulate_as_state: new_state:', new_state);
+
+         if (   (new_state == 'view_only')
+             || (new_state == 'unedited_route')) {
+            // Hide all edit- and save- related buttons.
+            m4_DEBUG('repop_: cntr_save_new_or_changes: hide...');
+            //this.container_save_new_or_changes.visible = false;
+            //this.container_save_new_or_changes.includeInLayout = false;
+            now_container_visible = false;
+         }
+         else {
+            // I.e., 'route_edited', 'login_to_save', 'asking_to_save'
+            // Show the edit- and save- related buttons container.
+            m4_DEBUG('repop_: cntr_save_new_or_changes: show...');
+            //this.container_save_new_or_changes.visible = true;
+            //this.container_save_new_or_changes.includeInLayout = true;
+            now_container_visible = true;
+         }
+
+         if (new_state == 'view_only') {
+            this.widget_header_label.text = 'Viewing';
+            // Hide the "click-to-add-route-stop" option.
+            this.route_clicks_drag_rstop.visible = false;
+            this.route_clicks_drag_rstop.includeInLayout = false;
+         }
+         else {
+            this.widget_header_label.text = 'Editing';
+            // Show the "click-to-add-route-stop" option.
+            this.route_clicks_drag_rstop.visible = true;
+            this.route_clicks_drag_rstop.includeInLayout = true;
+         }
+
+         if (now_container_visible) {
+
+            if (   (new_state == 'login_to_save')
+                || (new_state == 'asking_to_save')) {
+               m4_DEBUG('repop_: rt_editing_wrapper: show');
+               this.rt_editing_wrapper.visible = true;
+               this.rt_editing_wrapper.includeInLayout = true;
+            }
+            else {
+               m4_DEBUG('repop_: rt_editing_wrapper: hide');
+               this.rt_editing_wrapper.visible = false;
+               this.rt_editing_wrapper.includeInLayout = false;
+            }
+            //
+            if (new_state == 'login_to_save') {
+               m4_DEBUG('repop_: save_label_anon: show');
+               this.save_label_anon.visible = true;
+               this.save_label_anon.includeInLayout = true;
+            }
+            else {
+               m4_DEBUG('repop_: save_label_anon: hide');
+               this.save_label_anon.visible = false;
+               this.save_label_anon.includeInLayout = false;
+            }
+            //
+            if (new_state == 'asking_to_save') {
+               this.save_label_user.visible = true;
+               this.save_label_user.includeInLayout = true;
+               this.saving_private_button.enabled = true;
+            }
+            else {
+               this.save_label_user.visible = false;
+               this.save_label_user.includeInLayout = false;
+               this.saving_private_button.enabled = false;
+            }
+
+            if (new_state == 'route_edited') {
+               m4_DEBUG('repop_: rt_editing_wrapper: +container_save_changes');
+               this.container_save_changes.visible = true;
+               this.container_save_changes.includeInLayout = true;
+            }
+            else {
+               m4_DEBUG('repop_: rt_editing_wrapper: -container_save_changes');
+               this.container_save_changes.visible = false;
+               this.container_save_changes.includeInLayout = false;
+            }
+
+            // Setup the reset-undo-redo-save buttons, whether or not the
+            // container is visible.
+            this.twiddle_cmd_mgr_buttons();
+
+         } // end: if now_container_visible
+
+         // Use the fade transition if we're changing from hiding the save- and
+         // edit- stuff to not hiding it, or vice versa, but if just changing
+         // from the save reminder to the reset/undo/redo/save buttons, then
+         // the transition looks funny so don't do it.
+         var fade_show:Boolean = false;
+         var fade_hide:Boolean = false;
+         if ((new_state == 'route_edited')
+             && ((this.current_state == '')
+                 || (this.current_state == 'unedited_route'))) {
+            fade_show = true;
+         }
+         if ((new_state == 'unedited_route')
+             && (this.current_state != '')) {
+            fade_hide = true;
+         }
+         m4_DEBUG('repop_: fade_show:', fade_show, '/ fade_hide:', fade_hide);
+
+         this.current_state = new_state;
+
+         if ((fade_show) || (fade_hide)) {
+            this.save_notice_fade(/*fade_away=*/fade_hide,
+                                  /*force_fade=*/false);
+         }
+         else {
+            // We shouldn't have to set visible because the fade_show or
+            // fade_hide flags should get trigger save_notice_fade.
+            m4_DEBUG2('repop_: cntr_save_new_or_changes.hgt/1:',
+                      this.container_save_new_or_changes.height);
+            m4_DEBUG2('repop_: container_save_new_or_changes.visible:',
+                      now_container_visible);
+            this.container_save_new_or_changes.visible = now_container_visible;
+            this.container_save_new_or_changes.includeInLayout
+               = now_container_visible;
+            this.container_save_new_or_changes.percentHeight = 100;
+            m4_DEBUG2('repop_: cntr_save_new_or_changes.hgt/2:',
+                      this.container_save_new_or_changes.height);
+         }
+      }
+
+      //
+      protected function twiddle_cmd_mgr_buttons() :void
+      {
+         m4_DEBUG2('twiddle_cmd_mgr_buttons: route_panel.cmd_mgr',
+                   this.route.route_panel.cmd_mgr);
+         if (this.route.route_panel.cmd_mgr.undos_present) {
+            this.btn_undo.enabled = true;
+            // Calling Floating_Tool_Palette is a hack to make our button
+            // the same look'n'feel as the palette's save button. It might
+            // be better (would it?) to use a different color, but most
+            // route editors won't also be editing the map at the same time.
+            Floating_Tool_Palette.set_save_btn_enabled(
+               /*set_enabled=*/true, this.btn_save, this.btn_reset);
+         }
+         else {
+            this.btn_undo.enabled = false;
+            Floating_Tool_Palette.set_save_btn_enabled(
+               /*set_enabled=*/false, this.btn_save, this.btn_reset);
+         }
+         if (this.route.route_panel.cmd_mgr.redos_present) {
+            this.btn_redo.enabled = true;
+            this.btn_reset.enabled = true
+         }
+         else {
+            this.btn_redo.enabled = false;
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_route_save_add_note_click() :void
+      {
+         // BUG nnnn: Add notes to item_revisionless saves.
+         m4_ASSERT_SOFT(false); // Implement me.
+      }
+
+      //
+      protected function on_route_save_no_thanks_click() :void
+      {
+         this.current_state = 'unedited_route';
+         this.save_notice_fade(/*fade_away=*/true);
+      }
+
+      //
+      protected function on_saving_private_button_click() :void
+      {
+         m4_DEBUG('on_saving_private_button_click');
+         m4_ASSERT(this.route !== null);
+
+         var action_obj:Object;
+
+         var stack_ids:Stack_Id_Array = new Stack_Id_Array();
+         stack_ids.push(this.route.stack_id);
+
+         var callback_load:Function;
+         var callback_fail:Function;
+
+         var fbil_req:GWIS_Item_Findability_Put;
+
+         this.route_saved_alright = true;
+
+         // The get new route operation makes both a GIA record and an
+         // item_findability record. The former gives the user arbiter
+         // access to the item, and the latter says to always hide the
+         // route from the user's route library.
+         //
+         // If the user decides to "save" the route, we really just
+         // change the squelch to indicate the route should appear
+         // in the user's library, and then we remember, locally,
+         // that the route has been libraried.
+
+         // This is a little tedious: the item_findability_put command
+         // only accepts one action at a time. (It could take more, but...
+         // then we'd have change more difficult code than just doing this
+         // here, but it's 2013.09.11 and we need to go live with Cycloplan.)
+
+         action_obj = { action_history_add: true };
+
+         callback_load = this.route_saved_history_okay;
+         callback_fail = this.route_saved_history_fail;
+
+         if (G.user.logged_in) {
+            fbil_req = new GWIS_Item_Findability_Put(stack_ids,
+                                                     action_obj,
+                                                     callback_load,
+                                                     callback_fail);
+
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(fbil_req);
+            if (!found_duplicate) {
+               this.outstanding_requests += 1;
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+               // 2014.09.09: Yeargh.
+               G.sl.event(
+                  'error/rte_save_ftr/on_saving_private_button_click-1',
+                  {fbil_req: fbil_req.toString()});
+            }
+         }
+         else {
+// 2014.09.23: THIS IS FIRING. So, um, test getting routes anonymously,
+//                             both new and used, and see if you can get
+//                             the save button.
+// See lgchck email: [Ccp-errs] ccp.server.tld 2014-09-23 21:02 System Events
+            m4_ASSERT_SOFT(false);
+            //this.outstanding_requests += 1;
+            //callback_fail();
+            this.route_saved_alright = false;
+         }
+
+         // ***
+
+         action_obj =
+            { action_squelch_usr: Library_Squelch.squelch_show_in_library };
+
+         callback_load = this.route_saved_squelch_okay;
+         callback_fail = this.route_saved_squelch_fail;
+
+         fbil_req = new GWIS_Item_Findability_Put(stack_ids,
+                                                  action_obj,
+                                                  callback_load,
+                                                  callback_fail);
+
+         if (G.user.logged_in) {
+            found_duplicate = G.map.update_supplemental(fbil_req);
+            if (!found_duplicate) {
+               this.outstanding_requests += 1;
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+               // 2014.09.09: Yeargh.
+               G.sl.event(
+                  'error/rte_save_ftr/on_saving_private_button_click-2',
+                  {fbil_req: fbil_req.toString()});
+            }
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+            //this.outstanding_requests += 1;
+            //callback_fail();
+            this.route_saved_alright = false;
+         }
+
+         // And now we wait...
+         // well, not if there was an error.
+         if (!this.route_saved_alright) {
+            if (this.outstanding_requests == 0) {
+               this.route_saved_completed();
+            }
+            m4_ASSERT_ELSE_SOFT;
+         }
+      }
+
+      //
+      protected function route_saved_squelch_okay(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_DEBUG('rte_svd_squelch_ok: unlibraried=false: route:', this.route);
+
+         this.route.unlibraried = false;
+         m4_DEBUG('route_saved_squelch_okay: route.unlibraried = false');
+
+         m4_DEBUG(' .. : fresh', this.route.fresh, '/ ', this);
+
+         this.route.fbilty_usr_libr_squel
+            = Library_Squelch.squelch_show_in_library;
+
+         this.route_saved_complete_one_more();
+      }
+
+      //
+      protected function route_saved_squelch_fail(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_WARNING('route_saved_squelch_fail');
+
+         this.route_saved_alright = false;
+
+         this.route_saved_complete_one_more();
+      }
+
+      //
+      protected function route_saved_history_okay(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_DEBUG('route_saved_history_okay');
+
+         // Skipping: this.route.unlibraried = false;
+
+         this.route.fbilty_usr_histy_show = true;
+
+         this.route_saved_complete_one_more();
+      }
+
+      //
+      protected function route_saved_history_fail(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_WARNING('route_saved_history_fail');
+
+         this.route_saved_alright = false;
+
+         this.route_saved_complete_one_more();
+      }
+
+      //
+      protected function route_saved_complete_one_more() :void
+      {
+         this.outstanding_requests -= 1;
+
+         m4_DEBUG2('route_saved_complete_one_more: outstanding_requests:',
+                   this.outstanding_requests);
+
+         if (this.outstanding_requests == 0) {
+            this.route_saved_completed();
+         }
+      }
+
+      //
+      protected function route_saved_completed() :void
+      {
+         m4_DEBUG2('route_saved_completed: route_saved_alright:',
+                   this.route_saved_alright);
+
+         if (this.route_saved_alright) {
+            // Hide the save footer and show the Permissions tab.
+            this.current_state = 'unedited_route';
+            this.save_notice_fade(/*fade_away=*/true);
+         }
+         // To get tab_route_sharing to show, we want to change the route
+         // panel state to 'route_arbiter', which we can do simply by
+         // repopulating() it.
+         m4_DEBUG('route_saved_completed: panels_mark_dirty: rte pnl');
+         this.route.mark_route_panel_dirty();
+
+         // A little hack to tell the route_list to update, maybe.
+         G.app.routes_panel.routes_library.force_fetch_list_next_maybe();
+      }
+
+      // ***
+
+      //
+      protected function save_notice_fade(
+         fade_away:Boolean=false,
+         force_fade:Boolean=false) :void
+      {
+         m4_DEBUG2('save_notice_fade: fade_away:', fade_away,
+                   '/ vis?:', this.container_save_new_or_changes.visible);
+
+         if (fade_away) {
+            if ((this.container_save_new_or_changes.visible) || force_fade) {
+               m4_DEBUG('save_notice_fade: fading away');
+               var targets:Array = [this.container_save_new_or_changes,];
+               this.effect_fade.targets = targets;
+               this.effect_fade.duration = 400;
+               this.effect_fade.alphaFrom = 1.0;
+               this.effect_fade.alphaTo = 0.0;
+               this.effect_fade.end();
+               this.effect_fade.addEventListener(EffectEvent.EFFECT_END,
+                                                 this.on_effect_fade_rwd_end);
+               this.effect_fade.play();
+            }
+            else {
+               // Already faded away.
+               m4_DEBUG('save_notice_fade: already faded away');
+            }
+         }
+         else {
+            if ((!this.container_save_new_or_changes.visible) || force_fade) {
+               m4_DEBUG('save_notice_fade: activating cntnr to get height');
+               m4_DEBUG2('_ntce_fade: cntr_save_new_or_changes.hgt:',
+                         this.container_save_new_or_changes.height);
+               // At this point, the container height is just 1.
+               // So draw it stealthfully so we can know its true height.
+               this.container_save_new_or_changes.alpha = 0.0;
+               m4_DEBUG3('save_notice_fade: cntr_save_new_or_changes: show',
+                         '/ fade_in_on_height:', this.fade_in_on_height,
+                         '/ refade_height:', this.refade_height);
+               this.container_save_new_or_changes.visible = true;
+               this.container_save_new_or_changes.includeInLayout = false;
+               this.container_save_new_or_changes.percentHeight = 100;
+
+               if (this.refade_height == 0) {
+                  // First time here, ever.
+                  this.fade_in_on_height = true;
+               }
+               else {
+                  // Second and subsequent times we want to show the widget.
+                  this.effect_resize_play();
+               }
+            }
+            else {
+               // Already faded in.
+               m4_DEBUG('save_notice_fade: already faded in');
+            }
+         }
+      }
+
+      //
+      protected function on_effect_fade_rwd_end(ev:EffectEvent) :void
+      {
+         m4_DEBUG('on_effect_fade_rwd_end: ev:', ev, '/ tgt:', ev.target);
+
+         this.effect_fade.end();
+
+         this.effect_fade.removeEventListener(EffectEvent.EFFECT_END,
+                                              this.on_effect_fade_rwd_end);
+
+         this.effect_resize.target = this.container_save_new_or_changes;
+         this.effect_resize.duration = 400;
+         // Fade out. After adjusting alpha, adjust the height.
+         this.effect_resize.heightTo = 0;
+         m4_DEBUG2('on_effect_fade_rwd_end: cntr_save_new_or_changes.hgt:',
+                   this.container_save_new_or_changes.height);
+         this.effect_resize.heightFrom
+            = this.container_save_new_or_changes.height;
+         this.effect_resize.end();
+         this.effect_resize.addEventListener(EffectEvent.EFFECT_END, 
+                                             this.on_effect_resize_rwd_end);
+         this.effect_resize.play();
+      }
+
+      //
+      protected function on_effect_resize_rwd_end(ev:EffectEvent) :void
+      {
+         m4_DEBUG('on_effect_resize_rwd_end: ev:', ev, '/ tgt:', ev.target);
+
+         this.effect_resize.end();
+
+         this.effect_resize.removeEventListener(EffectEvent.EFFECT_END,
+                                                this.on_effect_resize_rwd_end);
+
+         // Restore the alpha since the window is hidden and we don't fade
+         // it in; we just show it when the user clicks the show link.
+         this.container_save_new_or_changes.alpha = 1.0;
+         m4_DEBUG('on_effct_rsz_rwd_end: cntr_save_new_or_changes: hide');
+         this.container_save_new_or_changes.visible = false;
+         this.container_save_new_or_changes.includeInLayout = false;
+         // Restore the height of the box.
+         m4_DEBUG2('on_effect_resize_rwd_end: cntr_save_new_or_changes.hgt/1:',
+                   this.container_save_new_or_changes.height);
+         this.container_save_new_or_changes.percentHeight = 100;
+         m4_DEBUG2('on_effect_resize_rwd_end: heightFrom:',
+                   this.effect_resize.heightFrom);
+         m4_DEBUG2('on_effect_resize_rwd_end: cntr_save_new_or_changes.hgt/2:',
+                   this.container_save_new_or_changes.height);
+      }
+
+      //
+      protected function on_effect_resize_fwd_end(ev:EffectEvent) :void
+      {
+         m4_DEBUG('on_effect_resize_fwd_end: ev:', ev, '/ tgt:', ev.target);
+         m4_DEBUG2('on_effect_resize_fwd_end: cntr_save_new_or_changes.hgt/1:',
+                   this.container_save_new_or_changes.height);
+
+         this.effect_resize.end();
+
+         this.effect_resize.removeEventListener(EffectEvent.EFFECT_END,
+                                                this.on_effect_resize_fwd_end);
+
+         this.container_save_new_or_changes.visible = true;
+         this.container_save_new_or_changes.includeInLayout = true;
+      }
+
+      //
+      protected function on_effect_fade_fwd_end(ev:EffectEvent) :void
+      {
+         m4_DEBUG('on_effect_fade_fwd_end: ev:', ev, '/ tgt:', ev.target);
+
+         // No-op. Footer is now showing.
+      }
+
+      //
+      protected function on_route_clicks_drag_rstop_click() :void
+      {
+         m4_DEBUG('on_route_clicks_drag_rstop_click');
+         // No-op.
+      }
+
+      //
+      protected function on_route_clicks_ignore_click() :void
+      {
+         m4_DEBUG('on_route_clicks_ignore_click');
+         this.route_clicks_drag_rstop.enabled =
+            (!this.route_clicks_ignore.selected);
+
+         if (this.route_clicks_ignore.selected) {
+            this.route.disable_rstop_editing();
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_click_button_changes_undo() :void
+      {
+         m4_DEBUG('on_click_button_changes_undo: route:', this.route);
+         m4_DEBUG2('on_click_button_changes_undo: panel:',
+                   this.route.route_panel);
+
+         this.route.route_panel.cmd_mgr.undo();
+
+         // Note that this.dp === this.route.route_panel.
+         this.route.disable_rstop_editing();
+         this.route.route_panel.tab_route_details.on_add_dest_link_click(
+                                                   /*disable_only=*/true);
+
+         // Force repopulate to check the buttons.
+         this.current_state += '__old__';
+         this.repopulate();
+      }
+
+      //
+      protected function on_click_button_changes_redo() :void
+      {
+         m4_DEBUG('on_click_button_changes_redo: route:', this.route);
+         m4_DEBUG2('on_click_button_changes_redo: panel:',
+                   this.route.route_panel);
+
+         this.route.route_panel.cmd_mgr.redo();
+
+         // Force repopulate to check the buttons.
+         this.current_state += '__old__';
+         this.repopulate();
+      }
+
+      //
+      protected function on_click_button_changes_save() :void
+      {
+         m4_DEBUG3('on_click_button_changes_save: dirty:',
+                   this.route.get_dirty_reason().toString(16),
+                   '/', this.route);
+
+         // The floating tool palette save calls G.map.items_save_start()
+         // to save map items. We do something similar here, but just for
+         // the active route.
+
+         // First, update the outstanding_requests count so that, if we
+         // send GWIS_Item_Findability_Put requests, we won't consider
+         // the whole save complete until the commit completes, too.
+         this.outstanding_requests += 1;
+
+         // If this is a new route, create item_findability records for it.
+         if (this.route.unlibraried) {
+            this.on_saving_private_button_click();
+         }
+
+         // Not true:
+         //    m4_ASSERT_SOFT(G.item_mgr.dirtyset.is_member(this.route));
+         // The route is not part of a dirtyset. Only the route panel cares:
+         // when a route panel is closed, it checks to see whether its route
+         // is dirty or not, and alerts the user if the route is edited with
+         // unsaved changes.
+         m4_ASSERT_SOFT(this.route.dirty);
+         m4_ASSERT_SOFT(this.route.get_dirty_reason()
+                        == Dirty_Reason.item_revisionless);
+         m4_ASSERT_SOFT(this.route.dirty_get(Dirty_Reason.item_revisionless));
+         //this.route.dirty_set(Dirty_Reason.item_revisionless, true);
+
+         var gwis_commit:GWIS_Commit = new GWIS_Commit(
+            new Set_UUID([this.route,]),
+            /*changenote=*/'',
+            /*silent=*/true,
+            /*callback_load=*/this.on_save_route_okay,
+            /*callback_fail=*/this.on_save_route_fail,
+            /*callback_payload=*/null,
+            /*anon_coward=*/false,
+            // So that we don't save map items:
+            /*restrict_dirty=*/Dirty_Reason.item_revisionless,
+            /*alert_on_activity=*/false,
+            this.route.route_panel.cmd_mgr);
+
+         if ((!G.user.logged_in)
+             //&& (this.route.unlibraried)
+             && (this.route.can_arbit)) {
+            m4_DEBUG('on_click_button_changes_save: gia_use_sessid');
+            gwis_commit.query_filters.gia_use_sessid = true;
+         }
+
+         /*
+         var popup_window:Please_Wait_Popup = new Please_Wait_Popup();
+         UI.popup(popup_window);
+         popup_window.init('Saving route', 'Please wait.', gwis_share,
+                           false);
+         this.sharing_popup = popup_window;
+         */
+
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_commit);
+         if (found_duplicate) {
+            m4_ASSERT_SOFT(false);
+            // 2014.09.09: Yeargh.
+            G.sl.event('error/rte_save_ftr/on_click_button_changes_save',
+                       {gwis_commit: gwis_commit.toString()});
+         }
+      }
+
+      //
+      protected function on_save_route_fail(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         m4_WARNING('on_save_route_fail');
+
+         // EXPLAIN: We'll have displayed a GWIS_Error message, so we don't
+         //          need to do anything, right?
+
+         //?: this.current_state += '__old__';
+
+         this.route_saved_alright = false;
+
+         this.route_saved_complete_one_more();
+
+         this.repopulate();
+      }
+
+      //
+      protected function on_save_route_okay(
+         gwis_req:GWIS_Commit, rset:XML, payload:*=null) :void
+      {
+         m4_DEBUG('on_save_route_okay: route:', this.route);
+         m4_DEBUG('on_save_route_okay: cli_id_map:', gwis_req.client_id_map);
+ 
+         // GWIS_Commit calls update_items_committed, which updates the route's
+         // stack_id and version... well, just the version; the route was saved
+         // and assigned a stack_id when it was requested, so to flashclient
+         // it's never been 'fresh' (just 'unlibraried', perhaps).
+
+         if (this.route.route_panel.cmd_mgr.unsaved_change_ct > 0) {
+            // This (could?) happens if user edited after clicking Save button.
+            m4_WARNING('on_save_route_okay: undoing edits during save');
+         }
+
+         this.reset_cmd_mgr();
+
+         // We're called after update_item_committed, so add a new entry
+         // for the new version.
+         this.route.history_add_saved();
+
+         this.route_saved_complete_one_more();
+      }
+
+      // ***
+
+      //
+      protected function on_click_button_changes_reset() :void
+      {
+         m4_DEBUG('on_click_button_changes_reset: route:', this.route);
+         m4_DEBUG2('on_click_button_changes_reset: panel:',
+                   this.route.route_panel);
+
+         this.route.route_panel.cmd_mgr.undo_all();
+
+         // Clear the redo stack so we fade out the save controls.
+         this.reset_cmd_mgr();
+
+         m4_TALKY('on_click_button_changes_reset: itemReversionReset');
+         this.route.dispatchEvent(new Event('itemReversionReset'));
+      }
+
+      // ***
+
+      //
+      public function reset_cmd_mgr() :void
+      {
+         this.unwire_cmd_mgr();
+
+         this.route.route_panel.cmd_mgr = new Command_Manager();
+
+         m4_DEBUG('reset_cmd_mgr: rewire_cmd_mgr');
+         this.rewire_cmd_mgr();
+
+         this.route.disable_rstop_editing();
+         // The parentDocument is Widget_Route_Footer. The dp is the
+         // details panel.
+         this.dp.tab_route_details.on_add_dest_link_click(
+                                    /*disable_only=*/true);
+
+         // Force undo/redo button updates.
+         //?: this.current_state += '__old__';
+         this.repopulate();
+      }
+
+      //
+      public function rewire_cmd_mgr() :void
+      {
+         if (this.route !== null) {
+            if (this.route.route_panel !== null) {
+               if (this.route.route_panel.cmd_mgr !== null) {
+                  m4_DEBUG('rewire_cmd_mgr: addEvtList: commandStackChanged');
+                  this.route.route_panel.cmd_mgr.addEventListener(
+                     'commandStackChanged', this.on_command_stack_changed);
+               }
+               else {
+                  m4_WARNING('rewire_cmd_mgr: cmd_mgr does not exist');
+               }
+            }
+            else {
+               m4_WARNING('rewire_cmd_mgr: route_panel does not exist');
+            }
+         }
+         else {
+            // 2014.05.07: Saw it. Might've fixed it. Distracted by code/food:
+            m4_WARNING('rewire_cmd_mgr: the route does not exist');
+         }
+      }
+
+      //
+      public function unwire_cmd_mgr() :void
+      {
+         if (this.route !== null) {
+            if (this.route.route_panel !== null) {
+               if (this.route.route_panel.cmd_mgr !== null) {
+                  m4_DEBUG('unwire_cmd_mgr: remEvtList: commandStackChanged');
+                  this.route.route_panel.cmd_mgr.removeEventListener(
+                     'commandStackChanged', this.on_command_stack_changed);
+               }
+               else {
+                  m4_WARNING('rewire_cmd_mgr: cmd_mgr does not exist');
+               }
+            }
+            else {
+               m4_WARNING('rewire_cmd_mgr: route_panel does not exist');
+            }
+         }
+         //else {
+         //   m4_WARNING('rewire_cmd_mgr: the route does not exist');
+         //}
+      }
+
+      //
+      protected function on_command_stack_changed(ev:Event) :void
+      {
+         m4_DEBUG2('on_cmd_stk_chngd: commandStackChanged: ev.target:',
+                   ev.target);
+
+         var old_mgr:Command_Manager = (ev.target as Command_Manager);
+         m4_DEBUG('on_cmd_stk_chngd: old_mgr:', old_mgr);
+
+         if (this.route.route_panel !== null) {
+            var new_mgr:Command_Manager = this.route.route_panel.cmd_mgr;
+            if (old_mgr !== new_mgr) {
+               m4_DEBUG('on_command_stack_changed: new_mgr:', new_mgr);
+               if (old_mgr !== null) {
+                  m4_DEBUG('on_cmd_stk_chngd: remEvtLst: commandStackChanged');
+                  old_mgr.removeEventListener(
+                     'commandStackChanged', this.on_command_stack_changed);
+               }
+               if (new_mgr !== null) {
+                  m4_DEBUG('on_cmd_stk_chngd: addEvtLst: commandStackChanged');
+                  new_mgr.addEventListener(
+                     'commandStackChanged', this.on_command_stack_changed);
+               }
+            }
+            // Change the state name to force an update. Don't change to ''
+            // so we don't toggle the fader.
+            this.current_state += '__old__';
+            this.repopulate();
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:HBox
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         verticalAlign="middle"
+         >
+         <mx:Label
+            id="widget_header_label"
+            styleName="labelmajor"
+            text="Editing"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            />
+      </mx:HBox>
+
+      <mx:VBox
+         id="container_save_new_or_changes"
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="2"
+         horizontalGap="0"
+         verticalScrollPolicy="off"
+         visible="false"
+         includeInLayout="{this.container_save_new_or_changes.visible}"
+         >
+
+         <mx:VBox
+            width="100%"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="0"
+            paddingBottom="0"
+            horizontalGap="0"
+            verticalScrollPolicy="off"
+            >
+
+            <mx:HBox
+               id="container_save_changes"
+               width="100%"
+               horizontalAlign="left"
+               verticalAlign="middle"
+               paddingTop="0"
+               paddingLeft="7"
+               paddingRight="7"
+               paddingBottom="0"
+               horizontalGap="14"
+               verticalGap="0"
+               visible="false"
+               includeInLayout="{this.container_save_changes.visible}"
+               >
+               <mx:VBox
+                  horizontalAlign="right"
+                  verticalAlign="middle"
+                  paddingTop="3"
+                  paddingLeft="0"
+                  paddingRight="0"
+                  paddingBottom="2"
+                  horizontalGap="0"
+                  verticalGap="-6"
+                  >
+                  <mx:Label
+                     htmlText="You've edited"
+                     fontStyle="italic"/>
+                  <mx:Label
+                     htmlText="this route:"
+                     fontStyle="italic"/>
+               </mx:VBox>
+               <mx:Button
+                  id="btn_reset"
+                  enabled="false"
+                  label="Reset"
+                  toolTip=
+                     "Discard changes to this route."
+                  styleName="smallEditCtls"
+                  click="this.on_click_button_changes_reset();"
+                  />
+               <mx:Button
+                  id="btn_undo"
+                  enabled="false"
+                  label="Undo"
+                  toolTip="Undo the last change to this route."
+                  styleName="smallEditCtls"
+                  click="this.on_click_button_changes_undo();"/>
+               <mx:Button
+                  id="btn_redo"
+                  enabled="false"
+                  label="Redo"
+                  toolTip="Redo the last change you undid."
+                  styleName="smallEditCtls"
+                  click="this.on_click_button_changes_redo();"/>
+               <mx:Button
+                  id="btn_save"
+                  enabled="false"
+                  label="Save"
+                  toolTip="Save changes to this route."
+                  styleName="smallEditCtls"
+                  click="this.on_click_button_changes_save();"
+                  />
+
+            </mx:HBox> <!-- end: container_save_changes -->
+
+            <!-- BUG nnnn/FIXME: Implement this. Let users add changenote
+                                 to route saves (item_revisionless). -->
+            <!--
+            <views_panel_util:Hyper_Link
+               id="route_save_add_note"
+               htmlText="Add Changenote."
+               enabled="true"
+               click="this.on_route_save_add_note_click();"
+               toolTip=
+   "Save your route along with a note about any edits you've made."
+               />
+            -->
+
+         </mx:VBox>
+
+         <mx:VBox
+            id="rt_editing_wrapper"
+            width="100%"
+            horizontalAlign="left"
+            verticalAlign="center"
+            paddingTop="2"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingBottom="-1"
+            horizontalGap="2"
+            verticalGap="8"
+            visible="false"
+            includeInLayout="{this.rt_editing_wrapper.visible}"
+            >
+
+            <!-- *** For Unsaved Routes: -->
+
+            <mx:HBox
+               id="container_save_unsaved"
+               width="100%"
+               horizontalAlign="center"
+               verticalAlign="middle"
+               paddingTop="0"
+               paddingLeft="0"
+               paddingRight="0"
+               paddingBottom="2"
+               horizontalGap="7"
+               visible="true"
+               includeInLayout="{this.container_save_unsaved.visible}"
+               >
+
+               <mx:Spacer width="100%"/>
+
+               <mx:VBox
+                  id="save_label_anon"
+                  visible="true"
+                  includeInLayout="{this.save_label_anon.visible}"
+                  height="100%"
+                  verticalAlign="middle"
+                  horizontalAlign="center"
+                  horizontalGap="0"
+                  verticalGap="-5"
+                  >
+                  <mx:Label
+                     htmlText="Log in to add this"
+                     fontStyle="italic"
+                     />
+                  <mx:Label
+                     htmlText="route to your library."
+                     fontStyle="italic"
+                     />
+               </mx:VBox>
+               <mx:VBox
+                  id="save_label_user"
+                  visible="false"
+                  includeInLayout="{this.save_label_user.visible}"
+                  height="100%"
+                  verticalAlign="middle"
+                  horizontalAlign="center"
+                  horizontalGap="0"
+                  verticalGap="-5"
+                  >
+                  <mx:Label
+                     htmlText="Would you like to"
+                     fontStyle="italic"
+                     />
+                  <mx:Label
+                     htmlText="save your route?"
+                     fontStyle="italic"
+                     />
+               </mx:VBox>
+
+               <mx:Spacer width="100%"/>
+
+               <views_panel_util:Hyper_Link
+                  id="route_save_no_thanks"
+                  htmlText="No, thanks."
+                  enabled="true"
+                  click="this.on_route_save_no_thanks_click();"
+                  toolTip=
+   "Remove this reminder. The route will expire after
+   you log off or close your browser."
+                  />
+
+               <mx:Spacer width="100%"/>
+
+               <mx:Button
+                  id="saving_private_button"
+                  label="Add"
+                  click="this.on_saving_private_button_click();"
+                  toolTip=
+   "Click to add the route to your private route
+   library. After saving, if you want, you can choose
+   to share your route with other users."
+                  fillColors="{[Conf.save_button_fill_light,
+                                Conf.save_button_fill_dark,]}"
+                  enabled="false"
+                  />
+
+               <mx:Spacer width="100%"/>
+
+            </mx:HBox> <!-- end: container_save_unsaved -->
+
+         </mx:VBox> <!-- end: rt_editing_wrapper -->
+
+      </mx:VBox> <!-- end: container_save_new_or_changes -->
+
+      <mx:HBox
+         id="container_editing_options"
+         width="100%"
+         horizontalAlign="left"
+         verticalAlign="middle"
+         paddingTop="0"
+         paddingLeft="7"
+         paddingRight="7"
+         paddingBottom="0"
+         horizontalGap="14"
+         verticalGap="0"
+         visible="true"
+         includeInLayout="{this.container_editing_options.visible}"
+         >
+
+         <mx:HBox
+            id="rt_editing_cboxes"
+            width="100%"
+            horizontalAlign="left"
+            verticalAlign="center"
+            paddingTop="0"
+            paddingLeft="7"
+            paddingRight="7"
+            paddingBottom="0"
+            horizontalGap="16"
+            verticalGap="0"
+            visible="true"
+            includeInLayout="{this.rt_editing_cboxes.visible}"
+            >
+
+            <mx:CheckBox
+               id="route_clicks_drag_rstop"
+               label="Drag Route Line to Add Stops"
+               toolTip=
+"With this option enabled, clicking on the route
+creates a new destination. You can also click
+and drag the route to a new destination. When this
+option is not enabled, you can click the route
+and hold the mouse for a second, and then you can
+drag it to a new destination."
+               selected="true"
+               visible="false"
+               includeInLayout="{this.route_clicks_drag_rstop.visible}"
+               click="this.on_route_clicks_drag_rstop_click();"/>
+
+            <mx:CheckBox
+               id="route_clicks_ignore"
+               label="Ignore Clicks"
+               toolTip=
+"With this option enabled, Cyclopath will not
+ask you if you want to select the route or the
+road beneath it: Cyclopath will select the road."
+               selected="false"
+               visible="true"
+               includeInLayout="{this.route_clicks_ignore.visible}"
+               click="this.on_route_clicks_ignore_click();"/>
+
+         </mx:HBox>
+
+      </mx:HBox> <!-- end: container_editing_options -->
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="4"
+   paddingRight="4"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   dataChange="this.on_data_change(event);"
+
+   alpha="0.9"
+   >
+   <!--
+   CAVEAT: [lb] doesn't totally undertand alpha. By setting slightly less than
+           1, when a row is selected and we've got a custom background, you can
+           actually see the selection highlight. Otherwise, it's hard to see.
+           Also, backgroundAlpha... what's that suppose to do? Anyway, drawing
+           our own background in the class means when we're selected in the
+           DataGrid we have to do something to let the DataGrid's selected-color
+           shine through.
+           MAYBE: This isn't 100% working. Using alpha is a hack. Ideally, we'd
+                  react when selected or deselected and correct our background
+                  color as appropriate.
+           -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('+Rev_Grd_Ren');
+
+      // NOTE: this.data is set in Panel_Recent_Changes to our parent
+      //       container's this.revs.
+
+      // ***
+
+      public var my_dp:Detail_Panel_Base;
+
+      // *** Instance methods
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         var hb:Panel_Recent_Changes;
+
+         // MAYBE: There was an old comment here (2011 or 2012) saying this fcn
+         //        is being called repeatedly. Is this still happening and, if
+         //        so, is it an issue?
+
+         m4_VERBOSE('on_data_change: type:', ev.type);
+         m4_VERBOSE('on_data_change: target:', ev.target);
+
+         m4_ASSERT(G.app !== null);
+         if ((this.data === null) || (G.app === null)) {
+            // I [lb] think I fixed bootstrapping so this shouldn't happen.
+            m4_WARNING('on_data_change: Unexpected code path.');
+            return;
+         }
+
+         // [rp]: This crap works around (a) voluminous lame-ass Flex runtime
+         // warnings which prevent binding directly to XML attributes and (b)
+         // stupid Flex bugs which prevent binding using getters and setters.
+         // [lb]: You tell 'em, [rp]!
+
+         var username:String = this.data.@username;
+         if (username == 'localhost.localdomain') {
+            username = 'localhost';
+         }
+         // this.whowhen.text =
+         //    this.data.@revision_id
+         //    + ' ' + username
+         //    + ' ' + this.data.@timestamp;
+         //this.whowhen.text =
+         //   'Rev ' + this.data.@revision_id
+         //   + ' by ' + username
+         //   + ' | ' + this.data.@timestamp;
+         //this.whowhen.toolTip = this.whowhen.text;
+         //
+         this.label_whom.text =
+            'Rev ' + this.data.@revision_id
+            + ' by ' + username;
+         this.label_whom.toolTip = this.label_whom.text;
+         //
+         this.label_when.text = this.data.@timestamp;
+         this.label_when.toolTip = this.label_when.text;
+
+         this.reverted.visible = Boolean(int(this.data.@is_revert));
+         this.feedback.visible = Boolean(int(this.data.@feedback_exists));
+
+         this.comment.text = ((this.data.@comment.length() == 0)
+                              ? '-' : this.data.@comment);
+         this.comment.toolTip = this.comment.text;
+
+         if (G.tabs.changes_panel !== null) {
+
+            hb = G.tabs.changes_panel;
+
+            var idx:int;
+            idx = hb.revgrid.itemRendererToIndex(this);
+
+            if ((idx >= 0) && (idx in hb.is_extra)) {
+               this.setStyle("fontStyle", "italic");
+               // this.setStyle("color", 0x999999);
+            }
+            else {
+               this.clearStyle("fontStyle");
+               // this.clearStyle("color");
+            }
+
+            // Get an index of 0 or 1 to pick the color.
+            var alt_idx:int = (idx % 2);
+
+            // NOTE: Ignore group_revision.py's abbrevs, since it uses
+            //       db_glue.table_to_dom.
+            //       Not set: this.data.@gpid / this.data.@gids
+            var group_ids:Array = new Array();
+            if (this.data.@group_ids != '') {
+               var gid_strs:Array = new Array();
+               gid_strs = this.data.@group_ids.split(',');
+               for each (var gid_str:String in gid_strs) {
+                  group_ids.push(int(gid_str));
+               }
+               m4_VERBOSE('group_ids:', group_ids);
+            }
+
+            // GWIS_Revision_History_Get only returns revisions that the user
+            // is allowed to view, but that doesn't mean the revision is
+            // editable (revertable).
+            var bg_color:uint;
+            if (this.data.@is_revertable) {
+               this.locked_symbol.visible = false;
+               this.locked_symbol.includeInLayout = false;
+               if (Collection.array_in(G.user.private_group_id, group_ids)) {
+                  // this.setStyle("backgroundColor", Conf.private_color);
+                  // private_colors:Array = [0xeed5d2, 0xffe4e1,];
+                  bg_color = Conf.private_colors[alt_idx];
+               }
+               // MAYBE: session_group_id, stealth_group_id.
+               else if (!Collection.array_in(G.grac.public_group_id,
+                                             group_ids)) {
+                  //this.setStyle("backgroundColor", Conf.shared_color);
+                  // shared_colors:Array = [0xe1ffe4, 0xd1ffd4,];
+// too green?:
+                  bg_color = Conf.shared_colors[alt_idx];
+               }
+               else {
+                  // Public revision.
+                  //this.clearStyle("backgroundColor");
+                  // Where: grid_alt_colours:Array = [ 0xffffff, 0xeeeeee ];
+                  bg_color = Conf.grid_alt_colours[alt_idx];
+               }
+            }
+            else {
+               // Someone else's shared revision.
+               this.locked_symbol.visible = true;
+               this.locked_symbol.includeInLayout = true;
+               //this.clearStyle("backgroundColor");
+               // Where: grid_alt_colours:Array = [ 0xffffff, 0xeeeeee ];
+               bg_color = Conf.grid_alt_colours[alt_idx];
+            }
+
+            this.data.@bg_color = bg_color;
+            this.setStyle("backgroundColor", bg_color);
+
+         } // end: if (G.tabs.changes_panel !== null)
+      }
+
+      //
+      protected function on_feedback_click() :void
+      {
+         // G.tabs.discussions.thread_open(...);
+         G.tabs.discussions.discussions_panel_update(/*thread=*/null,
+                                             /*activate_panel=*/true);
+         m4_DEBUG('on_feedback_click: activating activity_panel');
+         G.panel_mgr.panel_activate(G.app.activity_panel);
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      horizontalAlign="middle"
+      horizontalGap="0"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0">
+      <mx:Label
+         id="label_whom"
+         text=""
+         truncateToFit="true"
+         maxWidth="{this.width - 4 - 4
+                    - this.label_when.width
+                    - this.reverted.width
+                    - this.label_slash.width
+                    - this.feedback.width
+                    }"
+         />
+      <mx:Spacer
+         width="100%"
+         />
+      <mx:Label
+         id="label_when"
+         text=""
+         paddingLeft="2"
+         paddingRight="3"
+         />
+      <mx:Label
+         id="reverted"
+         text="r"
+         visible="false"
+         fontWeight="bold"
+         paddingRight="-11"
+         toolTip="Revision has been reverted."
+         />
+      <mx:Label
+         id="label_slash"
+         text="/"
+         paddingLeft="0"
+         paddingRight="-11"
+         visible="{(this.reverted.visible) &amp;&amp; (this.feedback.visible)}"
+         />
+      <!--
+      <views_panel_util:Button_Small
+         id="feedback"
+         label="fb"
+         height="16"
+         width="20"
+         height="16"
+      -->
+      <views_panel_util:Hyper_Link
+         id="feedback"
+         text="fb"
+         visible="false"
+         click="this.on_feedback_click();"
+         toolTip="Someone left feedback. Click to see it."
+         />
+   </mx:HBox>
+
+   <mx:HBox
+      width="100%"
+      horizontalAlign="middle"
+      horizontalGap="0"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="0"
+      paddingRight="0">
+      <mx:HBox
+         paddingTop="-2"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0">
+         <mx:Image
+            id="locked_symbol"
+            source="{UI.locked_icon}"
+            visible="false"
+            includeInLayout="false"
+            toolTip=
+   "This revision was shared by another user, and cannot be reverted by you."/>
+      </mx:HBox>
+      <mx:Label
+         id="comment"
+         text=""
+         width="100%"
+         minWidth="0"
+         paddingTop="-4"
+         paddingBottom="0"
+         styleName="small"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

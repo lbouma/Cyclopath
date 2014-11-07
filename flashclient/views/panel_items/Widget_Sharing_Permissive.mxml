@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+
+This file is not implemented/used.
+
+It's old code from the unfinished 'Permissive' access widget.
+See the currently implemented widget, Widget_Gia_Sharing.mxml.
+This module, Widget_Sharing_Permissive, wraps the
+Widget_Gia_Access_List class, which shows the list of GIA
+records. This class lets the user add new GIA records by
+entering a group name and an access level.
+
+Obviously, take this class with a grain of salt. Maybe one
+day we'll let people manage branch permissions from flashclient
+and we'll finish implementing this or a similar class.
+
+-->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   label="Sharing"
+   >
+   <!-- label="User Access"  -->
+
+   <!--               label="Access" -->
+   <!--               label="Groups" -->
+   <!--               label="Permission" -->
+   <!--               label="Permissions" -->
+   <!--               label="Privacy" -->
+   <!--               label="Visibility" -->
+   <!--               label="Changes" -->
+   <!-- Why [lb] likes the term, "Privacy":
+        'Access' aliterates with 'Advanced';
+        Is shorter than 'Permission(s)' and Visibility';
+        I like the vee;
+        'Visibility' could be confused with Visual-ness,
+          i.e., what one can see on the map;
+        'Permissions' too long, too formal (?) of a name;
+        'Privacy' a little less specific, so we could include
+          the 'watch features' features on this page (if we
+          wanted to move that checkbox from the advanced page...
+          but maybe non-owners shouldn't see the Privacy tab??)
+        -->
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import grax.Dirty_Reason;
+      import utils.misc.AutoComplete;
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Itm_Acc');
+
+      protected static const auto_complete_width:int = 110;
+
+      // *** Instance methods
+
+      public var new_group:AutoComplete;
+
+      // *** Startup and Show methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+         this.register_widgets([
+            this.tab_user_access_edit,
+            ]);
+      }
+
+      //
+      protected function on_grpa_change(ev:Grpa_Change_Event) :void
+      {
+         m4_DEBUG('on_grpa_change: ev:', ev, '/', ev.stack_id);
+         // Search Set for stack_id? I'm assuming this record is for something
+         // the user just selected, so probably not a big deal (scope the wire
+         // with WireShark and get back to me on this).
+         // if (this.items_selected.is_member(ev.stack_id)) {
+            this.repopulate();
+         //}
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_DEBUG2('on_initialize: addEventListener:',
+                   Grpa_Change_Event.EVENT_TYPE);
+         G.item_mgr.addEventListener(Grpa_Change_Event.EVENT_TYPE,
+                                     this.on_grpa_change);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         this.add_group_editbox_prepare();
+
+         //this.tab_user_access_edit.repopulate();
+         /*/
+         var schedule_activate:Boolean = true;
+         m4_DEBUG('repopulate: panels_mark_dirty: tab_user_access_edit');
+         G.panel_mgr.panels_mark_dirty([this.tab_user_access_edit],
+                                       Dirty_Reason.item_data,
+                                       schedule_activate);
+         this.tab_user_access_edit.on_panel_show();
+         /*/
+         this.tab_user_access_edit.dirty_set(Dirty_Reason.item_data);
+         this.tab_user_access_edit.on_panel_show();
+      }
+
+      //
+      public function add_group_editbox_prepare() :void
+      {
+         this.auto_complete_space.removeAllChildren();
+         this.new_group = new AutoComplete();
+      // FIXME Implement
+      //this.new_group.itemName = "tag";
+      //this.new_group.labelField = "text";
+         this.new_group.lookAhead = false;
+         this.new_group.width = Widget_Sharing_Permissive.auto_complete_width;
+      //this.new_group.dataProvider = Tag.all_applied(this.feat_class);
+      //this.new_group.addEventListener("itemSelected", on_tag_select);
+         this.new_group.text = "";
+         this.new_group.setStyle("openDuration", 0);
+         this.auto_complete_space.addChild(this.new_group);
+      }
+
+      //
+      protected function on_add_group_access() :void
+      {
+         m4_WARNING('FIXME: on_add_group_access: Not implemented.');
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      verticalGap="3"
+      verticalAlign="top"
+      paddingTop="0"
+      paddingBottom="1"
+      >
+
+      <!-- -->
+      <mx:VBox
+         id="tab_access_group_access"
+         width="100%"
+         visible="false"
+         includeInLayout="{this.tab_access_group_access.visible}"
+         borderStyle="solid"
+         paddingLeft="2"
+         paddingTop="2"
+         paddingRight="2"
+         paddingBottom="2">
+         <mx:VBox
+            width="100%"
+            height="100%"
+            borderStyle="solid"
+            backgroundColor="{Conf.branch_conflict_color}"
+            paddingLeft="4"
+            paddingRight="4"
+            paddingTop="5"
+            paddingBottom="4">
+            <mx:VBox
+               width="100%"
+               paddingRight="3"
+               verticalGap="0">
+               <!--
+               <mx:Label
+                  text="Configure Access:"
+                  fontWeight="bold" />
+               -->
+               <mx:Label
+                  text="Group Access Levels"
+                  fontWeight="bold"
+                  paddingBottom="-2"
+                  />
+               <!-- BUG nnnn: How to explain group access to users. -->
+               <mx:Text
+                  width="100%"
+                  condenseWhite="true"
+                  mouseEnabled="false"
+                  mouseChildren="false">
+                  <mx:htmlText><![CDATA[
+                     Use the list below to manage item access.
+                  ]]></mx:htmlText>
+               </mx:Text>
+            </mx:VBox>
+            <mx:HBox
+               width="100%"
+               height="100%">
+               <!-- The Access widget -->
+               <views_panel_items:Widget_Gia_Access_List
+                  id="tab_user_access_edit"/>
+            </mx:HBox>
+            <!-- BUG 2077: hidden from view until implemented -->
+            <mx:VBox
+               id="add_grpa_cntr"
+               visible="false"
+               includeInLayout="{this.add_grpa_cntr.visible}"
+               width="100%">
+               <mx:HBox
+                  width="100%"
+                  verticalAlign="middle"
+                  paddingRight="3"
+                  horizontalAlign="right"
+                  horizontalGap="2">
+                  <mx:Label
+                     text="Add User or Group:"/>
+                  <mx:VBox
+                     id="auto_complete_space"
+                     width=
+                        "{Widget_Sharing_Permissive.auto_complete_width + 4}"
+                     paddingRight="2"/>
+                  <views_panel_util:Button_Small
+                     id="button_access_group_add"
+                     label="Add"
+                     toolTip="Add User or Group to the Access Control list"
+                     click="this.on_add_group_access();" />
+               </mx:HBox>
+            </mx:VBox>
+            <!-- "Manage Groups and Policy" button -->
+            <!-- BUG 2077: "Manage Groups" button to access group membership
+            <              panel. Also, I'm not sure we need Save/Cancel
+            <              buttons: I [lb] think I was thinking user would have
+            <              to save GrAC changes independently of editing items,
+            <              but now I'm not so sure; I can a normal commit is
+            <              okay. -->
+            <!-- BUG 2077: if (Conf.debug_trial_bug_2077_group_panels):
+            <
+            <mx:HBox
+               id="tab_access_buttons"
+               width="100%">
+               <mx:HBox>
+                  <mx:Button
+                     id="tab_access_groups_manage"
+                     label="Manage Groups"
+                     toolTip="Create and Edit Groups"
+                     click="this.dp.on_delete_click.FIXME();"/>
+               </mx:HBox>
+               <mx:HBox
+                  width="100%"
+                  horizontalAlign="right">
+                  <mx:Button
+                     id="tab_access_changes_cancel"
+                     label="Cancel"
+                     toolTip="Cancel changes made to group access"
+                     click="this.dp.on_delete_click.FIXME();"/>
+                  <mx:Button
+                     id="tab_access_cancel_save"
+                     label="Save"
+                     toolTip="Save changes made to group access"
+                     click="this.dp.on_delete_click.FIXME();"/>
+               </mx:HBox>
+            </mx:HBox>
+            -->
+         </mx:VBox>
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

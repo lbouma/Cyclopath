@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:orientation="vertical"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent">
+  <TextView
+    android:id="@+id/track_list_textview"
+    android:layout_width="wrap_content"
+    android:layout_height="fill_parent"
+    android:paddingTop="10dp"
+    android:paddingLeft="10dp"
+    android:textSize="18sp" />
+  <LinearLayout android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent">
+    <TextView
+      android:id="@+id/track_item_date"
+      android:layout_width="wrap_content"
+      android:layout_height="fill_parent"
+      android:paddingLeft="10dip"
+      android:textColor="#696969"
+      android:textSize="14sp" />
+    <TextView
+      android:id="@+id/track_item_duration"
+      android:layout_width="wrap_content"
+      android:layout_height="fill_parent"
+      android:paddingLeft="10dip"
+      android:textColor="#00FFFF"
+      android:textSize="14sp" />
+    <TextView
+      android:id="@+id/track_item_length"
+      android:layout_width="wrap_content"
+      android:layout_height="fill_parent"
+      android:paddingLeft="10dip"
+      android:textColor="#00FFFF"
+      android:textSize="14sp" />
+  </LinearLayout>
+  <TextView
+    android:id="@+id/track_item_no_owner"
+    android:text="@string/tracklist_item_no_owner"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:paddingLeft="10dip"
+    android:paddingBottom="10dip"
+    android:textColor="#FFFF00"
+    android:textSize="14sp"
+    android:visibility="gone" />
+</LinearLayout>

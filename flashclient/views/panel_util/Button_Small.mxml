@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- NOTE Setting height and padding in main.css doesn't do the trick. Which is
+          why we have this class. -->
+<mx:Button
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   styleName="small"
+   height="17"
+   paddingLeft="0"
+   paddingTop="2"
+   paddingRight="0"
+   paddingBottom="2"/>
+

@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_map_components="views.map_components.*"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Button;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.IndexChangedEvent;
+
+      import items.Geofeature;
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import views.base.App_Action;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rts_Box');
+
+      // *** Base class overrides
+
+      //
+      override public function get panel_active_child() :Detail_Panel_Base
+      {
+         // Return the TabNavigator's currently selected child.
+         var sub_panel:Detail_Panel_Base = (this.route_tabs.selectedChild
+                                            as Detail_Panel_Base);
+         m4_ASSERT(sub_panel !== null);
+         return sub_panel;
+      }
+
+      //
+      override public function set panel_active_child(dpanel:Detail_Panel_Base)
+         :void
+      {
+         this.route_tabs.selectedChild = dpanel;
+      }
+
+      //
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         // 2013.08.22: For now, only one item can be associated with the route
+         // library panels at one time. We use it when a user hovers over the
+         // route's entry in the route list.
+         var multi_okay:Boolean = false;
+         return this.panel_supports_feat_impl(feat, multi_okay);
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         // BETTER?: [lb] trying 'Bike Routes' instead of 'Routes'.
+         // return 'Routes';
+         return 'Bike Routes';
+      }
+
+      //
+      override public function panel_toolTip_get() :String
+      {
+         var tt:String = (
+            // 'Find a new Bike Route and Explore Existing Routes.'
+            'Find a new bike route and explore existing routes.');
+         return tt;
+      }
+
+      // *** Base class getters and setters
+
+      //
+      override public function get shows_type() :Class
+      {
+         // Naturally, we support Route-type items.
+         return Route;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function get feats_selected() :Set_UUID
+      {
+         // NOTE: We're ignoring Detail_Panel_Base's feats_selected.
+         //       The Geofeature uses items_selected for its own panel.
+         return this.items_selected;
+      }
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function set feats_selected(feats_selected:Set_UUID)
+         :void
+      {
+         // It might seem weird that the routes panel would have a selected
+         // items set, but when the user hovers the mouse of a
+         // Route_List_Entry, we set the route selected, and the set selected
+         // fcn. uses the active panel to which to attach.
+         m4_DEBUG2('set feats_selected:', ((feats_selected !== null) ? (
+            (feats_selected.length > 0) ? feats_selected : 'empty') : 'null'));
+         // NOTE: Calling set items_selected, not feats_selected.
+         super.items_selected = feats_selected;
+      }
+
+      //
+      // CxPx: Panel_Item_Geofeature/Panel_Routes_Box get feats_selected.
+      override public function get items_selected() :Set_UUID
+      {
+         // The base class just return this.items_selected_, which can be null
+         // for certain panels types, but all geofeature panels should at least
+         // have an empty set.
+         if (this.items_selected_ === null) {
+            this.items_selected_ = new Set_UUID();
+         }
+         return super.items_selected;
+      }
+
+      //
+      override public function set items_selected(items_selected:Set_UUID)
+         :void
+      {
+         m4_DEBUG2('set items_selected:', ((items_selected !== null) ? (
+            (items_selected.length > 0) ? items_selected : 'empty') : 'null'));
+         super.items_selected = items_selected;
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         //
+         this.register_widgets([
+            this.routes_new,
+            this.routes_library,
+            this.routes_looked_at,
+            ]);
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         if ((G.app !== null) && (G.app.mode !== null)) {
+            var dummy_event:Event = null;
+            this.on_mode_change(dummy_event);
+         }
+      }
+
+      //
+      override public function on_panel_show() :void
+      {
+         m4_DEBUG('on_panel_show: Panel_Routes_Box');
+         super.on_panel_show();
+      }
+
+      //
+      public function on_show_tag_help() :void
+      {
+         // We dishonor the DRY principle and duplicate the key list
+         // widget to two different panels (to save us the headache of
+         // creating a common base class and using States to addChild
+         // the derived classes' components). But we also keep the two
+         // key lists in sync, so if you expand the key in a panel that
+         // shows it, all other panels with the key widget will also be
+         // expanded.
+         // COUPLING: Yes, the key list knows what kind of parent we are,
+         //           so the key list widget is not reusable as it exists.
+         m4_ASSERT(
+            this.routes_library.route_list_key.list_key_grid.visible
+            == this.routes_looked_at.route_list_key.list_key_grid.visible);
+         var make_visible:Boolean = !(this.routes_library.route_list_key
+                                          .list_key_grid.visible);
+         this.routes_library.route_list_key.set_visible(make_visible);
+         this.routes_looked_at.route_list_key.set_visible(make_visible);
+      }
+
+      // *** Our event handlers
+
+      //
+      protected function on_mode_change(event:Event) :void
+      {
+         m4_DEBUG('on_mode_change');
+
+         var tabs_shown:Dictionary = new Dictionary();
+
+         // Show/hide routes_new based on mode settings.
+         if (G.app.mode.is_allowed(App_Action.route_request)) {
+            this.routes_new.enabled = true;
+            tabs_shown[0] = true;
+         }
+         else {
+            this.routes_new.enabled = false;
+            tabs_shown[0] = false;
+         }
+
+         // Show/hide routes_library based on mode settings.
+         if (G.app.mode.is_allowed(App_Action.route_lib_view)) {
+            this.routes_library.enabled = true;
+            tabs_shown[1] = true;
+         }
+         else {
+            this.routes_library.enabled = false;
+            tabs_shown[1] = false;
+         }
+
+         // Show/hide routes_looked_at based on mode settings.
+         if (G.app.mode.is_allowed(App_Action.route_lib_view)) {
+            this.routes_looked_at.enabled = true;
+            tabs_shown[2] = true;
+         }
+         else {
+            this.routes_looked_at.enabled = false;
+            tabs_shown[2] = false;
+         }
+
+         // Figure out selected tab.
+         var tab_found:Boolean = false;
+         if (!tabs_shown[this.route_tabs.selectedIndex] 
+             || this.feature_unavailable_alert.visible) {
+            // If the currently selected tab is gone, replace it with another
+            // that's there.
+            // NOTE: Using for and not for-each so we get keys, not values.
+            for (var index:* in tabs_shown) {
+               if (tabs_shown[index]) {
+                  this.feature_unavailable_alert.visible = false;
+                  this.route_tabs.height = G.app.side_panel.height - 16;
+                  this.route_tabs.selectedIndex = int(index);
+                  this.route_tabs.enabled = true;
+                  tab_found = true;
+                  break;
+               }
+            }
+
+            if (!tab_found) {
+               m4_WARNING('No visible tab found.');
+               this.feature_unavailable_alert.visible = true;
+               this.feature_unavailable_alert.alert_text =
+                  G.app.mode.unavailable_text;
+               // MAGIC_NUMBER: What's the 22 do?
+               this.route_tabs.height 
+                  = G.app.side_panel.height
+                    - this.feature_unavailable_alert.height
+                    - 22;
+               this.route_tabs.enabled = false;
+               // FIXME: Replace with some help text? ([mm] 2013.04.30)
+               // FIXME: Hide the Routes panel altogether? ([mm] 2013.04.30)
+            }
+         }
+      }
+
+      //
+      protected function on_tab_change(event:IndexChangedEvent) :void
+      {
+         // MAYBE: This is where we could lazy-load the library and indicate
+         //        "Working...". Currently, the first page of the library gets
+         //        retrieved on flashclient bootstrap.
+         m4_TALKY('on_tab_change');
+         // MAYBE: G.sl.event here. But really only if we add code all over to
+         //        track UI interactions... at which point maybe every GUI
+         //        component logs events... which seems like a ton of work.
+         //        Also, how do you meaningfully analyze all the logged events?
+         //        In CcpV1, we G.sl.event anytime a user clicks a tab, but in
+         //        CcpV2, we've revamped the panel infrastructure, and we
+         //        haven't expended the time to fix the logging (which was
+         //        never really implemented or used in the first place; it
+         //        seemed like a hopeful experiment that languished).
+      }
+
+   ]]></mx:Script>
+
+   <!-- 2013.03.01: [lb] does not get TabNavigator. For Panel_Item_Route,
+                    we have to set resizeToContent="true". If we don't, the
+                    tab children are as tall as they want, and then they get
+                    clipped. But here, if we set resizeToContent="true", the
+                    Get Directions tab (Panel_Routes_New) exhibits the same
+                    behavior as when we leave it false for Panel_Item_Route.
+                    I mean, c'mon! What am I missing? We're all using
+                    height="100%". And I don't see anything else that differs.
+                    The only difference is this is the original state, and
+                    in Panel_Item_Route, the TabNavigator is added by a state
+                    change... is that a red herring, or bait? -->
+   <!-- 2013.04.04: To answer the previous concern, use resizeToContent="false"
+                    and tie the height of the TabNavigator to the height(s) of
+                    UI components, since TabNavigator doesn't know how to size
+                    its dataProviders otherwise. -->
+                    <!-- Here's a trick. Setting
+                           resizeToContent="true"
+                         while testing may help you tell which tab is not
+                         playing nice with its height. (But really you should
+                         do what the last comment says instead.) -->
+   <!-- BUG nnnn: Statewide UI: If verticalScrollBar is showing on
+                  Panel_Routes_New (just decrease the height of your Web
+                  browser), then the right side of the panel content abuts
+                  the scroll bar. See some code elsewhere trying to give
+                  paddingRight += 6 in this case... -->
+   <!-- Okay, so, resizeToContent must be false and since we're embedded
+        in a ViewStack, we have to hack around the Flex bug/behavior of
+        not updating the height. -->
+   <!-- Old comment from Panel_Manager in some code that deliberately
+        resized the ViewStack children of a TabNavigator: Bug 2778 -
+        Flashclient: ViewStack: Deliberately resize children. The official
+        Flex documentation for ViewStack says, Child sizing rules: "Children
+        are sized to their default size. If the child is larger than the
+        ViewStack container, it is clipped." That's right: clipped! So it's
+        our responsible to make said clipping not happen. We achieve this by
+        not using percentages for the TabNavigator height but setting it
+        explicitly. (Or maybe [lb] is misinterpreting this statement - but
+        whatever, our old ViewStack height-setting code was trying to fix the
+        same problem that calculating the height of the TabNavigator fixes.)
+        -->
+
+<!-- FIXME: What about ViewStacks that set their own height?
+            We may need to include this control now, [lb] thinks.
+            Search where route_tabs' height is checked.
+            -->
+   <views_map_components:Alert_Bar
+      id="feature_unavailable_alert"
+      visible="false"
+      includeInLayout="{this.feature_unavailable_alert.visible}"
+      />
+
+   <mx:TabNavigator
+      id="route_tabs"
+
+      width="100%"
+      height="{G.app.side_panel.height - 16}"
+      resizeToContent="false"
+
+      paddingTop="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+      paddingLeft="{G.app.pad}"
+      paddingRight="{G.app.pad}"
+
+      selectedTabTextStyleName="selectedtab"
+      change="this.on_tab_change(event);"
+      >
+
+      <!-- New Route -->
+      <views_panel_routes:Panel_Routes_New
+         id="routes_new"
+         label="Get Directions"
+         width="100%"
+         height="100%"
+         />
+
+      <!-- Route Library -->
+      <!-- Previous labels:
+            label="Route Library"
+            label="Explore"
+            -->
+      <!-- [lb] thinks maybe 2 words is better to match other panel titles?
+            -->
+      <views_panel_routes:Panel_Routes_Library
+         id="routes_library"
+         label="Explore Routes"
+         width="100%"
+         height="100%"
+         />
+
+      <!-- MAYBE: Statewide UI: Do not show unless you've looked at a route?
+                  ('Cause then you don't have to show a silly empty list).
+           2013.02.15: For now, [lb] moved this tab from between Find Route and
+                       Route Library to the end, so the middle tab isn't empty
+                       for new/anon users. -->
+      <!-- Previous labels:
+            label="Routes I've Looked At"
+            -->
+      <views_panel_routes:Panel_Routes_Looked_At
+         id="routes_looked_at"
+         label="View Recent"
+         width="100%"
+         height="100%"
+         />
+
+   </mx:TabNavigator>
+
+</views_panel_base:Detail_Panel_Base>
+

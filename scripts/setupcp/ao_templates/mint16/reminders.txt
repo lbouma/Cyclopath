@@ -1,0 +1,264 @@
+
+''DEVs: It's your responsibility to complete some or all of these steps.''
+
+'''You should at least be aware of the CAVEATs.'''
+
+== Post-Installation Installation Instructions ==
+
+These operations should be performed manually by a human on
+a new machine installation. Feel free to tweak to taste; most
+of these are suggestions, except for the caveats.
+
+=== Caveat: Postgresql.conf is setup based on RAM ===
+
+We configured Postgresql.conf for 5120 GB or RAM.
+
+If you change virtual machine RAM (especially if you lower it),
+you'll want to edit '''<tt>/etc/sysctl.conf</tt>''' and modify
+the settings, <tt>kernel.shmmax</tt> and <tt>kernel.shmall</tt>. E.g.,
+
+ # Use 50% of RAM for shared memory maximum segment size.
+ #   Note also the shmmax needs to be larger than Postgresql.conf's
+ #   shared_buffers.
+ # Also, set shmall to shmmax / page size. (Page size is almost always 4 Kb.)
+ kernel.shmmax = 2601418752
+ kernel.shmall = 635112
+
+You might also need to edit <tt>/etc/postgresql/9.1/main/postgresql.conf</tt>
+for, e.g., <tt>shared_buffers</tt>, <tt>work_mem</tt>, etc.
+* ''Hint:'' We marked in the file where we changed values; just search for "Cyclopath".
+
+=== Configure Cyclopath ===
+
+We configured Cyclopath so that it works on your new machine.
+
+But we didn't configure a geocoder for it, and we don't auto-start any daemons.
+
+==== Cyclopath Geocoder ====
+
+If you want to use a Geocoder, Cyclopath works with (or at least has worked with) Yahoo, MapPoint, and Bing.
+* Since 2010, Cyclopath has only been tested using the Bing geocoder.
+
+If you work at the U, just ask another user for the Bing Maps ID.
+
+Otherwise, educational and non-profit users can get a free Basic Key at the [http://www.bingmapsportal.com/ Bing Maps Account Center].
+* We don't have any instructions on obtaining a key; you're on your own.
+
+Once you have a key, add it to the pyserver configuration file:
+* Open <tt>/ccp/dev/cp/pyserver/CONFIG</tt>
+* Find and update the appropriate geocoder id key (you only need to setup one service):
+ yahoo_app_id: 
+ mappoint_user: 
+ mappoint_password: 
+ bing_maps_id: ''my_new_key_123
+
+==== Cyclopath Services ====
+
+For dev machines, we don't auto-start the route finder on boot.
+* The route finder consumes memory proportional to the number of line segments in the database, and at a statewide level, that could be a number of GBs, so we let developers choose when they want to start the route finder.
+
+To configure a machine so that the Cyclopath route finder(s) start on boot, take a look at the template startup scripts and read the instructions therein:
+ $ ls /ccp/dev/cp/scripts/setupcp/ao_templates/mint16/target/etc/init.d/
+ cyclopath-mr_do  cyclopath-routed
+
+=== Configure Browsers ===
+
+These steps are merely recommendations.
+
+==== HTTPS Plugin ====
+
+It's always a good idea to use encrypted traffic whenever possible.
+
+We recommend installing an always-on-HTTPS plugin, so that all of
+your browser requests try to use https.
+
+# Run Firefox and install HTTPS Everywhere.
+#* Visit: https://www.eff.org/files/https-everywhere-latest.xpi
+
+# Run Chrome and install HTTPS Everywhere.
+#* Note: The Chrome version is labeled "Beta".
+#* Visit: https://chrome.google.com/webstore/detail/gcbommkclmclpchllfjekcdonpmejbdp
+
+==== Gesture Plugin ====
+
+If you like browser mouse gestures, these two seem to work well:
+
+# Gestures for Mozilla Firefox
+#* https://addons.mozilla.org/en-US/firefox/addon/firegestures/
+
+# Smooth Gestures for Google Chrome
+#* Works well but adds ads to the bottom of pages sometimes.
+#* https://chrome.google.com/webstore/detail/smooth-gestures/lfkgmnnajiljnolcgolmmgnecgldgeld
+
+# CrxMouse
+#* https://chrome.google.com/webstore/detail/crxmouse/jlgkpaicikihijadgifklkbpdajbkhjo
+
+# We didn't configure Firefox or Chrome, so you'll want to set preferences the way you like 'em. Some possibilies:
+#* Tell 'em both to start with tabs and windows from last time.
+#* Change the homepages as you like.
+#* Tell Firefox not to warn when closing multiple tabs, or that many tabs might slow down the machine (silly warnings).
+#* Hide the Firefox menu bar to gain a little vertical space.
+#* Linux Mint 16 gets revenue by using Yahoo as the default Firefox page and search engine. But you can always enable Google:
+#** http://www.linuxmint.com/searchengines.php
+#** http://www.linuxmint.com/searchengines/anse.php?sen=Google&c=y
+
+==== Setup the MATE panels ====
+
+These steps are merely suggestions, or maybe it's just a list of what [lb] likes to do.
+
+* Add a second bottom panel, two rows tall, and add just the application window list to it; and remove the window list from the original, single-row panel.
+** Some people use workspaces to manage windows, or maybe they group by application, or maybe they only open one or two terminal windows, but I usually find myself with a dozen terminal windows and a dozen browser windows. Using a dedicated, two row window list panel accomodates this lifestyle, even on a small (laptop) monitor.
+* Next to the clock, add the weather and system monitor. [lb]
+* Open Pidgin and tell it to run at boot and to add itself to the notification area.
+* Add a bunch of application launchers to the right of the main Mint menu.
+** E.g., from left to right, Mint menu, Show desktop, Firefox, Chrome, GVim, Meld, Terminal, Wireshark, Reader/Atril, Dia, and Screenshot.
+*** You might want to edit the Meld command so that it starts a comparison of your Cyclopath working directory and the trunk.
+*** You can also have Reader or Atril open some of your go-to user docs, like the Python reference.
+*** [lb] has Dia set to open the Cyclopath data model, <tt>/ccp/dev/cp/doc/data-model.dia</tt>
+
+==== Setup Wiresharek ====
+
+Run Wireshark and set it up.
+
+# Capture just Cyclopath developer traffic.
+#* Find Capture > Options...
+#** Choose "lo" as the capture interface.
+#** For Capture Filter, type: <tt>host ccp</tt>
+#** Click Close
+# Add Color Highlights for the GET and OK packets.
+#* Find View > Coloring Rules...
+#** Create two filters at the top:
+#*** Name: HTTP XML GET
+#**** Filter: <tt>xml && http.request</tt>
+#*** Name: HTTP XML OK
+#**** Filter: <tt>xml && http.response.code == 200</tt>
+#*** I choose dark green for GET and dark blue for OK to make it easier to find Cyclopath packets in the trace.
+# Start a trace and open a browser to http://ccp to test.
+
+==== Setup SSH Keys ====
+
+If you develop for the U, you'll want to setup SSH keys so that
+you're not constantly asked for your password.
+
+Start by generating a new key.
+* The default key length is just 1K, so specify 2K or 4K (2K is probably sufficient... at least for the next few years).
+* If you have multiple keys, you can add comments to distinguish them apart.
+** But you'll also have to call <tt>ssh-add</tt> explicitly with the different keys (it only looks for <tt>~/.ssh/id_rsa</tt> by default).
+*** But if you use the Bash scripts we've created for Cyclopath, just name them ''whatever_''rsa and they'll get loaded.
+
+To generate a new key:
+* Specify the type of key (what encryption method) to use; we use RSA (<tt>-t rsa</tt>).
+* Specify a byte size; use 2K at a minimum (<tt>-b 2048</tt>) or 4K if you're more paranoid (<tt>-b 4096</tt>, but note that not all systems will recognize or work with larger key sizes).
+* Add a comment (which gets appended to the public key) if you'd like a hint about what key it is.
+* Specify the destination key path, which is useful if you've already got a key at <tt>~/.ssh/id_rsa</tt>. And if you don't specify a path, you'll be prompted.
+
+For example,
+
+ ssh-keygen -t rsa -b 2048 -C "ccp" -f $HOME/.ssh/id_ccp_rsa
+
+You'll be prompted for a passphrase. Choose something.
+* Note that the security of keys comes more from keeping your private key safe than from keeping your password secret. A hacker can't do much with your password without your private key, but with your private key and without your password, a hacker can launch a brute-force attack to find the password. So passwords on keys are good (you'll be safe if someone sits down at your laptop and can't guess your password, so they can't use your key), but passwords are pretty much useless once your private key is compromised (albeit it would take a dedicated hacker a little bit of time to crack it, which might give you time to launch a defensive attack and clear out all your <tt>authorized_keys</tt> files from accepting the compromised key).
+
+If you're using the Cyclopath Bash scripts, your new key should be loaded after you boot your machine, log on, and open a terminal window -- you'll be prompted in the terminal to enter the passphrase, and then your key will be available to any application from then on.
+
+But before you reboot, test the new key.
+
+First, kill the agent, if it's running. (Each time you run <tt>ssh-agent</tt>, it creates a new instance, so only run it once.)
+
+ ssh-agent -k
+
+Now, restart the agent
+
+ ssh-agent
+
+Add your key (you'll be asked for the passphrase)
+
+ ssh-add /path/to/my/new/key_rsa
+
+List the loaded keys and make sure it worked.
+
+ ssh-add -l
+
+===== Setup Remote Machine SSH Keys =====
+
+To be able to logon to a remote machine without entering your password on that machine, add your key to it and tell it to trust your key.
+
+Use <tt>scp</tt> to copy your ''public'' key to the remote machine. E.g.,
+
+ /bin/cp /path/to/my_key_rsa.pub my_name@remote:/home/my_name/.ssh/my_key_rsa.pub
+
+Next, logon to the remote machine and authorize it.
+
+ cd ~/.ssh
+ cat my_key_rsa.pub >> authorized_keys
+
+Check that it's permission are <tt>640</tt>.
+
+Note: If you login to your remote machine and want to logon from there to other machines,
+you might want to also copy your private key to your remote home directory. If you do this,
+you'll want to sure sure the identity link exists:
+
+ if &#91;&#91; -e ~/.ssh/identity &#93;&#93;; then
+   ln -s ~/.ssh/my_key_rsa ~/.ssh/identity
+ fi
+
+===== Setup Bitbucket SSH Keys =====
+
+Cyclopath and GroupLens use Bitbucket to host source code.
+
+So that you don't have to type a password when pushing
+or pulling code from Bitbucket, you can create a new
+key, add it to your ssh-agent, and upload the public
+key to Bitbucket.
+
+Rather than use the key you just generated for your remote machine(s),
+generate a new key (following the same instructions) and then logon
+to Bitbucket and upload the public key.
+
+You can find more info on the Bitbucket wiki:
+* https://confluence.atlassian.com/pages/viewpage.action?pageId=270827678
+
+==== Setup Sendmail ====
+
+You can configure your machine to send all outbound email using your favorite email service.
+
+In this example, we setup sendmail to forward outbound email to a Gmail account.
+
+[[FIXME]]: Add gmail-sendmail, etc.
+
+[[FIXME]]: See old instructions: [[Tech:CcpV2/Install_Guide/Install_Linux/Fedora/Customize/Gnome_Gmail]]
+
+==== Make a distributeable image ====
+
+If you want to distribute your new virtual machine, first make sure you
+didn't configure it using any personal information. Next, shut down the
+machine and clone it from VirtualBox. Finally, zip it, and then post it.
+* You don't really need to zip it, but [lb] has seen a 17 GB zip down to 5 GB, or even down to 3 GB if you use [http://www.7-zip.org/ 7-zip].
+
+==== Install Adobe Reader (Maybe) ====
+
+Because Adobe Reader is proprietary and we cannot distribute it, we didn't automatically install it.
+
+Mint ships with a free PDF viewer, atril, which is basically a fork of
+the Ubuntu reader, evince. It works perfectally fine. The only difference
+is that Reader opens multiple documents in the same application window by
+using tabs, whereas atril/evince open multiple application windows. So it's
+basically a personal choice.
+
+To install Adobe Reader, try
+
+ cd ~/Downloads
+ wget -N \
+  http://ardownload.adobe.com/pub/adobe/reader/unix/9.x/9.5.5/enu/AdbeRdr9.5.5-1_i486linux_enu.bin
+ chmod a+x ./Adbe*.bin
+ # Specify the install path otherwise the installer will ask us.
+ sudo ./Adbe*.bin --install_path=/opt
+ # Remove the Desktop icon that it creates.
+ /bin/rm -f /home/$USER/Desktop/AdobeReader.desktop
+
+Obviously, check the [http://www.adobe.com/support/flashplayer/downloads.html Flash downloads page] for more recent versions.
+
+==== Sit back, relax, and start developing ====
+
+Good luck!
+

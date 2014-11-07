@@ -1,0 +1,965 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Panel_Routes_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Button;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.IndexChangedEvent;
+
+      import grax.Access_Infer;
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Item_Findability_Put;
+      import gwis.GWIS_Routes_Viewed_Clear;
+      import gwis.utils.Query_Filters;
+      import items.feats.Route;
+      import items.utils.Stack_Id_Array;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.panel_base.Detail_Panel_Base;
+      // Not necessary: import views.panel_routes.Route_List;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rts_LAt');
+
+      protected static const remove_tool_tip_some_checked:String =
+         'Remove checked items from the list and from the map.';
+
+      protected static const REMOVE_CHECKED:int = 1;
+      protected static const REMOVE_UNCHECKED:int = 2;
+      protected static const REMOVE_ALL_HISTORY:int = 3;
+
+      // *** Instance variables
+
+      protected var remove_all_checked:Boolean = false;
+
+      protected var confirming_action:int = 0;
+
+      protected var anons_routes:ArrayCollection = new ArrayCollection();
+      protected var add_routes_on_login:ArrayCollection;
+
+      // ***
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(ev);
+
+         if (Route.looked_at_list_callback !== null) {
+            m4_WARNING2('on_creation_complete: unexpected: library cback set:',
+                        Route.looked_at_list_callback);
+         }
+         Route.looked_at_list_callback = this.looked_at_list_callback;
+         m4_DEBUG2('Route.looked_at_list_callback:',
+                   Route.looked_at_list_callback);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         G.app.addEventListener('user_event_change', this.on_user_change);
+         G.app.addEventListener('user_event_changing', this.on_user_changing);
+      }
+
+      //
+      override public function on_show_event(ev:FlexEvent=null) :void
+      {
+         m4_DEBUG2('on_show_event: this:', this,
+                   '/ creation_completed:', this.creation_completed);
+         super.on_show_event(ev);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG2('repopulate: force_fetch_list_next:',
+                   this.force_fetch_list_next);
+         super.repopulate();
+      }
+
+      // ***
+
+      //
+      override public function get route_list_pager() :Paginator_Widget
+      {
+         return this.routes_list_pager;
+      }
+
+      //
+      override public function get_route_list_key() :Route_List_Key
+      {
+         return this.route_list_key;
+      }
+
+      //
+      override public function get_route_list_widget() :Route_List
+      {
+         return this.history_routes;
+      }
+
+      //
+      override public function get_uncheck_all_btn() :Button
+      {
+         return this.uncheck_all_btn;
+      }
+
+      // ***
+
+      //
+      override public function fetch_list() :void
+      {
+         // Not calling: super.fetch_list();
+
+         if (!G.map.basics_loaded) {
+            m4_DEBUG('fetch_list: called early: not basics_loaded');
+            this.route_list_pager.records_total_count = 0;
+            this.rte_results_load(new ArrayCollection());
+         }
+         else if (G.user.logged_in) {
+            var qfs:Query_Filters = new Query_Filters();
+            this.fetch_list_really(qfs);
+         }
+         else {
+            // else, not logged in, so no item_finability records.
+            // (Unless we added session_id to that table, but... um, no.)
+            // See: this.anons_routes.
+         }
+      }
+
+      //
+      override public function fetch_list_really(qfs:Query_Filters) :void
+      {
+         // This is what separates us from the animals.
+
+         qfs.gia_use_sessid = true;
+
+         qfs.findability_recent = true;
+
+         super.fetch_list_really(qfs);
+      }
+
+      //
+      protected function findability_saved_okay(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_DEBUG('findability_saved_okay');
+
+         this.force_fetch_list_next_maybe(/*force=*/true);
+      }
+
+      //
+      protected function findability_saved_fail(
+         gwis_req:GWIS_Item_Findability_Put,
+         xml:XML) :void
+      {
+         m4_WARNING('findability_saved_fail');
+      }
+
+      //
+      override protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching routes list');
+         if (G.user.logged_in) {
+            this.fetch_list();
+         }
+         else {
+            // This shouldn't happen for anonymous users: we only keep
+            // track of one page of routes in the client.
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      //
+      public function looked_at_list_callback(route:Route) :void
+      {
+         m4_DEBUG('looked_at_list_callback: route:', route);
+
+         // If the user is logged on, make a record in item_findability.
+         if (G.user.logged_in) {
+
+            m4_DEBUG('looked_at_list_callback: fbil_put: route:', route);
+
+            var action_obj:Object = { action_history_add: true };
+
+            var callback_load:Function = this.findability_saved_okay;
+            var callback_fail:Function = this.findability_saved_fail;
+
+            var stack_ids:Stack_Id_Array = new Stack_Id_Array();
+            stack_ids.push(route.stack_id);
+
+            if (G.user.logged_in) {
+               var fbil_req:GWIS_Item_Findability_Put =
+                  new GWIS_Item_Findability_Put(stack_ids,
+                                                action_obj,
+                                                callback_load,
+                                                callback_fail);
+
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(fbil_req);
+
+               if (found_duplicate) {
+                  // 2014.09.09: Is this a non-issue?
+                  //             If we already put... we already put.
+                  // 2014.09.12: We're called via Route.as::repopulate, so
+                  // we're called a lot. This shouldn't be an error unless
+                  // we really care about bandwidth...
+                  //  m4_ASSERT_SOFT(false);
+                  //  G.sl.event('error/pnl_rts_lkkd_at/lkkd_at_lst_cbak',
+                  //             {stack_ids: stack_ids});
+               }
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+               callback_fail();
+            }
+
+         }
+         else {
+            m4_DEBUG('looked_at_list_callback: no user=no route view:', route);
+         }
+
+         // Update the routes viewed list.
+         this.looked_at_list_update(route);
+      }
+
+      // Record a view of a route by a user. If the user is logged on, we'll
+      // send a GWIS_Item_Findability_Put command. If the route history is
+      // showing the first page of results, or if the user is not logged on,
+      // we'll put the route at the top of the history.
+      protected function looked_at_list_update(viewed_route:Route) :void
+      {
+         if (G.user.logged_in) {
+            this.looked_at_list_update_(viewed_route, this.route_list_routes);
+         }
+         else {
+            this.looked_at_list_update_(viewed_route, this.anons_routes);
+         }
+      }
+
+      //
+      protected function looked_at_list_update_(viewed_route:Route,
+                                                routes_viewed:ArrayCollection)
+         :void
+      {
+         // Add a new route or place an existing one at the front/top of the
+         // route list.
+
+         var route_index:int;
+         route_index = routes_viewed.getItemIndex(viewed_route);
+
+         m4_DEBUG3('looked_at_list_update: routes_viewed.len:',
+                   routes_viewed.length, '/ route_idx: ', route_index,
+                   '/ viewd_rt:', viewed_route);
+
+         var removed_route:Route = null;
+
+         if (route_index >= 0) {
+            routes_viewed.removeItemAt(route_index);
+         }
+         else {
+            if ((G.user.logged_in)
+                && (routes_viewed.length
+                    >= this.route_list_pager.records_per_page)) {
+               // Lop off the route at the end of the list.
+               removed_route = (routes_viewed.removeItemAt(
+                                 routes_viewed.length - 1)
+                                as Route);
+               // The this.route_list_pager.records_total_count may be the
+               // same, if the route exists further in the list (i.e., in the
+               // database, but not on this paginator page), or it might be
+               // one more, if we're adding a new route view to the user's
+               // item_findabilities.
+               // We'll refresh the page and update the count after findability
+               // is saved (see: findability_saved_okay).
+            }
+            this.route_list_pager.records_total_count += 1;
+         }
+         routes_viewed.addItemAt(viewed_route, 0);
+
+         m4_DEBUG2('looked_at_list_update: routes_viewed.len:',
+                   routes_viewed.length);
+
+         this.rte_results_load(routes_viewed);
+      }
+
+      // ***
+
+      //
+      override public function reset_route_list() :void
+      {
+         m4_DEBUG('reset_route_list: clearing anons_routes');
+         this.anons_routes = new ArrayCollection();
+         super.reset_route_list();
+      }
+
+      //
+      override protected function rte_results_load(
+         rte_results:ArrayCollection)
+            :void
+      {
+         super.rte_results_load(rte_results);
+
+         this.search_result_title.visible = true;
+         this.search_result_title.includeInLayout = true;
+
+         this.history_splanation.htmlText =
+            "This is a list of all routes you've seen. ";
+
+         if (rte_results.length > 0) {
+            this.change_state('');
+            this.search_result_title.htmlText
+               = "<b>Found routes you've viewed</b>";
+            this.history_splanation.htmlText +=
+               "Click 'Remove All' to clear the list. "
+               + "Checked routes are shown on the map.";
+         }
+         else if (this.route_list_pager.records_total_count > 0) {
+            this.fetch_list();
+         }
+         else {
+            this.change_state('Empty_History');
+            this.search_result_title.htmlText
+               = "<b>No routes found</b>";
+            // ... this does:
+            this.history_splanation.htmlText +=
+               "Click the 'Get Directions' tab and search for a route to add "
+               + "to this list, or open a route from the route library.";
+
+            this.remove_all_checked = false;
+
+            this.remove_all_or_checked_btn.label = 'Remove All';
+            this.remove_all_or_checked_btn.enabled = false;
+         }
+      }
+
+      //
+      override protected function search_counts_load(
+         gwis_req:GWIS_Checkout_Base,
+         xml:XML) :void
+      {
+         m4_DEBUG2('search_counts_load: total_count:',
+                   this.route_list_pager.records_total_count);
+         super.search_counts_load(gwis_req, xml);
+         this.update_remove_all_or_checked_btn(
+            this.route_list_pager.records_total_count);
+      }
+
+      // ***
+
+      //
+      override public function on_filter_cbox_changed(
+         at_least_one_checked:Boolean=false)
+            :Array
+      {
+         at_least_one_checked = false; // So that arr is not null.
+         var arr:Array = super.on_filter_cbox_changed(at_least_one_checked);
+         var num_checked:int = arr[0];
+         var num_unchecked:int = arr[1];
+
+         if (num_unchecked > 0) {
+            this.remove_unchecked_btn.enabled = true;
+            this.remove_unchecked_btn.toolTip =
+               'Clear the ' + num_unchecked
+               + ' routes above that are not checked.';
+         }
+         else {
+            this.remove_unchecked_btn.enabled = false;
+            this.remove_unchecked_btn.toolTip = '';
+         }
+
+         if (num_checked > 0) {
+            this.remove_all_or_checked_btn.label = 'Remove Checked';
+            this.remove_all_or_checked_btn.enabled = true;
+            this.remove_all_or_checked_btn.toolTip =
+               Panel_Routes_Looked_At.remove_tool_tip_some_checked;
+            this.remove_all_checked = true;
+         }
+         else {
+            var num_routes:int;
+            // Either this.route_list_routes.length, or
+            // this.history_routes.dataProvider.length, or:
+            num_routes = this.route_list_pager.records_total_count;
+            this.update_remove_all_or_checked_btn(num_routes, num_checked,
+                                                  num_unchecked);
+            this.remove_all_checked = false;
+         }
+
+         return arr;
+      }
+
+      //
+      protected function update_remove_all_or_checked_btn(
+         num_routes:int, num_checked:int=-1, num_unchecked:int=-1) :void
+      {
+         if (num_routes) {
+            if (num_checked < 0) {
+               var arr:Array = this.count_checked_unchecked();
+               var num_checked:int = arr[0];
+               var num_unchecked:int = arr[1];
+            }
+            if (num_checked == 0) {
+               var remove_label:String =
+                  'Remove All ('
+                  + String(num_routes) + ' '
+                  + Inflector.pluralize('Route', (num_routes != 1))
+                  + ')';
+               this.remove_all_or_checked_btn.label = remove_label;
+               this.remove_all_or_checked_btn.enabled = true;
+            }
+            // else, button is already setup for the checked items.
+         }
+         else {
+            this.remove_all_or_checked_btn.label = 'Remove All';
+            this.remove_all_or_checked_btn.enabled = false;
+            this.remove_all_or_checked_btn.toolTip = '';
+         }
+
+      }
+
+      // ***
+
+      //
+      protected function on_remove_all_or_checked_btn_click() :void
+      {
+         m4_ASSERT(this.confirming_action == 0);
+         if (!this.remove_all_checked) {
+            this.confirming_action = Panel_Routes_Looked_At.REMOVE_ALL_HISTORY;
+         }
+         else {
+            this.confirming_action = Panel_Routes_Looked_At.REMOVE_CHECKED;
+         }
+         this.confirmation_verification_show();
+      }
+
+      //
+      protected function on_remove_unchecked_btn_click() :void
+      {
+         this.confirming_action = Panel_Routes_Looked_At.REMOVE_UNCHECKED;
+         this.confirmation_verification_show();
+      }
+
+      // ***
+
+      //
+      protected function confirmation_verification_hide() :void
+      {
+         this.below_the_route_list.visible = true;
+         this.below_the_route_list.includeInLayout = true;
+         this.remove_verification.visible = false;
+         this.remove_verification.includeInLayout = false;
+      }
+
+      //
+      protected function confirmation_verification_show() :void
+      {
+         this.remove_verification.height = this.below_the_route_list.height;
+         this.below_the_route_list.visible = false;
+         this.below_the_route_list.includeInLayout = false;
+         this.remove_verification.visible = true;
+         this.remove_verification.includeInLayout = true;
+      }
+
+      //
+      protected function on_remove_verify_cancel_click() :void
+      {
+         this.confirming_action = 0;
+         this.confirmation_verification_hide();
+      }
+
+      //
+      protected function on_remove_verify_confirm_click() :void
+      {
+         if (this.confirming_action
+                  == Panel_Routes_Looked_At.REMOVE_ALL_HISTORY) { 
+            m4_DEBUG('on_remove_verify_confirm_click: clearing all');
+            if (G.user.logged_in) {
+               (new GWIS_Routes_Viewed_Clear()).fetch();
+            }
+            this.reset_route_list();
+            this.remove_all_checked = false;
+         }
+         else {
+            if (this.confirming_action
+                == Panel_Routes_Looked_At.REMOVE_UNCHECKED) { 
+               m4_DEBUG('on_remove_verify_confirm_click: clearing unchecked');
+               this.on_clear_using_selected(/*clear_selected=*/false);
+            }
+            else if (this.confirming_action
+                     == Panel_Routes_Looked_At.REMOVE_CHECKED) { 
+               m4_DEBUG('on_remove_verify_confirm_click: clearing checked');
+               this.on_clear_using_selected(/*clear_selected=*/true);
+               this.remove_all_checked = false;
+            }
+            m4_ASSERT_ELSE_SOFT;
+         }
+
+         this.confirming_action = 0;
+         this.confirmation_verification_hide();
+
+         this.on_filter_cbox_changed();
+
+         // MAYBE: Move on_panel_show to repopulate and call that instead?
+         this.on_panel_show();
+      }
+
+      //
+      protected function on_clear_using_selected(clear_selected:Boolean) :void
+      {
+         if (G.user.logged_in) {
+            this.on_clear_using_selected_(clear_selected,
+                                          this.route_list_routes);
+         }
+         else {
+            this.on_clear_using_selected_(clear_selected,
+                                          this.anons_routes);
+         }
+      }
+
+      //
+      protected function on_clear_using_selected_(
+         clear_selected:Boolean,
+         routes_list:ArrayCollection)
+            :void
+      {
+         var route:Route;
+
+         var keep_routes:ArrayCollection = new ArrayCollection();
+         var toss_routes:Array = new Array();
+         var toss_stack_ids:Stack_Id_Array = new Stack_Id_Array();
+
+         for each (route in routes_list) {
+            if (int(route.filter_show_route) ^ int(!clear_selected)) {
+               toss_routes.push(route);
+               toss_stack_ids.push(route.stack_id);
+            }
+            else {
+               keep_routes.addItem(route);
+            }
+         }
+
+         for each (route in toss_routes) {
+            m4_DEBUG('on_clear_using_selected: toss route:', route);
+            route.set_filter_show_route(false, /*force=*/true);
+         }
+
+         if ((G.user.logged_in) && (toss_stack_ids.length > 0)) {
+
+            m4_DEBUG2('on_clear_using_selected: fbil_put: toss_stack_ids.len:',
+                      toss_stack_ids.length);
+
+            var action_obj:Object = { action_history_chg: false };
+
+            var callback_load:Function = this.findability_saved_okay;
+            var callback_fail:Function = this.findability_saved_fail;
+
+            if (G.user.logged_in) {
+               var fbil_req:GWIS_Item_Findability_Put =
+                  new GWIS_Item_Findability_Put(toss_stack_ids,
+                                                action_obj,
+                                                callback_load,
+                                                callback_fail);
+
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(fbil_req);
+               m4_ASSERT_SOFT(!found_duplicate);
+            }
+            else {
+               m4_ASSERT_SOFT(false);
+               callback_fail();
+            }
+         }
+         // MAYBE: If route has route panel, not closing panel. Close instead?
+
+         m4_DEBUG2('on_clear_using_selected: routes_list: keep_rtes:',
+                   keep_routes);
+         //m4_DEBUG2('on_clear_using_selected: this.route_list_routes:',
+         //          this.toString_dataProvider());
+         //this.route_list_routes = keep_routes;
+         //this.history_routes.dataProvider = this.route_list_routes;
+         //this.get_route_list_widget().update_route_list(
+         //                        this.route_list_routes);
+         //this.route_list_pager.records_total_count =
+         //   this.route_list_routes.length;
+         this.route_list_pager.records_total_count -= toss_stack_ids.length;
+         if (this.route_list_pager.records_total_count < 0) {
+            m4_WARNING2('on_clear_using_selected: records_total_count:',
+                        this.route_list_pager.records_total_count);
+            this.route_list_pager.records_total_count = 0;
+         }
+
+         this.rte_results_load(keep_routes);
+      }
+
+      //
+      protected function on_user_changing(event:Event=null) :void
+      {
+         m4_DEBUG2('on_user_changing: user:',
+                   (G.user !== null) ? G.user.username : 'null');
+         // On logout, we get a branch change right before the user change,
+         // and the branch is the same as it ever was, I mean, if you were
+         // on the basemap branch before logging in, you'll be on it again
+         // (there's no branch change event where active_branch === null).
+         if ((G.user !== null)
+             && (!G.user.logged_in)
+             && (this.anons_routes.length > 0)) {
+            this.add_routes_on_login = new ArrayCollection(
+                        this.anons_routes.source.reverse());
+            m4_DEBUG2('on_user_changing: add_routes_on_login.len:',
+                      this.add_routes_on_login.length);
+         }
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         m4_DEBUG2('on_user_change: user:',
+                   (G.user !== null) ? G.user.username : 'null');
+         if (G.user !== null) {
+            if ((G.user.logged_in)
+                && (this.add_routes_on_login !== null)) {
+               for each (var route:Route in this.add_routes_on_login) {
+                  if (!(route.access_infer_id & Access_Infer.pub_mask)) {
+                     m4_DEBUG('on_user_change: not pub: route:', route);
+                     // I.e., route.access_infer_id == stealth_arbiter,
+                     //       and route.access_level_id == arbiter,
+                     // that is user requested route anonymously, so we'd
+                     // need to use the session ID to access this route...
+                     // Also, the login handler adds findability for this
+                     // item... so even the else-block of this fcn. might
+                     // be redundant.
+                     ; // No-op.
+                  }
+                  else {
+                     m4_DEBUG('on_user_change: fbil_put: route:', route);
+                     var action_obj:Object = { action_history_add: true };
+                     var callback_load:Function = this.findability_saved_okay;
+                     var callback_fail:Function = this.findability_saved_fail;
+                     var stack_ids:Stack_Id_Array = new Stack_Id_Array();
+                     stack_ids.push(route.stack_id);
+                     if (G.user.logged_in) {
+                        var fbil_req:GWIS_Item_Findability_Put =
+                           new GWIS_Item_Findability_Put(stack_ids,
+                                                         action_obj,
+                                                         callback_load,
+                                                         callback_fail);
+                        var found_duplicate:Boolean;
+                        found_duplicate = G.map.update_supplemental(fbil_req);
+                        m4_ASSERT_SOFT(!found_duplicate);
+                     }
+                     else {
+                        m4_ASSERT_SOFT(false);
+                        callback_fail();
+                     }
+                  }
+               }
+               this.add_routes_on_login = null;
+            }
+         }
+         this.anons_routes = new ArrayCollection();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_panel_routes:states>
+      <mx:State
+         name="Empty_History">
+         <mx:RemoveChild
+            target="{this.history_routes}"/>
+         <mx:RemoveChild
+            target="{this.uncheck_all_btn}"/>
+         <mx:RemoveChild
+            target="{this.remove_unchecked_btn}"/>
+         <mx:RemoveChild
+            target="{this.remove_all_or_checked_btn}"/>
+         <mx:RemoveChild
+            target="{this.routes_list_pager}"/>
+         <mx:AddChild
+            position="after"
+            relativeTo="{this.search_result_title_container}">
+            <mx:VBox
+               width="100%"
+               height="100%"
+               borderStyle="solid"
+               borderColor="0xBBBBBB"
+               horizontalAlign="center"
+               verticalAlign="middle"
+               paddingTop="2"
+               paddingBottom="8"
+               >
+               <mx:Spacer
+                  width="100%"/>
+               <!-- CcpV1 and Cycloplan text:
+               <mx:Label
+                  text="You have not looked at any routes yet."
+                  fontWeight="bold"/>
+               <mx:Label
+                  text="Click 'Get Route' to find a new route:"
+                  fontWeight="bold"/>
+                  -->
+               <mx:Label
+                  styleName="labelmajor"
+                  text="It's lonely in here :("
+                  />
+               <mx:Text
+                  textAlign="center"
+                  width="100%">
+                  <mx:htmlText>
+                     <![CDATA[
+You haven't looked at any routes yet.
+Click 'Get Directions' to find a new route.
+                     ]]></mx:htmlText>
+               </mx:Text>
+               <mx:Button
+                  label="Get Directions"
+                  click="G.tabs.route.panel_routes_new_open('history');"
+                  />
+            </mx:VBox>
+         </mx:AddChild>
+      </mx:State>
+   </views_panel_routes:states>
+
+   <!-- BUG nnnn: Users should be able to recover routes after Clear All.
+                  [lb] thinks the 'Clear All' button is too destructive.
+                  But I don't think we should prompt the user, either.
+                  See more comments below, near the Clear All button. -->
+
+   <!-- Routes I've Looked At -->
+   <mx:VBox
+      id="history"
+      width="100%"
+      height="100%"
+      verticalScrollPolicy="off"
+      verticalGap="6"
+      >
+
+      <mx:VBox
+         width="100%"
+         horizontalGap="0"
+         verticalGap="0"
+         >
+         <mx:Text
+            id="history_splanation"
+            mouseChildren="false"
+            mouseEnabled="false"
+            condenseWhite="true"
+            width="100%">
+            <!-- CcpV1 text:
+                  Browse the history of all routes you've looked at.
+                  If you're logged in, this is saved across sessions. -->
+            <mx:htmlText>
+               <![CDATA[
+   Click the 'Get Directions' tab and search for a route to add to this list.
+               ]]></mx:htmlText>
+         </mx:Text>
+      </mx:VBox>
+      <mx:HRule
+         width="100%"
+         strokeWidth="1"/>
+
+      <mx:HBox
+         id="search_result_title_container"
+         width="100%"
+         horizontalGap="0"
+         >
+         <mx:Text
+            id="search_result_title"
+            selectable="false"
+            styleName="labelminor"
+            width="100%"
+            condenseWhite="true"
+            visible="false"
+            includeInLayout="{this.search_result_title.visible}"
+            />
+      </mx:HBox>
+
+      <views_panel_routes:Route_List
+         id="history_routes"
+         height="100%"
+         added="this.on_added_renderer_maybe(event);"
+         />
+
+      <mx:VBox
+         id="below_the_route_list"
+         width="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         >
+
+         <mx:HBox
+            width="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="0"
+            horizontalGap="9"
+            >
+            <!--
+            <views_panel_util:Button_Small
+               label="Show All"
+               click="this.history_routes.toggle_all_check(true);"/>
+            <views_panel_util:Button_Small
+               label="Show None"
+               click="this.history_routes.toggle_all_check(false);"/>
+            -->
+            <views_panel_util:Button_Small
+               id="uncheck_all_btn"
+               label="Uncheck All"
+               enabled="false"
+               click="this.history_routes.toggle_all_check(false);"/>
+            <mx:Spacer
+               width="100%"/>
+            <views_panel_util:Button_Small
+               id="remove_unchecked_btn"
+               label="Remove Unchecked"
+               enabled="false"
+               click="this.on_remove_unchecked_btn_click();"
+               toolTip=
+            "Remove routes from the list above whose checkbox is unchecked."/>
+            <views_panel_util:Button_Small
+               id="remove_all_or_checked_btn"
+               label="Remove All"
+               enabled="false"
+               click="this.on_remove_all_or_checked_btn_click();"
+               toolTip="{Panel_Routes_Looked_At.remove_tool_tip_some_checked}"/>
+         </mx:HBox>
+
+         <mx:HBox
+            width="100%"
+            horizontalGap="0"
+            verticalAlign="middle"
+            >
+
+            <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                           and Panel_Routes_Looked_At. -->
+            <views_panel_util:Paginator_Widget
+               id="routes_list_pager"
+               width="100%"
+               horizontalAlign="right"
+               paddingLeft="0"
+               paddingRight="1"
+               paddingTop="3"
+               paddingBottom="1"
+               horizontalGap="0"
+               visible="true"
+               includeInLayout="{this.routes_list_pager.visible}"
+               />
+
+         </mx:HBox>
+
+         <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                        and Panel_Routes_Looked_At. -->
+         <mx:HBox
+            width="100%"
+            horizontalGap="0"
+            horizontalAlign="left"
+            >
+            <mx:CheckBox
+               id="uncheck_on_panel_close"
+               label="{Panel_Routes_Base.uncheck_on_panel_close_label}"
+               toolTip=
+      "When you close a route panel, Cyclopath will also remove the route from the map. If this is unchecked, after closing the route panel, if the route is in the list above and its checkbox is checked, Cyclopath will continue to show the route on the map."
+               selected="{Panel_Routes_Base.hide_routes_on_panel_closed}"
+               click="this.on_uncheck_on_panel_close_click(event);"
+               />
+            <!--
+            <mx:Spacer
+               width="100%"/>
+            -->
+            <mx:Spacer
+               width="7"/>
+            <mx:CheckBox
+               id="recalculate_stale_routes"
+               label="{Panel_Routes_Base.recalculate_routes_on_fetch_label}"
+               toolTip=
+      "If the roads that a route uses have been edited, we'll update the route when you load it. We'll run the route finder on the segments that have changed using the settings that were originally used to find the route. Note that this can slow down route checkout, so uncheck this option if you'd like to manually update each route -- just look for the Update Route button on the route's details panel."
+               selected="{Panel_Routes_Base.recalculate_routes_on_fetch}"
+               click="this.on_recalculate_routes_on_fetch_click(event);"
+               />
+         </mx:HBox>
+
+      </mx:VBox> <!-- end: below_the_route_list -->
+
+      <mx:VBox
+         id="remove_verification"
+         width="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         visible="false"
+         includeInLayout="{this.remove_verification.visible}"
+         >
+         <mx:HBox
+            width="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="0"
+            horizontalGap="9"
+            >
+            <mx:Label
+               text="Really remove routes from the list?"/>
+            <mx:Spacer
+               width="100%"/>
+            <views_panel_util:Button_Small
+               id="remove_verify_confirm"
+               label="Yes"
+               click="this.on_remove_verify_confirm_click();"
+               toolTip=
+   "Please click to confirm that you'd like to cleanup your route history."
+               width="{this.remove_verify_cancel.width}"
+               />
+            <views_panel_util:Button_Small
+               id="remove_verify_cancel"
+               label="Cancel"
+               click="this.on_remove_verify_cancel_click();"
+               toolTip="Click to cancel removing routes from the list."
+               paddingLeft="2"
+               paddingRight="2"
+               />
+            <mx:Spacer
+               width="100%"/>
+         </mx:HBox>
+      </mx:VBox> <!-- end: remove_verification -->
+
+      <!-- Key -->
+      <!-- SYNC_ME/CXPX: Same widgets in Panel_Routes_Library
+                                     and Panel_Routes_Looked_At. -->
+      <mx:HRule
+         width="100%"
+         strokeWidth="1"/>
+      <views_panel_routes:Route_List_Key
+         id="route_list_key"/>
+
+   </mx:VBox> <!-- /Routes I've Looked At -->
+
+</views_panel_routes:Panel_Routes_Base>
+

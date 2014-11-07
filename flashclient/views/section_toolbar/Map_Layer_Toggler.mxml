@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Statewide UI: MAGIC_NUMBER: Setting dropdownWidth explicitly.
+            It's hard (or not impossible) to figure out the width of a ComboBox
+            list item when using itemRenderer but not using dropdownFactory. We
+            need to set dropdownFactory to, e.g., List_Disableable, and then
+            we can find our child list items and measure them to set the
+            dropdownWidth appropriately. For now, using a hard-coded width of
+            166, which seems to be an okay width to show all of the list items
+            ([lb] has only tested on Fedora Firefox). Note that we're not
+            using 'width' but 'dropdownWidth'; the former is the width of the
+            dropdown control (the button) and the latter is the width of that
+            actual list of dropdown items.  See Combo_Box_V2 for usage examples
+            and lots of code to copy and paste...
+            -->
+<mx:ComboBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   rollOverColor="0xFFFFFF"
+   selectionColor="0xFFFFFF"
+   labelFunction="get_map_layers_label"
+   dataProvider="{this.dropdown_options}"
+   rowCount="{this.dataProvider.length}"
+   itemRenderer="views.section_toolbar.Map_Layer_Renderer"
+   initialize="this.on_initialize(event);"
+
+   open="this.on_dropdown_open(event);"
+
+   dropdownWidth="181"
+
+   >
+   <!-- Add this if you make Map_Layer_Renderer a Detail_Panel_Widget...
+   added="this.on_added_renderer_maybe(event);"
+
+        or just use this.parentDocument... ha!
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.collections.ArrayCollection;
+      import mx.collections.XMLListCollection;
+      import mx.controls.Alert;
+      import mx.events.DropdownEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+      import views.panel_util.Print_And_Save_Map;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctT_MapLTg');
+
+      // FIXME: Statewide UI: may_layer_notes/map_default_show_links:
+      //                      rename if it also includes discussions
+      //                      (i.e., the highlight-or-not value is
+      //                      for link_values, and not just notes).
+      // Display Option IDs.
+      // MAGIC_NUMBERS: This is an Enum for the Settings_Manager and us,
+      //                Map_Layer_Toggler, to determine what option was
+      //                selected in the dropdown.
+      // SYNC_ME: The numbers here match items in dropdown_options.
+      public static const map_layer_save_pdf:int = 0;
+      public static const map_layer_print_map:int = 1;
+      public static const map_layer_facils:int = 2;
+      public static const map_layer_points:int = 3;
+      public static const map_layer_regions:int = 4;
+      public static const map_layer_links:int = 5;
+      public static const map_layer_details:int = 6;
+      public static const map_layer_settings:int = 7;
+
+      // *** Instance attributes
+
+      public var print_n_save:Print_And_Save_Map = new Print_And_Save_Map();
+
+      //
+      // NOTE: See usage in Map_Layer_Renderer: we can use an Array of Objects
+      //       here to define the list of dropdown options, but when they're
+      //       rendered, in the MXML we have to use an ObjectProxy(), otherwise
+      //       Flex will complain to the trace an "unable to bind" warning:
+      //          warning: unable to bind to property 'label' on class 'Object'
+      //                   (class is not an IEventDispatcher)
+      // NOTE: The id isn't used. We used to use it to decide what to do if an
+      //       option was selected, but now options define their own callbacks.
+      // SYNC_ME: The options and their IDs here match the attributes,
+      //          map_layer_*, above.
+      [Bindable]
+      protected var dropdown_options:ArrayCollection;
+
+      // *** Instance methods
+
+      // This is the title of the ComboBox dropdown.
+      protected function get_map_layers_label(item:Object) :String
+      {
+         // The dropdown has options for enabling and disabling map "layers",
+         // like showing and not showing points, regions, etc. It has has
+         // options for enabling highlights (i.e., for items with notes or
+         // discussions). It also links to the branch details panel and the
+         // settings panel. And it might have the enable-editing option.
+         // So we should use a universal name for this control...
+         // return 'Map Layers';
+         // return 'Map Display';
+         //return 'Map Settings';
+         return 'More';
+      }
+
+      //
+      /*/ This isn't necessary: Map_Layer_Renderer doesn't have to be
+          Detail_Panel_Widget.
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Map_Layer_Renderer = (
+            ev.target as Map_Layer_Renderer);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            renderer.detail_panel = this.dp;
+         }
+      }
+      /*/
+
+      //
+      public function set_checked(layer_id:int, value:Boolean) :void
+      {
+         for each (var option:Object in this.dropdown_options) {
+            if (option.id == layer_id) {
+               option.selected = value;
+            }
+         }
+      }
+
+      //
+      public function set_enabled(layer_id:int, enable:Boolean) :void
+      {
+         for each (var option:Object in this.dropdown_options) {
+            if (option.id == layer_id) {
+               option.enabled = enable;
+            }
+         }
+      }
+
+      // ***
+
+      // EXPLAIN: Does it matter if the action_* callbacks are static or not?
+
+      //
+      public function action_save_pdf(data:Object) :void
+      {
+         // FIXME: Find a better home for on_save_pdf.
+         //        Maybe it's part of G.map?
+         this.print_n_save.save_pdf();
+      }
+
+      //
+      public function action_print_map(data:Object) :void
+      {
+         // FIXME: Find a better home for on_print_map.
+         this.print_n_save.print_map();
+      }
+
+      //
+      public static function action_show_facils(data:Object) :void
+      {
+         G.tabs.settings.facils_visible = data.selected;
+      }
+
+      //
+      public static function action_show_points(data:Object) :void
+      {
+         G.tabs.settings.points_visible = data.selected;
+      }
+
+      //
+      public static function action_show_regions(data:Object) :void
+      {
+         G.tabs.settings.regions_visible = data.selected;
+      }
+
+      //
+      public static function action_show_links(data:Object) :void
+      {
+         G.tabs.settings.links_visible = data.selected;
+      }
+
+      //
+      public static function action_more_settings(data:Object) :void
+      {
+         m4_ASSERT(G.tabs.settings.settings_panel !== null);
+         G.panel_mgr.panel_activate(G.tabs.settings.settings_panel);
+      }
+
+      //
+      public static function action_branch_details(data:Object) :void
+      {
+// FIXME: Statewide UI: Implement.
+// 2013.03.23: fires if you choose map details before branch loaded...
+// disable menu item until branch is loaded?
+         G.panel_mgr.panel_activate(G.item_mgr.active_branch.branch_panel);
+      }
+
+      // ***
+
+      //
+      protected function on_dropdown_open(ev:DropdownEvent) :void
+      {
+         m4_TALKY('on_dd_open: x:', this.x, '/ width:', this.width);
+         if (this.dropdown !== null) {
+            m4_TALKY2('on_dd_open: dropdown.measuredWidth:',
+                      this.dropdown.measuredWidth);
+
+         var point:Point = new Point(0, unscaledHeight);
+         m4_VERBOSE('on_dd_open: this.x:', point.x);
+         point = localToGlobal(point);
+         m4_VERBOSE('on_dd_open: localToGlobal.x:', point.x);
+         point.x += this.width;
+         m4_VERBOSE('on_dd_open: += this.width.x:', point.x);
+         point.x -= this.dropdown.width;
+         m4_VERBOSE('on_dd_open: -= this.dropdown.width.x:', point.x);
+         point = this.dropdown.parent.globalToLocal(point);
+         m4_VERBOSE('on_dd_open: = globalToLocal.x:', point.x);
+
+         this.dropdown.x = point.x;
+         }
+      }
+
+      //
+      protected function on_initialize(ev:Event) :void
+      {
+         // This was defined at class-level but then all of your callback
+         // functions have to be static, since the 'this' doesn't exist yet.
+
+         this.dropdown_options = new ArrayCollection([
+
+            {
+               id:            Map_Layer_Toggler.map_layer_save_pdf,
+               label:         'Save PDF',
+               toolTip:       'Save a PDF of the viewable map area.',
+               is_checkbox:   false,
+               selected:      false,
+               action_fcn:    this.action_save_pdf
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_print_map,
+               label:         'Print Map',
+               toolTip:       'Print a paper copy of the viewable map area.',
+               is_checkbox:   false,
+               selected:      false,
+               action_fcn:    this.action_print_map
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_points,
+               // label:      'Points',
+               label:         'Show Points',
+               toolTip:       'Show points of interest.',
+               is_checkbox:   true,
+               selected:      Conf.map_default_show_points,
+               action_fcn:    Map_Layer_Toggler.action_show_points
+            },
+
+      // BUG nnnn: APRIL2014: A way to filter cities/townships/counties.
+      //           Test first with tag filters, and then make custom
+      //           filters using same idea, but attached to an easy
+      //           to find button or similar.
+            {
+               id:            Map_Layer_Toggler.map_layer_regions,
+               // label:      'Regions',
+               label:         'Show Regions/Cities',
+               toolTip:       
+      'Show region outlines (like county boundaries, or your own regions).',
+               is_checkbox:   true,
+               selected:      Conf.map_default_show_regions,
+               action_fcn:    Map_Layer_Toggler.action_show_regions
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_facils,
+               // label:      'Points',
+               label:         'Show Bike Facilities',
+               toolTip:
+'Draw bike lanes, bikeable shoulders, and other roads with bike facilities.',
+               is_checkbox:   true,
+               selected:      Conf.map_default_show_facils,
+               action_fcn:    Map_Layer_Toggler.action_show_facils
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_links,
+               // label:      'Annotations',
+               // label:      'Note Highlights',
+               // label:         'Highlight Annotated',
+               label:         'Highlight notes and posts',
+               toolTip:       
+      'Show an outline around map items with notes or discussions about them.',
+               is_checkbox:   true,
+               selected:      Conf.map_default_show_links,
+               action_fcn:    Map_Layer_Toggler.action_show_links
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_settings,
+               // label:      'Advanced Options',
+               // label:      'More Options',
+               label:         'More Settings',
+               toolTip:       'Configure many more display options.',
+               is_checkbox:   false,
+               selected:      false,
+               // NOTE: We cannot reference G.tabs.settings.settings_panel
+               //       because it doesn't exist yet, so we use a callback.
+               action_fcn:    Map_Layer_Toggler.action_more_settings
+            },
+
+            {
+               id:            Map_Layer_Toggler.map_layer_details,
+               // label:      'Map Details',
+               label:         'About the Map',
+               toolTip:       'See details about the active map.',
+               is_checkbox:   false,
+               selected:      false,
+               action_fcn:    Map_Layer_Toggler.action_branch_details
+            },
+
+         ]);
+
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+</mx:ComboBox>
+

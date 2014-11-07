@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<LinearLayout
+   xmlns:android="http://schemas.android.com/apk/res/android"
+   android:orientation="vertical"
+   android:layout_width="fill_parent"
+   android:layout_height="fill_parent">
+   <RelativeLayout
+      android:orientation="horizontal"
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content">
+      <TextView
+         android:id="@+id/route_item_length"
+         android:layout_width="wrap_content"
+         android:layout_height="wrap_content"
+         android:textColor="#00FFFF"
+         android:textSize="18sp"
+         android:paddingRight="10dip"
+         android:layout_alignParentRight="true" />
+      <TextView
+         android:id="@+id/route_item_name"
+         android:layout_width="fill_parent"
+         android:layout_height="wrap_content"
+         android:paddingRight="10dip"
+         android:textSize="18sp"
+         android:layout_toLeftOf="@id/route_item_length" />
+   </RelativeLayout>
+   <TextView
+      android:id="@+id/route_start_end"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:paddingLeft="10dp"
+      android:textColor="#696969"
+      android:textSize="14sp" />
+</LinearLayout>

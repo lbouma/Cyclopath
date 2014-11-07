@@ -1,0 +1,44 @@
+
+python-streetaddress
+
+https://github.com/neworganizing/tech-blog/tree/master/address-parsing/python-streetaddress
+
+A Python port of the Perl address parser available at
+http://search.cpan.org/~timb/Geo-StreetAddress-US-1.03/US.pm
+
+To checkout the source:
+ git clone https://github.com/neworganizing/tech-blog.git
+
+Example usage:
+
+>>> from streetaddress import *
+>>> a = parse("very hot wings")
+>>> a
+>>> a is None
+True
+>>> a = parse("1023 very hot wings")
+>>> a
+>>> a = parse("1023 very hot wings ct")
+>>> a
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY', 'postal_code': None, 'unit': None, 'city': 'HOT WINGS', 'state': 'CT', 'street_type': None, 'street_type2': None, 'suffix2': None}
+>>> a = parse("1023 very hot wings rd")
+>>> a
+>>> a = parse("1023 very hot wings rd mpls")
+>>> a
+>>> a = parse("1023 very hot wings rd mpls mn")
+>>> a
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': None, 'unit': None, 'city': 'MPLS', 'state': 'MN', 'street_type': 'RD', 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings rd mpls mn")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': None, 'unit': None, 'city': 'MPLS', 'state': 'MN', 'street_type': 'RD', 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings rd mpls mn 55401")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': '55401', 'unit': None, 'city': 'MPLS', 'state': 'MN', 'street_type': 'RD', 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings rd mpls 55401")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS RD MPLS', 'postal_code': '55401', 'unit': None, 'city': None, 'state': None, 'street_type': None, 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings rd 55401")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': '55401', 'unit': None, 'city': None, 'state': None, 'street_type': 'RD', 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings 55401")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': '55401', 'unit': None, 'city': None, 'state': None, 'street_type': None, 'street_type2': None, 'suffix2': None}
+>>> parse("1023 very hot wings 55401")
+{'suffix': None, 'unit_prefix': None, 'postal_code_ext': None, 'prefix2': None, 'street2': None, 'number': '1023', 'prefix': None, 'street': 'VERY HOT WINGS', 'postal_code': '55401', 'unit': None, 'city': None, 'state': None, 'street_type': None, 'street_type2': None, 'suffix2': None}
+
+

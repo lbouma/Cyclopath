@@ -1,0 +1,45 @@
+# Install this configuration when Cyclopath is down for maintenance. It shows
+# error messages to users rather than nothing.
+
+NameVirtualHost *:HTTPD_PORT_NUM()
+<VirtualHost *:HTTPD_PORT_NUM()>
+
+    ServerAdmin TARGETUSER()@localhost
+
+    DocumentRoot /ccp/dev/CCPBASEDIR()/htdocs/misc
+
+    # By default, serve nothing
+    <Directory />
+        Options FollowSymLinks
+        AllowOverride None
+    </Directory>
+
+    # Don't serve .svn directories
+    <DirectoryMatch "\.svn/">
+        Deny from all
+    </DirectoryMatch>
+
+    # Static files
+    <Directory /ccp/dev/CCPBASEDIR()/htdocs/misc/>
+        Options FollowSymLinks
+        AllowOverride None
+        Order allow,deny
+        Allow from all
+    </Directory>
+
+    # Rewrite all .html requests to maintenance.html
+    # Rewrite all WFS request to maintenance.xml
+    RewriteEngine On
+    RewriteRule \.html /maintenance.html
+    RewriteRule /wfs /maintenance.xml
+
+    # BUG nnnn: Consolidate error logs under /ccp/var/log
+    #ErrorLog /var/log/apache2/error.log
+    ErrorLog /ccp/var/log/apache2/error.log
+
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel warn
+
+</VirtualHost>
+

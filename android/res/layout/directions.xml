@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent" >
+  <ImageButton android:id="@+id/directions_back_to_map_btn"
+    android:src="@drawable/undo"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentTop="true"
+    android:layout_alignParentRight="true"
+    android:layout_marginTop="3sp" />
+  <LinearLayout
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:orientation="vertical">
+    <LinearLayout
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal">
+      <TextView android:id="@+id/from_label"
+              android:layout_width="45dip"
+              android:layout_height="wrap_content"
+              android:textStyle="bold"
+              android:text="@string/route_finder_from"
+              android:textColor="#00FF00"
+              android:textSize="15sp" />
+      <TextView android:id="@+id/starting_address"
+              android:layout_width="225dip"
+              android:layout_height="wrap_content"
+              android:textSize="15sp" />
+    </LinearLayout>
+    
+    <LinearLayout
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal">
+      <TextView android:id="@+id/to_label"
+              android:layout_width="25dip"
+              android:layout_height="wrap_content"
+              android:textStyle="bold"
+              android:text="@string/route_finder_to"
+              android:textColor="#FF0000"
+              android:textSize="15sp" />
+      <TextView android:id="@+id/destination_address"
+              android:layout_width="245dip"
+              android:layout_height="wrap_content"
+              android:textSize="15sp" />
+    </LinearLayout>
+    <LinearLayout
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal">
+      <TextView android:id="@+id/length_label"
+              android:layout_width="57dip"
+              android:layout_height="wrap_content"
+              android:textStyle="bold"
+              android:text="@string/directions_length"
+              android:textColor="#00FFFF"
+              android:textSize="15sp" />
+      <TextView android:id="@+id/route_length"
+              android:layout_width="215dip"
+              android:layout_height="wrap_content"
+              android:textSize="15sp" />
+    </LinearLayout>
+    <View android:layout_height="10px"
+          android:layout_width="wrap_content"
+          android:visibility="invisible" />
+    <View android:layout_height="5px"
+          android:layout_width="wrap_content"
+          android:background="#F0EEEE" />
+    <View android:layout_height="10px"
+          android:layout_width="wrap_content"
+          android:visibility="invisible" />
+    <ListView android:id="@android:id/list"
+              android:layout_width="fill_parent"
+              android:layout_height="wrap_content" />
+  </LinearLayout>
+</RelativeLayout>

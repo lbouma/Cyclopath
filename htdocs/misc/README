@@ -1,0 +1,13 @@
+This file explains how to regenerate the PNGs in this directory from the
+corresponding ODG (openoffice) documents.
+
+Note: Some of these documents have a change scheduled which may vary from
+releases and other developments, so don't check them into SVN (the templates
+are in SVN). They are the ones named -template.
+
+To generate foo.png:
+
+1. Copy foo-template.odg to foo.odg (if needed).
+2. oodraw foo.odg &
+3. Export the document as PNG, creating foo.png.
+4. fixperms --public

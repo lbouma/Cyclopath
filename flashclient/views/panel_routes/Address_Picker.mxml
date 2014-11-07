@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.geom.Point;
+      import flash.utils.Timer;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Button;
+      import mx.events.FlexEvent;
+      import mx.managers.PopUpManager;
+      import mx.validators.StringValidator;
+
+      import items.Geofeature;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_search.Panel_Search_Result;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('AddyPicker');
+
+      // *** Instance variables
+
+      [Bindable] public var picked_handler:Function;
+
+      public var addy_resolved:Address_Resolved = null;
+      public var results_xml:XMLList = null;
+
+      public var force_show_list:Boolean = false;
+
+      // ***
+
+      //
+      public function picked_callback(rstop_object:Object) :void
+      {
+         this.force_show_list = false;
+         if (this.picked_handler !== null) {
+            this.picked_handler(rstop_object);
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Address_Picker_Entry = (
+            ev.target as Address_Picker_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Address_Picker_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this;
+         }
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+         m4_DEBUG('on_initialize');
+
+         this.geocode_list_pager.records_per_page
+            = Conf.geocode_results_page_size;
+         this.geocode_list_pager.list_control_callback
+            = this.on_pageinator;
+      }
+
+      //
+      protected function on_pageinator() :void
+      {
+         m4_DEBUG('on_pageinator');
+
+         var first_record_num:int;
+         if (this.geocode_list_pager.current_page_number == 0) {
+            first_record_num = 0;
+         }
+         else {
+            first_record_num = 
+               (this.geocode_list_pager.records_per_page
+                * (this.geocode_list_pager.current_page_number - 1))
+               //+ 1
+            ;
+         }
+         m4_DEBUG('on_pageinator: first_record_num:', first_record_num);
+         this.paginator_update_list(first_record_num);
+      }
+
+      //
+      // C.t. Widget_Version_History.paginator_update_list
+      public function paginator_update_list(index:uint=0) :void
+      {
+         // Note the XMLList's length is a fcn., length().
+         if ((!this.results_xml) || (this.results_xml.length() == 0)) {
+            m4_ASSERT_SOFT(index == 0);
+            this.geocode_list_pager.records_total_count = 0;
+         }
+         else {
+            m4_DEBUG2('paginator_update_list: index:', index,
+                      '/ results_xml.len:', this.results_xml.length());
+            //m4_DEBUG2('paginator_update_list: results_xml:',
+            //          this.results_xml.toXMLString());
+
+            var limit:int = 
+               Math.min(index + Conf.geocode_results_page_size,
+                        this.results_xml.length());
+            m4_DEBUG('paginator_update_list: limit:', limit);
+
+            var provider:ArrayCollection = new ArrayCollection();
+            for (var posit:int = index; posit < limit; posit++) {
+               provider.addItem(this.results_xml[posit]);
+            }
+
+            this.addy_geocode_list.dataProvider = provider;
+
+            this.geocode_list_pager.records_total_count =
+               this.results_xml.length();
+
+            // Avoid: "warning: unable to bind to property 'text' on class
+            //        'XML' (class is not an IEventDispatcher)
+            m4_DEBUG('update_result_list: provider.len:', provider.length);
+            this.geocode_list_pager.p_collect = provider;
+
+            this.geocode_list_pager.update_pagination_text();
+
+            if (this.results_xml.length() <= Conf.geocode_results_page_size) {
+               this.geocode_list_pager.visible = false;
+               this.geocode_list_pager.includeInLayout = false;
+            }
+            else {
+               this.geocode_list_pager.visible = true;
+               this.geocode_list_pager.includeInLayout = true;
+            }
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate');
+      }
+
+      //
+      public function show_addy_resolver(addr_results:Address_Resolved)
+         :void
+      {
+         var hide_resolver:Boolean = false;
+         var show_addy_geocoded_box:Boolean = false;
+         var show_all_results_button:Boolean = false;
+         var show_all_results_too:Boolean = false;
+
+         this.addy_resolved = addr_results;
+
+         if ((addr_results !== null)
+             && ((addr_results.results_none)
+                 || (addr_results.results_error)
+                 || (addr_results.results_xml !== null))) {
+
+            if ((addr_results.results_xml !== null)
+                && (addr_results.is_geocoded())) {
+
+               hide_resolver = true;
+               if (addr_results.results_xml.length() == 1) {
+                  m4_DEBUG('show_addy_resolver: one geocoded result of one');
+               }
+               else {
+                  m4_DEBUG2('show_addy_resolver: one geocoded result of many:',
+                            '/ force_show_list:', this.force_show_list);
+                  if (!this.force_show_list) {
+                     show_all_results_button = true;
+                  }
+                  else {
+                     show_all_results_too = true;
+                  }
+               }
+            }
+            else if (addr_results.results_none) {
+               m4_DEBUG('show_addy_resolver: no(ne) results:', addr_results);
+
+               this.resolver_instructions.htmlText =
+                  'We did not find any matches. Please try again.';
+
+               this.results_xml = null;
+            }
+            else if (addr_results.results_error) {
+               m4_DEBUG('show_addy_resolver: results error:', addr_results);
+
+               this.resolver_instructions.htmlText =
+                  // 'There was a problem: ' +
+                  addr_results.error_message
+                  + '<br/>';
+
+               this.results_xml = null;
+            }
+            else {
+               m4_DEBUG('show_addy_resolver: mult. matches:', addr_results);
+
+               this.resolver_instructions.htmlText =
+                  'We found multiple matches. Please choose one:';
+
+               this.results_xml = addr_results.results_xml;
+
+               show_addy_geocoded_box = true;
+            }
+         }
+         else {
+            m4_DEBUG2('show_addy_resolver: not geocoded:',
+                      (addr_results !== null) ? addr_results : 'null');
+
+            this.force_show_list = false;
+
+            this.results_xml = null;
+
+            hide_resolver = true;
+         }
+
+         if (show_all_results_too) {
+            m4_DEBUG('show_addy_resolver: show all:', addr_results);
+
+            this.resolver_instructions.htmlText =
+               'We found more than one matching item:';
+
+            this.results_xml = addr_results.results_xml;
+
+            show_addy_geocoded_box = true;
+
+            hide_resolver = false;
+         }
+
+         this.paginator_update_list();
+
+         this.addy_geocoded_box.visible = show_addy_geocoded_box;
+         this.addy_geocoded_box.includeInLayout = show_addy_geocoded_box;
+
+         var addy_chooser_base:Address_Chooser_Base =
+            (this.parentDocument as Address_Chooser_Base);
+         m4_DEBUG5('show_addy_resolver:',
+                   'show_all_results_button:', show_all_results_button,
+                   '/ hide_resolver:', hide_resolver,
+                   '/ show_addy_geocoded_box:', show_addy_geocoded_box,
+                   '/ addy_chooser_base:', addy_chooser_base);
+         // This is hacky... Address_Resolver and Route_Stop_Entry 
+         if (addy_chooser_base !== null) {
+            addy_chooser_base.addr_show_all_btn.visible
+               = show_all_results_button;
+         }
+         m4_ASSERT_ELSE_SOFT;
+
+         this.visible = !hide_resolver;
+         this.includeInLayout = !hide_resolver;
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- Ambiguity cleanser. -->
+
+   <mx:VBox
+      id="addy_picker_box"
+      width="100%"
+      visible="true"
+      includeInLayout="{this.addy_picker_box.visible}"
+      >
+      <!--
+      borderStyle="solid"
+      borderColor="{Conf.reac_bar_border_color}"
+      -->
+
+      <!-- NOTE: Set condenseWhite to false, otherwise the Text doesn't
+                 show the last line, except you can scroll the last line
+                 in (and the first line out) using the mouse-wheel.
+                 [lb] has solved this problem previously by adding
+                 an extra, empty row to the DataGrid (via rowCount),
+                 but this should work well, too. -->
+      <mx:Text
+         id="resolver_instructions"
+         width="100%"
+         condenseWhite="false"
+         selectable="false"
+         visible="true"
+         includeInLayout="{this.resolver_instructions.visible}"
+
+         color="0xaa0000"
+         />
+         <!--
+         fontWeight="bold"
+         -->
+
+      <mx:VBox
+         id="addy_geocoded_box"
+         width="100%"
+         visible="false"
+         includeInLayout="{this.addy_geocoded_box.visible}"
+         >
+
+         <mx:DataGrid
+            id="addy_geocode_list"
+            width="100%"
+            sortableColumns="false"
+            verticalScrollPolicy="off"
+            draggableColumns="false"
+            selectedIndex="-1"
+            showHeaders="false"
+            headerHeight="0"
+            added="this.on_added_renderer_maybe(event);"
+            rowCount=
+               "{Math.max(1,
+                          Math.min(this.addy_geocode_list.dataProvider.length,
+                                   Conf.geocode_results_page_size))}"
+            allowMultipleSelection="false"
+            borderStyle="none"
+            resizableColumns="true"
+            >
+            <!--
+            alternatingItemColors="{Conf.grid_alt_colours}"
+            -->
+            <mx:columns>
+               <mx:DataGridColumn
+                  headerText=""
+                  itemRenderer="views.panel_routes.Address_Picker_Entry"/>
+            </mx:columns>
+         </mx:DataGrid>
+
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            horizontalGap="0"
+            verticalAlign="middle"
+            horizontalAlign="right"
+            >
+            <views_panel_util:Paginator_Widget
+               id="geocode_list_pager"
+               width="100%"
+               horizontalAlign="right"
+               paddingRight="1"
+               paddingTop="3"
+               paddingBottom="1"
+               horizontalGap="0"
+               visible="true"
+               includeInLayout="{this.geocode_list_pager.visible}"
+               />
+         </mx:HBox>
+
+      </mx:VBox> <!-- end: addy_geocoded_box -->
+
+   </mx:VBox> <!-- end: addy_picker_box -->
+
+</views_panel_base:Detail_Panel_Widget>
+

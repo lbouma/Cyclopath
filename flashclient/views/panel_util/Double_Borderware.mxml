@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   borderStyle="solid"
+   paddingLeft="2"
+   paddingTop="2"
+   paddingRight="2"
+   paddingBottom="2"
+   creationComplete="this.on_creation_complete()"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Dbl_Bware');
+
+      // ***
+
+      public var click_callback:Function = null;
+
+      protected var collapsed:Boolean = false;
+      protected var mousing_over:Boolean = false;
+
+      // ***
+
+      //
+      protected function on_creation_complete() :void
+      {
+         m4_DEBUG('on_creation_complete');
+         this.collapsed = !(this.collapsible_area.visible);
+      }
+
+      //
+      public function on_mouse_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_mouse_click');
+         if (this.click_callback !== null) {
+            this.click_callback(this);
+         }
+         this.collapsible_area.visible = this.collapsed;
+         this.collapsible_area.includeInLayout = this.collapsed;
+         this.collapsed = !(this.collapsed);
+      }
+
+      //
+      public function force_collapse() :void
+      {
+         this.collapsible_area.visible = false;
+         this.collapsible_area.includeInLayout = false;
+         this.collapsed = true;
+      }
+
+      //
+      protected function on_mouse_out(ev:MouseEvent) :void
+      {
+         this.border_inner.setStyle('backgroundColor', '0xFFFFFF');
+         this.mousing_over = false;
+      }
+
+      //
+      protected function on_mouse_over(ev:MouseEvent) :void
+      {
+         if (!this.mousing_over) {
+            if (this.collapsed) {
+               this.border_inner.setStyle('backgroundColor', '0xe9e9e9');
+            }
+            this.mousing_over = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="border_inner"
+      width="100%"
+      borderStyle="solid"
+      paddingLeft="4"
+      paddingRight="4"
+      paddingTop="2"
+      mouseOut="this.on_mouse_out(event)"
+      mouseOver="this.on_mouse_over(event)"
+      >
+
+      <mx:VBox
+         width="100%"
+         click="this.on_mouse_click(event);"
+         >
+         <mx:Label
+            id="bware_title"
+            fontWeight="bold"/>
+      </mx:VBox>
+
+      <mx:VBox
+         width="100%"
+         id="collapsible_area"
+         visible="false"
+         paddingBottom="5"
+         includeInLayout="false"/>
+
+   </mx:VBox>
+
+</mx:VBox>
+

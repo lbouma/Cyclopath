@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns="*"
+   width="100%"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+      import flash.events.MouseEvent;
+      import flash.utils.Dictionary;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+      import mx.events.IndexChangedEvent;
+
+      import items.feats.Branch;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      // FIXME: Script to search sources for get_logger and to create
+      //        Config_Logging.as
+      protected static var log:Logging = Logging.get_logger('Wgt_Br_List');
+
+      // *** Startup methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+         G.item_mgr.addEventListener('branchListLoaded',
+                                     this.on_branch_list_loaded);
+
+         this.on_active_branch_change();
+         this.on_branch_list_loaded();
+      }
+
+      // ***
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Maps_Branch_Entry = (
+            ev.target as Widget_Maps_Branch_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Maps_Branch_Entry can also use
+            //       its this.parentDocument.
+            //renderer.detail_panel = this.dp;
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_active_branch_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_active_branch_change');
+         // Tickle the map panel so it reflects the newly active branch.
+         var dummy_event:ListEvent = null;
+         this.on_branch_list_change();
+      }
+
+      //
+      public function on_branch_list_change(ev:ListEvent=null) :void
+      {
+         var enable_activate:Boolean = false;
+
+         var branch:Branch = (this.branch_list.selectedItem as Branch);
+
+         var select_len:int = this.branch_list.selectedItems.length;
+         m4_ASSERT(select_len <= 1); // since allowMultipleSelection = false
+
+         m4_DEBUG('on_branch_list_change:', this.branch_list.selectedItem);
+
+         // If this is the active branch, show the import/export buttons maybe.
+         if ((branch !== null)
+             && (select_len > 0)
+             && (G.item_mgr.active_branch !== null)) {
+            if (G.item_mgr.active_branch.stack_id == branch.stack_id) {
+               // The active branch.
+               enable_activate = false;
+            }
+            else {
+               // Not the active branch.
+               enable_activate = true;
+            }
+         }
+         else {
+            // The map is loading. Don't enable any button.
+            enable_activate = false;
+         }
+
+         // G.app.my_maps_panel.button_activate.enabled = enable_activate;
+         m4_DEBUG2('on_branch_list_change: parentDocument',
+                   String(this.parentDocument));
+         var legend_widget:Widget_Maps_Available =
+            (this.parentDocument as Widget_Maps_Available);
+         legend_widget.button_activate.enabled = enable_activate;
+      }
+
+      //
+      public function on_branch_list_loaded(ev:Event=null) :void
+      {
+         m4_DEBUG('on_branch_list_loaded');
+         if (G.map !== null) {
+            this.branch_list.dataProvider = G.map.branches_list;
+            //?: this.on_branch_list_change();
+         }
+      }
+
+      // Wire ENTER to the 'Activate' button. Note that [lb] tried using
+      // keyDown but for whatever reason it didn't hook. keyUp works fine.
+      // Maybe DataGrid intercepts and doesn't bubble keyDowns.
+      protected function on_key_up(evt:KeyboardEvent) :void
+      {
+         m4_DEBUG('on_key_up:', evt.charCode);
+         if (evt.charCode == Keyboard.ENTER) {
+            // G.app.my_maps_panel.on_branch_checkout();
+            m4_DEBUG('on_key_up: parentDocument', String(this.parentDocument));
+            var legend_widget:Widget_Maps_Available =
+               (this.parentDocument as Widget_Maps_Available);
+            legend_widget.on_branch_checkout();
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:DataGrid
+      id="branch_list"
+      width="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      allowMultipleSelection="false"
+      showHeaders="false"
+      headerHeight="0"
+      change="this.on_branch_list_change(event);"
+      keyUp="this.on_key_up(event);"
+      added="this.on_added_renderer_maybe(event);"
+
+rowCount="4"
+      >
+
+      <mx:columns>
+         <mx:DataGridColumn
+            dataField="Branch"
+            headerText=""
+            itemRenderer="views.panel_branch.Widget_Maps_Branch_Entry"
+            />
+
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</mx:VBox>
+

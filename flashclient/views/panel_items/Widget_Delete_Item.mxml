@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- DEPRECATED: See the Delete Item option in
+                 Widget_Gia_Sharing.selection_actions. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.NumericStepper;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_DelItem');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+
+         var pluralize:Boolean = (this.items_selected.length > 1);
+         this.label_summary.htmlText =
+            'Remove the selected '
+            + Inflector.pluralize('item', pluralize) + '.';
+         this.feats_delete.label = this.dp.button_delete_label;
+         this.feats_delete.toolTip = this.dp.button_delete_toolTip;
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <!--
+         text=""
+         -->
+      <mx:Label
+         styleName="labelmajor"
+         text="Delete"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            horizontalGap="0"
+            verticalAlign="bottom">
+            <mx:Text
+               id="label_summary"
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               visible="true"
+               includeInLayout="{this.label_summary.visible}"
+               >
+               <mx:htmlText><![CDATA[
+                  Remove the selected items.
+               ]]></mx:htmlText>
+            </mx:Text>
+         </mx:HBox>
+
+         <mx:HBox
+            width="100%"
+            paddingLeft="6"
+            paddingTop="3"
+            horizontalGap="0"
+            horizontalAlign="left"
+            verticalAlign="bottom">
+            <!--
+               label=""
+               -->
+            <mx:Button
+               id="feats_delete"
+               label="{this.dp.button_delete_label}"
+               toolTip="{this.dp.button_delete_toolTip}"
+               enabled="true"
+               click="this.dp.on_delete_click();"
+               />
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

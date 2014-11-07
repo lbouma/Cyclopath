@@ -1,0 +1,593 @@
+# Retrosoft bash shell script
+# 2009-10-10 Vers. 0000000001
+# 2010-02-08 Vers. 0000000002
+
+# Determine OS Flavor
+#####################
+# This script only recognizes Ubuntu and Red Hat distributions. It'll complain 
+# otherwise (and it'll still work, it just won't set a few flavor-specific 
+# options, like the terminal colors and prompt).
+# NOTE: See "uname -a", "cat /etc/issue", and "cat /etc/fedora-release"
+if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+  # echo Ubuntu!
+  : # no-op
+elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+  # echo Red Hat!
+  : # noop
+else
+  echo "OS Flavor Unknown! Please update your bashrc (or comment out this gripe)"
+fi;
+
+# Umask
+#######
+
+# FIXME: The umask setting is Very Important... and should be elevated.
+#        2012.11.01: Running db_load.sh using /ccp/var/dbdumps on huffy
+#                    creates temp files 0600 by the other user, so my
+#                    account cannot overwrite.
+
+# Only ever give everyone execute permissions (and 
+# neither read nor write) by default; more useful 
+# on a shared hosting system than on your own slice...
+# My Debian box defaults to 0022 -- give group and world execute + read
+# My Ubuntu box defaults to 0006, or r/w/x for owner and group, and just 
+# execute for everyone else. 
+umask 0006
+
+# Terminal Prompt
+#################
+
+function dubs_set_terminal_prompt () {
+
+  ssh_host=$1
+
+  # Set the prompt thusly:
+  #  user@host[dir]
+  # See <http://www.termsys.demon.co.uk/vtansi.htm>
+  #  for more about colours
+  #  nifty chart at <http://www.frexx.de/xterm-256-notes/>
+  #export PS1='\u@\[\033[0;35m\]\h\[\033[0;33m\][\W\[\033[00m\]]: '
+  #export PS1='\u@\[\033[0;32m\]\h\[\033[0;36m\][\W\[\033[00m\]]: '
+  # A;XYm ==> 
+  #   A=1 means bright
+  #   XY=30 is black, 31 Red, 32 Green, 33 Yellow,
+  #      34 Blue, 35 Magenta, 36 Cyan, 37 White
+  #   X=3 is Foreground, =4 is Background colors, i.e., 47 is White BG
+  #export PS1='\[\033[1;37m\]\u@\[\033[1;33m\]\h\[\033[1;36m\][\W\[\033[00m\]]: '
+  #from debian .bashrc
+  #PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+  # 2012.10.17: Also change the titlebar name for special terminal windows, like
+  #             the log-tracing windows.
+  # See: http://unix.stackexchange.com/questions/14113/is-it-possible-to-set-gnome-terminals-title-to-userhost-for-whatever-host-i
+  # EXPLAIN: [lb] isn't quite sure of the format.
+  #          \u is the username,
+  #          \h is the hostname
+  #          prefix \[\e]0; and suffix \a] seem to delimit the titlebar name
+  #          Search: `man bash`: look for 'prompting'.
+  #          \[ and \] delimit a non-printing sequence w/ control chars
+  #          \e is the ASCII escape char (033)
+  #          \0; must be the escape code to set the titlebar...?
+  #          \a is the ASCII bell char (07)
+  # By default, the title bar is user@host:working-directory.
+  TITLEBAR='\[\e]0;\u@\h\a\]'
+  # This does the same thing but uses octal ASCII escape chars instead of
+  # bash's escape chars:
+  #  TITLEBAR='\[\033]2;\u@\h\007\]'
+  # Gnome-terminal's default (though it doesn't specify it, it just is):
+  #  TITLEBAR='\[\e]0;\u@\h:\w\a\]'
+
+  # Name this terminal window specially if special.
+  # NOTE: This information comes from Gnome, where we've set the Gnome shortcut
+  #       to pass this environment variable to us.
+  # NOTE: To test gnome-terminal, run it from your home directory, otherwise it
+  #       won't find your bash scripts.
+  if [[ "$ssh_host" == "" ]]; then
+    if [[ "$DUBS_TERMNAME" != "" ]]; then
+      TITLEBAR="\[\e]0;${DUBS_TERMNAME}\a\]"
+    else
+      #TITLEBAR='\[\e]0;\u@\h:\w\a\]'
+      #TITLEBAR='\[\e]0;\w:(\u@\h)\a\]'
+      #TITLEBAR='\[\e]0;\w\a\]'
+      TITLEBAR='\[\e]0;\W\a\]'
+    fi
+  else
+    TITLEBAR="\[\e]0;On ${ssh_host}\a\]"
+  fi
+
+  # 2012.10.17: The default bash includes ${debian_chroot:+($debian_chroot)} in
+  # the PS1 string, but it really shouldn't be set on any of our systems (it's
+  # pretty much obsolete, or at least pertains to a linux usage we're not).
+  # "Chroot is a unix feature that lets you restrict a process to a subtree of
+  # the filesystem." See:
+  #  http://unix.stackexchange.com/questions/3171/what-is-debian-chroot-in-bashrc
+  #  https://en.wikipedia.org/wiki/Chroot
+
+  # NOTE: Using "" below instead of '' so that ${TITLEBAR} is resolved by the
+  #       shell first.
+  $DUBS_TRACE && echo "Setting prompt"
+  if [[ $EUID -eq 0 ]]; then
+    $DUBS_TRACE && echo "Running as root!"
+    if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+      $DUBS_TRACE && echo "Ubuntu"
+      PS1="${TITLEBAR}\[\033[01;45m\]\[\033[01;37m\]\u@\[\033[1;33m\]\h\[\033[00m\]:\[\033[01;36m\]\W\[\033[00m\]\$ "
+    elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+      $DUBS_TRACE && echo "Red Hat"
+      PS1="${TITLEBAR}\[\033[01;45m\]\[\033[01;37m\]\u@\[\033[1;33m\]\h\[\033[00m\]:\[\033[01;37m\]\W\[\033[00m\]\$ "
+    fi;
+  elif [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+    $DUBS_TRACE && echo "Ubuntu"
+    PS1="${TITLEBAR}\[\033[01;37m\]\u@\[\033[1;33m\]\h\[\033[00m\]:\[\033[01;36m\]\W\[\033[00m\]\$ "
+  elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+    $DUBS_TRACE && echo "Red Hat"
+    PS1="${TITLEBAR}\[\033[01;36m\]\u@\[\033[1;33m\]\h\[\033[00m\]:\[\033[01;37m\]\W\[\033[00m\]\$ "
+  fi;
+
+  # NOTE: There's an alternative to PS1, PROMPT_COMMAND, which works if PS1 is
+  #       empty.
+  #         PS1=""
+  #         PROMPT_COMMAND='echo -ne "\033]0;SOME TITLE HERE\007"'
+  #       But the escapes don't work the same. E.g., this looks really funny:
+  #         TITLEBAR="\[\e]0;THIS IS A TEST\a\]"
+  #         PROMPT_COMMAND='echo -ne "${TITLEBAR}\[\033[01;36m\]\u@\[\033[1;33m\]\h\[\033[00m\]:\[\033[01;37m\]\W\[\033[00m\]\$ "'
+
+}
+
+# SVN/gVim
+##########
+export SVN_EDITOR=gvim
+
+# Vi vs. Vim
+############
+# When logged in as root, vi is a dumbed-down vim. Root rarely needs it -- 
+# only when the home directories aren't mounted -- so just alias vi to vim.
+if [[ $EUID -eq 0 ]]; then
+  alias vi="vim"
+fi
+
+# GEM
+#####
+
+#export PATH=~/local/bin:~/.gem/ruby/1.8:$PATH
+#export GEM_PATH=~/.gem/ruby/1.8:/usr/lib/ruby/gems/1.8
+#export GEM_HOME=~/.gem
+
+# Aliases
+#########
+
+# Some example alias instructions
+# If these are enabled they will be used instead of any instructions
+# they may mask.  For example, alias rm='rm -i' will mask the rm
+# application.  To override the alias instruction use a \ before, ie
+# \rm will call the real rm not the alias.
+
+# Interactive operation...
+# NOTE Sometimes the -i doesn't get overriden by -f 
+#      and then you gotta alias cp='cp', etc.
+#alias rm='rm -i'
+# FIXME Hard-coded paths!
+#alias rm='mv --target-directory /home/$USER/.trash'
+#alias rmrm='/bin/rm -rf /home/$USER/.trash ; mkdir /home/$USER/.trash'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Misc
+alias grep='grep --color'         # show differences in colour
+alias less='less -r'              # raw control characters
+alias whence='type -a'            # where, of a sort
+alias h='history'
+alias sed='sed -r'                # use extended regex
+
+# gVim
+alias ff='gvim --servername DIGAMMA --remote-silent' # for those special occassions
+alias fd='gvim --servername DELTA --remote-silent' # when you want to get away
+alias fs='gvim --servername SAMPI --remote-silent' # because relaxation is key
+alias fa='gvim --servername ALPHA --remote-silent' # follow your spirit
+
+# Directory listings
+alias ls='/bin/ls -hFA --color=tty'   # Human readable, classify files, shows 
+                                      #   almost all (excludes ./ and ../), 
+                                      #   and uses colour.
+alias l='/bin/ls -ChFA --color=tty'   # Compact listing (same as -hFA, really).
+alias ll='/bin/ls -lhFa --color=tty'  # Long listing; includes ./ and ../ 
+                                      #     (so you can check permissions)
+alias lo='ll -rt'                     # Reverse sort by time.
+
+# Resource usage
+# Default to human readable figures
+alias df='df -h -T'
+#du -ah /home | sort -n
+alias du='du -h'
+alias free="free -m"
+
+# [lb] uses p frequently, just like h and ll
+alias p='pwd'
+
+# Alias python from py
+alias py='/usr/bin/env python'
+
+# Commonly used Debian commands
+#alias update="sudo aptitude update"
+#alias install="sudo aptitude install"
+#alias upgrade="sudo aptitude safe-upgrade"
+#alias remove="sudo aptitude remove"
+
+# Commonly used Rails commands
+#alias srv='script/server'
+#alias mig='rake db:migrate'
+#alias log='tail -f log/development.log'
+
+# And my TV is the second monitor
+#alias mp='mplayer -xineramascreen 1'
+#alias mpr='mplayer -xineramascreen 1 -lircconf ~/.lircrc-mplayer'
+
+alias cls='clear' # If you're like me and poisoned by DOS
+
+# Preferred grep switches and excludes.
+# -n => --line-number
+alias eg='egrep -n -R -i --color --exclude-from="$HOME/.vim/grep-exclude"'
+alias egi='egrep -n -R --color --exclude-from="$HOME/.vim/grep-exclude"'
+
+# Fix rm to be a crude trashcan
+###############################
+# Remove aliases (where "Remove" is a noun, not a verb! =)
+$DUBS_TRACE && echo "Setting trashhome"
+if [[ -z "$DUB_TRASHHOME" ]]; then
+  trashdir=$HOME
+else
+  trashdir=$DUB_TRASHHOME
+fi;
+# FIXME Do I need to create this directory, too?
+# FIXME: This should be a fcn. so I can check for existance of .trash
+#alias rm='mv --target-directory $trashdir/.trash'
+alias rm='rm_safe'
+alias rmtrash='/bin/rm -rf $trashdir/.trash ; mkdir $trashdir/.trash'
+alias rmrm='/bin/rm -rf'
+
+function rm_safe {
+  if [[ -d $trashdir/.trash ]]; then
+    mv --target-directory $trashdir/.trash $*
+  else
+    /bin/rm -i $*
+  fi
+}
+
+# SSH
+#####
+
+# NOTE: Not doing this for root.
+# 2012.12.22: Don't do this for cron, either, or cron sends
+#   Identity added: /home/misc00/landonb/.ssh/id_rsa (/home/misc00/landonb/.ssh/id_rsa)
+#   Identity added: /home/misc00/landonb/.ssh/identity (/home/misc00/landonb/.ssh/identity)
+
+if [[ $EUID -ne 0 \
+   && "dumb" != "${TERM}" \
+   && -e "$HOME/.ssh" ]]; then
+  # TODO lb
+  # See http://help.github.com/working-with-key-passphrases/
+  SSH_ENV="$HOME/.ssh/environment"
+  function start_agent {
+    #echo -n "Initializing new SSH agent... "
+    /usr/bin/ssh-agent | sed 's/^echo/#echo/' > "${SSH_ENV}"
+    #echo "ok."
+    chmod 600 "${SSH_ENV}"
+    . "${SSH_ENV}" > /dev/null
+    # The default ssh-add behavior is to just load id_dsa and id_rsa.
+    # But we don't want to use id_dsa, since RSA is better than DSA.
+    # And we might have multiple keys we want to load. So load whatever
+    # ends in _rsa.
+    #  /usr/bin/ssh-add
+    #  find $HOME/.ssh -name "*_[rd]sa" -maxdepth 1 ...
+    # Weird. With Stdin, ssh-add opens a GUI window, rather than
+    # asking for your passphrase on the command line.
+    #  find $HOME/.ssh -name "*_rsa" -maxdepth 1 | xargs /usr/bin/ssh-add
+    rsa_keys=`ls $HOME/.ssh/*_rsa 2> /dev/null`
+    if [[ -n $rsa_keys ]]; then
+       for pvt_key in `ls $HOME/.ssh/*_rsa`; do
+          /usr/bin/ssh-add $pvt_key
+       done
+    fi
+    # Test: ssh-agent -k # then, open a terminal.
+  }
+  # Source SSH settings, if applicable
+  if [[ -f "${SSH_ENV}" ]]; then
+    . "${SSH_ENV}" > /dev/null
+    #ps ${SSH_AGENT_PID} doesn't work under cywgin
+    ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ > /dev/null || {
+      start_agent;
+    }
+  else
+    start_agent;
+  fi
+fi
+
+# Tell psql to use less for large output
+########################################
+# In Fedora (at least not in Ubuntu at work), if this isn't on, psql 
+# paginates large output, but you can only hit space to go through it 
+# (there's no going backwards) and the output is left in the command 
+# window. Using less, you can use the keys you normally use with less, 
+# and when you're done, the output isn't left as crud in the window.
+export PAGER=less
+# -i or --ignore-case
+# -M or --LONG-PROMPT
+# -xn,... or --tabs=n,...
+# NOTE -F or --quit-if-one-screen
+#      This is cool in that, for short files, it just dumps the file 
+#      and quits. But for multiple pages, the output remains in the 
+#      terminal, which is annoying; I don't like crud!
+export LESS="-iMx2"
+
+# Fix ls -C
+###########
+# On directories with world-write (0002) privileges, 
+# the directory name is blue on green, which is hard to read.
+# 42 is the green background, which we turn to white, 47.
+# Use the following commands to generate the export variable on your machine:
+# dircolors --print-database
+# dircolors --sh
+if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+  # echo Ubuntu!
+  LS_COLORS='no=00:fi=00:di=01;34:ln=01;36:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:tw=30;47:ow=34;47:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.svgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.lzma=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.dz=01;31:*.gz=01;31:*.bz2=01;31:*.bz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.rar=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:'
+elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+  # echo Red Hat!
+  LS_COLORS='rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:su=37;41:sg=30;43:ca=30;41:tw=30;47:ow=34;47:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.dz=01;31:*.gz=01;31:*.xz=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.rar=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.lz=01;31:*.jpg=01;35:*.jpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.axv=01;35:*.anx=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.axa=00;36:*.oga=00;36:*.spx=00;36:*.xspf=00;36:';
+fi;
+export LS_COLORS
+
+# Functions
+###########
+
+# Some example functions
+# function settitle() { echo -ne "\e]2;$@\a\e]1;$@\a"; }
+
+# TODO lb
+## A function to pipe any command to less
+#function so {
+#  eval "$@" | less -I~
+#}
+
+# TODO lb test with/without; 'export' needed?
+## Timezone
+#TZ='America/Chicago'; export TZ
+
+# Shell Options
+###############
+
+# See man bash for more options...
+
+# Don't wait for job termination notification
+# Report status of terminated bg jobs immed. (same as set -b)
+set -o notify
+
+# Don't use ^D to exit
+# set -o ignoreeof
+
+# Use case-insensitive filename globbing
+# shopt -s nocaseglob
+
+# Make bash append rather than overwrite the history on disk
+# shopt -s histappend
+
+# When changing directory small typos can be ignored by bash
+# for example, cd /vr/lgo/apaache would find /var/log/apache
+# shopt -s cdspell
+
+# Completion options
+####################
+
+# These completion tuning parameters change the default behavior of bash_completion:
+
+# Define to access remotely checked-out files over passwordless ssh for CVS
+# COMP_CVS_REMOTE=1
+
+# Define to avoid stripping description in --option=description of './configure --help'
+# COMP_CONFIGURE_HINTS=1
+
+# Define to avoid flattening internal contents of tar files
+# COMP_TAR_INTERNAL_PATHS=1
+
+# If this shell is interactive, turn on programmable completion enhancements.
+# Any completions you add in ~/.bash_completion are sourced last.
+# case $- in
+#   *i*) [[ -f /etc/bash_completion ]] && . /etc/bash_completion ;;
+# esac
+
+# History Options
+#################
+
+# Don't put duplicate lines in the history.
+export HISTCONTROL="ignoredups"
+
+# Ignore some controlling instructions
+# export HISTIGNORE="[   ]*:&:bg:fg:exit"
+
+# Whenever displaying the prompt, write the previous line to disk
+# export PROMPT_COMMAND="history -a"
+
+# Cygwin section
+################
+
+#alias c:='cd /cygdrive/c'
+#alias d:='cd /cygdrive/d'
+#alias e:='cd /cygdrive/e'
+#alias f:='cd /cygdrive/f'
+#alias g:='cd /cygdrive/g'
+#alias h:='cd /cygdrive/h'
+#alias i:='cd /cygdrive/i'
+
+# It's tedious jumping volumes and dirs everytime 
+# you login, so add your project paths here
+#mount -f -u -b "F:\_var\rails" "/rails"
+#cd /rails
+
+# Source user file
+##################
+
+#if [[ -f "~/.bashrc-$USER" ]]; then
+#  source "~/.bashrc-$USER"
+## NOTE Tilde ne work pas in Cygwin
+##       though alone it works just fine...
+#elif [[ -f "$HOME/.bashrc-$USER" ]]; then
+#  source "$HOME/.bashrc-$USER"
+#fi
+
+# SSH-AGENT
+###########
+
+#SSH_ENV=$HOME/.ssh/environment
+#
+#function start_agent {
+#   echo "Initialising new SSH agent..."
+#   /usr/bin/ssh-agent | sed 's/^echo/#echo/' > ${SSH_ENV}
+#   echo succeeded
+#   chmod 600 ${SSH_ENV}
+#   . ${SSH_ENV} > /dev/null
+#   /usr/bin/ssh-add;
+#}
+
+# Source SSH settings, if applicable
+
+#if [[ -f "${SSH_ENV}" ]]; then
+#   . ${SSH_ENV} > /dev/null
+#   #ps ${SSH_AGENT_PID} doesn't work under cywgin
+#   ps -ef | grep ${SSH_AGENT_PID} | grep ssh-agent$ > /dev/null || {
+#      start_agent;
+#   }
+#else
+#   start_agent;
+#fi
+
+#if [[ -z "$SSH_AUTH_SOCK" ] ; then
+#   eval `ssh-agent -s`
+#   ssh-add
+#fi
+
+# BACKUP FILES
+##############
+
+# FIXME This fcns. need help, and maybe could be moved to another script?
+
+# FIXME: These fcns. are superceded by cron scripts, I think.
+
+function backup_001 () {
+# FIXME: usage of -d is backwards
+  if [[ -d "$CCP_DEV_DIR/cp_noname_bkp" ]]; then
+    mkdir -p "$CCP_DEV_DIR/cp_noname_bkps"
+    # Move the old bkup to the archive dir and rename it as seconds-since-epoch
+    mv "$CCP_DEV_DIR/cp_noname_bkp" "$CCP_DEV_DIR/cp_noname_bkps/`date +%s`"
+  fi
+  mkdir "$CCP_DEV_DIR/cp_noname_bkp"
+  cp $HOME/.bashrc* "$CCP_DEV_DIR/cp_noname_bkp/"
+  cp -r $HOME/.vim* "$CCP_DEV_DIR/cp_noname_bkp/"
+  # It is left as an exercise of the reader to run `cpput noname_bkp`
+  # or to copy locally er whatever
+  return 0
+}
+
+function backup () {
+
+# FIXME
+# cp -rp ~/Documents /media/321pollo/nonamez/2010.06.26/Documents-2010.06.26.1135
+
+  if [[ "$1" == "new" ]]; then
+# FIXME: usage of -d is backwards
+    if [[ -d "$CS_PATHBACKUP/nonamez_bkp" ]]; then
+      mkdir -p "$CS_PATHBACKUP/nonamez_bkps"
+      # Move the old bkup to the archive dir and rename it as seconds-since-epoch
+      mv "$CS_PATHBACKUP/nonamez_bkp" "$CS_PATHBACKUP/nonamez_bkps/`date +%s`"
+    fi
+  fi
+  mkdir -p "$CS_PATHBACKUP/nonamez_bkp"
+  #rsync $HOME/.bashrc* "$CS_PATHBACKUP/nonamez_bkp/"
+  #rsync -r $HOME/.vim* "$CS_PATHBACKUP/nonamez_bkp/"
+  pushd $HOME
+  # Let 'em know we're here.
+  echo "backup ($1): `date`" >> .backup.log
+  # Get all the .* files and directories including mm.cfg
+  if [[ "$1" == "home" ]]; then
+    # Copy everything in the home directory
+    rsync -r `echo .* mm.cfg | sed 's/\. \.\. //'` $CS_PATHBACKUP/nonamez_bkp/pee
+  else
+    # Copy just these files
+    rsync -r .vim* .bashrc* .ssh .psqlrc .gitconfig mm.cfg synergy.conf Documents Notes .backup.log $CS_PATHBACKUP/nonamez_bkp/pee
+  fi
+  # Get the Downloads, Documents, Desktop, Notes and cp directories
+  # NOTE The cp directory could be Very Large
+  if [[ "$1" == "all" ]]; then
+    rsync -r Downloads Documents Desktop Notes cp $CS_PATHBACKUP/nonamez_bkp
+  fi
+  popd
+  return 0
+}
+# FIXME /home/pee/cp/cp_dubs.back/nonamez_bkp/pee/Notes/cyclopath-notes
+# FIXME mkdir bash for easy diffing
+
+# LINUX OS FLAVOR SPECIFICS
+###########################
+
+# OS-Specific HTTPD User Shortcut and Default Python Version.
+
+# SYNC_ME: See $cp/scripts/setupcp/runic/auto_install/check_parms.sh 
+
+# Determine the Python version-path.
+# NOTE: This works for login sessions, but for non-interactive sessions, e.g.,
+#       for 'svn update' (which logs in as you on another machine), if you have
+#          if [[ -n "`python --version 2|& grep 'Python 2.7'`" ]]; then
+#       You'll see:
+# ./.bashrc-dub: command substitution: line 435: syntax error near unexpected token `&'
+# ./.bashrc-dub: command substitution: line 435: `python --version |& grep 'Python 2.6''
+#       So we have to preload the version using a different type of redirection
+PYS_VER=$(python --version 2>&1)
+if [[ -n "`echo $PYS_VER | grep 'Python 2.7'`" ]]; then
+  export PYTHONVERS=python2.7
+  export PYVERSABBR=py2.7
+elif [[ -n "`echo $PYS_VER | grep 'Python 2.6'`" ]]; then
+  export PYTHONVERS=python2.6
+  export PYVERSABBR=py2.6
+elif [[ -n "`echo $PYS_VER | grep 'Python 2.5'`" ]]; then
+  export PYTHONVERS=python2.5
+  export PYVERSABBR=py2.5
+else
+  echo 
+  echo "Error: Cannot set PYTHONVERS/ABBR: $PYS_VER"
+  echo 
+fi
+
+# Determine the apache user
+# FIXME: CAPITALIZE these, like all our exports?
+if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+  # echo Ubuntu!
+  export httpd_user=www-data
+  export httpd_etc_dir=/etc/apache2
+elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+  # echo Red Hat!
+  export httpd_user=apache
+  export httpd_etc_dir=/etc/httpd
+else
+  echo 
+  echo "Error: Unexpected OS; cannot set httpd_user/_etc_dir."
+  echo 
+fi;
+
+# Remove SVN directories.
+#########################
+
+alias svnrm="find . -name \".svn\" -type d -exec /bin/rm -rf {} \\;"
+
+# Re-enable better Bash tab auto-completion.
+#########################
+# With thanks to: http://askubuntu.com/questions/70750/how-to-get-bash-to-stop-escaping-during-tab-completion
+# 2014.01.22: In older Bash, e.g., in Fedora 14, if you typed
+#  $ ll /home/$USER/<TAB>
+# your home dir would be listed and the shell prompt would change to, e.g.,
+#  $ ll /home/yourname/
+# but in newer Bash, a <TAB> completion attempt results in
+#  $ ll /home/\$USER/
+# which is completely useless. So revert to the old behavior.
+# And using &> since this option isn't available on older OSes (which already
+# default to the better behavior).
+shopt -s direxpand &> /dev/null
+
+# DONE
+

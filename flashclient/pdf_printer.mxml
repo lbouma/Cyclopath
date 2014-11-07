@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!--
+
+If you rename some classes and don't reload pdf_printer in your browser,
+you might see a 'null object' reference with just two calls on the stack.
+
+frameworks/projects/framework/src/mx/managers/SystemManager.as:3065
+ in docFrameListener
+frameworks/projects/framework/src/mx/managers/SystemManager.as:3212
+ in docFrameHandler, on c["init"](this);
+
+run 'make clean' and '/bin/rm -rf build-print', rebuild with
+'make' and 'make -f Makefile-pdf', and finally load pdf_printer
+in your browser and manually reload
+
+ http://ccpv3/flex_util/pdf_printer.swf
+
+FIXME/MAYBE: Rename pdf_printer on each Cyclopath release
+             to force users' browsers to reload the library?
+
+-->
+
+<mx:Application
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:cp="*"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_map_components="views.map_components.*"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_activity="views.panel_activity.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_history="views.panel_history.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_search="views.panel_search.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_panel_watchers="views.panel_watchers.*"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns:views_section_launchers="views.section_launchers.*"
+   xmlns:views_section_toolbar="views.section_toolbar.*"
+   xmlns="*"
+   applicationComplete="init();"
+   preinitialize="on_preinitialize();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.containers.Canvas;
+
+      import org.purepdf.elements.images.ImageElement;
+      import org.purepdf.pdf.PageSize;
+      import org.purepdf.pdf.PdfDocument;
+      import org.purepdf.pdf.PdfViewPreferences;
+      import org.purepdf.pdf.PdfWriter;
+
+      import utils.misc.JPEGEncoder;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('pdf_printer');
+
+      // ***
+
+      //
+      public function init() :void
+      {
+         m4_DEBUG('====== pdf_printer.mxml: init() ======');
+      }
+
+      //
+      public function on_preinitialize() :void
+      {
+         m4_DEBUG('====== pdf_printer.mxml: on_preinitialize() ======');
+      }                              
+
+      //
+      // SYNC_ME: pdf_printer.mxml:: and Main_Toolbar.mxml::on_save_pdf_impl.
+      public function on_save_pdf_impl(map_canvas:Canvas) :void
+      {
+         // Set up the PDF document.
+
+         m4_DEBUG('dynamic swc: on_save_pdf_impl');
+
+         var buffer:ByteArray = new ByteArray();
+
+         var writer:PdfWriter = PdfWriter.create(
+                                 buffer, PageSize.LETTER.rotate());
+         // var PdfWriterCls:Class;
+         // var PageSizeCls:Class;
+         // -- or:
+         // PdfWriterCls = this.classldr_purePDF.get_class('PdfWriter');
+         // PageSizeCls = this.classldr_purePDF.get_class('PageSize');
+         // var writer:Object = PdfWriterCls['create'](
+         //                        buffer, PageSizeCls['LETTER']['rotate']());
+
+         var document:PdfDocument = writer.pdfDocument;
+         // -- or:
+         // var document:Object = writer.pdfDocument;
+
+         document.addAuthor("Cyclopath");
+         document.addTitle("Cyclopath Map");
+         document.addCreator("Cyclopath");
+
+         document.setViewerPreferences(PdfViewPreferences.FitWindow);
+         // -- or:
+         // var PdfViewPreferencesCls:Class = this.classldr_purePDF.get_class(
+         //                                              'PdfViewPreferences');
+         // document.setViewerPreferences(PdfViewPreferencesCls['FitWindow']);
+
+         // Open the document.
+         document.open();
+
+         // Shorthand.
+         var w:Number = map_canvas.width;
+         var h:Number = map_canvas.height;
+
+         // Get the screen-shot.
+         var map_bmd:BitmapData = new BitmapData(w, h, false);
+         map_bmd.draw(map_canvas);
+
+         // Encode it to JPEG.
+         // NO: var encoder:JPGEncoder = new JPGEncoder();
+         var encoder:JPEGEncoder = new JPEGEncoder();
+         var map_ba:ByteArray = encoder.encode(map_bmd);
+
+         var image:ImageElement = ImageElement.getInstance(map_ba);
+         // -- or:
+         // var ImageElementCls:Class = this.classldr_purePDF.get_class(
+         //                                              'ImageElement');
+         // var image:Object = ImageElementCls['getInstance'](map_ba);
+
+         // Scale and add to document.
+         // FIXME: MAGIC NUMBERS: 700 and 500 are approximately what results in
+         // a full-page display. Explicitly setting margins may be better.
+         image.scaleToFit(700, 500);
+         document.add(image);
+
+         // Close the document.
+         document.close();
+
+         // Offer the PDF for download.
+         var f:FileReference = new FileReference();
+         // MAYBE: Is there a better filename? Maybe the name of the closest
+         //        region describing the map?
+         // MAYBE: Increment the number for each PDF saved, so the user doesn't
+         //        have to manually edit the name every time.
+         f.save(buffer, "Cyclopath Map.pdf");
+      }
+
+   ]]></mx:Script>
+
+</mx:Application>
+

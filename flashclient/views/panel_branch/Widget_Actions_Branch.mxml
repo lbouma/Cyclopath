@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.NumericStepper;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+
+      import utils.misc.Logging;
+      import views.map_legend.Map_Key_Drawer;
+      import views.panel_items.Widget_Gia_Access_List;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_BrActns');
+
+      // *** Instance variables
+
+// FIXME: Rename these classes, since they are no longer 'tabs'.
+      public var panel_conflicts:Tab_Branch_Conflicts;
+      public var panel_policy:Tab_Branch_Policy;
+// FIXME: Do we need the sharing panel? maybe it's a widget?
+      // public var sharing_permissive:Widget_Sharing_Permissive;
+      public var widget_access:Widget_Gia_Access_List;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         var drawer:Map_Key_Drawer = (this.parentDocument.parentDocument
+                                      as Map_Key_Drawer);
+         //m4_DEBUG('on_initialize: parentDocument:', this.parentDocument);
+         //m4_DEBUG2('on_initialize: parentDocument.parentDocument:',
+         //          this.parentDocument.parentDocument);
+         m4_ASSERT(drawer !== null);
+
+         if ((this.branch_link_conflicts.visible)
+             || (this.branch_link_policy.visible)
+             || (this.branch_link_sharing.visible)
+             ) {
+            this.branch_actions_box.visible = true;
+
+            m4_DEBUG('on_initialize: setting parentDocument visible');
+            //this.visible = true;
+            //this.includeInLayout = true;
+            drawer.link_legend_branch_manage.visible = true;
+            drawer.link_legend_branch_manage.includeInLayout = true;
+            this.parentDocument.visible = true;
+            this.parentDocument.includeInLayout = true;
+         }
+         else {
+            this.branch_actions_box.visible = false;
+
+            // So we don't show up in the left-hand map legend menu.
+            m4_DEBUG('on_initialize: setting parentDocument not visible');
+            //this.visible = false;
+            //this.includeInLayout = false;
+            drawer.link_legend_branch_manage.visible = false;
+            drawer.link_legend_branch_manage.includeInLayout = false;
+            this.parentDocument.visible = false;
+            this.parentDocument.includeInLayout = false;
+         }
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+      }
+
+      //
+      protected function on_active_branch_change(event:Event=null) :void
+      {
+         var drawer:Map_Key_Drawer = (this.parentDocument.parentDocument
+                                      as Map_Key_Drawer);
+
+         if (this.branch_actions_box.visible) {
+            if ((G.item_mgr.active_branch !== null)
+                && (G.item_mgr.active_branch.can_arbit)) {
+               m4_DEBUG('on_active_branch_change: can_arbit');
+               //this.visible = true;
+               //this.includeInLayout = true;
+               drawer.link_legend_branch_manage.visible = true;
+               drawer.link_legend_branch_manage.includeInLayout = true;
+               this.parentDocument.visible = true;
+               this.parentDocument.includeInLayout = true;
+            }
+            else {
+               m4_DEBUG('on_active_branch_change: cannot can_arbit');
+               //this.visible = false;
+               //this.includeInLayout = false;
+               drawer.link_legend_branch_manage.visible = false;
+               drawer.link_legend_branch_manage.includeInLayout = false;
+               this.parentDocument.visible = false;
+               this.parentDocument.includeInLayout = false;
+            }
+         }
+         else {
+            m4_DEBUG('on_active_branch_change: skipping');
+         }
+      }
+
+      //
+      protected function on_branch_link_conflicts() :void
+      {
+         if (this.panel_conflicts === null) {
+            this.panel_conflicts = new Tab_Branch_Conflicts();
+            // this.register_widgets([this.panel_conflicts,]);
+         }
+         G.panel_mgr.panel_activate(this.panel_conflicts);
+      }
+
+      //
+      protected function on_branch_link_policy() :void
+      {
+         if (this.panel_policy === null) {
+            this.panel_policy = new Tab_Branch_Policy();
+            // this.register_widgets([this.panel_policy,]);
+         }
+         G.panel_mgr.panel_activate(this.panel_policy);
+      }
+
+      //
+      protected function on_branch_link_sharing() :void
+      {
+         m4_WARNING('FIXME: Implement');
+         // This should be a Widget on the branch panel?
+         // And also be allowed as a Widget on item panels (though we don't
+         // care about item panels, since style_change should be sufficient).
+         /*/
+         if (this.sharing_permissive === null) {
+            this.sharing_permissive = new Widget_Sharing_Permissive();
+            this.register_widgets([this.sharing_permissive,]);
+         }
+         G.panel_mgr.panel_activate(this.sharing_permissive);
+         /*/
+         if (this.widget_access === null) {
+            this.widget_access = new Widget_Gia_Access_List();
+            // this.register_widgets([this.widget_access,]);
+         }
+         G.panel_mgr.panel_activate(this.widget_access);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="branch_actions_box"
+      width="100%"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="3"
+      visible="false"
+      includeInLayout="{this.branch_actions_box.visible}"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Branch Operations"/>
+
+      <!-- Branch Conflicts -->
+      <!-- BUG 2424: Implement Branch "Branch Conflicts" Panel.
+      <              Also fix visible (just set to true). -->
+      <views_panel_util:Hyper_Link
+         id="branch_link_conflicts"
+         htmlText="Resolve Branch Item Conflicts"
+         toolTip="Examine and resolve branch item conflicts."
+         click="this.on_branch_link_conflicts();"
+         visible="{Conf_Instance.bug_2424_brcx}"
+         includeInLayout="{Conf_Instance.bug_2424_brcx}"
+         />
+
+      <!-- New Item Policy -->
+      <!-- BUG 2077: Implement Branch "New Item Policy" Panel.
+      <              Also fix visible (just set to true). -->
+      <views_panel_util:Hyper_Link
+         id="branch_link_policy"
+         htmlText="View the Branch New Item Policy"
+         toolTip="View the branch new item policy."
+         click="this.on_branch_link_policy();"
+         visible="{Conf_Instance.bug_2077_grac}"
+         includeInLayout="{Conf_Instance.bug_2077_grac}"
+         />
+
+      <!-- Advanced Permissions / Group Item Access -->
+      <!-- BUG nnnn: Implement this: Group Access Policy control. -->
+      <views_panel_util:Hyper_Link
+         id="branch_link_sharing"
+         htmlText="Manage Individual Group Permissions"
+         toolTip=""
+         click="this.on_branch_link_sharing();"
+         visible="{Conf_Instance.bug_2077_grac}"
+         includeInLayout="{Conf_Instance.bug_2077_grac}"
+         />
+
+   </mx:VBox>
+
+</mx:VBox>
+

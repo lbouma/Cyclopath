@@ -1,0 +1,4 @@
+There are some SQL scripts at this position in the workhints directory. They
+set up stuff for the workhints experiment, but some of it is permanent too.
+
+FIXME-WORKHINTS: rename this file to the proper number.

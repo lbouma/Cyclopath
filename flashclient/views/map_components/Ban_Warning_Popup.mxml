@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   layout="vertical"
+   horizontalAlign="center"
+   title="Hold status changed"
+   resize="PopUpManager.centerPopUp(this);"
+   width="448"
+   paddingLeft="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   creationPolicy="all"
+   showCloseButton="false"
+   defaultButton="{ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+      import mx.managers.PopUpManager;
+
+      // *** Class variables
+
+      protected static var help_text:String = "There are two types of hold: <b>public</b> and <b>full</b>. While a <i>full</i> hold is active, you may not save any changes.  When a <i>public</i> hold is active, you may not save any public changes, but you can still save ratings and watch regions (private changes).<br><br>Holds on <b>computers</b> affect anyone using that computer, logged in or not.<br><br>If you believe a hold has been placed in error, please contact " + Conf.instance_info_email + " with your concerns."
+
+      // *** Init methods
+
+      // FIXME: would be nice if this could be done in the constructor, but
+      // mxmlc won't allow constructors?
+      public function init(topic:String,
+                           bans:String=null,
+                           removed:String=null) :void
+      {
+         if (bans === null || bans == '') {
+            this.bans.htmlText = 'None';
+         }
+         else {
+            this.bans.htmlText = bans;
+         }
+
+         if (removed === null || removed == '') {
+            this.removed.htmlText = 'None';
+         }
+         else {
+            this.removed.htmlText = removed;
+         }
+
+         this.topic.htmlText = topic;
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      // FIXME This fcn. is shared in more than one place, isn't it? Make base
+      //       class...
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      horizontalAlign="left"
+      width="100%">
+
+      <mx:Label
+         fontWeight="bold"
+         text="Summary:"/>
+      <mx:HBox
+         width="100%">
+         <mx:Spacer
+            width="15%"/>
+         <mx:Text
+            id="topic"
+            text=""
+            width="100%"/>
+      </mx:HBox>
+
+      <mx:Label
+         fontWeight="bold"
+         text="New holds:"/>
+      <mx:HBox
+         width="100%">
+         <mx:Spacer
+            width="15%"/>
+         <mx:Text
+            id="bans"
+            text=""
+            width="100%"/>
+      </mx:HBox>
+
+      <mx:Label
+         fontWeight="bold"
+         text="Holds removed:"/>
+      <mx:HBox
+         width="100%">
+         <mx:Spacer
+            width="15%"/>
+         <mx:Text
+            id="removed"
+            text=""
+            width="100%"/>
+      </mx:HBox>
+
+   </mx:VBox>
+
+   <mx:Text
+      htmlText="{help_text}"
+      width="100%"/>
+
+   <mx:Button
+      label="OK"
+      id="ok"
+      click="PopUpManager.removePopUp(this);"/>
+
+</mx:TitleWindow>
+

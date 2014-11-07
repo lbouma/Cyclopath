@@ -1,0 +1,1272 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.utils.getDefinitionByName;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.collections.ArrayCollection;
+      import mx.containers.Canvas;
+      import mx.containers.GridRow;
+      import mx.controls.Text;
+      import mx.core.Container;
+      import mx.events.DropdownEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+      import mx.states.*;
+
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.feats.Byway;
+      import utils.misc.Collection;
+      import utils.misc.Combo_Box_V2;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+      import views.base.App_Action;
+      import views.commands.UI_Wrapper_Attr_Link;
+      import views.ornaments.bike_facility.*;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_BkFacil');
+
+      // SYNC_ME: 'no_facils' and 'facil_vary':
+      //          mapserver/skins/skin_bikeways.py
+      //          flashclient/views/panel_items/Widget_Bike_Facility
+      public static const attr_key_facil_vary:* = 'facil_vary';
+      public static const attr_key_no_facils:* = 'no_facils';
+      public static const attr_key_no_cautys:* = 'no_cautys';
+
+      // *** Instance attributes
+
+      [Bindable] protected var bike_facils:ArrayCollection;
+      [Bindable] protected var cautionarys:ArrayCollection;
+
+      protected var bike_facil_item_changing:* = null;
+      protected var cautionary_item_changing:* = null;
+
+      protected var side_panel_watcher_height:ChangeWatcher;
+
+      // Call out the classes so getDefinitionByName works.
+      // SYNC_ME: Search var _ignored_silly_pre_refs.
+      //          See also the mapserver/skins/ files.
+      protected static var _ignored_silly_pre_refs:Array = [
+         // Bike Facilities
+         Bike_Boulevard,
+         Bike_Lane_OnRoad,
+         Bike_Lane_Protected,
+         Bike_Route_U_S,
+         Bikeway_State,
+         Facility_Icon_Base,
+         Facilities_None,
+         Facilities_Vary,
+         Gravel_Road,
+         Highway_High_Vol,
+         Highway_Low_Vol,
+         Roadway_Shared,
+         Roadway_Sharrows,
+         Shared_Path_Paved,
+         Shared_Path_Unpaved,
+         Shoulder_Low_Vol,
+         Shoulder_High_Vol,
+         // Cautions
+         Cautions_None,
+         Construction_Open,
+         Construction_Closed,
+         Difficult_Connection,
+         Poor_Visibility,
+         Use_Extra_Caution,
+         ];
+
+      // MAYBE: force_repopulate and listening on selectedsetChanged is the
+      //        same in at least three detail panel classes now.
+      //        Should we just move it to the base class?
+      // NOTE: Because repopulate() gets called pretty often, we have to figure
+      //       out a better way to avoid flickering our widgets. We set
+      //       force_repopulate true when the selection set changes.
+      protected var force_repopulate:Boolean = false;
+
+      // *** Instance methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_TALKY('on_creation_complete');
+
+         super.on_creation_complete(ev);
+
+         this.bike_facil_button.addEventListener(
+            DropdownEvent.CLOSE, this.on_bike_facil_button_close);
+         this.bike_facil_button.addEventListener(
+            DropdownEvent.OPEN, this.on_bike_facil_button_open);
+
+         this.cautionary_button.addEventListener(
+            DropdownEvent.CLOSE, this.on_cautionary_button_close);
+         this.cautionary_button.addEventListener(
+            DropdownEvent.OPEN, this.on_cautionary_button_open);
+
+         this.side_panel_watcher_height = ChangeWatcher.watch(
+            G.app.side_panel, 'height', this.on_side_panel_change_dimensions);
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         // So we can update the ComboBox:
+         m4_TALKY('on_creation_complete: hooking linksLoaded');
+         G.item_mgr.addEventListener('linksLoaded', this.on_links_loaded);
+
+         if (this.bike_facil_button !== null) {
+            this.on_init_combobox(this.bike_facil_button);
+         }
+         // else, this is the hiddenItem the combo box uses to size itself.
+         //    e.g., List_Disableable4602.ListBaseContentHolder4605.hiddenItem
+         if (this.cautionary_button !== null) {
+            this.on_init_combobox(this.cautionary_button);
+         }
+
+         if ((this.bike_facil_button !== null)
+              && (this.cautionary_button !== null)
+              && (G.app.mode !== null)) {
+            this.on_mode_change();
+            this.on_links_loaded();
+         }
+
+         // This is just a test. To make sure we're wired right.
+         m4_ASSERT('bike_facil' in Conf.tile_skin.attr_pens);
+         m4_ASSERT(Widget_Bike_Facility.attr_key_facil_vary
+                   in Conf.tile_skin.attr_pens['bike_facil']);
+         m4_ASSERT(Widget_Bike_Facility.attr_key_no_facils
+                   in Conf.tile_skin.attr_pens['bike_facil']);
+
+         m4_TALKY('on_initialize: addEventListener: selectedsetChanged');
+         G.map.addEventListener('selectedsetChanged',
+                                this.on_selectedset_change);
+
+         m4_TALKY('on_initialize: this.dp:', this.dp);
+         // this.dp isn't set, so this would do nothing.
+         //  this.on_selectedset_change();
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         super.on_remove_event(ev);
+
+         // FIXME: 2013.09.09: [lb] getting events after panel is closed,
+         //        then repopulate hits error (nothing selected).
+         //        Should we make sure all widgets remove their event
+         //        listeners?
+         m4_DEBUG('on_remove_event:', this);
+         G.app.removeEventListener('modeChange', this.on_mode_change);
+         G.item_mgr.removeEventListener('linksLoaded', this.on_links_loaded);
+      }
+
+      // ***
+
+      //
+      protected function on_init_combobox(combobox:Combo_Box_V2) :void
+      {
+         //m4_DEBUG('on_init_combobox: combobox:', combobox);
+
+         combobox.height = Facility_Icon_Base.total_height;
+         if (combobox.dropdown !== null) {
+            //m4_DEBUG('on_creation_complete: .dropdown');
+            combobox.dropdown.rowHeight = Facility_Icon_Base.total_height;
+         }
+         else {
+            m4_WARNING('on_init_combobox: ! .dropdown:', this);
+         }
+         // MAGIC_NUMBERS: Search: Facility_Icon_Base renderer dimensions.
+         combobox.dropdownWidth = Facility_Icon_Base.total_width;
+      }
+
+      //
+      protected function on_links_loaded(ev:Event=null) :void
+      {
+         m4_TALKY('on_links_loaded/linksLoaded');
+
+         m4_TALKY('on_links_loaded: setting force_repopulate');
+         this.force_repopulate = true;
+
+         //this.repopulate();
+         this.mark_dirty_and_show_maybe();
+      }
+
+      //
+      protected function on_mode_change(ev:Event=null) :void
+      {
+         m4_VERBOSE('on_mode_change');
+
+         this.bike_facils = this.on_mode_change_setup_lookup('bike_facil');
+         // Populate the dropdown list.
+         this.bike_facil_button.dataProvider = this.bike_facils;
+         // 2013.06.25: It's not necessary to do this in the 3.4 SDK but in 3.6
+         //             if we don't also set the dropdown's dataProvider, then
+         //             the first time you click the dropdown, it's empty!
+         this.bike_facil_button.dropdown.dataProvider = this.bike_facils;
+
+         this.cautionarys = this.on_mode_change_setup_lookup('cautionary');
+         this.cautionary_button.dataProvider = this.cautionarys;
+         this.cautionary_button.dropdown.dataProvider = this.cautionarys;
+
+         // Try to show all of the item rows, but not if we don't
+         // have enough room. This is a simple implementation: if
+         // the dropdown is in the vertical middle of the panel,
+         // we have half the height of the panel to show the dropdown.
+         // We could be more precise and actually find out vertically
+         // where the combobox is, but that's a lot of work; using the
+         // floor of possible values covers all scenarios and is simple.
+
+// FIXME_2013_06_11: [lb] wants to set rowCount based on amount of
+//                   room in panel, depending on where dropdown is
+//                   vertically.
+// FIXME: The rowCount is only changing when modes change!
+//        Listen changeWatcher on height
+         m4_VERBOSE2('this.bike_facil_button.x:',
+                     this.bike_facil_button.x);
+         m4_VERBOSE2('this.bike_facil_button.y:',
+                     this.bike_facil_button.y);
+
+//i am doing this wrong
+//         var where_is:Point = new Point();
+//         where_is.x = this.bike_facil_button.
+//
+         var resolved:Point = new Point(this.bike_facil_button.x,
+                                        this.bike_facil_button.y);
+         resolved = G.app.side_panel.localToGlobal(resolved);
+         m4_VERBOSE('resolved: x:', resolved.x, '/ y:', resolved.y);
+
+         var max_rows:int = ((G.app.side_panel.height / 2)
+                             / Facility_Icon_Base.total_height);
+         // FIXME: Set max_rows based on scrollbar position.
+         // DEVS: For screenshot:
+         // max_rows = (G.app.side_panel.height
+         //             / Facility_Icon_Base.total_height);
+
+         this.bike_facil_button.rowCount =
+            Math.min(this.bike_facil_button.dataProvider.length, max_rows);
+         m4_DEBUG3('on_mode_change: max_rows:', max_rows,
+                   '/ this.bike_facil_button.dataProvider.length:',
+                   this.bike_facil_button.dataProvider.length);
+         //m4_DEBUG(' .. side_panel.height:', G.app.side_panel.height);
+
+         this.force_repopulate = true;
+         this.repopulate();
+       }
+
+      //
+      protected function on_mode_change_setup_lookup(attr_key_name:String)
+         :ArrayCollection
+      {
+         var lookup:ArrayCollection;
+
+         var attr_key:Object;
+         var attr_pen:Object;
+         // Make a new collection and make it the length we need.
+         var bike_facil_names:Array = (Conf.tile_skin.attr_keys[attr_key_name]
+                                       as Array);
+         //m4_DEBUG(' .. bike_facil_names:', bike_facil_names);
+         var dropdown_length:int = bike_facil_names.length;
+         for each (attr_key in bike_facil_names) {
+            attr_pen = Conf.tile_skin.attr_pens[attr_key_name][attr_key];
+            if (attr_pen.key_rank == Combo_Box_V2.INDEX_VARIES) {
+               dropdown_length -= 1;
+            }
+         }
+         lookup = new ArrayCollection(new Array(dropdown_length));
+         for each (attr_key in bike_facil_names) {
+            attr_pen = Conf.tile_skin.attr_pens[attr_key_name][attr_key];
+            /*
+            var pen_xml:XML = new XML(
+               <item
+                  id={attr_pen['attr_key']}
+                  label={attr_pen['key_friendly']}
+                  icon={attr_pen['icon_class']}
+                  icon_selected={attr_pen['icon_class']}
+                  enabled={true}
+                  />);
+            */
+            var pen_xml:Object =
+               {
+               id: attr_pen['attr_key'],
+               //id: attr_pen.key_rank,
+               pen_group: attr_key_name,
+               key: attr_pen['attr_key'],
+               label: attr_pen['key_friendly'],
+               icon: attr_pen['icon_class'],
+               icon_selected: attr_pen['icon_class'],
+               enabled: true
+               };
+
+            //m4_DEBUG(' .. pen_xml:', pen_xml.toString());
+            // RangeError...
+            if (attr_pen.key_rank != Combo_Box_V2.INDEX_VARIES) {
+               lookup[attr_pen.key_rank] = pen_xml;
+            }
+            // else, key_rank=-2 is used by the "Values Vary" icon.
+         }
+
+         return lookup;
+      }
+
+      //
+      protected function on_selectedset_change(event:Event=null) :void
+      {
+         m4_TALKY('on_selectedset_change: setting force_repopulate');
+         this.force_repopulate = true;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_VERBOSE('repopulate');
+
+         var attr:Attribute;
+
+         attr = Byway.get_bike_facil_attr();
+         if (attr !== null) {
+            m4_VERBOSE('bike_facil_attr.name_:', attr.name_);
+            this.repopulate_attr_dropdown(
+                     attr,
+                     'bike_facil',
+                     'bicycle_facility',
+                     this.bike_facil_button,
+                     this.curr_or_old_bike_facil_ctnr,
+                     this.curr_or_old_bike_facil_icon,
+                     this.curr_or_old_bike_facil_canvas,
+                     this.counterpart_bike_facil_ctnr,
+                     this.counterpart_bike_facil_icon,
+                     this.curr_or_old_bike_facil_old_text,
+                     Widget_Bike_Facility.attr_key_no_facils);
+         }
+         else {
+            m4_WARNING3('repopulate: missing both:',
+               Byway.attr_name_facil_metc,
+               'and:', Byway.attr_name_facil_basemap);
+         }
+
+         attr = Byway.get_cautionary_attr();
+         if (attr !== null) {
+            m4_VERBOSE('cautionary_attr.name_:', attr.name_);
+            this.repopulate_attr_dropdown(
+                     attr,
+                     'cautionary',
+                     'byway_cautionary',
+                     this.cautionary_button,
+                     this.curr_or_old_cautionary_ctnr,
+                     this.curr_or_old_cautionary_icon,
+                     this.curr_or_old_cautionary_canvas,
+                     this.counterpart_cautionary_ctnr,
+                     this.counterpart_cautionary_icon,
+                     this.curr_or_old_cautionary_old_text,
+                     Widget_Bike_Facility.attr_key_no_cautys);
+         }
+         else {
+            m4_WARNING2('repopulate: no cautionary attr:',
+                        Byway.attr_name_cautionary);
+         }
+
+         //m4_DEBUG2('repopulate: curr_or_old_bike_facil_ctnr:',
+         //            this.curr_or_old_bike_facil_ctnr);
+         //m4_DEBUG2('repopulate: curr_or_old_cautionary_ctnr:',
+         //            this.curr_or_old_cautionary_ctnr);
+         if ((!this.curr_or_old_bike_facil_ctnr.visible)
+             && (!this.curr_or_old_cautionary_ctnr.visible)) {
+            m4_DEBUG('repopulate: neither label visible');
+            // Does this work?
+            this.visible = false;
+            this.includeInLayout = false;
+         }
+         else {
+            m4_DEBUG('repopulate: one or both labels visible');
+            this.visible = true;
+            this.includeInLayout = true;
+         }
+
+         this.force_repopulate = false;
+
+         // This is a little hacky -- but [lb] isn't quite sure how better to
+         // implement this.
+         if ((this.items_selected.length > 0)
+             && (this.items_selected.item_get_random() is Byway)) {
+
+            this.box_checkbox_taggers_1.visible = true;
+            this.box_checkbox_taggers_1.includeInLayout = true;
+
+// FIXME/BUG nnnn: This row of convenient checkboxes is not implemented.
+            this.box_checkbox_taggers_1.visible = Conf_Instance.debug_goodies;
+            this.box_checkbox_taggers_1.includeInLayout =
+               Conf_Instance.debug_goodies;
+
+            //this.box_checkbox_taggers_2.visible = true;
+            //this.box_checkbox_taggers_2.includeInLayout = true;
+         }
+         else {
+            if (this.items_selected.length > 0) {
+               m4_ERROR2('repopulate: unexpected item type:',
+                         this.items_selected.item_get_random());
+               m4_ASSERT_SOFT(false); // This widget only applies to Byways.
+            }
+            this.box_checkbox_taggers_1.visible = false;
+            this.box_checkbox_taggers_1.includeInLayout = false;
+            //this.box_checkbox_taggers_2.visible = false;
+            //this.box_checkbox_taggers_2.includeInLayout = false;
+         }
+      }
+
+      // MAYBE: Make checkbox for edit mode to show caution ddown?
+      //
+      protected function repopulate_attr_dropdown(
+         attr:Attribute,
+         attr_pen_group:String,
+         byway_attribute:String,
+         facil_or_caution_button:Combo_Box_V2,
+         curr_or_old_ctnr:Container,
+         curr_or_old_icon:Facility_Icon_Base,
+         curr_or_old_canvas:Canvas,
+         counterpart_ctnr:Container,
+         counterpart_icon:Facility_Icon_Base,
+         curr_or_old_old_text:Text,
+         default_attr_key_no_:String) :void
+      {
+         // Get the items' consensus on the bike_facility link_value.
+         var curr_or_old_facil_key:*;
+         var counterpart_facil_key:*;
+         if (this.items_selected.length == 0) {
+            curr_or_old_facil_key = default_attr_key_no_;
+            counterpart_facil_key = default_attr_key_no_;
+         }
+         else {
+            m4_VERBOSE('repop_facil: num. items:', this.items_selected.length);
+            // Attribute.consensus combines differing keys into 'a -> b', so
+            // get 'em one by one if diffing.
+
+
+// BUG_FALL_2013: BUG nnnn: Lots of Diff bugs:
+//   FIXME: Clicking Diff button does not refresh this panel.
+//   FIXME: Add Diff stuff to one-way widget (Widget_Attrs_Assign_Byway)
+//   FIXME: What about the other widgets?? Do they all support Diff?
+//   FIXME: When Diffing one item, item name widget counts both items, e.g.,
+//           "About the Selected Roads (2)"
+//   FIXME: Should set items_selected just make two lists? one old, one new?
+
+            if ((G.map.rev_viewport is utils.rev_spec.Diff)
+                && (this.items_selected.length == 2)) {
+               m4_ASSERT(G.app.mode === G.hist_mode);
+               m4_ASSERT(this.items_selected.item_get_random().rev_is_diffing);
+               var itms_arr:Array = Collection.something_as_array(
+                                             this.items_selected);
+
+// FIXME: What about for new items?
+               m4_ASSERT(itms_arr[0].counterpart === itms_arr[1]);
+
+               var new_itm:*;
+               var old_itm:*;
+               if (itms_arr[0].is_vgroup_new) {
+                  new_itm = itms_arr[0];
+                  old_itm = itms_arr[1];
+               }
+               else {
+                  m4_ASSERT(itms_arr[1].is_vgroup_new);
+                  new_itm = itms_arr[1];
+                  old_itm = itms_arr[0];
+               }
+               m4_DEBUG2('repop_facil: old_itm:', old_itm,
+                         '/', old_itm[byway_attribute]);
+               m4_DEBUG2('repop_facil: new_itm:', new_itm,
+                         '/', new_itm[byway_attribute]);
+
+               if (old_itm[byway_attribute] || new_itm[byway_attribute]) {
+                  curr_or_old_facil_key = default_attr_key_no_;
+                  if (old_itm[byway_attribute]) {
+                     curr_or_old_facil_key = old_itm[byway_attribute];
+                  }
+                  counterpart_facil_key = default_attr_key_no_;
+                  if (new_itm[byway_attribute]) {
+                     counterpart_facil_key = new_itm[byway_attribute];
+                  }
+               }
+            }
+            else {
+               curr_or_old_facil_key = Attribute.consensus(
+                  this.items_selected,
+                  attr, 
+                  Widget_Bike_Facility.attr_key_facil_vary,
+                  default_attr_key_no_);
+            }
+         }
+
+         // The bike_facil might be a strange value, so correct it if it's ood.
+         // BUG nnnn/MAYBE: Right now, keeping bike_facil keys to 10 chars or
+         //                 less, but we might want to make it an integer
+         //                 enumeration... if we think that makes a performance
+         //                 difference. And [lb] isn't quite sure 10 chars or
+         //                 less really matters.
+         if (!(curr_or_old_facil_key
+               in Conf.tile_skin.attr_pens[attr_pen_group])) {
+            m4_WARNING('what curr_or_old_facil_key:', curr_or_old_facil_key);
+            curr_or_old_facil_key = default_attr_key_no_;
+         }
+         if (!(counterpart_facil_key
+               in Conf.tile_skin.attr_pens[attr_pen_group])) {
+            m4_WARNING('what counterpart_facil_key:', counterpart_facil_key);
+            counterpart_facil_key = default_attr_key_no_;
+         }
+
+         if ((curr_or_old_icon.attr_key_name != curr_or_old_facil_key)
+             || (counterpart_icon.attr_key_name != counterpart_facil_key)
+             || (this.force_repopulate)) {
+            m4_VERBOSE2('repop_facil: dift curr_or_old_facil_key:',
+                        curr_or_old_facil_key);
+            m4_VERBOSE2('repop_facil: dift counterpart_facil_key:',
+                        counterpart_facil_key);
+            curr_or_old_icon.attr_pen_group = attr_pen_group;
+            curr_or_old_icon.attr_key_name = curr_or_old_facil_key;
+            counterpart_icon.attr_pen_group = attr_pen_group;
+            counterpart_icon.attr_key_name = counterpart_facil_key;
+            this.repopulate_attr_dropdown_vrai(attr,
+                                               facil_or_caution_button,
+                                               curr_or_old_ctnr,
+                                               curr_or_old_icon,
+                                               curr_or_old_canvas,
+                                               counterpart_ctnr,
+                                               counterpart_icon,
+                                               curr_or_old_old_text,
+                                               default_attr_key_no_);
+         }
+         else {
+            m4_VERBOSE2('repop_facil: same curr_or_old_facil_key:',
+                        curr_or_old_facil_key);
+         }
+      }
+
+      //
+      protected function repopulate_attr_dropdown_vrai(
+         attr:Attribute,
+         facil_or_caution_button:Combo_Box_V2,
+         curr_or_old_ctnr:Container,
+         curr_or_old_icon:Facility_Icon_Base,
+         curr_or_old_canvas:Canvas,
+         counterpart_ctnr:Container,
+         counterpart_icon:Facility_Icon_Base,
+         curr_or_old_old_text:Text,
+         default_attr_key_no_:String) :void
+      {
+         // See if the user can edit existing link_values.
+         // BUG nnnn: We cannot check create_allowed_get(Link_Value)
+         //           because link_values need an attr and feat for
+         //           the new item policies -- so we'd have to make
+         //           a bunch of a fake link_value for each feat that
+         //           didn't already have one. For now, if creating
+         //           new link_values for bike_facility isn't allowed,
+         //           we'll popup a warning when the user fiddles the
+         //           widget and we attempt to make the new link_value.
+         // NOTE: Ignoring this.attrs. We need actual lvals.
+         var can_edit_lvals:Boolean = false;
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit))) {
+            var attr_set:Set_UUID = new Set_UUID([attr,]);
+            var attrs_links:Set_UUID = Link_Value.items_get_link_values(
+                                          attr_set, this.items_selected);
+            can_edit_lvals = true;
+            if (attrs_links.length > 0) {
+               can_edit_lvals = Objutil.consensus_b(
+                  attrs_links, 'can_edit', false);
+            }
+         }
+
+         curr_or_old_icon.paint_bike_facility();
+         counterpart_icon.paint_bike_facility();
+
+         var show_dropdown:Boolean = false;
+
+         // FIXME: Is this create_allowed_get correct??
+         if ((attr !== null) // Otherwise we printed WARNING.
+             // FIXME/BUG nnnn: create_allowed_get(Link_Value)
+             //  The new_item_policy's link_value records specify
+             //  lhs and rhs item types, and sometimes even stack
+             //  IDs, so the create_allowed_get mechanism doesn't
+             //  work -- we would have to have it check more
+             //  specific dummy Link_Values...
+             //   FIXME: Search: create_allowed_get Link_Value.
+             //  Can't: && (G.item_mgr.create_allowed_get(Link_Value))
+             && (G.map.rev_workcopy !== null)) {
+            if ((can_edit_lvals) && (this.items_selected.length > 0)) {
+               m4_VERBOSE('repop_facil: calling UI_Wrapper_Attr_Link.wrap');
+               show_dropdown = true;
+            }
+            else {
+               m4_VERBOSE('repop_facil: not edit mode, or nothing selected');
+            }
+         }
+         else {
+            m4_VERBOSE('repop_facil: not editable');
+         }
+
+         if (show_dropdown) {
+            facil_or_caution_button.visible = true;
+            curr_or_old_ctnr.visible = true;
+            curr_or_old_icon.visible = false;
+            counterpart_ctnr.visible = false;
+            curr_or_old_old_text.visible = false;
+            m4_DEBUG2('repop_facil: on: curr_or_old_canvas.width:',
+                      curr_or_old_canvas.width);
+
+            views.commands.UI_Wrapper_Attr_Link.wrap(facil_or_caution_button,
+                                    'id', this.items_selected, attr, 'text');
+         }
+         else {
+
+            // MAYBE: Show text that says, Click Editing to Correct Value... ?
+
+            facil_or_caution_button.visible = false;
+            // Will set below: curr_or_old_ctnr.visible
+            curr_or_old_icon.visible = true;
+            m4_DEBUG2('repop_facil: off: curr_or_old_canvas.width:',
+                      curr_or_old_canvas.width);
+
+            // TRYING: Hide label when just the default...
+            // See: Widget_Bike_Facility.attr_key_no_facils
+            //      Widget_Bike_Facility.attr_key_no_cautys
+            //       Facilities_None and No_Cautions
+            m4_DEBUG2('repop_facil: curr_or_old_icon:', curr_or_old_icon,
+                      '/ attr_key_name:', curr_or_old_icon.attr_key_name);
+            //if ((curr_or_old_icon.attr_key_name
+            //     == Facility_Icon_Base.key_no_facils)
+            //    || (curr_or_old_icon.attr_key_name
+            //        == Facility_Icon_Base.key_no_cautys)) {
+            if ((curr_or_old_icon.attr_key_name == default_attr_key_no_)
+                && (counterpart_icon.attr_key_name == default_attr_key_no_)) {
+               curr_or_old_ctnr.visible = false;
+               counterpart_ctnr.visible = false;
+               curr_or_old_old_text.visible = false;
+            }
+            else {
+               curr_or_old_ctnr.visible = true;
+               if ((G.map.rev_viewport is utils.rev_spec.Diff)
+                   && (this.items_selected.length == 2)) {
+                  counterpart_ctnr.visible = true;
+                  curr_or_old_old_text.visible = true;
+               }
+               else {
+                  counterpart_ctnr.visible = false;
+                  curr_or_old_old_text.visible = false;
+               }
+            }
+         }
+      }
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_DEBUG('set detail_panel: setting force_repopulate');
+         this.force_repopulate = true;
+      }
+
+      // Intercept key down and jump to the next enabled list item (otherwise
+      // the basic behavior advances to the next list item, which could be
+      // disabled)
+      public function handle_on_dropdown_key_down(event:KeyboardEvent) :Boolean
+      {
+         var handled:Boolean = false;
+         var forward:Boolean = true;
+         if (event.keyCode == Keyboard.DOWN) {
+            handled = true;
+         }
+         else if (event.keyCode == Keyboard.UP) {
+            handled = true;
+            forward = false;
+         }
+         if (handled) {
+            if (this.bike_facil_item_changing === false) {
+               m4_ASSERT(this.cautionary_item_changing === null);
+               this.bike_facil_item_changing = true;
+            }
+            else {
+               m4_ASSERT(this.bike_facil_item_changing === null);
+               m4_ASSERT(this.cautionary_item_changing === false);
+               this.cautionary_item_changing = true;
+            }
+         }
+         else {
+            handled = true;
+         }
+         return handled;
+      }
+
+      // Called by the ComboBox to get the list item icon. Returns either the
+      // selected or unselected icon.
+      protected function bike_facil_opts_get_icon(
+         item:Object, selected:Boolean = false) :Class
+      {
+         var icon_class:Class = null;
+
+         //m4_DEBUG('bike_facil_opts_get_icon: item:', item);
+         //m4_DEBUG('bike_facil_opts_get_icon: selected:', selected);
+         //m4_DEBUG('bike_facil_opts_get_icon: item.@id:', item.@id);
+         //m4_DEBUG('bike_facil_opts_get_icon: item.@label:', item.@label);
+         //m4_DEBUG('bike_facil_opts_get_icon: item.@enabled:', item.@enabled);
+         //m4_DEBUG('bike_facil_opts_get_icon: item.@icon:', item.@icon);
+
+         var sel_index:int = this.bike_facil_button.selectedIndex;
+         m4_VERBOSE('bike_facil_opts_get_icon: get sel_index:', sel_index);
+
+         m4_VERBOSE2('bf_opts_get_icon: bike_facil_item_changing:',
+                     this.bike_facil_item_changing);
+
+         if ((selected && this.bike_facil_item_changing)
+             || ((sel_index != -1)
+                 && (this.bike_facils[this.bike_facil_button.selectedIndex].id
+                     == item.id))) {
+            //icon_class = this[item.icon_selected];
+            // NOTE: The icon_selected for Bike Facilty is the same as icon.
+            icon_class = getDefinitionByName(item.icon_selected) as Class;
+            m4_VERBOSE2('bf_opts_get_icon: item.icon_selected: icon_class:',
+                        icon_class);
+            if (selected) {
+               this.bike_facil_item_changing = null;
+            }
+         }
+         else {
+            // If the icon was [Embedded], we'd reference this.
+            //  icon_class = this[item.icon];
+            // But we specify it as a class instead.
+            icon_class = getDefinitionByName(item.icon) as Class;
+            m4_VERBOSE2('bf_opts_get_icon: item.icon: icon_class:',
+                        icon_class);
+         }
+
+         //m4_DEBUG('bike_facil_opts_get_icon: icon_class:', icon_class);
+
+         // This is the class used to generate the selected item (i.e., not one
+         // of the ones in the dropdown).
+
+         return icon_class;
+      }
+
+      // 
+      protected function cautionary_opts_get_icon(
+         item:Object, selected:Boolean = false) :Class
+      {
+         var icon_class:Class = null;
+         var sel_index:int = this.cautionary_button.selectedIndex;
+         m4_VERBOSE('cautionary_opts_get_icon: get sel_index:', sel_index);
+         if ((selected && this.cautionary_item_changing)
+             || ((sel_index != -1)
+                 && (this.cautionarys[this.cautionary_button.selectedIndex].id
+                     == item.id))) {
+            icon_class = getDefinitionByName(item.icon_selected) as Class;
+            if (selected) {
+               this.cautionary_item_changing = null;
+            }
+         }
+         else {
+            icon_class = getDefinitionByName(item.icon) as Class;
+         }
+         return icon_class;
+      }
+
+      //
+      /*
+      protected function on_bike_facil_change(ev:ListEvent) :void
+      {
+         m4_VERBOSE2('on_bike_facil_change: selectedIndex:',
+                     ev.target.selectedIndex);
+         var obj:Object = this.bike_facils[ev.target.selectedIndex];
+         m4_VERBOSE('on_bike_facil_change: selected:', obj.toString());
+         //m4_DEBUG('on_bike_facil_change: obj is null?:', (obj === null));
+         //m4_DEBUG('on_bike_facil_change: obj.id:', obj.id);
+         //m4_DEBUG('on_bike_facil_change: obj.label:', obj.label);
+         //m4_DEBUG('on_bike_facil_change: obj.icon:', obj.icon);
+         //m4_DEBUG('on_bike_facil_change: icon_selected:', obj.icon_selected);
+         //m4_DEBUG('on_bike_facil_change: obj.enabled:', obj.enabled);
+         //m4_DEBUG2('on_bike_facil_change: selectedItem:',
+         //          this.bike_facil_button.selectedItem);
+         //m4_DEBUG2('on_bike_facil_change: selectedItem.label:',
+         //          this.bike_facil_button.selectedItem.label);
+         // Nothing to do... the wrap() fcn. should handle everything.
+      }
+      */
+
+      //
+      protected function on_bike_facil_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_bike_facil_click');
+         // Stop panel from stealing focus.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_caution_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_caution_click');
+         // Stop panel from stealing focus.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_bike_facil_button_close(event:DropdownEvent)
+         :void
+      {
+         // Does the bike facility widget care? Probably. not.
+      }
+
+      // Listens for dropdown open and set the item_changing flag so that we
+      // return the correct selected icon.
+      protected function on_bike_facil_button_open(event:DropdownEvent) :void
+      {
+         this.bike_facil_item_changing = true;
+      }
+
+      //
+      protected function on_cautionary_button_close(event:DropdownEvent)
+         :void
+      {
+      }
+
+      //
+      protected function on_cautionary_button_open(event:DropdownEvent) :void
+      {
+         this.cautionary_item_changing = true;
+      }
+
+      //
+      public function on_side_panel_change_dimensions(ev:Event) :void
+      {
+         m4_VERBOSE3('on_side_panel_change_dimensions: w:',
+                     G.app.side_panel.width,
+                     '/ h:', G.app.side_panel.height);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Bike Facility"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         paddingTop="6"
+         paddingBottom="2"
+         verticalGap="4"
+         horizontalAlign="left"
+         >
+
+         <mx:VBox
+            id="curr_or_old_bike_facil_ctnrs"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="0"
+            horizontalGap="6"
+            horizontalAlign="left"
+            verticalAlign="middle"
+            verticalGap="0"
+            visible="true"
+            includeInLayout="{this.curr_or_old_bike_facil_ctnrs.visible}"
+            >
+
+            <mx:HBox
+               id="curr_or_old_bike_facil_ctnr"
+               width="100%"
+               verticalAlign="middle"
+               horizontalGap="0"
+               visible="false"
+               includeInLayout="{this.curr_or_old_bike_facil_ctnr.visible}"
+               >
+
+               <!-- MAGIC: The other Text is wider, 'new' wider than 'old'. -->
+               <mx:Text
+                  id="curr_or_old_bike_facil_old_text"
+                  text="old:"
+                  width="{this.counterpart_bike_facil_new_text.width}"
+                  visible="false"
+                  includeInLayout=
+                     "{this.curr_or_old_bike_facil_old_text.visible}"/>
+
+               <mx:Canvas
+                  id="curr_or_old_bike_facil_canvas"
+                  width="100%"
+                  horizontalScrollPolicy="off"
+                  >
+
+                  <!-- This is the interactiveless view-mode renderer. -->
+                  <views_ornaments_bike_facility:Facility_Icon_Base
+                     id="curr_or_old_bike_facil_icon"
+                     visible="false"
+                     includeInLayout=
+                        "{this.curr_or_old_bike_facil_icon.visible}"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     x="0"
+                     y="0"
+                     />
+
+                  <!-- This is the interactive edit-mode control. -->
+                  <utils_misc:Combo_Box_V2
+                     id="bike_facil_button"
+                     visible="true"
+                     includeInLayout="{this.bike_facil_button.visible}"
+                     padding_icon_left="4"
+                     padding_icon_right="2"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     dropdownWidth="{Facility_Icon_Base.total_width}"
+                     enable_text_field_label="false"
+                     x="0"
+                     y="0"
+                     rowCount="99"
+                     styleName="comboBoxV2"
+                     dropdownStyleName="comboDropdown"
+
+                     iconFunction="bike_facil_opts_get_icon"
+                     iconForVaries=
+                        "views.ornaments.bike_facility.Facilities_Vary"
+                     noOptionOption="{Widget_Bike_Facility.attr_key_no_facils}"
+
+                     click="this.on_bike_facil_click(event);"
+                     itemRenderer=
+                        "views.ornaments.bike_facility.Facility_Icon_Base"
+                     >
+                  <!--
+
+                     See UI_Wrapper.listener_set, which won't set change if
+                     it's already set.
+                        Not unless we call the widget's on_change:
+                           Skipping: change="this.on_bike_facil_change(event);"
+
+                     Our renderer has its own label, so skipping:
+                        labelField="@label"
+
+                     2013.05.10: Skipping:
+                        We don't set the detail_panel on the renderer like we
+                        do for some other widgets, for two reasons: 1) [lb]
+                        didn't know that components with lists could get at
+                        their owning component via this.documentParent, and 2)
+                        catching ComboBox's added only gets us the renderer for
+                        the selected item, but not for any of the items in the
+                        dropdown.
+                         Skipping:
+                           added="this.on_bike_facil_add_renderer_maybe(ev);"
+                  -->
+                  </utils_misc:Combo_Box_V2>
+
+               </mx:Canvas>
+
+            </mx:HBox>
+
+            <mx:HBox
+               id="counterpart_bike_facil_ctnr"
+               width="100%"
+               verticalAlign="middle"
+               horizontalGap="0"
+               visible="false"
+               includeInLayout="{this.counterpart_bike_facil_ctnr.visible}"
+               >
+
+               <mx:Text
+                  id="counterpart_bike_facil_new_text"
+                  text="new:"/>
+
+               <!-- This is the interactiveless view-mode renderer. -->
+               <mx:Canvas
+                  width="100%"
+                  horizontalScrollPolicy="off"
+                  >
+                  <views_ornaments_bike_facility:Facility_Icon_Base
+                     id="counterpart_bike_facil_icon"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     x="0"
+                     y="0"
+                     />
+               </mx:Canvas>
+
+            </mx:HBox>
+
+         </mx:VBox>
+
+         <mx:VBox
+            id="curr_or_old_cautionary_ctnrs"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="6"
+            horizontalGap="6"
+            horizontalAlign="left"
+            verticalAlign="middle"
+            verticalGap="3"
+            visible="true"
+            includeInLayout="{this.curr_or_old_cautionary_ctnrs.visible}"
+            >
+
+            <mx:HBox
+               id="curr_or_old_cautionary_ctnr"
+               width="100%"
+               verticalAlign="middle"
+               horizontalGap="0"
+               visible="false"
+               includeInLayout="{this.curr_or_old_cautionary_ctnr.visible}"
+               >
+
+               <!-- MAGIC: The other Text is wider, 'new' wider than 'old'. -->
+               <mx:Text
+                  id="curr_or_old_cautionary_old_text"
+                  text="old:"
+                  width="{this.counterpart_cautionary_new_text.width}"
+                  visible="false"
+                  includeInLayout=
+                     "{this.curr_or_old_cautionary_old_text.visible}"/>
+
+               <mx:Canvas
+                  id="curr_or_old_cautionary_canvas"
+                  width="100%"
+                  >
+
+                  <!-- This is the interactiveless view-mode renderer. -->
+                  <views_ornaments_bike_facility:Facility_Icon_Base
+                     id="curr_or_old_cautionary_icon"
+                     visible="false"
+                     includeInLayout=
+                        "{this.curr_or_old_cautionary_icon.visible}"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     x="0"
+                     y="0"
+                     />
+
+                  <!-- This is the interactive edit-mode control. -->
+                  <utils_misc:Combo_Box_V2
+                     id="cautionary_button"
+                     visible="true"
+                     includeInLayout="{this.cautionary_button.visible}"
+                     padding_icon_left="4"
+                     padding_icon_right="2"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     dropdownWidth="{Facility_Icon_Base.total_width}"
+                     enable_text_field_label="false"
+                     x="0"
+                     y="0"
+                     rowCount="99"
+                     styleName="comboBoxV2"
+                     dropdownStyleName="comboDropdown"
+
+                     iconFunction="cautionary_opts_get_icon"
+                     iconForVaries=
+                        "views.ornaments.bike_facility.Facilities_Vary"
+                     noOptionOption="{Widget_Bike_Facility.attr_key_no_cautys}"
+
+                     click="this.on_caution_click(event);"
+                     itemRenderer=
+                        "views.ornaments.bike_facility.Facility_Icon_Base"
+                     >
+                  </utils_misc:Combo_Box_V2>
+
+               </mx:Canvas>
+
+            </mx:HBox>
+
+            <mx:HBox
+               id="counterpart_cautionary_ctnr"
+               width="100%"
+               verticalAlign="middle"
+               horizontalGap="0"
+               visible="false"
+               includeInLayout="{this.counterpart_cautionary_ctnr.visible}"
+               >
+
+               <mx:Text
+                  id="counterpart_cautionary_new_text"
+                  text="new:"/>
+
+               <!-- This is the interactiveless view-mode renderer. -->
+               <mx:Canvas
+                  width="100%"
+                  >
+                  <views_ornaments_bike_facility:Facility_Icon_Base
+                     id="counterpart_cautionary_icon"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     height="{Facility_Icon_Base.total_height}"
+                     width="{Facility_Icon_Base.total_width}"
+                     x="0"
+                     y="0"
+                     />
+               </mx:Canvas>
+
+            </mx:HBox>
+
+         </mx:VBox>
+
+         <!-- *** Convenient byway checkbox-taggers. -->
+
+         <!-- MAYBE: Should these checkboxes be there own widget, or
+                     is plopping them below the bike facility and cautions
+                     dropdowns appropriate? For now, this seems like a
+                     decent place for these (that is, keep the widgets up
+                     top that are most used by bicycle/ped planners). -->
+
+         <mx:HBox
+            id="box_checkbox_taggers_1"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="5"
+            horizontalGap="5"
+            horizontalAlign="left"
+            verticalAlign="middle"
+            visible="true"
+            includeInLayout="{this.box_checkbox_taggers_1.visible}"
+            >
+
+<!-- BUG nnnn: THESE ARE NOT WIRED!!! -->
+
+<!-- FIXME: Add 'Rumbles' and 'Planned' 
+
+maybe rename Closed... to just Closed
+
+High Traffic Volume... ?? Busy Road?
+
+-->
+
+<!--
+            <mx:VBox
+               id="box_byway_type_options"
+               width="100%"
+               paddingLeft="6"
+               horizontalGap="6"
+               verticalGap="2"
+               horizontalAlign="left"
+               verticalAlign="top"
+               visible="false"
+               includeInLayout="{this.box_byway_type_options.visible}"
+               >
+               <mx:HBox
+                  width="100%"
+                  paddingLeft="6"
+                  horizontalGap="6"
+                  verticalGap="2"
+                  horizontalAlign="left"
+                  verticalAlign="top"
+                  >
+-->
+
+<!--
+               </mx:HBox>
+               <mx:HBox
+                  width="100%"
+                  paddingLeft="6"
+                  horizontalGap="6"
+                  verticalGap="2"
+                  horizontalAlign="left"
+                  verticalAlign="top"
+                  >
+-->
+
+            <!--
+               label="Busy"
+               label="Busy Road"
+               label="High Traffic Volume"
+            -->
+            <mx:CheckBox
+               id="byway_tagger_high_volume"
+               label="Busy"
+               toolTip=
+"Select this option if the selected road(s) have higher volumes of traffic than comparable roads in the nearby vicinity. For rural highways, a busy road has an annual average daily traffic (AADT) volume of at least 400 vehicles."
+               />
+
+            <!--
+               label="Closed to Bikes"
+               label="Closed"
+               label="Unbikeable"
+            -->
+            <mx:CheckBox
+               id="byway_tagger_controlled_access"
+               label="Closed"
+               toolTip=
+"Select this option if the selected road(s) is a controlled access roadway, under construction and impassable, or otherwise closed or impassable to bicyclists (e.g., freeway, construction, snowfall)."
+               />
+
+<!--
+               </mx:HBox>
+            </mx:VBox>
+-->
+
+<!--
+         </mx:HBox>
+         <mx:HBox
+            id="box_checkbox_taggers_2"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="6"
+            horizontalGap="6"
+            horizontalAlign="left"
+            verticalAlign="middle"
+            visible="true"
+            includeInLayout="{this.box_checkbox_taggers_2.visible}"
+            >
+-->
+
+            <mx:CheckBox
+               id="byway_tagger_planned"
+               label="Planned"
+               toolTip=
+""
+               />
+
+            <mx:CheckBox
+               id="byway_tagger_rumbles"
+               label="Rumbles"
+               toolTip=
+""
+               />
+
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

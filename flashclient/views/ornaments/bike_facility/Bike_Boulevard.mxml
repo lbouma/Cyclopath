@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_ornaments_bike_facility:Facility_Icon_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_ornaments_bike_facility="views.ornaments.bike_facility.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   attr_pen_group="bike_facil"
+   attr_key_name="bike_blvd"
+   >
+   <!-- SYNC_ME: Search: bike_facil values. -->
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__BF_Bk_Blvd');
+
+      // ***
+
+      //
+      override public function get planners_hint() :String
+      {
+         //
+         // https://en.wikipedia.org/wiki/Bicycle_boulevard
+         var html_hint:String = (
+            'A bicycle boulevard is a signed route on a sequence of '
+            + 'roadways designed specifically for cyclists. '
+            + 'It is generally located on low-volume '
+            + 'roadways that allow local motor-vehicle traffic but '
+            + 'discourage "cut-through" traffic (e.g., drivers trying '
+            + 'to avoid nearby arterials). The roadway is designed '
+            + 'to give priority to bicyclists, and it may include '
+            + 'cut-outs that allow bicycle traffic to travel through '
+            + 'an intersection, but that redirect motor vehicles. '
+            + 'A bicycle boulevard is generally given a unique name, '
+            + 'uses one or more roadways to complete its course, and is '
+            + 'signed to guide cyclists along its route. It is '
+            + 'intended to carry cyclists between common destinations.'
+            );
+         return html_hint;
+      }
+
+   ]]></mx:Script>
+
+</views_ornaments_bike_facility:Facility_Icon_Base>
+

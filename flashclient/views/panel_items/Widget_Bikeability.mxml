@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.NumericStepper;
+      import mx.controls.Label;
+      import mx.controls.TextArea;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+      import flash.events.KeyboardEvent;
+
+      import items.Item_Revisioned;
+      import utils.misc.AutoComplete;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.rev_spec.*;
+      import views.base.App_Action;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Bkblty');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         // FIXME: This feature isn't advertised!
+         // BUG nnnn: Document the keyboard shortcuts and make inline help for
+         //           'em... maybe like the map key/legend?
+         // When byways are selected, the user can press '0' through '5' to
+         // rate them.
+
+// FIXME: This always listens on the map... we should add this onshow and
+//        remove onhide so we only listen when we're the active panel.
+         G.map.stage.addEventListener(KeyboardEvent.KEY_DOWN,
+                                      this.on_keyboard_event,
+                                      false, 0, true);
+
+         // 2012.08.17: Listen to user_event_change so we can fix our widgets.
+// FIXME: This seems unnecessary: doesn't a user change trigger a top-level
+//        mark_dirty, on_panel_show, and repopulate?
+//         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+//         G.app.addEventListener('user_event_change', this.on_user_change);
+// FIXME: This also seems unnecessary: I don't think we need to hook this:
+//         m4_DEBUG('on_initialize: addEventListener: revisionChange');
+//         G.item_mgr.addEventListener('revisionChange',
+//                                     this.on_revision_change);
+
+// FIXME: Statewide UI: As a widget, our owning panel hooks this... right?
+//         m4_DEBUG('on_initialize: addEventListener: selectionChanged');
+//         G.item_mgr.addEventListener('selectionChanged',
+//                                     this.on_selection_changed);
+
+// FIXME: delete these and just use mark_dirty_and_show_maybe?
+//         this.on_user_change();
+//         this.on_revision_change();
+//         this.on_selection_changed();
+// FIXME: No need to call this, right? Maybe the register_widgets fcn. should
+//        make sure widgets are marked dirty and eventually repopulate()d.
+//         this.mark_dirty_and_show_maybe();
+      }
+
+      // If the user is logged in, one of more items are selected, the revision
+      // is current, and an input control isn't selected, then the user can
+      // press the keys '0' through '5' to rate the selected byways.
+      // FIXME: This feature is Very Hidden!
+      protected function on_keyboard_event(ev:KeyboardEvent) :void
+      {
+         m4_TALKY7('on_keyboard_event:',
+            '/ charCode:', ev.charCode,
+            '/ keyCode:', ev.keyCode,
+            '/ alt:', ev.altKey,
+            '/ ctrl:', ev.ctrlKey,
+            '/ shift:', ev.shiftKey,
+            '/ fromCharCode:', String.fromCharCode(ev.charCode));
+         if ((this.items_selected !== null)
+             && (this.items_selected.length > 0)
+             && (this.items_selected.item_get_random().rev_is_working)
+             && (G.user.logged_in)
+             // 2012.08.09: Route Find timed out and focusManager is null.
+             // MAYBE: Is this logic correct, i.e., if === null, then okay?
+             && ((this.focusManager === null)
+                 || !((this.focusManager.getFocus() is TextInput)
+                      || (this.focusManager.getFocus() is TextArea)
+                      || (this.focusManager.getFocus() is NumericStepper)
+                      || (this.focusManager.getFocus() is AutoComplete)))) {
+            // HACK: charcode values for 0 - 5 (range is 48 to 52).
+            // MAGIC_NUMBER: ASCII 49 is Number 1!
+            var value:int = ev.charCode - 49;
+            if ((value >= -1) && (value <= 4)) {
+               this.rating_picker.rate(value);
+            }
+         }
+      }
+
+/*/ FIXME: Delete on_revision_change (and make sure there's a higher-level
+ ** response to repopulate the panels).
+      //
+      protected function on_revision_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_revision_change');
+// MAYBE: Get rid of toggle_enabled and use on_panel_show/repopulate?
+//this.toggle_enabled();
+         this.mark_dirty_and_show_maybe();
+      }
+/*/
+
+      //
+      protected function on_selection_changed(event:Event=null) :void
+      {
+m4_ASSERT(false); // FIXME: Statewide UI: Not being called, is this?
+         m4_DEBUG('on_selection_changed');
+         this.mark_dirty_and_show_maybe();
+// FIXME: Delete the following?:
+//         this.rating_picker.byways = this.items_selected;
+//         this.rating_picker.reset_picker();
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+         this.rating_picker_box.visible = false;
+         this.rating_picker.enabled = false;
+         this.rating_picker_old_rev_label.text = "No ratings.";
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+         // We only enable the rating picker if the user is logged in and the
+         // map is in an editable state. If the user is not logged in and the
+         // map is editable, we disable the dropdown and let the user know to
+         // login to rate items; if the map is not editable (i.e., Historic or
+         // Diff), we tell the user we don't have old ratings.
+         // NOTE: Ignoring G.map.zoom_is_vector(): if items are selected, you
+         //       can rate them; if items are not selected and the map is
+         //       "zoomed out", we shouldn't be showing the details panel.
+         // Ignoring: Objutil.consensus_b(selected_items, 'can_edit', false)
+         //           Since you don't have to be able to edit byways to rate.
+
+         if (!G.map.rev_viewport is utils.rev_spec.Working) {
+            this.rating_picker_old_rev_label.text = 
+               //"Ratings are not available for old revisions.";
+               //"Ratings are not available for historic revisions.";
+               //"Ratings are unavailable for old revisions.";
+               "Ratings are not fetched for old revisions.";
+            this.rating_picker_box.visible = false;
+         }
+         else {
+
+            this.rating_label.text = '';
+            if ((G.user.logged_in) && (this.feats_selected.length > 0)) {
+               this.rating_picker.enabled = true;
+               // Set the rating dropdown based on what's selected.
+
+               this.rating_picker.byways_selected = this.items_selected;
+
+               this.rating_picker.reset_picker();
+               // FIXED: Need a hint to indicate 'blank' means multiple byways
+               //        are selected but their ratings do not match.
+               //        2013.05.29: Shows 'Varies' now.
+// BUG nnnn: Make a bug against CcpV1 behaviour; mark fixed.
+
+               // This is kind of a cheat.
+               if (this.rating_picker.rsel_enabled.selectedItem !== null) {
+                  this.rating_label.text =
+                     this.rating_picker.rsel_enabled.selectedItem.label;
+               }
+            }
+            else {
+               // The user is not logged in, so disable the control and give
+               // them the "please login" hint.
+               this.rating_picker.enabled = false;
+            }
+
+            // MAYBE: wrap() the control so it's in the undo/redo list?
+            // See Rating_Picker.rate, which calls Byway_Rate.
+
+            // Always display the average rating.
+            var avg_rating:* = Item_Revisioned.consensus(
+               this.items_selected, 'generic_rating_str', null);
+            //this.rating_average.text = '(Avg.: ' + avg_rating + ')';
+            if (avg_rating !== null) {
+               this.rating_average.text = String(avg_rating);
+            }
+            else {
+               this.rating_average.text = 'varies';
+            }
+            // BUG nnnn: byway_rating: Add num_raters column. Show in toolTip.
+            //           Also: distinguish btw. avg. user ratings and
+            //                 algorithm rating, since algorithm value only
+            //                 display if avg. rating not available.
+            //   this.rating_average.toolTip =
+            //      'This is the average of ' + String(num_ratings)
+            //      + ' user ratings.';
+            var plural:Boolean = (this.items_selected.length > 1);
+            this.rating_average.toolTip =
+               'The average rating is calculated from all user ratings for '
+               + Inflector.pluralize('this', plural) // i.e., 'this' or 'these'
+               + ' road '
+               + Inflector.pluralize('segment', plural)
+               + '.';
+
+            if (G.app.mode.is_allowed(App_Action.byway_rate)) {
+               this.rating_picker.visible = true;
+               this.rating_label.visible = false;
+            }
+            else {
+               this.rating_picker.visible = false;
+               this.rating_label.visible = true;
+            }
+            this.rating_picker_box.visible = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Rating"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:HBox
+            id="rating_picker_box"
+            width="100%"
+            paddingTop="2"
+            paddingBottom="2"
+            horizontalGap="3"
+            verticalAlign="middle"
+            horizontalScrollPolicy="off"
+            visible="true"
+            includeInLayout="{this.rating_picker_box.visible}">
+            <mx:HBox
+               paddingTop="0">
+               <views_panel_items:Rating_Picker
+                  id="rating_picker"
+                  visible="true"
+                  includeInLayout="{this.rating_picker.visible}"
+                  />
+               <mx:Label
+                  id="rating_label"
+                  visible="false"
+                  includeInLayout="{this.rating_label.visible}"
+                  />
+            </mx:HBox>
+            <mx:HBox
+               horizontalGap="0"
+               paddingLeft="6"
+               paddingTop="1"
+               paddingRight="0"
+               paddingBottom="0"
+               >
+               <mx:Label
+                  text="(Avg.: "
+                  fontStyle="italic"
+                  />
+               <mx:Label
+                  id="rating_average"
+                  fontStyle="italic"
+                  textDecoration="underline"
+                  paddingLeft="-5"
+                  />
+               <mx:Label
+                  text=")"
+                  fontStyle="italic"
+                  paddingLeft="-3"
+                  />
+            </mx:HBox>
+         </mx:HBox>
+
+         <!-- NOTE/MAYBE: The byway_rating/byway_rating_event tables are not 
+                          quite setup to return historic ratings. So just tell
+                          the user that. (But, maybe, if we wanted, we could
+                          use the timestamp in byway_rating_event to get at
+                          this info.
+                          -->
+         <mx:HBox
+            id="rating_picker_old_rev"
+            width="100%"
+            horizontalScrollPolicy="off"
+            visible="{!this.rating_picker_box.visible}"
+            includeInLayout="{!this.rating_picker_box.visible}">
+            <mx:Label
+               id="rating_picker_old_rev_label"
+               text="Ratings are not available for old revisions."/>
+         </mx:HBox>
+      
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.containers.GridRow;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import items.attcs.Attribute;
+      import items.utils.Item_Type;
+      import utils.misc.Collection;
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_Ass');
+
+      public var grid_attrs:Array;
+
+      // ***
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+
+         // We don't need to listen on attributesLoaded because of linksLoaded.
+         m4_TALKY('on_links_loaded/linksLoaded addEventListener:', this.dp);
+         G.item_mgr.addEventListener('linksLoaded', this.on_links_loaded,
+                                     false, 0, true);
+
+         m4_TALKY('on_initialize: addEventListener: selectedsetChanged');
+         G.map.addEventListener('selectedsetChanged',
+                                this.on_selectedset_change);
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         // this.dp isn't set, so this would do nothing.
+         //  this.on_selectedset_change();
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_TALKY('repopulate');
+         super.repopulate();
+         // [lb] had (has?) a concern populate_grid was (is?) being called too
+         // often (or maybe it's just that some panel_items classes
+         // on_panel_show() fcns. always call repopulate, rather than only
+         // when necessary).  Anyway, we need to populate_grid to setup
+         // widget_attrs_assign*.  (See comment below: changing the gfl may
+         // causes populate_grid to be called, and [lb] notes it's a noticeable
+         // pause in flashclient.)
+         // 
+         // Avoid flicker, no:
+         //    this.populate_grid();
+         if (this.grid_attrs === null) {
+            m4_TALKY('repopulate: calling populate_grid');
+            this.populate_grid();
+         }
+
+         // Tell the parent we changed, so it can decide to show/hide us.
+         this.dp.panel_item_details.widget_attribute_list
+            .show_or_hide_attr_box();
+      }
+
+      // *** Instance methods
+
+      //
+      public function populate_grid(item_class:Class=null) :void
+      {
+         m4_TALKY('populate_grid');
+
+         // 2013.02.04: We should always use item_class, at least for now.
+         //
+         // MAYBE: The new_item_policy records apply to descendant
+         // classes and not to base classes. So it's unlikely
+         // 'geofeature' ever matches. We could implement a new fcn.,
+         // e.g., Item_Type.item_class_includes('geofeature').
+         // Don't bother:
+         //   (attr.applies_to_type_id == Item_Type.str_to_id('geofeature'))
+         //
+         // FIXME: We're called on user change when items_selected is empty...
+         //        and [lb] sees this other places. Maybe we need to preempt
+         //        repopulate(), i.e., call depopulate() instead...
+         //
+         // Only one attribute, which is a custom attribute, does not specify
+         // the item_class (/item/alert_email).
+         if (item_class === null) {
+            if (this.dp !== null) {
+               if (this.items_selected.length > 0) {
+                  item_class = Introspect.get_constructor(
+                     this.items_selected.item_get_random());
+               }
+               else {
+                  m4_WARNING('populate_grid: this.items_selected is empty');
+               }
+            }
+            else {
+               m4_WARNING('populate_grid: this.dp is null');
+            }
+         }
+         else {
+            m4_TALKY('populate_grid: caller sent item_class:', item_class);
+         }
+
+         // FIXME Don't do this except when necessary?
+         // Bug nnnn -- Set dirty flag for Attributes.all_named so
+         //             we don't fetch when not necessary and so we
+         //             don't have to run this fcn. so often.
+         // Clear out the grid container
+         // FIXME Does this cause the old attrs to be deleted??
+         //m4_DEBUG('this.grid_attrs:', this.grid_attrs);
+         //m4_DEBUG('this.grid_attrs_1:', this.grid_attrs_1);
+         //m4_DEBUG('this.grid_attrs_2:', this.grid_attrs_2);
+         if (this.grid_attrs !== null) {
+            m4_TALKY2('populate_grid: clearing grid_attrs: length:',
+                      this.grid_attrs.length);
+         }
+         else {
+            m4_TALKY('populate_grid: grid_attrs is null');
+         }
+         m4_VERBOSE2('populate_grid: clearing grid_attrs_1.length:',
+                     this.grid_attrs_1.numChildren);
+         m4_VERBOSE2('populate_grid: clearing grid_attrs_2.length:',
+                     this.grid_attrs_2.numChildren);
+         this.grid_attrs_1.removeAllChildren();
+         this.grid_attrs_2.removeAllChildren();
+         this.grid_attrs = new Array();
+
+         if (item_class !== null) {
+            this.populate_grid_for_class(item_class);
+         }
+      }
+
+      //
+      public function populate_grid_for_class(item_class:Class) :void
+      {
+         m4_TALKY('populate_grid_for_class: item_class:', item_class);
+
+         var attr_row:Widget_Attrs_GridRow_Base;
+         var attr:Attribute;
+         //var attrs:Dictionary = new Dictionary();
+         var attrs:Array = new Array();
+
+         if (item_class !== null) {
+            for each (attr in Attribute.all) {
+               m4_VERBOSE2(' .. custom?:', attr.uses_custom_control,
+                           '/ applies to id:', attr.applies_to_type_id);
+               if (attr.applies_to_type_id != 0) {
+                  m4_VERBOSE2(' .. applies to type:',
+                              Item_Type.id_to_str(attr.applies_to_type_id));
+               }
+               if ((!attr.uses_custom_control)
+                   && ((attr.applies_to_type_id == 0)
+                       || (attr.applies_to_type_id 
+                           == Item_Type.str_to_id(item_class.class_item_type)))
+                           ) {
+                  //attrs[attr.name_] = attr;
+                  //attrs[attr.base_id] = attr;
+                  m4_VERBOSE('populate_grid_for_class: attr:', attr);
+                  attrs.push(attr);
+               }
+            }
+         }
+
+         // Re-populate the grid
+         // Sort first by gui_order
+         attrs.sortOn('gui_sortrank', Array.NUMERIC);
+
+         for each (attr in attrs) {
+            m4_TALKY('Adding control for attr:', attr);
+            //attr_row = new Widget_Attrs_GridRow_Base();
+            // MAGIC_NUMBERS: MEH: Where the value_type enum? =P
+            if (attr.value_type == 'boolean') {
+               attr_row = new Widget_Attrs_GridRow_Boolean();
+            }
+            else if (attr.value_type == 'integer') {
+               attr_row = new Widget_Attrs_GridRow_Integer();
+            }
+            else if (attr.value_type == 'text') {
+               attr_row = new Widget_Attrs_GridRow_Text();
+            }
+            else {
+               // else, we haven't impl'd ctl for this attr type yet.
+               m4_ASSERT_SOFT(false);
+            }
+            if (attr_row !== null) {
+               attr_row.detail_panel = this.dp;
+               this.grid_attrs.push(attr_row);
+               //m4_DEBUG('attr.branch_id:', attr.branch_id);
+               //m4_DEBUG('ID_PUBLIC_BASEMAP:', Branch.ID_PUBLIC_BASEMAP);
+               // We cannot call addChild in the same frame as
+               // removeAllChildren, otherwise an internal Flex callLater
+               // to GridRow.doRowLayout dies on null pointer exception. So
+               // schedule a callLater. This is a little hacky, too: we
+               // remember the attribute as part of the gridrow, but we don't
+               // initialize it until after we've added the gridrow to its
+               // parent, in the callLater callback.
+               /*/
+               if (attr.is_basemap_item) {
+                  this.grid_attrs_1.addChild(attr_row);
+               }
+               else {
+                  this.grid_attrs_2.addChild(attr_row);
+               }
+               /*/
+               // Set the attribute after adding the gridrow, otherwise its
+               // children will not be ready.
+               // Do this later: attr_row.attribute = attr;
+               attr_row.attr = attr;
+            }
+         }
+
+         //m4_DEBUG_CLLL('>callLater: populate_grid: populate_grid_later');
+         G.map.callLater(this.populate_grid_later);
+
+         // m4_DEBUG2('populate_grid: updated grid_attrs.length:',
+         //           this.grid_attrs.length);
+         // m4_DEBUG2('populate_grid: updated grid_attrs_1.length:',
+         //           this.grid_attrs_1.numChildren);
+         // m4_DEBUG2('populate_grid: updated grid_attrs_2.length:',
+         //           this.grid_attrs_2.numChildren);
+
+         // //m4_VERBOSE('populate_grid: grid_attrs:', this.grid_attrs);
+         // if (this.grid_attrs !== null) {
+         //    m4_VERBOSE2(' .. .length:', this.grid_attrs.length);
+         // }
+      }
+
+      //
+      protected function populate_grid_later() :void
+      {
+         m4_DEBUG_CLLL('<callLater: populate_grid_later');
+         if ((this.items_selected !== null)
+             && (this.items_selected.length > 0)) {
+            this.populate_grid_later_();
+         }
+      }
+
+      //
+      protected function populate_grid_later_() :void
+      {
+         m4_TALKY('populate_grid_later_');
+
+         /*/ MAYBE: Derived classes may have started populating the grids,
+                    so this.grid_attrs_* could be nonempty. 
+            Do we care if children exist already? Or should we just
+                    find that ones that haven't been added yet? It
+         if ((this.grid_attrs_1.numChildren > 0)
+             || (this.grid_attrs_2.numChildren > 0)) {
+             m4_WARNING('? grid_attrs_1.length:', this.grid_attrs_1.length);
+             m4_WARNING('? grid_attrs_2.length:', this.grid_attrs_2.length);
+            this.grid_attrs_1.removeAllChildren();
+            this.grid_attrs_2.removeAllChildren();
+            m4_DEBUG_CLLL('>callLater: populate_grid_later: same');
+            G.map.callLater(this.populate_grid_later);
+         /*/
+         var gridrow:GridRow;
+
+
+         if (this.grid_attrs === null) {
+            m4_WARNING('populate_grid_later_: grid_attrs is null');
+            m4_WARNING(Introspect.stack_trace());
+         }
+         else {
+            m4_VERBOSE2('populate_grid_later: grid_attrs.length:',
+                        this.grid_attrs.length);
+            m4_VERBOSE2('populate_grid_later: grid_attrs_1.length:',
+                        this.grid_attrs_1.numChildren);
+            m4_VERBOSE2('populate_grid_later: grid_attrs_2.length:',
+                        this.grid_attrs_2.numChildren);
+            for each (gridrow in this.grid_attrs) {
+               // m4_VERBOSE('populate_grid_later: gridrow:', gridrow);
+               var attr_row:Widget_Attrs_GridRow_Base;
+               attr_row = (gridrow as Widget_Attrs_GridRow_Base);
+               if (attr_row !== null) {
+                  m4_VERBOSE2('populate_grid_later: attr_row.attr:',
+                              attr_row.attr);
+                  //if (attr_row.attribute.is_basemap_item) {
+                  if (attr_row.attr.is_basemap_item) {
+                     if (!(Collection.array_in(
+                           attr_row, this.grid_attrs_1.getChildren()))) {
+                        this.grid_attrs_1.addChild(attr_row);
+                        attr_row.attribute = attr_row.attr;
+                     }
+                     else {
+                        m4_VERBOSE('populate_grid_later/1: already a child');
+                     }
+                  }
+                  else {
+                     if (!(Collection.array_in(
+                           attr_row, this.grid_attrs_2.getChildren()))) {
+                        this.grid_attrs_2.addChild(attr_row);
+                        attr_row.attribute = attr_row.attr;
+                     }
+                     else {
+                        m4_VERBOSE('populate_grid_later/2: already a child');
+                     }
+                  }
+               }
+               // else, it's a derived class's GridRow, e.g., see
+               //       Widget_Attrs_Assign_Byway.z_level_gridrow.
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_links_loaded(ev:Event) :void
+      {
+         m4_TALKY('on_links_loaded/linksLoaded');
+
+         // during map discard, etc. this can be null or empty
+         // FIXME: 2012.05.15: this.dp is null? after starting job and then
+         // saving new region.
+         /*
+         if ((this.dp !== null)
+             && (this.items_selected !== null)
+             && (this.items_selected.length > 0)) {
+            this.repopulate();
+         }
+         else {
+            // MAYBE: Does this ever happen? Really, [lb] is just curious.
+            //m4_VERBOSE('WARNING?: on_links_loaded: early.');
+         }
+         */
+
+         // In lieu of a this.force_repopulate = true, clear grid_attrs.
+         m4_VERBOSE('on_links_loaded: resetting grid_attrs');
+         this.grid_attrs = null;
+
+         this.mark_dirty_and_show_maybe();
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         m4_TALKY('on_mode_change: calling populate_grid');
+         //this.force_repopulate = true;
+         ////this.mark_dirty_and_show_maybe();
+         this.populate_grid();
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         super.on_remove_event(ev);
+         m4_TALKY('on_links_loaded/linksLoaded removeEventListnr:', this.dp);
+         G.item_mgr.removeEventListener('linksLoaded', this.on_links_loaded);
+      }
+
+      //
+      protected function on_selectedset_change(event:Event=null) :void
+      {
+         m4_TALKY('on_selectedset_change: calling populate_grid');
+         this.populate_grid();
+      }
+
+      //
+      protected function set_enabled(is_enabled:Boolean) :void
+      {
+         m4_VERBOSE('set_enabled:', is_enabled);
+         var gridrow:GridRow;
+         for each (gridrow in this.grid_attrs) {
+            var attr_gridrow:Widget_Attrs_GridRow_Base;
+            attr_gridrow = (gridrow as Widget_Attrs_GridRow_Base);
+            m4_VERBOSE(' >> attr_gridrow:', attr_gridrow);
+            // FIXME This is awkward -- Check if we're using a custom control
+            if ((attr_gridrow !== null)
+                && (!attr_gridrow.attr.uses_custom_control)) {
+               attr_gridrow.set_enabled(is_enabled);
+            }
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:Grid
+      id="grid_attrs_1"
+      width="100%"
+      verticalScrollPolicy="auto">
+      <!-- The Attributes are created and added in on_panel_show. -->
+   </mx:Grid>
+   <mx:Grid
+      id="grid_attrs_2"
+      verticalScrollPolicy="auto">
+      <!-- The Attributes are created and added in on_panel_show. -->
+   </mx:Grid>
+
+</views_panel_base:Detail_Panel_Widget>
+

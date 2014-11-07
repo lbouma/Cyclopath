@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- BUG nnnn: Add edit box to paginator, so user can specify arbitrary page.
+-->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.utils.StringUtil;
+
+      import gwis.utils.Query_Filters;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Paginator');
+
+      // *** Instance attributes
+
+      protected var records_per_page_:int = 0;
+      public var current_page_number:int = 1;
+
+      protected var records_total_count_:int = 0;
+      protected var records_total_pages:int = -1;
+
+      public var column_sort_by:String = '';
+
+      [Bindable] public var type_plural:String = 'results';
+
+      public var list_control_callback:Function;
+
+      public var p_collect:Object;
+
+      // *** Instance methods
+
+      //
+      public function get records_per_page() :int
+      {
+         return this.records_per_page_;
+      }
+
+      //
+      public function set records_per_page(cnt:int) :void
+      {
+         if (cnt >= 0) {
+            this.records_per_page_ = cnt;
+         }
+         else {
+            m4_WARNING('set records_per_page: negative count:', cnt);
+            m4_ASSERT_SOFT(false);
+            this.records_per_page_ = 0;
+         }
+         this.update_pagination_text();
+      }
+
+      //
+      public function get records_total_count() :int
+      {
+         return this.records_total_count_;
+      }
+
+      //
+      public function set records_total_count(cnt:int) :void
+      {
+         if (cnt >= 0) {
+            this.records_total_count_ = cnt;
+         }
+         else {
+            m4_WARNING('set records_total_count: negative count:', cnt);
+            m4_ASSERT_SOFT(false);
+            this.records_total_count_ = 0;
+         }
+         this.update_pagination_text();
+      }
+
+      //
+      public function update_pagination_text() :void
+      {
+         var enable_bwds:Boolean = false;
+         var enable_fwds:Boolean = false;
+
+         this.records_total_pages = Math.ceil(
+            Number(this.records_total_count_)
+            / Number(this.records_per_page_));
+
+         if (this.current_page_number > 1) {
+            enable_bwds = true;
+         }
+         if (this.current_page_number < this.records_total_pages) {
+            enable_fwds = true;
+         }
+
+         this.nav_bbwd.enabled = enable_bwds;
+         this.nav_bwd.enabled = enable_bwds;
+         this.nav_fwd.enabled = enable_fwds;
+         this.nav_ffwd.enabled = enable_fwds;
+
+         var label_text:String = '';
+         if (this.records_total_count_ == 0) {
+            //label_text = "No " + this.type_plural + '.';
+            label_text = "No " + this.type_plural;
+         }
+         else if (this.records_total_count_ == 1) {
+            label_text =
+               //"1 " + Inflector.singularize(this.type_plural) + '.';
+               "1 " + Inflector.singularize(this.type_plural);
+         }
+         else {
+
+// FIXME/BUG nnnn: FIRING in route history on clear unchecked when there are
+// none unchecked, but pageinator showing 0 results when there are many.
+            m4_ASSERT_SOFT(this.records_total_count_ > 1);
+            m4_ASSERT_SOFT(this.records_total_pages > 0);
+
+            //label_text = this.records_total_count_ + " " + this.type_plural;
+            // I.e., '1-25 of 50'.
+            var visible_count:int = 0;
+            if (this.p_collect !== null) {
+               visible_count = this.p_collect.length;
+            }
+            else {
+               m4_WARNING('update_pagination_text: missing p_collect?');
+            }
+            var first_record_num:int = (this.records_per_page_
+                                        * (this.current_page_number - 1)) + 1;
+            var final_record_num:int;
+            if (this.records_per_page_ == visible_count) {
+               final_record_num = first_record_num
+                                  + this.records_per_page_
+                                  - 1;
+            }
+            else {
+               final_record_num = first_record_num + visible_count - 1;
+            }
+            if (first_record_num > final_record_num) {
+               // I.e., 0.
+               first_record_num = final_record_num;
+            }
+            // String formatting...
+            /*/
+            label_text =
+               String(first_record_num)
+               + '-' + String(first_record_num + this.records_per_page_ - 1)
+               + ' of ' + String(this.records_total_count_)
+               + ' ' + this.type_plural + '.';
+            /*/
+            // FIXME: Even with just three records, says 1-4 of 3. Need to hook
+            // the array provider...
+            label_text = StringUtil.substitute(
+               //'{0}-{1} of {2} {3}.',
+               '{0}-{1} of {2} {3}',
+               String(first_record_num),
+               String(final_record_num),
+               String(this.records_total_count_),
+               this.type_plural);
+         }
+         m4_DEBUG('update_pagination_text: label_text:', label_text);
+         this.conficts_pager_label.text = label_text;
+      }
+
+      // ***
+
+      public function configure_query_filters(qfs:Query_Filters) :void
+      {
+         qfs.pagin_count = this.records_per_page_;
+         qfs.pagin_offset = this.current_page_number - 1;
+      }
+
+      // ***
+
+      //
+      protected function on_refresh_owner() :void
+      {
+
+
+// BUG_FALL_2013: BUG nnnn: This fires. Login and look at the
+//     recent routes panel, and use pageinator to choose a later page,
+//     then logout. We're probably not cleaning up and resetting the
+//     paginator.
+         m4_ASSERT_SOFT((this.records_total_pages > 0)
+                        && (this.records_total_pages
+                            <= this.records_total_pages));
+         this.list_control_callback();
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_click_newest() :void
+      {
+         // This seems weird. Element is not enabled but it still receives
+         // mouse clicks. Or maybe that's how it's suppose to work, and most
+         // Flex controls have to checked 'enabled' anyway. Or maybe we're
+         // missing a setting on this control, like, ignoreMouseDisabled.
+         if (nav_bbwd.enabled) {
+            m4_DEBUG('on_click_newest');
+            this.current_page_number = 1;
+            this.on_refresh_owner();
+         }
+      }
+
+      //
+      protected function on_click_newer() :void
+      {
+         if (nav_bwd.enabled) {
+            m4_DEBUG('on_click_newer');
+            this.current_page_number -= 1;
+            this.on_refresh_owner();
+         }
+      }
+
+      //
+      protected function on_click_older() :void
+      {
+         if (nav_fwd.enabled) {
+            m4_DEBUG('on_click_older');
+            this.current_page_number += 1;
+            this.on_refresh_owner();
+         }
+      }
+
+      //
+      protected function on_click_oldest() :void
+      {
+         if (nav_ffwd.enabled) {
+            m4_DEBUG('on_click_oldest');
+            this.current_page_number = this.records_total_pages;
+            this.on_refresh_owner();
+         }
+      }
+
+   ]]></mx:Script>
+
+   <views_panel_util:Hyper_Link
+      id="nav_bbwd"
+      htmlText="&#171;"
+      toolTip="Go to the first page of results."
+      textDecoration="none"
+      fontSize="14"
+      link_colors="[0x000000, 0x000000]"
+      enabled="false"
+      click="this.on_click_newest();"/>
+   <views_panel_util:Hyper_Link
+      id="nav_bwd"
+      htmlText="&#8249;"
+      toolTip="Go back one page."
+      textDecoration="none"
+      fontSize="14"
+      link_colors="[0x000000, 0x000000]"
+      enabled="false"
+      click="this.on_click_newer();"/>
+   <mx:Label
+      id="conficts_pager_label"
+      text="No {this.type_plural}"
+      paddingTop="1"
+      paddingRight="6"
+      />
+   <views_panel_util:Hyper_Link
+      id="nav_fwd"
+      htmlText="&#8250;"
+      toolTip="Go forward one page."
+      textDecoration="none"
+      fontSize="14"
+      link_colors="[0x000000, 0x000000]"
+      enabled="false"
+      click="this.on_click_older();"/>
+   <views_panel_util:Hyper_Link
+      id="nav_ffwd"
+      htmlText="&#187;"
+      toolTip="Go to the last page of results."
+      textDecoration="none"
+      fontSize="14"
+      link_colors="[0x000000, 0x000000]"
+      enabled="false"
+      click="this.on_click_oldest();"/>
+
+</mx:HBox>
+

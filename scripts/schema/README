@@ -1,0 +1,14 @@
+The files in this directory are SQL scripts which upgrade the database schema.
+In other words, if you want to change the database schema, you should write a
+SQL script to make the necessary changes and put it in this directory. Scripts
+should be numbered consecutively in the order they should be applied and
+should not include the string "revert.sql" in the filename (sometimes scripts
+also have a reverse version; a script which reverses 'nnn-foo.sql' is called
+'nnn-foo-revert.sql' by convention).
+
+Never change scripts after the script has landed on the trunk (unless
+otherwise arranged with the trunk manager). If you need further changes, write
+a new script.
+
+To upgrade your database, run schema-upgrade.py in the parent directory. It
+will figure out which scripts are needed and run them.

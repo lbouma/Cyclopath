@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.utils.Query_Filters;
+      import items.Link_Value;
+      import items.attcs.Tag;
+      import items.feats.Region;
+      import items.utils.Item_Type;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wtc_WgtEnty');
+
+      // *** Instance methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+         m4_DEBUG('on_creation_complete: w:', this.width, '/ h:', this.height);
+      }
+
+      //
+      protected function on_data_change(ev:FlexEvent) :void
+      {
+         var lval:Link_Value = (this.data as Link_Value);
+         m4_DEBUG('on_data_change: lval:', lval);
+         if ((lval !== null) && (lval.item !== null)) {
+            if (lval.item.is_private) {
+               this.setStyle('backgroundColor', Conf.private_color);
+            }
+            else {
+               this.setStyle('backgroundColor', 0xffffff);
+            }
+            if (lval.feat !== null) {
+               this.link_item_lookat.visible
+            }
+         }
+         else {
+            // FIXME: What should we do here? Load the linked item?
+            this.setStyle('backgroundColor', 0xcccccc);
+         }
+      }
+
+      //
+      protected function on_open_item_details_click(on_okay:Boolean=false)
+         :void
+      {
+         var lval:Link_Value = (this.data as Link_Value);
+         m4_DEBUG('on_open_item_details_click: lval:', lval);
+         if (lval !== null) {
+            if (lval.item !== null) {
+               if (lval.feat !== null) {
+                  var regions_were_off:Boolean = false;
+                  var region:Region = (lval.feat as Region);
+                  if (region !== null) {
+                     m4_DEBUG('on_open_item_details_click: region:', region);
+                     regions_were_off = !G.tabs.settings.regions_visible;
+                  }
+                  if (!lval.feat.selected) {
+                     lval.feat.set_selected(true);
+                  }
+                  if (regions_were_off) {
+                     Region.layer_turned_on_warn();
+                  }
+               }
+               else if (lval.thread !== null) {
+                  G.tabs.discussions.thread_open(lval.thread);
+               }
+               else if (lval.attr !== null) {
+                  m4_ASSERT_SOFT(false);
+               }
+               m4_ASSERT_ELSE_SOFT;
+            }
+            else {
+               if (!on_okay) {
+                  this.load_item(this.on_open_item_details_click);
+               }
+               m4_ASSERT_ELSE_SOFT;
+            }
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      //
+      protected function on_lookat_click(on_okay:Boolean=false) :void
+      {
+         var lval:Link_Value = (this.data as Link_Value);
+         m4_DEBUG('on_lookat_click: lval:', lval);
+         if (lval !== null) {
+            if (lval.item !== null) {
+               if (lval.feat !== null) {
+                  // FIXME: Only Route and Region derive from MOBRable_DR,
+                  //        so most Geofeatures can't be looked_at?
+                  //var feat:Geofeature = (lval.feat as Geofeature);
+                  var region:Region = (lval.feat as Region);
+                  if (region !== null) {
+                     m4_DEBUG('on_lookat_click: region:', region);
+                     if (!G.tabs.settings.regions_visible) {
+                        G.tabs.settings.regions_visible = true;
+                        Region.layer_turned_on_warn();
+                     }
+                  }
+                  G.map.lookat(lval.feat);
+               }
+               else if (lval.thread !== null) {
+                  m4_ASSERT_SOFT(false);
+               }
+               else if (lval.attr !== null) {
+                  m4_ASSERT_SOFT(false);
+               }
+               m4_ASSERT_ELSE_SOFT;
+            }
+            else {
+               if (!on_okay) {
+                  this.load_item(this.on_lookat_click);
+               }
+               m4_ASSERT_ELSE_SOFT;
+            }
+         }
+         m4_ASSERT_ELSE_SOFT;
+      }
+
+      // ***
+
+      //
+      protected function enable_maybe() :Boolean
+      {
+         return (G.map.rev_viewport is utils.rev_spec.Working);
+      }
+
+      // This has been implemented as a function to avoid binding warnings.
+      protected function fontstyle_get(data_:Object) :String
+      {
+         var lval:Link_Value = (data_ as Link_Value);
+         m4_DEBUG('fontstyle_get: lval:', lval);
+         var font_style:String = 'normal';
+         if ((lval !== null) && (lval.feat !== null)) {
+            if (lval.feat.is_private) {
+               font_style = 'italic';
+            }
+         }
+         return font_style;
+      }
+
+      //
+      protected function load_item(inner_callback:Function) :void
+      {
+         var lval:Link_Value = (this.data as Link_Value);
+         m4_DEBUG('load_item: lval:', lval);
+
+         var qfs:Query_Filters = new Query_Filters();
+
+         // Checkout a particular item.
+         // Wrong (returns all regions):
+         //    qfs.context_stack_id = lval.rhs_stack_id;
+         qfs.only_stack_ids.push(lval.rhs_stack_id);
+
+         // MEH: Is this coupled funny? [lb] is okay with this: this is
+         // the only place we fetch a thread's posts. Seems a little
+         // weird that it happens from the thread details panel, but
+         // it also makes sense since there's a 1-1 relationship between
+         // threads and their panels... so why can't the panel manage
+         // some things for the thread, like fetching posts?
+         var gwis_req:GWIS_Base = new GWIS_Checkout_Versioned_Items(
+            Item_Type.id_to_str(lval.link_rhs_type_id), // item_type
+            // MAYBE: What if we're in historic or diff mode?
+            new utils.rev_spec.Current(), // rev
+            null,                         // buddy_ct
+            qfs,                          // query_filters
+            null,                         // update_req
+            null,                         // resp_items
+            this.load_item_okay,          // callback_load
+            this.load_item_fail);         // callback_fail
+         gwis_req.caller_data = inner_callback;
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_req);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      public function load_item_fail(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         m4_WARNING('load_item_fail');
+      }
+
+      //
+      public function load_item_okay(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         var lval:Link_Value = (this.data as Link_Value);
+
+         m4_DEBUG2('load_item_okay: resp_items.len:',
+                   gwis_req.resp_items.length);
+         m4_ASSERT_SOFT(gwis_req.resp_items.length == 1);
+
+         G.map.items_add(gwis_req.resp_items);
+         lval.update_link_value_cache();
+
+         m4_DEBUG('load_item_okay: lval:', lval);
+
+         var inner_callback:Function = (gwis_req.caller_data as Function);
+         inner_callback(/*on_okay=*/true);
+      }
+
+      // This has been implemented as a function to avoid binding warnings.
+      protected function name_get(data_:Object) :String
+      {
+         m4_DEBUG('name_get: data_:', data_);
+         m4_DEBUG('name_get: this.data:', this.data);
+         //var lval:Link_Value = (this.data as Link_Value);
+         var lval:Link_Value = (data_ as Link_Value);
+         m4_DEBUG('name_get: lval/2:', lval);
+         m4_DEBUG('name_get: lval.rhs_name:', lval.rhs_name);
+         var rhs_name:String = lval.rhs_name;
+         if ((rhs_name == '') || (rhs_name === null)) {
+            m4_DEBUG('name_get: link_rhs_type_id:', lval.link_rhs_type_id);
+            rhs_name = '<i>Unnamed '
+                     + Item_Type.id_to_str(lval.link_rhs_type_id)
+                     + '</i>';
+         }
+         return rhs_name;
+      }
+
+      //
+      protected function tags_get(data_:Object) :String
+      {
+         var lval:Link_Value = (data_ as Link_Value);
+         m4_DEBUG('tags_get: lval:', lval);
+         var tags:String;
+         if ((lval !== null) && (lval.feat !== null)) {
+            if (!lval.feat.is_private) {
+               var tags_array:Array;
+               //tags_array = Tag_Region.all_tags(r);
+               tags_array = Link_Value.attachments_for_item(lval.feat, Tag);
+               if (tags_array.length > 0) {
+                  var tags_array_string:Array = new Array();
+                  for each (var t:Tag in tags_array) {
+                     tags_array_string.push(t.name_);
+                  }
+                  tags = '  Public: ' + tags_array_string.join(', ');
+               }
+               else {
+                  tags = '  Public: No tags';
+               }
+            }
+            else {
+               tags = '  Private: No tags';
+            }
+         }
+         else {
+            // Show a 'no tags' message or nothing?
+            //tags = '  Item not loaded: No tags';
+            tags = '';
+         }
+         return tags;
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingLeft="4"
+      paddingRight="4"
+      verticalGap="0"
+      dataChange="this.on_data_change(event);">
+
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle"
+         horizontalGap="{G.app.pad}">
+
+         <mx:Label
+            width="100%"
+            minWidth="0"
+            htmlText="{this.name_get(this.data)}"/>
+
+         <!--
+            label="look at"
+         -->
+         <!--
+         <views_panel_util:Button_Small
+            label="locate"
+            click="this.on_lookat_click();"/>
+         -->
+         <views_panel_util:Hyper_Link
+            id="link_item_lookat"
+            height="100%"
+            paddingLeft="1"
+            paddingTop="2"
+            htmlText="Locate"
+            toolTip="Pan and zoom the map and show this item."
+            styleName="labelminor"
+            visible="false"
+            includeInLayout="{this.link_item_lookat.visible}"
+            click="this.on_lookat_click();"/>
+
+         <!--
+            label="details"
+         -->
+         <views_panel_util:Button_Small
+            label="open"
+            click="this.on_open_item_details_click();" />
+
+      </mx:HBox>
+
+      <mx:Label
+         id="tags"
+         width="200"
+         minWidth="0"
+         paddingTop="-4"
+         paddingBottom="0"
+         text="{this.tags_get(this.data)}"
+         toolTip="{this.tags_get(this.data)}"
+         styleName="small"
+         fontStyle="{this.fontstyle_get(this.data)}"/>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

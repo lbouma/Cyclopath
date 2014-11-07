@@ -1,0 +1,449 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Other_Delayed_Saver
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.events.FlexEvent;
+
+      import grax.Access_Level;
+      import grax.Dirty_Reason;
+      import gwis.GWIS_Commit;
+      import items.feats.Byway;
+      import items.utils.Bikeability_Rating;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Rtg_Picker');
+
+      // *** Instance variables
+
+      // This is set to the owning panel's this.items_selected on repopulate.
+      // (Though it's set by Widget_Bikeability, not us.)
+      public var byways_selected:Set_UUID;
+
+      protected var vals_prev:Array;
+
+      // ***
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         super.on_preinitialize(ev);
+
+         // Unlike the item watcher widget, which toggles between option (so
+         // all options but one option are always hidden), the rating widget is
+         // a dropdown, so we really don't need to delay before saving.
+         this.wait_normal = 500;
+         this.value_future = Bikeability_Rating.BIKEABILITY_UNKNOWN;
+         this.value_current = Bikeability_Rating.BIKEABILITY_UNKNOWN;
+      }
+
+      // *** Getters and setters
+
+      override public function set enabled(enabled:Boolean) :void
+      {
+         super.enabled = enabled;
+         if ((this.rsel_enabled !== null)
+             && (this.rsel_disabled !== null)) {
+            if (this.enabled) {
+               m4_DEBUG('enabled: enabling');
+               this.label_my_rating.visible = true;
+               this.rsel_enabled.visible = true;
+               this.rsel_disabled.visible = false;
+               // Argh. Weird. Even though we set includeInLayout={...visible}
+               // below, for whatever reason, includeInLayout remains false,
+               // so we get overlapped components. The solution/work-around is
+               // to set it explicitly here. (The ComboBox's visible is not
+               // acting very Bindable....)
+               this.label_my_rating.includeInLayout = true;
+               this.rsel_enabled.includeInLayout = true;
+               this.rsel_disabled.includeInLayout = false;
+            }
+            else {
+               m4_DEBUG('enabled: disabling');
+               this.label_my_rating.visible = false;
+               this.rsel_enabled.visible = false;
+               this.rsel_disabled.visible = true;
+               // Be explicit about includeInLayout.
+               this.label_my_rating.includeInLayout = false;
+               this.rsel_enabled.includeInLayout = false;
+               this.rsel_disabled.includeInLayout = true;
+            }
+         }
+         else {
+            m4_DEBUG('enabled: too early?');
+         }
+      }
+
+      //
+      public function get rating() :Number
+      {
+         // NO: return this.byways.item_get_random().user_rating;
+         var rating:Number = undefined;
+         if (this.rsel_enabled.selectedItem !== null) {
+            rating = this.rsel_enabled.selectedItem.value;
+         }
+         // else, probably Bikeability_Rating.BIKEABILITY_VARIES
+         return rating;
+      }
+
+      //
+      public function set rating(value:Number) :void
+      {
+         m4_DEBUG('rating: value:', value);
+         if (value == Bikeability_Rating.BIKEABILITY_VARIES) {
+            this.rsel_enabled.selectedIndex = -1;
+            // Is this cheating?
+            // C.f. G.combobox_code_set.
+            this.rsel_enabled.text = // E.g., "Varies".
+               Bikeability_Rating.rating_number_to_words(value);
+            this.rsel_enabled.textInput_.setStyle('fontStyle', 'italic');
+         }
+         else {
+            var o:Object;
+            for each (o in this.rsel_enabled.dataProvider) {
+               if (o.value == value) {
+                  this.rsel_enabled.selectedItem = o;
+                  break;
+               }
+            }
+            this.rsel_enabled.textInput_.setStyle('fontStyle', 'normal');
+         }
+         this.value_current = value;
+         this.value_future = this.value_current;
+         // Is this appropriate?
+         this.vals_prev = null;
+         if (this.gwis_outstanding) {
+            m4_WARNING('rating: outstanding gwis cmd');
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_rsel_enabled_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click');
+         ev.stopPropagation();
+      }
+
+      //
+      public function rate(rating:Number) :void
+      {
+         this.value_future = rating;
+
+         var do_reset_timer:Boolean = false;
+         for each (var bway:Byway in this.byways_selected) {
+            // We can't immediately commit fresh items, since the server won't
+            // have any clue about 'em. But fresh items indicate the user is
+            // currently editing the map, so we'll commit fresh item ratings
+            // when the user saves the map.
+            if (bway.fresh) {
+               // This is similar to what do_delayed_save_do does.
+               bway.user_rating = this.value_future;
+               bway.dirty_set(Dirty_Reason.item_rating, true);
+               m4_DEBUG('rate: rated fresh item:', bway.toString());
+            }
+            else {
+               do_reset_timer = true;
+            }
+         }
+         if (do_reset_timer) {
+            // One or more existing items were rated, and we can commit these
+            // immediately (or after a brief pause in the case the user uses
+            // the widget again right away).
+            this.timer_reset();
+         }
+      }
+
+      //
+      override protected function do_delayed_save_do() :void
+      {
+         m4_DEBUG('do_delayed_save_do');
+
+         // NOTE: This is the CcpV1 approach, which adds ratings to the list
+         //       of map commands; these commands undoable/redoable and the
+         //       user must explicitly save the map. In CcpV2, we're making
+         //       rating and watching immediate actions.
+         //       MEH: Make a secondary command stack for special "personalia",
+         //       if we think users would rather have to save their ratings
+         //       then rating saving just happening.
+         //          var done:Boolean = false;
+         //          var cmd:Byway_Rate;
+         //          cmd = new Byway_Rate(this.byways.clone(), rating);
+         //          G.map.cm.do_(cmd);
+         //          m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         //          if (cmd.is_prepared) { this.rating = rating; }
+
+         // NOTE: We're not remembering the old ratings, since we're not
+         //       implementing undo ability. But this also means that if
+         //       the commit fails, we can't reset the ratings (though we
+         //       could always checkout the byways again, or we could not
+         //       care, since the user can just try rating again, and also
+         //       if the server cannot be reached there are bigger issues).
+         var to_save:Set_UUID = new Set_UUID();
+
+         this.vals_prev = new Array();
+
+         var is_prepared:Boolean = true;
+
+         // EXPLAIN: Does a Set() always return the same order?
+         //          The use of this.vals_prev assumes it.
+         //          We could just use a Dictionary...
+         for each (var bway:Byway in this.byways_selected) {
+
+            this.vals_prev.push(
+               {'the_byway': bway,
+                'old_value': bway.user_rating,
+                'was_dirty': bway.dirty_get(Dirty_Reason.item_rating)});
+
+            bway.user_rating = this.value_future;
+            bway.dirty_set(Dirty_Reason.item_rating, true);
+
+            if (!bway.fresh) {
+               var prepare_items_access_min:int = Access_Level.client;
+               var prepare_items_must_exist:Boolean = true;
+               is_prepared = G.grac.prepare_item(
+                                       bway,
+                                       prepare_items_access_min,
+                                       prepare_items_must_exist);
+               if (!is_prepared) {
+                  to_save.clear();
+                  break;
+               }
+               to_save.add(bway);
+            }
+            else {
+               // This is a new byway, so just wait to save the rating until
+               // the whole map is saved.
+               m4_DEBUG2('do_delayed_save_do: skipping rating on new item:',
+                         bway.toString());
+            }
+
+            bway.draw_all();
+         }
+
+         if (!to_save.empty) {
+
+            if (is_prepared) {
+
+               var commit:GWIS_Commit = new GWIS_Commit(
+                  to_save,
+                  /*changenote=*/'User bikeability ratings',
+                  /*silent=*/true,
+                  /*callback_load=*/this.on_commit_ratings_okay,
+                  /*callback_fail=*/this.on_commit_ratings_fail,
+                  /*callback_payload=*/null,
+                  /*anon_coward=*/false,
+                  // So that we don't save map items:
+                  /*restrict_dirty=*/Dirty_Reason.item_rating,
+                  /*alert_on_activity=*/false,
+                  /*command_mgr=*/null);
+
+               commit.fetch();
+
+               this.value_current = this.value_future;
+
+               this.gwis_outstanding = true;
+            }
+            else {
+               this.revert_ratings();
+            }
+         }
+      }
+
+      //
+      protected function on_commit_ratings_okay(gwis_req:GWIS_Commit,
+                                                rset:XML, payload:*=null)
+         :void
+      {
+         m4_DEBUG('on_commit_ratings_okay');
+         for each (var bway:Byway in this.byways_selected) {
+            m4_DEBUG(' .. bway:', bway.toString());
+            bway.dirty_set(Dirty_Reason.item_rating, false);
+         }
+         // this.value_future currently reflects the active rating.
+         m4_ASSERT(this.value_current == this.value_future);
+         this.vals_prev = null;
+         this.gwis_outstanding = false;
+      }
+
+      //
+      protected function on_commit_ratings_fail(gwis_req:GWIS_Commit,
+                                                rset:XML, payload:*=null)
+         :void
+      {
+         m4_WARNING('on_commit_ratings_fail');
+         m4_ASSERT(this.vals_prev !== null);
+         // Call revert_ratings to reset all the link_value values, reset the
+         // widget, and reset this.value_future.
+         this.revert_ratings();
+         this.gwis_outstanding = false;
+      }
+
+      //
+      protected function revert_ratings() :void
+      {
+         m4_DEBUG('revert_ratings');
+         if (this.vals_prev !== null) {
+            for each (var val_prev:Object in this.vals_prev) {
+               var bway:Byway = val_prev.the_byway;
+               if (!bway.fresh) {
+                  m4_DEBUG(' .. old_value:', val_prev.old_value);
+                  bway.user_rating = val_prev.old_value;
+                  bway.dirty_set(Dirty_Reason.item_rating,
+                                 val_prev.was_dirty);
+                  bway.draw_all();
+               }
+            }
+            this.reset_picker();
+            this.vals_prev = null;
+         }
+      }
+
+      // ***
+
+      //
+      public function reset_picker() :void
+      {
+         var b:Byway;
+         var r:* = null;
+
+         if (this.byways_selected !== null) {
+            m4_DEBUG('reset: no. byways:', this.byways_selected.length);
+         }
+         else {
+            m4_DEBUG('reset: no byways');
+         }
+
+         for each (b in this.byways_selected) {
+            if (r === null) {
+               r = b.user_rating;
+            }
+            else if (b.user_rating != r) {
+               r = null;
+               break;
+            }
+            // else, 2nd or subsequent byway has same rating.
+         }
+         if (r !== null) {
+            this.rating = r;
+         }
+         else {
+            // MAGIC_NUMBER: -2 means "varies".
+            //this.rsel_enabled.selectedItem = null;
+            this.rating = Bikeability_Rating.BIKEABILITY_VARIES;
+         }
+      }
+
+      // ***
+
+// FIXME: Find other usages that need this.
+      // Because of the Combo_Box_V2, we need to catch this.
+      public function handle_on_dropdown_key_down(event:KeyboardEvent) :Boolean
+      {
+         var stop_propagation:Boolean = false;
+         m4_DEBUG('handle_on_dropdown_key_down');
+         return stop_propagation;
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      paddingLeft="0"
+      paddingTop="0"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="0"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+      verticalAlign="middle"
+      >
+
+      <mx:Label
+         id="label_my_rating"
+         text="My Rating:"
+         visible="false"
+         includeInLayout="{this.label_my_rating.visible}"
+         />
+
+      <!-- MAGIC_NUMBER: rowCount="6" matches what's in Array, belower. -->
+      <utils_misc:Combo_Box_V2
+         id="rsel_enabled"
+         width="100%"
+         height="100%"
+         rowCount="6"
+         fontWeight="normal"
+         visible="false"
+
+         includeInLayout="{this.rsel_enabled.visible}"
+         change="this.rate(this.rsel_enabled.selectedItem.value);"
+         click="this.on_rsel_enabled_click(event);"
+         >
+         <utils_misc:dataProvider>
+            <mx:Array>
+               <mx:Object
+                  value="-1"
+                  label="{Bikeability_Rating.rating_number_to_words(-1)}" />
+               <mx:Object
+                  value="4"
+                  label="{Bikeability_Rating.rating_number_to_words(4)}" />
+               <mx:Object
+                  value="3"
+                  label="{Bikeability_Rating.rating_number_to_words(3)}" />
+               <mx:Object
+                  value="2"
+                  label="{Bikeability_Rating.rating_number_to_words(2)}" />
+               <mx:Object
+                  value="1"
+                  label="{Bikeability_Rating.rating_number_to_words(1)}" />
+               <mx:Object
+                  value="0"
+                  label="{Bikeability_Rating.rating_number_to_words(0)}" />
+            </mx:Array>
+         </utils_misc:dataProvider>
+      </utils_misc:Combo_Box_V2>
+
+      <!-- enabled="false" -->
+      <mx:ComboBox
+         id="rsel_disabled"
+         width="100%"
+         height="100%"
+         rowCount="1"
+         fontWeight="normal"
+         visible="false"
+         includeInLayout="{this.rsel_disabled.visible}"
+         >
+         <mx:dataProvider>
+            <mx:Array>
+               <mx:Object
+                  value="0"
+                  label="Please login to rate." />
+            </mx:Array>
+         </mx:dataProvider>
+      </mx:ComboBox>
+
+   </mx:HBox>
+
+</views_panel_base:Other_Delayed_Saver>
+

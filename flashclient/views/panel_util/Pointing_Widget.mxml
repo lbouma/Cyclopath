@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- The entire user control. -->
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   showCloseButton="true"
+   dropShadowEnabled="false"
+   backgroundColor="{this.color}"
+   borderColor="{this.color}"
+   cornerRadius="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   paddingTop="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   horizontalAlign="right"
+   close="on_close();"
+   width="{this.width_}"
+   >
+   <!--
+   height="{this.height_}"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.display.DisplayObject;
+      import flash.events.Event;
+      import flash.events.TimerEvent;
+      import flash.events.MouseEvent;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.containers.HBox;
+      import mx.controls.Alert;
+      import mx.controls.Button;
+      import mx.controls.LinkButton;
+      import mx.core.UIComponent;
+      import mx.managers.PopUpManager;
+
+      import items.Geofeature;
+      import items.feats.Region;
+      import utils.misc.Logging;
+      import views.base.Paint;
+      import views.map_widgets.Item_Sprite;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Pointg_Wdgt');
+
+      // *** Instance variables
+
+      [Bindable] protected var button_padding:int = 6;
+      [Bindable] protected var color:int;
+      [Bindable] protected var width_:Number;
+      [Bindable] protected var height_:Number;
+
+      protected var border_color:int;
+      protected var pointer:UIComponent;
+      protected var timer:Timer;
+      protected var target:DisplayObject;
+
+      public var is_closed:Boolean; // [READ-ONLY]
+
+      protected var watcher_height:ChangeWatcher;
+
+      //
+      public var _max_width:Number;
+      public var _button_labels:Array;
+      public var _button_callbacks:Array;
+      public var _use_link_buttons:Boolean;
+
+      // *** Static class methods
+
+      // timeout is in seconds
+      public static function show_pointer(title:String,
+                                          message:String,
+                                          target:DisplayObject,
+                                          max_width:Number=300,
+                                          button_labels:Array=null,
+                                          button_callbacks:Array=null,
+                                          use_link_buttons:Boolean=false,
+                                          timeout:Number=0,
+                                          msg_color:Number=0x000000
+                                          ) :Pointing_Widget
+      {
+         var pw:Pointing_Widget = new Pointing_Widget();
+
+         G.app.parent.addChild(pw);
+
+         m4_DEBUG('show_pointer: w:', pw.width, '/ h:', pw.height);
+
+         pw.watcher_height = ChangeWatcher.watch(
+            pw, 'height', pw.on_change_height);
+
+         pw.title = title;
+         pw.message.text = message;
+
+         pw.setStyle("color", msg_color);
+         pw.message.setStyle("color", msg_color);
+
+         pw.color = Conf.point_widget_bgcolor;
+         pw.border_color = Conf.point_widget_border_color;
+         pw.is_closed = false;
+         pw.target = target;
+
+         if (timeout != 0) {
+            pw.timer = new Timer(timeout * 1000, 1);
+            pw.timer.addEventListener(TimerEvent.TIMER, pw.on_close,
+                                      false, 0, true);
+            pw.addEventListener(MouseEvent.ROLL_OVER, pw.on_roll_over,
+                                false, 0, true);
+            pw.addEventListener(MouseEvent.ROLL_OUT, pw.on_roll_out,
+                                false, 0, true);
+            pw.timer.start();
+         }
+
+         // Wait for the framework to figure out our height...
+         // Not yet:
+         //   pw.layout_widget(max_width,
+         //                    button_labels,
+         //                    button_callbacks,
+         //                    use_link_buttons);
+         //   pw.place(pw.target);
+         //   pw.visible = true;
+         pw._max_width = max_width;
+         pw._button_labels = button_labels;
+         pw._button_callbacks = button_callbacks;
+         pw._use_link_buttons = use_link_buttons;
+
+         return pw;
+      }
+
+      // *** Event handlers
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         m4_DEBUG('on_change_height: w:', this.width, '/ h:', this.height);
+         m4_DEBUG('on_change_height.1: this.height_:', this.height_);
+
+         this.height_ = this.height
+                        //+ this.viewMetricsAndPadding.top
+                        //+ this.viewMetricsAndPadding.bottom
+                        + this.getStyle('paddingTop')
+                        + this.getStyle('paddingBottom')
+                        ;
+
+         m4_DEBUG('on_change_height.2: this.height_:', this.height_);
+
+         this.layout_widget(this._max_width,
+                            this._button_labels,
+                            this._button_callbacks,
+                            this._use_link_buttons);
+         this.place(this.target);
+         this.visible = true;
+      }
+
+      //
+      public function on_close(ev:Event=null) :void
+      {
+         //if (this.target is Geofeature) {
+         if (this.target is Item_Sprite) {
+            ((this.target as Item_Sprite).item as Geofeature).on_pan = null;
+         }
+         if (!this.is_closed) {
+            this.is_closed = true;
+            G.app.parent.removeChild(this);
+         }
+      }
+
+      //
+      public function on_roll_over(ev:MouseEvent) :void
+      {
+         this.timer.reset();
+      }
+
+      //
+      public function on_roll_out(ev:MouseEvent) :void
+      {
+         this.timer.start();
+      }
+
+      // *** Instance methods
+
+      // Layout the container and create the buttons
+      public function layout_widget(max_width:Number,
+                                    button_labels:Array,
+                                    button_callbacks:Array,
+                                    use_link_buttons:Boolean) :void
+      {
+         var button:Button;
+
+         var max_used_width:Number;
+         var height:Number;
+         var used_width:Number = 0;
+         var button_width:Number = 0;
+
+         var w_padding:Number = (this.viewMetricsAndPadding.right
+                                 + this.viewMetricsAndPadding.left);
+         var h_padding:Number = (this.viewMetricsAndPadding.top
+                                 + this.viewMetricsAndPadding.bottom);
+
+         var text_m:TextLineMetrics;
+         var i:int;
+
+         var dummy_box:HBox;
+         var row:HBox;
+
+         max_width -= w_padding; // give some extra side padding
+         // measure the text + title + padding height
+         height = Paint.measure_text_height(this.message.text, this, max_width)
+                  + h_padding;
+         m4_PPUSH('layout_widget: height.1:', height);
+
+         // measure the text width
+         text_m = this.measureText(this.title);
+         max_used_width = Math.min(text_m.width, max_width);
+         text_m = this.measureText(this.message.text);
+         if (text_m.width < max_width) {
+            max_used_width = Math.max(max_used_width, text_m.width);
+         }
+         else {
+            max_used_width = max_width;
+         }
+
+         // account for buttons
+         if ((button_labels !== null) && (button_labels.length > 0)) {
+            dummy_box = new HBox();
+            used_width = max_width;
+            height += button_padding * 2;
+            for (i = 0; i < button_labels.length; i++) {
+               button = (use_link_buttons ? new LinkButton() : new Button());
+               button.label = button_labels[i];
+               button.addEventListener(MouseEvent.CLICK, button_callbacks[i],
+                                       false, 0, true);
+
+               // buttons need to be in a container to be measured correctly
+               dummy_box.addChild(button);
+               button.validateSize(true);
+               dummy_box.removeChild(button);
+
+               button_width = button.measuredWidth + button_padding;
+               if (used_width + button_width > max_width) {
+                  // new row
+                  max_used_width = Math.max(used_width, max_used_width);
+                  height += button.measuredHeight + button_padding * 2;
+                  used_width = 0;
+
+                  row = new HBox();
+                  this.buttons.addChild(row);
+               }
+
+               used_width += button_width;
+               row.addChild(button);
+            }
+         }
+         m4_PPUSH('layout_widget: height.2:', height);
+         m4_PPUSH('layout_widget: message.height:', this.message.height);
+
+         this.height_ = height;
+         this.width_ = max_used_width + w_padding;
+      }
+
+      //
+      // Place the widget and make the pointer point.
+      public function place(target:DisplayObject) :void
+      {
+         var abs:Point = new Point();
+         var tri:Point;
+         var gf:Geofeature;
+         var parent:DisplayObjectContainer = target.parent;
+
+         var tri_x:Number;
+         var tri_y:Number;
+         var i:int;
+         var xflip:Boolean = false;
+         var yflip:Boolean = false;
+         var mincount:int;
+         var count:int;
+         var x:int;
+         var y:int;
+         var rg_center:Point = null;
+
+         //if (target is Geofeature) {
+         if (target is Item_Sprite) {
+            // Geofeatures do weird things with coordinates
+            gf = (target as Item_Sprite).item as Geofeature;
+
+            if (gf is Region) {
+               m4_VERBOSE('place: calling label_center');
+               rg_center = (gf as Region).label_center;
+               if (rg_center !== null) {
+                  abs.x = rg_center.x;
+                  abs.y = rg_center.y;
+               }
+            }
+
+            if (rg_center === null) {
+               mincount = 200;
+               abs.x = G.map.xform_x_map2cv(gf.xs[0]);
+               abs.y = G.map.xform_y_map2cv(gf.xs[0]);
+               m4_DEBUG('Initial Abs:', abs.x, ',', abs.y);
+
+               // Loop to select vertex on a geofeature to point at. The vertex
+               // is so chosen as to cover minimum other vertices with the
+               // pointing widget.
+
+// FIXME: route reactions.
+               // 2012.10.03: [lb] asks [mm] what the next fixme comment means.
+               //             I'm also curious what the new code here does.
+               // FIXME: Trial Trial Trial Trial Trial
+               var i_offset:int;
+               if (gf.xs.length >= 6) {
+                  i_offset = gf.xs.length / 3;
+               }
+               else {
+                  i_offset = 0;
+               }
+               // FIXME: Trial Trial Trial Trial Trial
+
+               // Pre-route reactions CcpV1: for (i = 0; i < gf.xs.length; i++)
+               for (i = i_offset; i < (gf.xs.length - i_offset); i++) {
+// FIXME: end route reactions.
+                  x = gf.xs[i];
+                  y = gf.ys[i];
+
+                  // Current limitation: At least one vertex of the geofeature
+                  // must be visible!
+                  if (G.map.view_rect.contains_map_point(x, y)) {
+                     m4_DEBUG('Considering:', x, ',', y);
+                     count = this.geofeature_covers(x, y,
+                                                    this.width_,
+                                                    this.height_,
+                                                    gf);
+                     m4_DEBUG('count:', count);
+                     if (count < mincount) {
+                        abs.x = G.map.xform_x_map2cv(x);
+                        abs.y = G.map.xform_y_map2cv(y);
+                        m4_DEBUG('Picked:', x, ',', y);
+                        m4_DEBUG2('Converted:', G.map.xform_x_map2cv(x),
+                                  ',', G.map.xform_y_map2cv(y));
+                        m4_DEBUG('Picked Abs:', abs.x, ',', abs.y);
+                        mincount = count;
+                        if (count == 0) {
+                           break;
+                        }
+                     }
+                  }
+               }
+            }
+
+            m4_DEBUG('Abs:', abs.x, ',', abs.y);
+            m4_DEBUG('App:', G.app.parent.x, ',', G.app.parent.y);
+            abs = G.map.localToGlobal(abs);
+
+            if ((abs.x + this.width_ + 50) < G.app.width) {
+               xflip = false;
+               this.x = abs.x - G.app.parent.x;
+            }
+            else {
+               xflip = true;
+               this.x = abs.x - this.width_ - G.app.parent.x;
+            }
+
+            if ((abs.y + this.height_ + 70) < G.app.height) {
+               yflip = false;
+               this.y = abs.y + 20 - G.app.parent.y;
+            }
+            else {
+               yflip = true;
+               this.y = abs.y - this.height_ - 20 - G.app.parent.y;
+            }
+
+            (gf as Geofeature).on_pan = this.on_close;
+         }
+         else {
+            m4_ASSERT(!(target is Item_Sprite));  // unimplemented
+
+            abs = target.localToGlobal(abs);
+
+            if ((abs.x + target.width + this.width_) < G.app.width) {
+               xflip = false;
+               this.x = abs.x + target.width - G.app.parent.x;
+            }
+            else {
+               xflip = true;
+               this.x = abs.x - this.width_ - G.app.parent.x;
+            }
+
+            if ((abs.y + target.height + this.height_ + 20) < G.app.height) {
+               yflip = false;
+               this.y = abs.y + target.height + 20 - G.app.parent.y;
+            }
+            else {
+               yflip = true;
+               this.y = abs.y - 20 - G.app.parent.y;
+            }
+         }
+
+         // The TitleWindow border color covers the title (not sure why),
+         // so make our own border.
+         this.graphics.lineStyle(2, this.border_color, 1);
+         m4_DEBUG('place: w_:', this.width_, '/ h_:', this.height_);
+         this.graphics.drawRect(-1, -1, this.width + 2, this.height + 2);
+
+         // The arrow.
+         if (!xflip && !yflip) {
+            this.graphics.beginFill(this.color);
+            this.graphics.moveTo(0, -20);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(10, 0);
+            this.graphics.lineStyle(2, this.color, 1);
+            this.graphics.lineTo(30, 0);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(0, -20);
+         }
+         else if (xflip && !yflip) {
+            this.graphics.beginFill(this.color);
+            this.graphics.moveTo(this.width_, -20);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(this.width_ - 10, 0);
+            this.graphics.lineStyle(2, this.color, 1);
+            this.graphics.lineTo(this.width_ - 30, 0);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(this.width_, -20);
+         }
+         else if (!xflip && yflip) {
+            this.graphics.beginFill(this.color);
+            this.graphics.moveTo(0, this.height_ + 20);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(10, this.height_);
+            this.graphics.lineStyle(2, this.color, 1);
+            this.graphics.lineTo(30, this.height_);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(0, this.height_ + 20);
+         }
+         else if (xflip && yflip) {
+            this.graphics.beginFill(this.color);
+            this.graphics.moveTo(this.width_, this.height_ + 20);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(this.width_ - 10, this.height_);
+            this.graphics.lineStyle(2, this.color, 1);
+            this.graphics.lineTo(this.width_ - 30, this.height_);
+            this.graphics.lineStyle(2, this.border_color, 1);
+            this.graphics.lineTo(this.width_, this.height_ + 20);
+         }
+      }
+
+      // *** Protected instance methods
+
+      // Returns the number of vertices on a geofeature that a pointing
+      // widget of dimensions w, h will cover, if it appears at the vertex
+      // x, y.
+      protected function geofeature_covers(x:int,
+                                           y:int,
+                                           w:int,
+                                           h:int,
+                                           gf:Geofeature) :int
+      {
+         //trace(':: ' + x + ', ' + y + ' :: ' + w + ', ' + h);
+         var count:int = 0;
+         var i:int;
+         var xmin:int;
+         var ymin:int;
+         var xmax:int;
+         var ymax:int;
+         var abs:Point = new Point();
+
+         var parent:DisplayObjectContainer = gf.sprite.parent;
+         abs.x = G.map.xform_x_map2cv(x);
+         abs.y = G.map.xform_y_map2cv(y);
+         abs = G.map.localToGlobal(abs);
+
+         // First, calculate xmin, xmax, ymin, ymax
+         if (abs.x + w + 50 < G.app.width) {
+            xmin = x;
+         }
+         else {
+            xmin = x - G.map.xform_xdelta_cv2map(w);
+         }
+
+         if (abs.y + this.height_ + 70 < G.app.height) {
+            ymax = y - 20;
+         }
+         else {
+            ymax = y + 20;
+         }
+
+         xmax = xmin + G.map.xform_xdelta_cv2map(w);
+         ymin = ymax - G.map.xform_xdelta_cv2map(h);
+
+         //trace(xmin + ',' + ymin + ',, ' + xmax + ', ' + ymax);
+
+         for (i = 0; i < gf.xs.length; i++) {
+            if (xmin < gf.xs[i] && gf.xs[i] < xmax
+                && ymin < gf.ys[i] && gf.ys[i] < ymax) {
+               count++;
+            }
+         }
+
+         return count;
+      }
+
+   ]]></mx:Script>
+
+   <!-- The main message. -->
+   <mx:Text
+      id="message"
+      width="95%"
+      mouseChildren="false"
+      mouseEnabled="false"
+      condenseWhite="true"/>
+
+   <!-- The optional list of variable number of actionable buttons. -->
+   <mx:VBox
+      id="buttons"
+      horizontalGap="{button_padding}"
+      verticalGap="{button_padding}"
+      horizontalAlign="right"/>
+
+</mx:TitleWindow>
+

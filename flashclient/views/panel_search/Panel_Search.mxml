@@ -1,0 +1,731 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_components="views.map_components.*"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.TimerEvent;
+      import flash.utils.Dictionary;
+      import flash.utils.Timer;
+      import mx.collections.ArrayCollection;
+      import mx.controls.Menu;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+      import mx.events.MenuEvent;
+      import mx.managers.PopUpManager;
+      import mx.validators.StringValidator;
+
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Search;
+      import utils.geom.MOBR_DR_Array;
+      import utils.misc.Logging;
+      import utils.misc.Strutil;
+      import views.base.App_Action;
+      import views.base.UI;
+      import views.map_components.Please_Wait_Popup;
+      import views.panel_util.Alert_Dialog;
+      import views.panel_routes.Panel_Routes_New;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Search');
+
+      // *** Object attributes
+
+      public var result_menu:Menu;
+      public var menu_index:int;
+      protected var menu_timer:Timer;
+      protected var results_box:MOBR_DR_Array;
+
+      protected var gwis_active_search:GWIS_Search;
+      protected var gwis_active_alert:Please_Wait_Popup;
+      protected var query:String;
+      protected var search_results:Array;
+      protected var valid_query:Boolean;
+
+      //protected var current_index:uint = 0;
+
+      protected var error_text:String =
+         'Search queries should be longer than 1 character.';
+
+      [Bindable] protected var menu_data:ArrayCollection
+         = new ArrayCollection(
+            [
+            {id: 'lookat', label: 'Look at'},
+            {id: Panel_Routes_New.INPUT_BEG, label: 'Route from'},
+            {id: Panel_Routes_New.INPUT_FIN, label: 'Route to'},
+            ]);
+
+      // *** Simple base class overrides
+
+      //
+      override public function panel_title_get() :String
+      {
+         // FIXME: Statewide UI: [mm] has 'Search', [lb]' has 'Search the Map'.
+         // return 'Search';
+         // return 'Search Map';
+         return 'Search the Map';
+      }
+
+      //
+      override public function panel_toolTip_get() :String
+      {
+         var tt:String = (
+         // 'Search the Map for Streets, Points and Regions.'
+'Search the map for roads, points, regions, intersections, discussions, reactions, routes, revisions and more.');
+         return tt;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      protected function list_control_callback() :void
+      {
+         var first_record_num:int;
+         if (this.search_list_pager.current_page_number == 0) {
+            first_record_num = 0;
+         }
+         else {
+            first_record_num = 
+               (this.search_list_pager.records_per_page
+                * (this.search_list_pager.current_page_number - 1))
+               //+ 1
+            ;
+         }
+         m4_DEBUG2('list_control_callback: first_record_num:',
+                   first_record_num);
+         this.update_result_list(first_record_num);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         this.search_list_pager.records_per_page
+            = Conf.search_num_results_show;
+         this.search_list_pager.list_control_callback
+            = this.list_control_callback;
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         if ((G.app !== null) && (G.app.mode !== null)) {
+            var dummy_event:Event = null;
+            this.on_mode_change(dummy_event);
+         }
+      }
+
+      //
+      override public function on_panel_hide() :void
+      {
+         m4_DEBUG('on_panel_hide: hiding search geom');
+         super.on_panel_hide();
+         // Don't draw the search geometry while the panel is not active.
+         G.map.search_results_draw();
+      }
+
+      //
+      override public function on_panel_show() :void
+      {
+         m4_DEBUG('on_panel_show: showing search geom');
+         super.on_panel_show();
+         G.map.search_results_draw();
+      }
+
+      // *** Instance methods
+
+      //
+      public function clear_results() :void
+      {
+         this.search_results = null;
+         this.results_list.dataProvider = new ArrayCollection();
+         this.results_lbl.htmlText = 'Results';
+         this.search_list_pager.p_collect = new Array();
+         this.search_list_pager.records_total_count = 0;
+         m4_DEBUG('clear_results: search_input.text: (empty)');
+         this.search_input.text = '';
+         G.map.search_results_draw();
+      }
+
+      //
+      public function filter_fnc(obj:Object, index:int, array:Array) :Boolean
+      {
+         var i:int;
+
+         // For each query, if none of the required categories match, do not
+         // include result.
+         if (!((obj.includes['name'] && this.name_srch.selected)
+              || (obj.includes['tag'] && this.tag_srch.selected)
+              || (obj.includes['note'] && this.comment_srch.selected)
+              || (obj.includes['hood'] && this.hood_srch.selected))) {
+            return false;
+         }
+
+         // If any of the negated queries match, do not include result.
+         if ((obj.excludes['name'] && this.name_srch.selected)
+             || (obj.excludes['tag'] && this.tag_srch.selected)
+             || (obj.excludes['note'] && this.comment_srch.selected)
+             || (obj.excludes['hood'] && this.hood_srch.selected)) {
+            return false;
+         }
+
+         // Finally, compare in terms of object type.
+         // SYNC_ME: Search: Item_Type table.
+         // FIXME: I've added a bunch of item types... do they need to be
+         // searchable?
+         return (
+            // FIXME: Both addy_* use addr_srch:
+               ((obj.gf_type_str == 'addy_coordinate')
+                && this.addr_srch.selected)
+            || ((obj.gf_type_str == 'addy_geocode') && this.addr_srch.selected)
+            || ((obj.gf_type_str == 'byway') && this.byway_srch.selected)
+            || ((obj.gf_type_str == 'region') && this.region_srch.selected)
+            || ((obj.gf_type_str == 'terrain') && this.terrain_srch.selected)
+            || ((obj.gf_type_str == 'waypoint') && this.point_srch.selected)
+            );
+      }
+
+      //
+      protected function gwis_search_on_finish(gwis_req:GWIS_Search,
+                                               results:XML) :void
+      {
+         m4_DEBUG2('gwis_search_on_finish: search_input.text:',
+                   results.results.@ftxt);
+         this.search_input.text = results.results.@ftxt;
+         this.init(results);
+      }
+
+      //
+      public function init(results:XML) :void
+      {
+         var debug_trace_first_entry:Boolean = true;
+
+         this.search_results = new Array();
+         this.query = results.results.@ftxt;
+         for each (var xml:XML in results.results.*) {
+            var search_res:Panel_Search_Result = new Panel_Search_Result(xml);
+            this.search_results.push(search_res);
+            if (debug_trace_first_entry) {
+               m4_DEBUG('init: first result:', search_res.gf_name);
+               debug_trace_first_entry = false;
+            }
+         }
+
+         m4_DEBUG('init: update_pagination_text');
+         // The pageinator's p_collect is a page of results, not all of them.
+         // Wrong: this.search_list_pager.p_collect = this.search_results;
+         this.search_list_pager.records_total_count =
+            this.search_results.length;
+
+         this.update_result_list();
+         // Look at results, if any
+         if ((this.results_box) && (this.results_box.length > 0)) {
+            G.map.lookat(this.results_box);
+         }
+         this.result_menu = Menu.createMenu(null, this.menu_data, true);
+         this.result_menu.addEventListener(MenuEvent.ITEM_CLICK,
+                                           this.on_menu_click);
+         this.result_menu.addEventListener(MouseEvent.MOUSE_OVER,
+                                           this.on_menu_mouse_over);
+         this.result_menu.addEventListener(MouseEvent.MOUSE_OUT,
+                                           this.on_menu_mouse_out);
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Panel_Search_Result_Entry = (
+            ev.target as Panel_Search_Result_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Panel_Search_Result_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this;
+         }
+      }
+
+      //
+      protected function on_mode_change(event:Event) :void
+      {
+         if ((this.container !== null)
+             && (this.feature_unavailable_alert !== null)) {
+            this.container.enabled =
+               G.app.mode.is_allowed(App_Action.search_anything);
+            this.feature_unavailable_alert.visible =
+               !G.app.mode.is_allowed(App_Action.search_anything);
+            this.feature_unavailable_alert.alert_text =
+               G.app.mode.unavailable_text;
+         }
+         else {
+            m4_WARNING('EXPLAIN: on_mode_change called too early?');
+         }
+      }
+
+      // Validate and submit search request.
+      public function submit_query() :void
+      {
+         this.valid_query = true;
+         this.query_validator.validate();
+         if (!((addr_srch.selected
+               || byway_srch.selected
+               || point_srch.selected
+               || region_srch.selected
+               || terrain_srch.selected)
+              && (name_srch.selected
+                  || tag_srch.selected
+                  || comment_srch.selected
+                  || hood_srch.selected))) {
+            Alert_Dialog.show(
+               'Not Enough Search Options',
+               'Please make sure that at least one search option '
+               + 'is selected in each category and try again.');
+         }
+         else if (this.valid_query) {
+            if (!this.more_options.visible) {
+               // reset search options if they are hidden
+               this.addr_srch.selected = true;
+               this.byway_srch.selected = true;
+               this.point_srch.selected = true;
+               this.region_srch.selected = true;
+               this.terrain_srch.selected = true;
+               this.name_srch.selected = true;
+               this.tag_srch.selected = true;
+               this.comment_srch.selected = true;
+               this.hood_srch.selected = true;
+            }
+
+            // Send the request, if the search works, our callback will process
+            // and display the search results; if it fails, the base class will
+            // cleanup for us.
+            //
+            // NOTE: We can't use pagination because we don't send the filters
+            //       (this.more_options) to the server.
+            var callback_load:Function = gwis_search_on_finish;
+            var callback_fail:Function = null; // base class will clean up.
+            this.gwis_active_search
+               = new GWIS_Search(escape(this.search_input.text),
+                                 G.map.view_rect.map_center_x,
+                                 G.map.view_rect.map_center_y,
+                                 callback_load,
+                                 callback_fail);
+            G.sl.event('ui/search/submit', {query: this.search_input.text});
+            this.gwis_alert_show(gwis_active_search, this.gwis_active_alert);
+            this.gwis_active_search.fetch();
+         }
+         else {
+            Alert_Dialog.show('Query Too Short', this.error_text);
+         }
+      }
+
+      //
+      public function toggle_search_options() :void
+      {
+         this.more_options.includeInLayout =
+                                          !this.more_options.includeInLayout;
+         this.more_options.visible = !this.more_options.visible;
+         if (this.more_options.includeInLayout) {
+            this.search_options_btn.htmlText = 'Hide More Options &#171;';
+         }
+         else {
+            this.search_options_btn.htmlText = 'Show More Options &#187;';
+         }
+         this.more_options.invalidateDisplayList();
+      }
+
+      //
+      public function update_result_list(index:uint=0) :void
+      {
+         m4_DEBUG('update_result_list: index:', index);
+
+         var limit:int;
+         //this.current_index = index;
+         if (!this.search_results) {
+            return;
+         }
+
+         this.results_box = new MOBR_DR_Array();
+         var filtered:Array;
+         var provider:ArrayCollection = new ArrayCollection();
+
+         // this.search_results is all results from the server;
+         // it's here that we apply the user's filters and hide
+         // some search results. So filtered is a subset of the
+         // Panel_Search_Result collection.
+         filtered = this.search_results.filter(filter_fnc);
+
+         limit = Math.min(index + Conf.search_num_results_show,
+                          filtered.length);
+         for (var posit:int = index; posit < limit; posit++) {
+            filtered[posit].letter = Strutil.letters_uc[posit - index];
+            filtered[posit].visible = true;
+            provider.addItem(filtered[posit]);
+            this.results_box.push(filtered[posit]);
+         }
+         this.results_list.dataProvider = provider;
+         G.map.search_results_draw();
+
+         this.search_list_pager.records_total_count = filtered.length;
+
+         m4_DEBUG('update_result_list: provider.len:', provider.length);
+         this.search_list_pager.p_collect = provider;
+
+         this.results_lbl.htmlText = 'Results for ' + this.query;
+         this.search_list_pager.update_pagination_text();
+      }
+
+      // ***
+
+      // Creates and displays the "Searching..." popup
+      protected function gwis_alert_show(
+         gwis_active:GWIS_Base,
+         gwis_active_alert:Please_Wait_Popup) :void
+      {
+         var msg:String = ('Searching. Please wait.');
+         if (gwis_active_alert === null) {
+            gwis_active_alert = new Please_Wait_Popup();
+         }
+         UI.popup(gwis_active_alert, 'b_cancel');
+         gwis_active_alert.init('Searching', msg, gwis_active, true);
+         // When the GWIS op completes, have it remove the Searching... popup
+         gwis_active.gwis_active_alert = gwis_active_alert;
+         // If the user Cancels the alert make sure we're wired to the command.
+         gwis_active_alert.gwis_cmds.add(gwis_active);
+      }
+
+      // *** Context menu helpers
+
+      //
+      public function menu_timer_reset() :void
+      {
+         m4_DEBUG('menu_timer_reset');
+         if (this.menu_timer !== null) {
+            this.menu_timer.reset();
+         }
+      }
+
+      //
+      public function on_menu_click(event:MenuEvent) :void
+      {
+         m4_DEBUG('on_menu_click: menu_index', this.menu_index);
+
+         m4_ASSURT(this.menu_index >= 0);
+         var result:Panel_Search_Result
+           = this.results_list.dataProvider[this.menu_index];
+
+         if (event.item.id == 'lookat') {
+            G.map.lookat(result);
+         }
+         else {
+            G.tabs.route.find_panel.address_from_search(result, event.item.id);
+            G.sl.event('ui/search/route', {direction: event.item.id});
+         }
+      }
+
+      //
+      public function on_menu_mouse_out(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_menu_mouse_out: menu_index', this.menu_index);
+         if (G.app.search_panel.enabled) {
+            m4_ASSURT(this.menu_index >= 0);
+            var result:Panel_Search_Result
+               = this.results_list.dataProvider[this.menu_index];
+            result.highlighted = false;
+            G.map.search_results_draw();
+         }
+         this.result_menu_hide_maybe();
+      }
+
+      //
+      public function on_menu_mouse_over(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_menu_mouse_over: menu_index:', this.menu_index);
+         if (G.app.search_panel.enabled) {
+            if (this.menu_index >= 0) {
+               var result:Panel_Search_Result
+                 = this.results_list.dataProvider[this.menu_index];
+               result.highlighted = true;
+               G.map.search_results_draw();
+            }
+         }
+         this.menu_timer_reset();
+      }
+
+      //
+      protected function on_result_menu_timeout(ev:TimerEvent) :void
+      {
+         m4_DEBUG('on_result_menu_timeout');
+         this.result_menu_hide();
+      }
+
+      //
+      public function result_menu_hide() :void
+      {
+         m4_DEBUG('result_menu_hide: menu_index: -1');
+         this.result_menu.hide();
+         this.menu_index = -1;
+         this.menu_timer_reset();
+      }
+
+      //
+      public function result_menu_hide_maybe() :void
+      {
+         m4_DEBUG('result_menu_hide_maybe: menu_index:', this.menu_index);
+         if (this.menu_timer === null) {
+            this.menu_timer =
+               new Timer(Conf.context_menu_hover_timeout, 1);
+            this.menu_timer.addEventListener(
+               TimerEvent.TIMER, this.on_result_menu_timeout, false, 0, true);
+         }
+         this.menu_timer.start();
+
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- 2013.05.07: MAYBE: [lb] notes that some ViewStack children set their
+        own height. So be aware this new component's height may need to be
+        subtracted from some height calculations somewhere.
+        -->
+   <views_map_components:Alert_Bar
+      id="feature_unavailable_alert"
+      visible="false"
+      includeInLayout="{this.feature_unavailable_alert.visible}"
+      />
+
+   <mx:VBox
+      id="container"
+      width="100%"
+      height="100%">
+
+      <mx:HBox
+         width="100%"
+         horizontalAlign="right"
+         paddingTop="{G.app.pad}">
+         <mx:TextInput
+            id="search_input"
+            width="100%"
+            enter="this.submit_query();"/>
+         <views_panel_util:Button_Small
+            id="ok"
+            icon="@Embed(source='/assets/img/icon_tabs_search_small.png')"
+            height="25"
+            width="25"
+            paddingLeft="-1"
+            click="this.submit_query();"
+            toolTip="Click to search Cyclopath."
+            enabled="{  (this.addr_srch.selected
+                      || this.byway_srch.selected
+                      || this.point_srch.selected
+                      || this.region_srch.selected
+                      || this.terrain_srch.selected)
+                      &amp;&amp;
+                        (this.name_srch.selected
+                      || this.tag_srch.selected
+                      || this.comment_srch.selected
+                      || this.hood_srch.selected)}" />
+      </mx:HBox>
+      <mx:Text
+         id="example_text"
+         selectable="false"
+         styleName="labelminor"
+         width="100%">
+         <!--
+         <mx:htmlText>
+            <![CDATA[e.g. <i>bike rack</i> or <i>Eagan</i> or <i>200 Union St SE, Minneapolis, MN</i>]]>
+         </mx:htmlText>
+         -->
+         <mx:htmlText>
+            <![CDATA[Examples: <i>bike rack</i> | <i>1st Ave and Main St Mpls</i> | <i>55401</i>]]>
+         </mx:htmlText>
+      </mx:Text>
+
+      <mx:HBox
+         horizontalAlign="left"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingBottom="0"
+         width="100%">
+         <views_panel_util:Hyper_Link
+            id="search_options_btn"
+            enabled="true"
+            htmlText="Show More Options &#187;"
+            toolTip="Click to show additional search options."
+            click="this.toggle_search_options();"/>
+      </mx:HBox>
+
+      <mx:VBox
+         id="more_options"
+         width="100%"
+         visible="false"
+         includeInLayout="false">
+         <mx:Label
+            styleName="labelmajor"
+            text="Search for names matching:"
+            paddingBottom="-5"/>
+         <mx:HBox
+            width="100%"
+            paddingLeft="{G.app.pad}"
+            paddingTop="-5"
+            paddingBottom="-3"
+            verticalGap="-5">
+            <mx:CheckBox
+               id="addr_srch"
+               label="addresses"
+               selected="true"
+               click="this.update_result_list();"/>
+            <mx:CheckBox
+               id="byway_srch"
+               label="streets"
+               selected="true"
+               click="this.update_result_list();"/>
+               <!--
+               label="blocks"
+               label="roads/trails"
+               -->
+            <mx:CheckBox
+               id="point_srch"
+               label="points"
+               selected="true"
+               click="this.update_result_list();"/>
+            <mx:CheckBox
+               id="region_srch"
+               label="regions"
+               selected="true"
+               click="this.update_result_list();"/>
+               <!--
+               label="regions/cities"
+               -->
+            <!-- Bug nnnn: Editable terrain.
+            <    Implement this and remove the visible/includeInLayout: -->
+            <!-- This doesn't fit well in the panel, so width = 0. -->
+            <mx:CheckBox
+               width="0"
+               id="terrain_srch"
+               label="terrain"
+               selected="true"
+               visible="{Conf_Instance.bug_0694_terr}"
+               includeInLayout="{this.terrain_srch.visible}"
+               click="this.update_result_list();"/>
+         </mx:HBox>
+         <mx:Label
+            styleName="labelmajor"
+            text="Search for words in:"
+            paddingBottom="-5"/>
+         <mx:HBox
+            width="100%"
+            paddingLeft="{G.app.pad}"
+            paddingTop="-5"
+            paddingBottom="-3"
+            verticalGap="-5">
+            <mx:CheckBox
+               id="name_srch"
+               label="names"
+               selected="true"
+               click="this.update_result_list();"/>
+            <mx:CheckBox
+               id="tag_srch"
+               label="tags"
+               selected="true"
+               click="this.update_result_list();"/>
+            <mx:CheckBox
+               id="comment_srch"
+               label="notes"
+               selected="true"
+               click="this.update_result_list();"/>
+            <!-- FIXME: Something like this.
+            <    address.py finds points in cities and neighborhoods
+            <      whose name matches search string, so searching for
+            <      'minneapolis' returns 1000 results, i.e., all the
+            <      points in minneapolis! there's no way to find a point
+            <      named 'minneapolis' without sifting through results.
+            <
+            <    -->
+            <mx:CheckBox
+               id="hood_srch"
+               label="neighborhoods"
+               selected="true"
+               click="this.update_result_list();"/>
+         </mx:HBox>
+      </mx:VBox>
+
+      <mx:HBox
+         width="100%">
+         <mx:Text
+            id="results_lbl"
+            selectable="true"
+            styleName="labelmajor"
+            width="100%"
+            condenseWhite="true"
+            visible="true"
+            includeInLayout="{this.results_lbl.visible}"
+            >
+            <mx:htmlText><![CDATA[Results]]></mx:htmlText>
+         </mx:Text>
+         <views_panel_util:Button_Small
+            id="clear_btn"
+            label="Clear"
+            click="this.clear_results();"/>
+      </mx:HBox>
+
+      <!-- List of results -->
+      <mx:DataGrid
+         id="results_list"
+         width="100%"
+         height="100%"
+         sortableColumns="false"
+         verticalScrollPolicy="auto"
+         draggableColumns="false"
+         selectedIndex="-1"
+         showHeaders="false"
+         headerHeight="0"
+         added="this.on_added_renderer_maybe(event);"
+         >
+         <mx:columns>
+            <mx:DataGridColumn
+               id="text"
+               dataField="Panel_Search_Result"
+               headerText=""
+               itemRenderer="views.panel_search.Panel_Search_Result_Entry" />
+         </mx:columns>
+      </mx:DataGrid>
+
+      <views_panel_util:Paginator_Widget
+         id="search_list_pager"
+         width="100%"
+         horizontalAlign="right"
+         paddingRight="1"
+         paddingTop="3"
+         paddingBottom="1"
+         horizontalGap="0"
+         visible="true"
+         includeInLayout="{this.search_list_pager.visible}"
+         />
+
+   </mx:VBox>
+
+   <mx:StringValidator
+      id="query_validator"
+      required="true"
+      minLength="2"
+      source="{search_input}"
+      property="text"
+      invalid="this.valid_query = false;"/>
+
+</views_panel_base:Detail_Panel_Base>
+

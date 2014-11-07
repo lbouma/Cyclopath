@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Label
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   styleName="labelminor"
+   textDecoration="underline"
+   buttonMode="true"
+   useHandCursor="{this.enabled}"
+   mouseChildren="false"
+   click="this.on_click(event);"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Hyper_Link');
+
+      // *** Instance variables
+
+      public var link_colors:Array = [0x0000FF, 0x000000];
+
+      protected var linking:Boolean = true;
+
+      // ***
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         this.setStyle('color', this.link_colors[0]);
+      }
+
+      // ***
+
+      //
+      public function on_click(ev:MouseEvent) :void
+      {
+         m4_VERBOSE('on_click:', ev);
+         // This is a little hacky, but it works: we intercept the click before
+         // the click handler defined by the Hyper_Link mxml. So if we're not
+         // linking, we can just stop prop (and roll).
+         // This seems weird. Element is not enabled but it still receives
+         // mouse clicks. Or maybe that's how it's suppose to work, and most
+         // Flex controls have to checked 'enabled' anyway. Or maybe we're
+         // missing a setting on this control, like, ignoreMouseDisabled.
+         if ((this.enabled) && (!this.linking)) {
+            // NOTE: stopPropagation is more of a stopPropagationMaybe:
+            //       it still calls other listeners attached to this
+            //       component, it just doesn't call parent component
+            //       listeners. What we really want is stop-immediate.
+            m4_VERBOSE(' >> stopImmediatePropagation');
+            ev.stopImmediatePropagation();
+         }
+      }
+
+      // ***
+
+      public function link_off() :void
+      {
+         m4_VERBOSE('link_off');
+         if (this.linking) {
+            this.setStyle('textDecoration', 'none');
+            this.setStyle('color', this.link_colors[1]);
+            this.linking = false;
+            this.useHandCursor = false;
+         }
+      }
+
+      public function link_on() :void
+      {
+         m4_VERBOSE('link_on');
+         if (!this.linking) {
+            this.setStyle('textDecoration', 'underline');
+            this.setStyle('color', this.link_colors[0]);
+            this.linking = true;
+            this.useHandCursor = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+</mx:Label>
+

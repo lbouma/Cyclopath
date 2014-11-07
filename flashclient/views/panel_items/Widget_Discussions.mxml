@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_discussions:Widget_Thread_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+
+      import items.Geofeature;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import views.base.App_Action;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Discuss');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         // If the active branch or selected items set changes, the parent
+         // panel is marked dirty, which marks all of its descendants dirty.
+         // So we don't have to listen on, i.e., branchChange or
+         // selectionChanged.
+         super.on_creation_complete(ev);
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_DEBUG('depopulate: this.dp:', this.dp.class_name_tail);
+         this.posts_empty_discussion_new.visible = false;
+         this.link_posts_empty.visible = true;
+         this.link_posts_exist.visible = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         // var discussion_cnt:* =
+         //    Objutil.consensus(this.items_selected, 'discussion_cnt', null);
+         // If you select two of more items, they might be connected to the
+         // same post, so we just know the number of link_values, which is
+         // equal to or greater than the number of actual posts.
+         var max_possible:int = 0;
+         for each (var feat:Geofeature in this.feats_selected) {
+            max_possible += feat.discussion_cnt;
+         }
+
+         if (max_possible == 0) {
+            if ((this.items_selected.length > 0)
+                && (G.item_mgr.create_allowed_get(Post))
+                && (G.item_mgr.create_allowed_get(Thread))
+                && (G.app.mode.is_allowed(App_Action.post_create))
+                ) {
+               // There's a warning about saving the map before making
+               // discussions, so, um, yeah, I guess don't show the make-new-
+               // discussion link until the map is saved (for new items) or
+               // not dirty (for existing-edited items).
+               this.posts_empty_discussion_new.visible = true;
+               if (!G.item_mgr.contains_dirty_revisioned) {
+                  this.posts_empty_discussion_new.text =
+                     "Start a new discussion";
+                  this.posts_empty_discussion_new.enabled = true;
+                  // this.posts_empty_discussion_new.toolTip =
+               // 'Click to create a new discussion about the selected items.';
+               }
+               else {
+                  this.posts_empty_discussion_new.text =
+                     "You can discuss after saving";
+                  this.posts_empty_discussion_new.enabled = false;
+                  //this.posts_empty_discussion_new.toolTip =
+               }
+            }
+            else {
+               // Don't show the start new discussion link.
+               this.posts_empty_discussion_new.visible = false;
+               // this.posts_empty_discussion_new.enabled = false;
+               // this.posts_empty_discussion_new.toolTip =
+               //    'You do not have permissions to create new discussions.';
+            }
+            //
+            this.link_posts_empty.visible = true;
+            this.link_posts_exist.visible = false;
+         }
+         else {
+            var pluralize_post_cnt:Boolean = false;
+            if (max_possible > 1) {
+               pluralize_post_cnt = true;
+            }
+            /*/
+            // Make, e.g.,
+            // "There is/are n/multiple post(s) about the selected item(s)."
+            this.link_posts_exist_preamble.text =
+               'There ' + Inflector.pluralize('is', pluralize_post_cnt) + ' ';
+            if (this.feats_selected.length > 1) {
+               this.link_to_posts_hlink.text = 'multiple';
+            }
+            else {
+               // There's only one item selected, so max == actual # of posts.
+               this.link_to_posts_hlink.text = String(max_possible);
+            }
+            this.link_to_posts_hlink.text +=
+               Inflector.pluralize(' posts', pluralize_post_cnt)
+               + ' about ' + this.dp.this_or_these_items_clause
+               + '.';
+            //
+            /*/
+            this.link_posts_exist_preamble.text =
+               'People are talking about '
+               + this.dp.this_or_these_items_clause
+               + '.';
+            this.link_posts_empty.visible = false;
+            this.link_posts_exist.visible = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Discussions"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:HBox
+            width="100%"
+            horizontalAlign="left"
+            paddingTop="4"
+            >
+
+            <mx:HBox
+               id="link_posts_empty"
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               horizontalGap="0"
+               verticalAlign="bottom"
+               visible="false"
+               includeInLayout="{this.link_posts_empty.visible}">
+               <mx:Label
+                  text="None."
+                  />
+               <mx:Spacer
+                  width="100%"/>
+               <!-- This calls Widget_Thread_Base's discussion_new(). -->
+               <views_panel_util:Hyper_Link
+                  id="posts_empty_discussion_new"
+                  text="Start a new discussion"
+                  toolTip=
+            "Click to create a new discussion about the selected items."
+                  visible="true"
+                  includeInLayout="{this.posts_empty_discussion_new.visible}"
+                  click="this.discussion_new();"/>
+                  <!--
+                  styleName="labelminor"
+                  -->
+            </mx:HBox> <!-- end: link_posts_empty -->
+
+            <mx:HBox
+               id="link_posts_exist"
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               horizontalGap="0"
+               verticalAlign="bottom"
+               visible="false"
+               includeInLayout="{this.link_posts_exist.visible}">
+               <mx:Text
+                  id="link_posts_exist_preamble"
+                  text=""/>
+               <!-- This calls Widget_Thread_Base's discussion_show(). -->
+               <views_panel_util:Hyper_Link
+                  id="link_to_posts_hlink"
+                  toolTip="View discussions about the selected items"
+                  styleName="labelminor"
+                  text="Go to discussions."
+                  visible="true"
+                  includeInLayout="{this.link_to_posts_hlink.visible}"
+                  click="this.discussion_show();"/>
+            </mx:HBox> <!-- end: link_posts_exist -->
+
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_discussions:Widget_Thread_Base>
+

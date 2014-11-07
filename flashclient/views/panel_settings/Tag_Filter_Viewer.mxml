@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:DataGrid
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   borderStyle="solid"
+   borderColor="0x333333"
+   sortableColumns="false"
+   verticalScrollPolicy="on"
+   selectedIndex="-1"
+   showHeaders="false"
+   headerHeight="0"
+   initialize="this.on_initialize(event);"
+   itemClick="this.on_click(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+      import mx.collections.ArrayCollection;
+      import mx.controls.listClasses.ListBaseContentHolder;
+      import mx.events.FlexEvent;
+      import mx.events.ListEvent;
+
+      import gwis.update.Update_Viewport_Items;
+      import items.Geofeature;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import items.attcs.Tag;
+      import items.feats.Byway;
+      import items.feats.Region;
+      import items.feats.Waypoint;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tag_F_Viewr');
+
+      // ***
+
+      protected var selected_tags:Set_UUID = new Set_UUID();
+
+      // *** Event handlers
+
+      //
+      private function on_click(event:ListEvent) :void
+      {
+         var tag:Tag = (event.currentTarget.selectedItem as Tag);
+         var tg:Tag;
+         var all_rgs:Array;
+         var all_tags_in_rg:Array;
+         var all_wps:Array;
+         var all_tags_in_wp:Array;
+
+         m4_DEBUG('on_click: tag:', tag);
+
+         tag.filter_show_tag = !tag.filter_show_tag;
+
+         if (tag === G.map.untagged) {
+            G.sl.event('ui/tag/filter/untagged_set',
+                       {filtered: tag.filter_show_tag});
+            this.update_item_visible_and_selected_untagged(tag, Waypoint);
+            if (G.tabs.settings.regions_visible) {
+               this.update_item_visible_and_selected_untagged(tag, Region);
+            }
+         }
+         else {
+            G.sl.event('ui/tag/filter/set', {tag: tag.text_,
+                                             filtered: tag.filter_show_tag});
+            if (tag.filter_show_tag) {
+               this.selected_tags.add(tag.name_);
+            }
+            else {
+               this.selected_tags.remove(tag.name_);
+            }
+            m4_DEBUG('on_click: selected_tags:', this.selected_tags);
+            for each (var wpt:Waypoint in Waypoint.all) {
+               m4_DEBUG(' .. wpt:', wpt);
+               if (wpt.tags.contains_any(this.selected_tags)) {
+                  wpt.visible = true;
+                  if (wpt.visible == false) {
+                     wpt.set_selected(false);
+                  }
+                  // Not needed?: wp.draw_all();
+               }
+            }
+            if (G.tabs.settings.regions_visible) {
+               for each (var reg:Region in Region.all) {
+                  m4_DEBUG(' .. reg:', reg);
+                  if (reg.tags.contains_any(this.selected_tags)) {
+                     reg.visible = true;
+                     if (reg.visible == false) {
+                        reg.set_selected(false);
+                     }
+                     // Not needed?: reg.draw_all();
+                  }
+               }
+            }
+         }
+
+         this.parentDocument.filter_check_all_btn.enabled
+            = this.is_check_all_enableable;
+         this.parentDocument.filter_check_none_btn.enabled
+            = this.is_uncheck_all_enableable;
+
+         this.selectedIndex = -1;
+      }
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+// FIXME: This is probably the wrong event: tagsLoaded is all tags and doesn't
+//        mean tag-link_values
+//         G.item_mgr.addEventListener('tagsLoaded', this.on_tags_loaded);
+         // Listen on, e.g., 'updatedItems', which fires after all the
+         // geofeatures in the viewport are loaded.
+         G.item_mgr.addEventListener(Update_Viewport_Items.on_completion_event,
+                                     this.on_updated_items);
+      }
+
+      //
+      protected function on_updated_items(ev:Event) :void
+      {
+         m4_DEBUG('on_updated_items: updatedItems: update_tags_list');
+// BUG nnnn: The control panel's Filters list is empty...
+//              because we're not preloading link_tags anymore...
+//              but we are getting lightweight tags now...
+         this.update_tags_list();
+      }
+
+      //
+      protected function update_item_visible_and_selected_untagged(
+         tag:Tag, feat_class:Class) :void
+      {
+         var feat:Geofeature;
+         var all_tags_in_gf:Array;
+
+         for each (feat in feat_class.all) {
+            if (feat.tags.empty) {
+               m4_DEBUG('update_itm_vsbl_n_selected_untagged: feat:', feat);
+               feat.visible = tag.filter_show_tag;
+            }
+            if (feat.visible == false) {
+               feat.set_selected(false);
+            }
+            // Not needed?: feat.draw_all();
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      [Bindable] public function get is_check_all_enableable() :Boolean
+      {
+         return is_check_or_uncheck_all_enableable(/*for_check_all=*/true);
+      }
+
+      //
+      public function set is_check_all_enableable(ignored:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+
+      //
+      [Bindable] public function get is_uncheck_all_enableable() :Boolean
+      {
+         return is_check_or_uncheck_all_enableable(/*for_check_all=*/false);
+      }
+
+      //
+      public function set is_uncheck_all_enableable(ignored:Boolean) :void
+      {
+         m4_ASSERT(false);
+      }
+
+      //
+      protected function is_check_or_uncheck_all_enableable(
+         for_check_all:Boolean) :Boolean
+      {
+         var enableable:Boolean = this.enabled;
+         if (this.enabled) {
+            var one_or_more_opposite:Boolean = false;
+            m4_DEBUG2('is_check_or_uncheck_all_enableable: numChildren:',
+                      this.numChildren, '/ for_check_all:', for_check_all);
+            for (var i:int = this.numChildren - 1; i >= 0; i--) {
+               var contentHolder:ListBaseContentHolder = 
+                  (this.getChildAt(i) as ListBaseContentHolder);
+               if (contentHolder !== null) {
+                  m4_DEBUG(' .. getChildAt: i:', i);
+                  m4_DEBUG(' .. contentHolder:', contentHolder);
+                  var j:int;
+                  for (j = contentHolder.numChildren - 1; j >= 0; j--) {
+                     var entry:Tag_Filter_Entry = 
+                        (contentHolder.getChildAt(j) as Tag_Filter_Entry);
+                     if (entry !== null) {
+                        m4_DEBUG2(' .. entry.tag_entry.selected:',
+                                  entry.tag_entry.selected);
+                        // [lb] sees two entries for the same tag with
+                        // different 'selected' states, so the DataGrid
+                        // must have more renderers than it's showing?
+                        // Nope: if (entry.tag_entry.selected != for_check_all)
+                        var filter_show:Boolean;
+                        filter_show = (entry.data as Tag).filter_show_tag;
+                        m4_DEBUG(' .. entry.data:', entry.data);
+                        m4_DEBUG(' .. filter_show:', filter_show);
+                        if (filter_show != for_check_all) {
+                        //if ((filter_show && !for_check_all)
+                        //    || (!filter_show && for_check_all))
+                           one_or_more_opposite = true;
+                           break;
+                        }
+                     }
+                  }
+                  if (one_or_more_opposite) {
+                     break;
+                  }
+               }
+            }
+            enableable = one_or_more_opposite;
+         }
+         else {
+            m4_DEBUG('is_check_or_uncheck_all_enableable: not enabled');
+         }
+         return enableable;
+      }
+
+      //
+      public function toggle_all_check(check:Boolean) :void
+      {
+         var tg:Tag;
+         var gf:Geofeature;
+         var wp:Waypoint;
+         var rg:Region;
+
+         for each (tg in Tag.all_named) {
+            tg.filter_show_tag = check;
+         }
+         G.map.untagged.filter_show_tag = check;
+
+         G.sl.event('ui/tag/filter/check_all', {checked: check});
+
+         var force_invis:Boolean = false;
+         this.toggle_all_checked_by_type(check, force_invis, Waypoint);
+
+         force_invis = true;
+         this.toggle_all_checked_by_type(check, force_invis, Region);
+
+         m4_DEBUG('toggle_all_check: update_tags_list');
+         this.update_tags_list();
+      }
+
+      //
+      public function toggle_all_checked_by_type(check:Boolean,
+                                                 force_invisible:Boolean,
+                                                 item_class:Class) :void
+      {
+         var feat:Geofeature;
+         for each (feat in item_class.all) {
+            feat.visible = (check && (!force_invisible));
+            if (!feat.visible) {
+               feat.set_selected(false);
+            }
+            // Not needed?: feat.draw_all();
+         }
+      }
+
+      //
+      public function update_tags_list() :Boolean
+      {
+         var updated:Boolean = true;
+         var data:Array = Tag.visible_tags_ordered_array;
+
+         m4_DEBUG('update_tags_list: data.length:', data.length);
+
+         G.map.untagged.text_ = "Points & regions with no tags";
+         data.unshift(G.map.untagged);
+
+         this.dataProvider = data;
+         this.selectedItem = null;
+
+         this.parentDocument.filter_check_all_btn.enabled
+            = this.is_check_all_enableable;
+         this.parentDocument.filter_check_none_btn.enabled
+            = this.is_uncheck_all_enableable;
+
+         return updated;
+      }
+
+   ]]></mx:Script>
+
+   <mx:columns>
+      <mx:DataGridColumn
+         headerText="Tags"
+         dataField="Tag"
+         itemRenderer="views.panel_settings.Tag_Filter_Entry"
+         />
+   </mx:columns>
+
+</mx:DataGrid>
+

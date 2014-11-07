@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Pol_Ent');
+
+      // *** Instance methods
+
+      //
+      protected function on_click_delete() :void
+      {
+         // FIXME Not implemented yet. C.f. Widget_Annotation_Entry
+      }
+
+      //
+      protected function on_click_edit() :void
+      {
+         m4_DEBUG('on_click_edit');
+         // FIXME Impl
+         //(data as Attribute).set_selected(true);
+      }
+
+      //
+      protected function on_click_move_down() :void
+      {
+         m4_DEBUG('on_click_move_down');
+         //(data as Attribute).gui_sortrank += 1;
+      }
+
+      //
+      protected function on_click_move_up() :void
+      {
+         m4_DEBUG('on_click_move_up');
+         //(data as Attribute).gui_sortrank -= 1;
+      }
+
+      //
+   ]]></mx:Script>
+
+<!-- FIXME This is incomplete, i cut n paste from another file, impl this! -->
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="4">
+      <mx:Label
+         width="100%"
+         minWidth="0"
+         text="{data.name_}"
+         toolTip="{data.blurb}"
+         toolTipShown="this.on_entry_tooltip_shown();"/>
+      <views_panel_util:Button_Small
+         label="edit"
+         height="16"
+         toolTip="Click to edit the Attribute definition."
+         click="this.on_click_edit();" />
+      <views_panel_util:Button_Small
+         visible="true"
+         includeInLayout="true"
+         label="+"
+         height="16"
+         width="16"
+         toolTip="Click to show the Attribute higher in this list."
+         click="this.on_click_move_up();" />
+      <views_panel_util:Button_Small
+         visible="true"
+         includeInLayout="true"
+         label="-"
+         height="16"
+         width="16"
+         toolTip="Click to show the Attribute lower in this list."
+         click="this.on_click_move_down();" />
+      <views_panel_util:Button_Small
+         id="del"
+         label="x"
+         height="16"
+         width="16"
+         click="this.on_click_delete();" />
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Who uses this file? -->
+
+<mx:Application
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_r_tree="utils.r_tree.*"
+   xmlns="*"
+   applicationComplete="init();"
+   creationPolicy="all"
+   layout="horizontal">
+
+   <!-- Initialization -->
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.managers.SystemManager;
+      import flash.events.MouseEvent;
+
+      public function init() :void
+      {
+         trace("initialization finished, click on canvas to make boxes");
+         canvas.addEventListener(MouseEvent.CLICK, tree.on_mouse_down);
+         tree.gr = canvas.graphics;
+         var timer:Timer = new Timer(10000);
+         timer.addEventListener(TimerEvent.TIMER, tree.on_timer);
+         timer.start();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox>
+      <mx:Canvas id="canvas" height="500" width="800" borderStyle="solid">
+         <utils_r_tree:R_Tree_App
+            id="tree"/>
+      </mx:Canvas>
+      <mx:HBox>
+         <mx:Button label="Clear Tree" click="tree.clear_tree();"/>
+         <mx:Button label="Clear Selection" click="tree.clear_selection();"/>
+         <mx:Button label="Delete Selection" click="tree.delete_selection();"/>
+         <mx:Button label="Randomize Tree" click="tree.build_random_tree();"/>
+         <mx:RadioButtonGroup id="rect_mode" itemClick=";"/>
+         <mx:RadioButton
+               groupName="rect_mode" label="New Entry" selected="true"
+               click="tree.mode = R_Tree_App.NEW_ENTRY;"/>
+         <mx:RadioButton
+               groupName="rect_mode" label="New Query"
+               click="tree.mode = R_Tree_App.NEW_QUERY;"/>
+      </mx:HBox>
+   </mx:VBox>
+
+</mx:Application>
+

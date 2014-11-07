@@ -1,0 +1,199 @@
+#!/bin/bash
+
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# This script should be loaded by other service control scripts.
+
+DEBUG_TRACE=false
+DEBUG_TRACE=true
+
+# We must run routed as www-data in order to receive signals from Apache.
+if [[ `whoami` != 'apache' && `whoami` != 'www-data' ]]; then
+  echo "ERROR: This script must run as www-data (Ubuntu) or apache (Fedora)."
+  exit 1
+fi
+
+if [[ -z "$PYSERVER_HOME" ]]; then
+  echo "ERROR: Please set the PYSERVER_HOME environment variable."
+  exit 1
+fi
+
+if [[ -z "$INSTANCE" ]]; then
+  echo "ERROR: Please set the INSTANCE environment variable (ccpctl)."
+  exit 1
+fi
+
+# Source function library (Fedora only).
+if [[ -e /etc/rc.d/init.d/functions ]]; then
+    . /etc/rc.d/init.d/functions
+fi
+
+# NOTE: In the fcns. below, killproc and daemon are Fedora shell functions 
+#       you'll find defined in /etc/init.d/functions.
+# EXPLAIN: Where's the Ubuntu equivalent, start-stop-daemon?
+
+# Server START functions
+
+# NOTE: killproc and daemon and Fedora shell functions you'll find defined in
+#       /etc/init.d/functions
+
+# 
+start_debian() {
+   #$DAEMON_PATH $ARGS
+   /sbin/start-stop-daemon --start --chdir $PYSERVER_HOME --pidfile "$PIDFILE" --exec $DAEMON_PATH -- $ARGS
+}
+
+# C.f. /etc/init.d/httpd
+start_fedora() {
+   cd $PYSERVER_HOME
+   daemon --pidfile="$PIDFILE" $DAEMON_PATH -- $ARGS
+   #RETVAL=$?
+   #[ $RETVAL = 0 ] && touch ${lockfile}
+   #return $RETVAL
+}
+
+# Server STOP functions
+
+# 
+stop_debian() {
+   #kill `cat $PIDFILE`
+   /sbin/start-stop-daemon --stop --retry 30 --pidfile "$PIDFILE"
+}
+
+# C.f. /etc/init.d/httpd
+# When stopping httpd, a delay of >10 second is required before SIGKILLing the
+# httpd parent; this gives enough time for the httpd parent to SIGKILL any
+# errant children.
+stop_fedora() {
+
+   # This calls kill -TERM, then waits 30 secs., then calls kill -KILL.
+   # But then the kill command always takes 30 seconds. Also, we let the
+   # service manage the PIDFILE.
+   #   killproc -p "$PIDFILE" -d 30 $DAEMON_PATH
+   #   RETVAL=$?
+   #   [ $RETVAL = 0 ] && rm -f "$PIDFILE"
+   #   return
+
+   # See that the pidfile really exists.
+   $DEBUG_TRACE && echo
+   if [[ -e "$PIDFILE" ]]; then
+      # Get the PID.
+      PID=$(cat "${PIDFILE}")
+      # Send a sigterm so routed cleans up.
+      if kill -s SIGTERM $PID >/dev/null 2>&1; then
+         # Wait for routed to exit.
+         #max_wait_seconds=30
+         max_wait_seconds=$1
+         still_waiting=1
+         while [[ $still_waiting -ne 0 ]]; do
+            # if [[ -e /proc/${PID} \
+            #       && /proc/${PID}/exe -ef /usr/bin/program ]]; then
+            if [[ -e "/proc/${PID}" ]]; then
+               still_waiting=$(($still_waiting + 1))
+               sleep 1
+               if [[ $still_waiting -gt $max_wait_seconds ]]; then
+                  still_waiting=0
+                  # Hard stop!
+                  kill -s SIGKILL $PID
+               else
+                  echo -n '.'
+               fi
+            else
+               still_waiting=0
+            fi
+         done
+         success
+      else
+         failure
+      fi
+   else
+      failure
+   fi
+}
+
+# OS-based Command Thunks
+
+#
+start() {
+   echo -n "Starting service: ${DAEMON_PATH}"
+   if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+      # echo Ubuntu!
+      start_debian
+   elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+      # echo Red Hat!
+      start_fedora
+   else
+     echo "Unknown OS: `cat /proc/version`"
+     exit 1
+   fi;
+   #echo "."
+   echo
+}
+
+#
+stop() {
+   echo -n "Stopping service: ${DAEMON_PATH}"
+   if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
+      # echo Ubuntu!
+      stop_debian $1
+   elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
+      # echo Red Hat!
+      stop_fedora $1
+   else
+     echo "Unknown OS: `cat /proc/version`"
+     exit 1
+   fi;
+   echo "."
+}
+
+# C.f. /etc/init.d/apache on Ubuntu 11.04.
+pidof_python() {
+   if [[ -e "$PIDFILE" ]]; then
+      # pidof returns, e.g., 1 2 3 4
+      # the tr cmd adds newlines between the PIDs
+      # the grep against PIDFILE uses the actually number in it
+      if pidof python | tr ' ' '\n' | grep $(cat "$PIDFILE"); then
+         return 0
+      fi
+   fi
+  return 1
+}
+
+# Server Commands
+
+ccpctl_go() {
+   case "$DAEMON_CMD" in
+      start)
+         start
+         ;;
+      stop)
+         stop $1
+         ;;
+      restart)
+         stop $1
+         # Pause a second to let the port be reclaimed by the system (restarts
+         # sometimes fail because the port is not immediately available).
+         sleep 1
+         start
+         ;;
+      force-reload|reload)
+         echo "Not implemented."
+         ;;
+      status)
+         PID=$(pidof_python) || true
+         if [[ -n "$PID" ]]; then
+            echo "service is running (pid $PID)."
+            exit 0
+         else
+            echo "service is NOT running."
+            exit 1
+         fi
+         ;;
+     *)
+       echo "Usage: $0 {start|stop|restart|status}"
+       exit 1
+       ;;
+   esac
+}
+

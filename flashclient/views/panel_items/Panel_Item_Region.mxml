@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: What's up with this and Panel_Item_Waypoint? -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.controls.Alert;
+      import mx.states.*;
+
+      import items.Geofeature;
+      import items.feats.Region;
+      import utils.difflib.SequenceMatcher;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Region');
+
+      // ***
+
+      //
+      override protected function on_preinitialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_preinitialize');
+         super.on_preinitialize(ev);
+         this.register_widgets([
+                                this.widget_region_otd,
+                                ]);
+      }
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Region;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function repopulate() :void
+      {
+/*/
+         var o:Object;
+         var historic:Boolean = false;
+/*/
+
+         super.repopulate();
+
+/*/
+         if (this.tag_box === null)
+            this.tag_box = new Widget_Tag_List;
+         if (this.tag_box_historic === null)
+            this.tag_box_historic = new Widget_Tag_History;
+
+         this.tag_space.removeAllChildren();
+/*/
+
+/*/
+//         m4_ASSERT(G.map.selectedset.item_get_random() is Region);
+//         this.region1 = G.map.selectedset.item_get_random() as Region;
+         m4_ASSERT(this.items_selected.item_get_random() is Region);
+         this.region1 = this.items_selected.item_get_random() as Region;
+/*/
+
+/*/
+//         if (G.map.selectedset.length == 2) {
+         if (this.items_selected.length == 2) {
+            m4_ASSERT(this.region1.rev_is_diffing);
+//            for each (o in G.map.selectedset) {
+            for each (o in this.items_selected) {
+               this.region2 = o as Region;
+               if (this.region2 !== this.region1)
+                  break;
+            }
+            if (this.region1.is_vgroup_new) {
+               o = this.region1;
+               this.region1 = this.region2;
+               this.region2 = o as Region;
+            }
+            m4_ASSERT((this.region2.is_vgroup_new)
+                      && (this.region1.is_vgroup_old)
+                      && (this.region1.counterpart_gf === this.region2));
+
+            // Now we know we have the case where we're diffing, but both
+            // old and new versions are present
+            if (!this.region1.is_private) {
+               this.tag_space.addChild(this.tag_box_historic);
+               this.tag_box_historic.update(new Set_UUID([this.region1]));
+               historic = true;
+            } else
+               this.box_discussions.init_text("No threads on private regions.",
+                                              true);
+
+            this.set_fields(null, this.region1.name_, this.region2.name_,
+//this.region1.comments, this.region2.comments,
+                            false);
+         }
+         else {
+//            m4_ASSERT(G.map.selectedset.length == 1);
+            m4_ASSERT(this.items_selected.length == 1);
+            this.region2 = null;
+            // covers the case for old or new version not being present
+            // and no diffing
+            if (this.region1.is_vgroup_static || this.region1.is_vgroup_none) {
+               if (!this.region1.is_private) {
+                  if (this.region1.rev_is_working){
+                     this.tag_space.addChild(this.tag_box);
+                     this.tag_box.show();
+                     this.box_discussions.init(this.region1.nthreads,
+                                               this.region1.fresh);
+                  }
+                  else {
+                     this.tag_space.addChild(this.tag_box_historic);
+                     this.tag_box_historic.update(
+                        new Set_UUID([this.region1]));
+                     historic = true;
+                  }
+               }
+               this.set_fields(this.region1, this.region1.name_, null,
+//this.region1.comments, null,
+                               this.region1.rev_is_working);
+            }
+            else if (this.region1.is_vgroup_old) {
+               if (!this.region1.is_private) {
+                  this.tag_space.addChild(this.tag_box_historic);
+                  this.tag_box_historic.update(new Set_UUID([this.region1]));
+                  historic = true;
+               }
+               else {
+                  this.box_discussions.init_text(
+                     "No threads on private regions.", true);
+               }
+
+               this.set_fields(this.region1, this.region1.name_, '',
+//this.region1.comments, '',
+                               false);
+            }
+            else if (this.region1.is_vgroup_new) {
+               if (!this.region1.is_private) {
+                  this.tag_space.addChild(this.tag_box_historic);
+                  this.tag_box_historic.update(new Set_UUID([this.region1]));
+                  historic = true;
+               }
+               else {
+                  this.box_discussions.init_text(
+                     "No threads on private regions.", true);
+               }
+
+               this.set_fields(this.region1, '', this.region1.name_,
+// '', this.region1.comments,
+                               false);
+            }
+
+/*/
+
+         // FIXME Kludgy:
+         //if (!this.items_selected[0].is_private) {
+/*
+         if (this.items_selected[0].is_private) {
+            this.box_discussions.init_text("No threads on private regions.",
+                                           true);
+         }
+*/
+
+
+/*/
+   // FIXME: Reimplement and replace
+   //        with annotation_cnt, discussion_cnt
+         if (historic) {
+            if (this.region1.np_old >= 0
+                && this.region1.np_new != this.region1.np_old) {
+               this.box_discussions.init_text(
+                  (this.region1.np_new - this.region1.np_old)
+                  + " new post(s).");
+            }
+            else {
+               this.box_discussions.init_text(this.region1.nthreads
+                                              + " threads(s).");
+            }
+         }
+/*/
+
+// FIXME Seems weird here?
+         //this.notify.selected = this.region1.notify_email;
+// Is this how it works on the new access tab?
+         //this.notify.selected = this.items_selected[0].notify_email;
+         //this.notify.enabled = G.user.logged_in;
+
+/*
+         //if (this.region1.is_private) {
+         if (this.items_selected[0].is_private) {
+            this.setStyle("backgroundColor", Conf.private_color);
+            this.access_private.selected = true;
+            this.access_private.enabled = true;
+            this.pub_warning.visible = false;
+            this.pub_warning.height = 0;
+            this.change_state('Private');
+         }
+         else {
+            this.setStyle("backgroundColor", 0xffffff);
+            this.access_public.selected = true;
+            //if (this.region1.stack_id > 0 || !G.user.logged_in) {
+            if (this.items_selected[0].stack_id > 0 || !G.user.logged_in) {
+               this.access_private.enabled = false;
+               this.pub_warning.visible = false;
+               this.pub_warning.height = 0;
+            }
+            else {
+               this.access_private.enabled = true;
+               this.pub_warning.visible = true;
+               this.pub_warning.height = 12;
+            }
+         }
+*/
+      }
+
+      // *** Protected Interface
+
+// FIXME Fcn. shared w/ Waypoint
+      //
+/*/
+      protected function set_fields(region:Region, name1:String, name2:String,
+// comments1:String, comments2:String,
+                                    enabled:Boolean) :void
+      {
+
+//this.comments.mouseEnabled = enabled;
+//this.comments.mouseChildren = enabled;
+
+         if (enabled) {
+            //this.currentState = '';
+            this.change_state(this.panel_default_state);
+            this.item_name_control.editor.setStyle("borderStyle", "inset");
+// this.comments.editor.setStyle("borderStyle", "inset");
+         }
+         else {
+DiffMode no more...
+            m4_ASSERT(false); // No such state: 'DiffMode'...
+            this.change_state('DiffMode');
+            this.item_name_control.editor.setStyle("borderStyle", "none");
+// this.comments.editor.setStyle("borderStyle", "none");
+         }
+/*/
+
+/*/ See this.item_name_control.features = new Set_UUID(this.items_selected);
+         this.item_name_control.features.clear();
+// this.comments.features.clear();
+         if (region !== null) {
+            this.item_name_control.features.add(region);
+// this.comments.features.add(region);
+         }
+/*/
+
+/*/ handled by dp gf history
+         if (name2 !== null) {
+            this.item_name_control.use_html = true;
+            this.item_name_control.text = SequenceMatcher.diff_html(name1, name2);
+         }
+         else {
+            this.item_name_control.use_html = false;
+            this.item_name_control.text = name1;
+         }
+/*/
+
+/*/
+         if (comments2 !== null) {
+            this.comments.use_html = true;
+            this.comments.text = SequenceMatcher.diff_html(comments1,
+                                                                   comments2);
+         }
+         else {
+            this.comments.use_html = false;
+            this.comments.text = comments1;
+         }
+/*/
+//      }
+
+      // *** Base class overrides
+
+      // Disables multi-select for regions unless the two are a counterpart
+      // pair which is being diffed.
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         var multi_okay:Boolean = false;
+         return this.panel_supports_feat_impl(feat, multi_okay);
+      }
+
+   ]]></mx:Script>
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+
+         <!-- Nix the "Type" -->
+         <mx:RemoveChild
+            target="{this.panel_item_details.widget_item_type}"/>
+
+         <!-- Add Region-specific elements to the "Basic" tab after the
+              Discussions box. -->
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.widget_name_header}"
+            position="after">
+            <mx:target>
+               <views_panel_items:Widget_Region_OTD
+                  id="widget_region_otd"
+                  />
+            </mx:target>
+         </mx:AddChild>
+
+       </mx:State>
+
+   </views_panel_items:states>
+
+</views_panel_items:Panel_Item_Geofeature>
+

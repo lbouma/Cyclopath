@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import items.Geofeature;
+      import items.Item_Revisioned;
+      import items.Link_Value;
+      import items.attcs.Attribute;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_M_E');
+
+      // *** Instance methods
+
+      //
+      protected function visible_maybe() :Boolean
+      {
+         m4_ASSERT(false); // FIXME: This fcn. no longer called
+         // FIXME This still make sense?
+         return ((G.map.rev_viewport is utils.rev_spec.Working)
+                 && (G.map.zoom_is_vector()));
+      }
+
+      // FIXME This fcn. similar to Widget_Annotation_Entry
+      protected function toggle_entry(a:Attribute) :void
+      {
+
+// FIXME: This fcn seems weird. [lb] could see maybe highlighting items on the
+//        map that share the same attribute and the same attribute value, but
+//        this widget is on the attribute management page. Whereas the
+//        highlight should happen from the geofeature details panel. Also,
+//        we don't have code that highlights items with the same value -- we'd
+//        probably highlight all items on the map because they all use the same
+//        attributes...
+/*/ 2013.03.08: Disabling...
+         if (a !== null) {
+            // FIXME What happens to the lasted selected attachment?
+            G.item_mgr.highlighted_attachment = a;
+            // FIXME What's this do?
+            Widget_Tag_Widget.clear_selected();
+         }
+         // FIXME I think this shows all the items with this attc attached
+         //UI.attachment_highlights_update();
+         //G.map.highlight_manager.set_layer_visible(Conf.attachment_highlight,
+         //                                          true);
+/*/
+      }
+
+      //
+      protected function get_bg_color(ev:FlexEvent) :void
+      {
+         var attr:Attribute = (data as Attribute);
+         var lv:Link_Value;
+         var status:int = 0;
+         var gf:Geofeature;
+         var sel:Boolean;
+
+         m4_VERBOSE('get_bg_color');
+
+         for each (lv in Link_Value.item_get_link_values(attr.base_id)) {
+
+            sel = false;
+
+            if (lv.rhs_stack_id in Geofeature.all) {
+               gf = Geofeature.all[lv.rhs_stack_id] as Geofeature;
+               sel = gf.selected;
+            }
+            if (!sel
+                && (Item_Revisioned.version_id_hack(lv.rhs_stack_id, true)
+                    in Geofeature.all)) {
+               gf = Geofeature.all
+                     [Item_Revisioned.version_id_hack(lv.rhs_stack_id, true)];
+               sel = gf.selected;
+            }
+            if (!sel
+                && (Item_Revisioned.version_id_hack(lv.rhs_stack_id, false)
+                    in Geofeature.all)) {
+               gf = Geofeature.all
+                     [Item_Revisioned.version_id_hack(lv.rhs_stack_id,
+                                                      false)];
+               sel = gf.selected;
+            }
+
+            if (sel) {
+               if (lv.is_vgroup_old && lv.counterpart_untyped === null) {
+                  status -= 1;
+               }
+               else if (lv.is_vgroup_new && lv.counterpart_untyped === null) {
+                  status += 1;
+               }
+            }
+         }
+
+         if (status < 0) {
+            this.setStyle("backgroundColor", Conf.vgroup_move_old_color);
+         }
+         else if (status > 0) {
+            this.setStyle("backgroundColor", Conf.vgroup_move_new_color);
+         }
+         else if (attr.rev_is_diffing
+                  && ((attr.counterpart_untyped === null)
+                      || (attr.digest_nongeo != (attr.counterpart_untyped as
+                                                 Attribute).digest_nongeo))) {
+            this.setStyle("backgroundColor", Conf.annotation_change_color);
+         }
+         else {
+            this.clearStyle("backgroundColor");
+         }
+      }
+
+      //
+      // FIXME: Make sure this can be done via Attr panel, and then delete this
+      // fcn.
+      /*/
+      protected function on_click_delete() :void
+      {
+         // C.f. Widget_Annotation_Entry.on_delete_click
+         //                  FIXME: Named differently...
+
+         var attr:Attribute = (data as Attribute);
+         var gfs:Array = Link_Value.items_for_attachment(attr);
+         var gf:Geofeature;
+         var set:Set_UUID = new Set_UUID();
+
+         for each (gf in gfs) {
+            if (gf.selected) {
+               set.add(Link_Value.items_get_link_value(attr, gf));
+            }
+         }
+
+// FIXME: This only wiki-deletes those geofeatures already in memory. What
+//        about items we haven't loaded yet? When the server sends us those
+//        link value records: we really don't want to manage all of this!!
+m4_ASSERT(false); // This is wrong: don't delete link values, just delete the
+// attribute
+
+// FIXME Maybe attrs_array should be remembered by container so we can clobber
+//       from it?
+
+         var cmd:Item_Delete;
+         cmd = new Item_Delete(set);
+         G.map.cm.do_(cmd);
+         // The item(s) being deleted should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         if (cmd.is_prepared) {
+            for each (gf in gfs) {
+               if (gf.selected) {
+                  gf.draw_all();
+               }
+            }
+         }
+
+// FIXME: Does it get removed from list?
+// FIXME: What about renumbering the others?
+//        That probably requires a wrapper command
+//          or maybe a
+      }
+      /*/
+
+      //
+      protected function on_click_edit() :void
+      {
+         m4_DEBUG('on_click_edit');
+         (data as Attribute).prepare_and_activate_panel();
+      }
+
+      // FIXME: Rename and rework sortrank and sortweight
+      //
+      protected function on_click_move_down() :void
+      {
+         m4_DEBUG('on_click_move_down');
+         (data as Attribute).gui_sortrank += 1;
+      }
+
+      //
+      protected function on_click_move_up() :void
+      {
+         m4_DEBUG('on_click_move_up');
+         (data as Attribute).gui_sortrank -= 1;
+      }
+
+      //
+      protected function on_tooltip_shown() :void
+      {
+         var attr:Attribute = (this.data as Attribute);
+         // FIXME Search all events and add stack_
+         G.sl.event('ui/container/geofeature_detail/tooltip_attr',
+                    {attr_id: attr.stack_id, version: attr.version});
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="4"
+      dataChange="this.get_bg_color(event);"
+      click="this.toggle_entry(data as Attribute);">
+      <!-- FIXME What does this mean for showing the del button
+                 in the edit panel? -->
+      <!-- updateComplete="this.del.visible = this.visible_maybe();" -->
+      <!--
+         text="{data.value_friendly_name}"
+         toolTip="{data.blurb}"
+         -->
+      <!-- text="{data.name_}" -->
+      <mx:Label
+         width="100%"
+         minWidth="0"
+         text="{data.name_}"
+         toolTip="{data.value_hints}"
+         toolTipShown="this.on_tooltip_shown();"/>
+      <!-- FIXME Implement up and down, but only for branch owners, which
+                 means the public is only an editor of the baseviews. But if
+                 you create a new branch (or are an admin of the trunk), you
+                 can adjust the attribute ordering. -->
+      <!-- DOUBLE-FIXME Can you solve the problem of trying to order private
+                        attributes alongside public and shared attrs? -->
+      <!-- /FIXME -->
+      <views_panel_util:Button_Small
+         label="edit"
+         height="16"
+         toolTip="Click to edit the Attribute definition."
+         click="this.on_click_edit();" />
+      <!-- FIXME: For now, disabling '+' and '-'. -->
+      <!-- FIXME: Instead of "+" and "-", use up and down arrows,
+      <           or make two buttons next to Add New Attr, or down below -->
+      <views_panel_util:Button_Small
+         id="widget_on_click_move_up"
+         visible="false"
+         includeInLayout="{this.widget_on_click_move_up.visible}"
+         label="+"
+         height="16"
+         width="16"
+         toolTip="Click to show the Attribute higher in this list."
+         click="this.on_click_move_up();" />
+      <views_panel_util:Button_Small
+         id="widget_on_click_move_down"
+         visible="false"
+         includeInLayout="{this.widget_on_click_move_down.visible}"
+         label="-"
+         height="16"
+         width="16"
+         toolTip="Click to show the Attribute lower in this list."
+         click="this.on_click_move_down();" />
+      <!-- FIXME Delete this and rely on the Delete button on Attrs Advanced
+                 Tab? -->
+      <!--
+      <views_panel_util:Button_Small
+         id="del"
+         label="x"
+         height="16"
+         width="16"
+         click="this.on_click_delete();" />
+      -->
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

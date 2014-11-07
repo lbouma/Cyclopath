@@ -1,0 +1,76 @@
+Cyclopath Geowiki Platform
+
+Copyright (c) 2006-2013 Regents of the University of Minnesota.
+* For licensing terms, see the file LICENSE.
+
+Contact info@cyclopath.org with questions and comments.
+
+== License ==
+
+This software is open source software under the Apache License 2.0, with one
+additional clause. This clause requires you to obtain our permission before
+using this software in any system with more than 100 users, and it has a
+sunset date.
+
+We are eager to give this permission, and we very much want more geowikis out
+there running the Cyclopath software! Generally, we will ask for research
+access, to study the use of your system, in exchange. Do contact us at the
+e-mail address above if you are interested.
+
+We realize that this clause means that the Cyclopath Geowiki Platform fails
+the Debian Free Software Guidelines until it expires. We added it in order to
+make the code available as soon as possible while still leaving a window to
+avoid competition and to build research relationships.
+
+See the file LICENSE.
+
+A few files and directories have slightly different (but compatible) licenses.
+This is noted in the relevant files and directories.
+
+== Additional Requests ==
+
+While the following requests are non-binding, we believe they constitute good
+citizenship and would very much appreciate if you abide by them.
+
+* Research access: Cyclopath was created as a research system and has enabled
+  many interesting scientific discoveries in the areas of collaborative
+  systems, online communities, geographic systems, human-computer interaction,
+  and wikis. Further, the funding streams that core Cyclopath Geowiki Platform
+  development depends on are research-based. Thus, our ability to study the
+  use of Cyclopath-based systems is very important, and we would greatly
+  appreciate access to your logs, permission to occasionally send invitations
+  to participate in research studies to your users, and other research access.
+  If you bring up a geowiki based on this software, please contact us at the
+  above e-mail address to discuss research possibilities.
+
+* Giving back: While we do not require you to do so, we do consider it
+  unethical to use this free software without giving back to the community in
+  some way, particularly if you modify the software. The standard way to do
+  this is to participate in the community surrounding the software and to
+  contribute your modifications back to the community, but we realize some
+  organizations are unable to do this. In this case, financial contributions
+  or other support are appropriate.
+
+* For scientists and researchers: If this software benefits your work in a
+  substantive way, it is your professional obligation to acknowledge this
+  contribution. A brief mention of thanks in your paper's Acknowledgements
+  section, explaining how the software benefitted you, or some other similar
+  credit, is sufficient. Please also send us a note letting us know of your
+  work, as this is very beneficial in obtaining funding, tenure, etc., not to
+  mention the possibility that your research may be very interesting to us!
+
+== Naming ==
+
+You may not use this software in any system or product called Cyclopath,
+Cyclopath Geowiki Platform, or any variation (in fact, you may not create such
+a thing even if you use other software), and you may not use terms such as
+Cyclopath, GroupLens Research, and University of Minnesota to imply that your
+system or product is endorsed or created by us.
+
+However, you may -- and we encourage you to! -- use phrasing like "based on
+the Cyclopath Geowiki Platform", "powered by Cyclopath", "based on Cyclopath
+Geowiki Platform technology", etc.
+
+This is essentially identical to how you may use the term Apache; see
+<http://www.apache.org/foundation/licence-FAQ.html#Name-changes>.
+

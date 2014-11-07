@@ -1,0 +1,573 @@
+*flex.txt*	For Vim version 7.0.  Last change: 2010 May 05
+
+by David Fishburn
+
+Download updates to the Flex Development Support suite here:
+http://www.vim.org/scripts/script.php?script_id=2909
+
+Adobe Flex is a highly productive, free open source framework for building
+and maintaining expressive web applications that deploy consistently on all
+major browsers, desktops, and operating systems.  Flex applications can be
+built using the free Flex SDK
+(http://www.adobe.com/cfusion/entitlement/index.cfm?e=flex3sdk).
+
+This document outlines the various features the Vim Flex Development Support
+suite provides and how to interact with it to enhance the Vim development
+experience for Flex applications.
+
+1. Overview					|flex-overview|
+2. Filetypes					|flex-ftplugin|
+3. Navigation					|flex-navigation|
+    3.1 Matchit					|flex-matchit|
+    3.2 Text Object Motions			|flex-object-motions|
+    3.3 Macros					|flex-macros|
+    3.4 Imports					|flex-import|
+4. OMNI MXML Completion				|flex-completion|
+5. Compilation  				|flex-compile|
+    5.1 mxmlc
+    5.2 Ant 
+6. Indenting                			|flex-indenting|
+7. Syntax Highlighting                		|flex-syntax|
+8. Flex Tutorial				|flex-tutorial|
+    8.1 Code Completion    			|flex-completion-tutorial|
+    8.2 Imports       				|flex-imports-tutorial|
+    8.3 Compiling    				|flex-compiler-tutorial|
+        8.3.1 mxmlc
+        8.3.2 Ant
+
+
+==============================================================================
+1. Overview					*flex-overview*
+
+Adobe Flex consists of two types of files:
+    MXML (*.mxml) files
+    Actionscript (*.as) files 
+
+MXML is a XML-based user interface markup language first introduced by
+Macromedia in March 2004. Adobe Systems (which acquired Macromedia in
+December 2005) gives no official meaning for the acronym, but some
+developers suggest it should stand for "Magic eXtensible Markup Language"
+(which is a backronym). It's likely that the name comes from the MX suffix
+given to Macromedia Studio products released in 2002 and 2004. Application
+developers use MXML in combination with ActionScript to develop Rich
+Internet applications, with products such as Adobe Flex.
+
+ActionScript is a scripting language based on ECMAScript (similar to
+Javascript). ActionScript is used primarily for the development of websites
+and software using the Adobe Flash Player platform (in the form of SWF files
+embedded into Web pages), but is also used in some database applications
+(such as Alpha Five), and in basic robotics, as with the Make Controller
+Kit. Originally developed by Macromedia, the language is now owned by Adobe
+(which acquired Macromedia in 2005). ActionScript was initially designed for
+controlling simple 2D vector animations made in Adobe Flash (formerly
+Macromedia Flash). Later versions added functionality allowing for the
+creation of Web-based games and rich Internet applications with streaming
+media (such as video and audio).
+
+Vim includes features for:
+    Indentation 
+    Syntax highlighting
+    MXML code completion
+    Compiling
+
+
+==============================================================================
+2. Flex FileTypes				*flex-ft*
+-----------------				*flex-ftplugin*
+
+The Flex suite contains numerous files to add support for Flex: >
+    ftplugin\mxml.vim
+    ftplugin\actionscript.vim
+
+    indent\actionscript.vim
+    indent\mxml.vim
+
+    syntax\actionscript.vim
+    syntax\mxml.vim
+
+    compiler\mxmlc.vim
+
+    autoload\mxmlcomplete.vim
+        autoload\xml\mxml32.vim
+        autoload\xml\mxml_display.vim
+        autoload\xml\mxml_errors.vim
+        autoload\xml\mxml_events.vim
+        autoload\xml\mxml_filters.vim
+        autoload\xml\mxml_geom.vim
+        autoload\xml\mxml_media.vim
+        autoload\xml\mxml_mx.vim
+        autoload\xml\mxml_net.vim
+        autoload\xml\mxml_printing.vim
+        autoload\xml\mxml_system.vim
+        autoload\xml\mxml_text.vim
+        autoload\xml\mxml_ui.vim
+        autoload\xml\mxml_utils.vim
+        autoload\xml\mxml_xml.vim
+
+To automatically enable the ftplugins for mxml and actionscript you can
+edit your: >
+    vimfiles/filetype.vim
+    .vim/filetype.vim
+<
+Make sure the following entries are defined: >
+    " Flex Development
+    au BufNewFile,BufRead *.mxml    		setfiletype mxml
+    au BufNewFile,BufRead *.as          	setfiletype actionscript
+
+Also make sure you have the following line in your |vimrc| >
+    filetype on
+<
+
+==============================================================================
+3. Navigation					*flex-navigation*
+
+The Flex ftplugins (MXML and ActionScript) provides a number of options to
+assist with file navigation.
+
+
+3.1 Matchit					*flex-matchit*
+-----------
+The matchit plugin (http://www.vim.org/scripts/script.php?script_id=39)
+provides many additional features and can be customized for different
+languages.  The matchit plugin is configured by defining a local
+buffer variable, b:match_words.  Pressing the % key while on various
+keywords will move the cursor to its match.  For example, if the cursor is on
+an "if", pressing % will cycle between the "else if" and "else" keywords.
+
+The following keywords are supported: >
+    if
+    else if 
+    else
+
+    while
+	break
+	continue
+
+    for
+	break
+	continue
+
+    do
+	statements
+    while
+
+    switch
+        case
+            break
+        case
+        default
+
+    try
+        catch
+        finally
+
+
+
+3.2 Text Object Motions				*flex-object-motions*
+-----------------------
+Vim has a number of predefined keys for working with text |object-motions|.
+This filetype plugin attempts to translate these keys to maps which make sense
+for the flex language.
+
+The following |Normal| mode and |Visual| mode maps exist: >
+    ]]		    move forward to the next '}'
+    [[		    move backwards to the previous '}'
+    ][		    move forward to the next '{'
+    []		    move backwards to the previous '{'
+
+
+
+3.3 Macros					   *flex-macros*
+----------
+Vim's feature to find macro definitions, |'var'|, is supported using this
+regular expression: >
+    \<var\>
+
+This addresses the following code: >
+    var myArray:Array = new Array();
+    private var callback:Function;
+
+Place your cursor on "myArray" on this line: >
+	 for each (elem:int in myArray) 
+		                ^
+         {
+         }
+
+Press any of the following keys: >
+    [d
+    [D
+    [CTRL-D
+
+And you the var myArray line will be displayed in a few formats.
+
+
+3.4 Imports					*flex-import*
+-----------
+ActionScript can be embedded within <mx:Script> tags within MXML or you can
+create ActionScript only files (myfile.as).  Imports are like all other
+languages.  If we assume a standard project directory layout: >
+    +--C:\project
+        +--bin-debug
+        ¦  +--assets
+        ¦  +--flexlib
+        ¦  +--history
+        +--html-template
+        ¦  +--history
+        +--libs
+        ¦  +--flexlib.swc
+        +--src
+        ¦  +--com
+        ¦     +--myCompany
+        ¦        +--myProject
+        ¦           +--Common.as
+        ¦  +--main.mxml
+
+If we have a main.mxml that looks like this: >
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" >
+	<mx:Script>
+            <![CDATA[
+                import com.myCompany.myProject.Common;
+		]]>
+	</mx:Script>
+    </mx:Application>
+
+While editing this file you may want to begin editing Common.as.
+The Flex script has gear to allow you to use |gf| to "goto file".
+This Vim feature requires that certain directories are already in 
+the |path| if the file is not present in the current directory.
+
+Setting the |path| can be easily accomplished using autocmds and 
+utilizing one of the functions within the mxml and actionscript 
+ftplugins. >
+    augroup myProject
+        au!
+        autocmd bufread */project/* 
+                    \ let root_dir = substitute(fnamemodify(expand("<afile>"), ':p:h'), 'project\zs.*', '', '') |
+                    \ if exists("*AddSearchPath_".&ft) | 
+                    \     call AddSearchPath_{&ft}(root_dir.'/src') | 
+                    \ endif
+    augroup end
+
+Breaking down the autocmd:
+    For any file opened under the myProject (C:\project\src): >
+        autocmd bufread */project/* 
+<
+    Get the directory of the file just opened: >
+                    \ let root_dir = substitute(fnamemodify(expand("<afile>"), ':p:h'), 'project\zs.*', '', '') |
+<
+    &ft = filetype, this will be either mxml or actionscript.  If the
+    ftplugin successfully created the required function, call it passing
+    in "C:\project\src".  The autocmd is used with fnamemodify so that this 
+    code will work for any project.  If the project changes drive locations 
+    your Vim configuration stays the same. >
+                    \ if exists("*AddSearchPath_".&ft) | 
+                    \     call AddSearchPath_{&ft}(root_dir.'/src') | 
+                    \ endif
+
+Once these items have been added to the |path| placing your cursor anywhere on
+this line: >
+    import com.myCompany.myProject.Common;
+                    ^
+<
+If you press 'gf' Vim will correctly find the file and open it for editing.
+
+
+==============================================================================
+4. OMNI MXML Completion				*flex-completion*
+----------------------- 			*omni-flex-completion*
+                        			*mxml-completion*
+
+Vim 7 includes a code completion interface |compl-omni| and functions which
+allows plugin developers to build in code completion for any language.  
+The MXML completion takes advantage of |ft-xml-omni| and provides the
+necessary data files to allow it to complete MXML tags.
+
+If you are familiar with HTML and OMNI then you will be right at home with
+MXML completion.  Tags have been generated based on Flex 3.  The XML
+namespaces exist in $VIMRUNTIME/autoload/xml/mxml_*.vim.
+
+See the |mxml-completion-tutorial| for examples.
+
+If someone knows how to generate a list of classes and the associated methods
+for ActionScript, please let me know.  I will add code completion for it in
+addition to the MXML code completion.
+
+==============================================================================
+5. Flex Compilation				*flex-compile*
+
+There are two different ways of compiling a Flex application.
+    1.  mxmlc (command line compiler)
+    2.  Ant
+
+5.1 mxmlc
+---------
+The flex command line compiler (mxmlc) is included with the Flex SDK.
+
+A Vim mxml compiler plugin (compiler/mxmlc.vim) has been created to assist
+with compiling your files.  Configuration of the command line is best done via
+autocmds based on your project.  See the |flex-compiler-tutorial| for
+examples.
+
+The compiler accepts a number of different (mostly) buffer local variables. >
+    g:mxmclPath
+<       This is the only global option.  It allows you to specify
+        the location of mxmlc binary.  If not specified, it assumes
+        mxmlc is already in the path. >
+    b:mxmlcOptions
+<       Allows you to specify any additional command line options. >
+    b:mxmlcDebug
+<       Whether this should be a debug build of not. >
+    b:mxmlcIncludeLibs
+<       If your project relies on any additional libraries, these can
+        be listed.  This can be a comma separate list of SWC files. >
+    b:mxmlcOutputDir
+<       The location to generate the resulting SWF file.
+
+
+5.2 Ant
+-------
+
+There are lots of docs on the web on how to create an ANT build file for 
+your Flex project.  To build with ANT from Vim, the ant_menu plugin 
+(http://www.vim.org/scripts/script.php?script_id=155) is very useful.
+
+
+
+==============================================================================
+6. Indenting                			*flex-indenting*
+
+Vim includes many commands (based on filetype) to indent or re-indent
+text, see |indent.txt|.
+
+There are two components of a Flex application.  The MXML files and
+Actionscript files.  Actionscript is very similar to Javascript.  These
+files can be in a separate file (myClass.as) or embedded within mx:Script
+tags:
+
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" 
+            layout="absolute"
+            width="1100" height="800"
+            >
+            <mx:Script>
+                <![CDATA[
+                import flash.events.Event;
+                [Bindable] private var _serverHostPort:String = "";
+                private var cmdlineHostAddress:String;
+
+                public function myFunc():void 
+                {
+                }
+                ]]>
+            </mx:Script>
+<
+    </mx:Application>
+
+The files can be indented like any other file using Vim's standard features.
+You can visually highlight a section of code and hit |=|.  You can reformat
+the entire file using gg=G.
+
+Unfortunately, due to a limitation of the cindent() function, when
+actionscript is embedded within a MXML file, the code will be indented to
+the far left of the file.  So indenting of the above code will look like:
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" 
+            layout="absolute"
+            width="1100" height="800">
+            <mx:Script>
+    <![CDATA[
+    import flash.events.Event;
+    [Bindable] private var _serverHostPort:String = "";
+    private var cmdlineHostAddress:String;
+
+    public function myFunc():void 
+    {
+    }
+    ]]>
+            </mx:Script>
+    </mx:Application>
+
+You can easily shift the code back by visually selecting the text between 
+the <mx:Script> tags and using the >> operator.
+
+
+==============================================================================
+7. Syntax Highlighting                		*flex-syntax*
+----------------------                          *mxml-syntax*
+                                                *actionscript-syntax*
+
+Included are syntax/mxml.vim and syntax/actionscript.vim.
+See |flex-ftplugin| to ensure Vim automatically enables syntax highlighting.
+
+
+==============================================================================
+8. Flex Tutorial				*flex-tutorial*
+-----------------				*mxml-tutorial*
+                 				*actionscript-tutorial*
+
+This tutorial is designed to take you through the features available
+when using Vim with Flex projects.
+
+First, create a new buffer: >
+     :e tutorial.mxml
+<
+8.1 Code Completion    				*flex-completion-tutorial*
+-------------------     			*omni-flex-completion-tutorial*
+						*mxml-completion-tutorial*
+
+If someone knows how to generate a list of classes and the associated methods
+for ActionScript, please let me know.  I will add code completion for it in
+addition to the MXML code completion.
+
+If someone knows how to generate a list of classes and the associated methods
+for ActionScript, please let me know.  I will add code completion for it in
+addition to the MXML code completion.
+Assuming you have already read |flex-completion|, add the following to the
+buffer: >
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml">
+        <
+    </mx:Application>
+<
+Place your cursor on the blank line between the mx:Application tags.  Insert
+a < and trigger OMNI completion (<CTRL-X><CTRL-O> |i_CTRL-X_CTRL-O|).  All
+tags for all available namespaces are displayed.
+
+Hit escape to abort the completion (and hit u (undo) if something was added).  
+Type mx:H and hit <CTRL-X><CTRL-O> again.  The list will be reduced to two
+items.  To reduce the items in the list to a given namespace, you can first
+type <mx before hitting <CTRL-X><CTRL-O>.
+
+Choose the mx:HTTPService tag.
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml">
+        <mx:HTTPService
+    </mx:Application>
+
+Another alternative is to type <HTT<CTRL-X><CTRL-O>.  This will limit
+the choices to any namespace but beginning with "HTT".
+
+After choosing the mx:HTTPService tag add a space (after it) and press
+<CTRL-X><CTRL-O> again.  This will bring up a list of available
+attributes for the tag.  
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml">
+        <mx:HTTPService id="" />
+    </mx:Application>
+
+This time add the DataGrid tag as follows:
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml">
+        <mx:HTTPService id="" />
+        <mx:DataGrid>
+
+    </mx:Application>
+
+For the next tag on the blank line begin typing the closing tag "</"
+followed by <CTRL-X><CTRL-O>.  When leading with the </ and triggering
+completion this instructs the completion to close the last open tag.
+    <?xml version="1.0" encoding="utf-8"?>
+    <mx:Application xmlns:mx="http://www.adobe.com/2006/mxml">
+        <mx:HTTPService id="" />
+        <mx:DataGrid>
+        </mx:DataGrid>
+    </mx:Application>
+
+
+8.2 Imports       				*flex-imports-tutorial*
+-----------
+
+Setting up a tutorial for using "gf" with imports requires creating multiple 
+files.  Please read the |flex-import| section.  Create the required autocmds
+in your |.vimrc| and then try out the "gf" with your import statements.
+
+
+8.3 Compiling    				*flex-compiler-tutorial*
+-------------                   		*flex-compiling-tutorial*
+
+Assuming you have read |flex-compile| lets start by compiling with the
+mxmlc compiler.
+
+8.3.1 mxmlc
+-----------
+
+Since you compile main.mxml and not the other files in your project, create
+an autocmd which is keyed off of this file: >
+    autocmd! BufRead main.mxml 
+            \ let b:mxmlcOutputDir=fnamemodify(fnamemodify(expand("<afile>"), ':p:h').'\..\bin-debug', ':p')|
+            \ let b:mxmlcIncludeLibs=fnamemodify(fnamemodify(expand("<afile>"), ':p:h').'\..\libs\flexlib.swc', ':p')|
+            \ let b:mxmlcDebug=1
+<
+The use of the fnamemodify and expand allow the command line to generate
+absolute file names by specifying relative paths to the location of
+main.mxml.  This approach is not necessary, but when you copy and paste this to
+different projects, the advantage is you do not have to tweak the paths over
+and over again which makes long term maintenance easier.
+
+Assuming you are using the standard FlexBuilder project directory structure: >
+    +--C:\project
+        +--bin-debug
+        ¦  +--assets
+        ¦  +--flexlib
+        ¦  +--history
+        +--html-template
+        ¦  +--history
+        +--libs
+        ¦  +--flexlib.swc
+        +--src
+        ¦  +--main.mxml
+<
+Then with the autocmd defined and you run: >
+    :compiler mxmlc
+<
+The following compiler command will be generated and it will also be
+displayed to the screen so you can verify: >
+    mxmlc -compiler.debug 
+          -compiler.include-libraries C:\project\libs\flexlib.swc 
+          -output C:\project\bin-debug\main.swf
+          C:\project\src\main.mxml
+<
+Next simply run the following Vim commands to compiler and see any messages
+generated from the compiler: >
+    :make
+    :copen
+<
+
+8.3.2 Ant
+---------
+This section assumes you have installed the ant_menu plugin 
+(http://www.vim.org/scripts/script.php?script_id=155).
+If you are using the standard FlexBuilder project directory structure: >
+    +--C:\project
+        +--bin-debug
+        ¦  +--assets
+        ¦  +--flexlib
+        ¦  +--history
+        +--html-template
+        ¦  +--history
+        +--libs
+        ¦  +--flexlib.swc
+        +--src
+        ¦  +--main.mxml
+        +--build.xml
+<
+You can create the flex ant build file here: C:\project\build.xml.
+Next, create an autocmd to automatically set the location of the build.xml
+file for the ant_menu plugin. >
+    augroup myProject
+        au!
+        autocmd bufread */project/*
+                \ let buildFile = substitute(fnamemodify(expand("<afile>"), ':p:h'), 'project\zs.*', '', '')|
+                \ let g:AM_userBuildFile = buildFile.'\build.xml'
+    augroup end
+<
+For a description of how and why we are using the fnamemodify and expand
+functions, see the |flex-import| and |flex-compiler-tutorial| sections.
+
+With the augroup / autocmd created, from within Vim you can use Vim's menu and
+select Plugin -> ANT -> Build.  The output can be viewed in the usual Vim way
+using |:copen|.
+
+
+vim:tw=78:ts=8:ft=help:norl:

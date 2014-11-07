@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- MAGIC_NUMBERS: The height and width should maybe be specified by the
+                    parent that declares us. -->
+<mx:Canvas
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_section_header="views.section_header.*"
+   xmlns="*"
+   height="26"
+   width="100%"
+   clipContent="false"
+   creationComplete="this.on_creation_complete();"
+   initialize="this.on_initialize();"
+   remove="this.on_remove_event();"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+
+      import gwis.update.Update_Revision;
+      import utils.misc.Logging;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctH_Header');
+
+      // *** Instance attributes
+
+      // *** Instance methods
+
+      //
+      protected function on_click_cycloplan() :void
+      {
+         m4_DEBUG('on_click_cycloplan');
+         // Don't respond if the user clicks while we're still booting.
+         if ((G.item_mgr.active_branch !== null)
+             && (Update_Revision.processed_draw_config)) {
+            G.panel_mgr.panel_activate(G.item_mgr.active_branch.branch_panel);
+         }
+         // else, fail (do nothing) silently.
+      }
+
+      //
+      protected function on_click_metcouncil() :void
+      {
+         m4_DEBUG('on_click_metcouncil');
+         UI.url_popup(Conf_Instance.metrocouncil_cycloplan_url,
+                      'Cycloplan');
+      }
+
+      //
+      protected function on_creation_complete() :void
+      {
+         // Make the throbber available to the world.
+         G.throbber = this.throbber;
+
+         m4_DEBUG('on_creation_complete: addEventListener: grac_gms_event');
+         G.item_mgr.addEventListener('grac_gms_event', this.on_gms_loaded);
+
+         this.on_gms_loaded(null);
+      }
+
+      //
+      protected function on_initialize() :void
+      {
+         //
+      }
+
+      //
+      protected function on_remove_event() :void
+      {
+         m4_DEBUG('on_remove_event: removeEventListener: grac_gms_event');
+         G.item_mgr.removeEventListener('grac_gms_event', this.on_gms_loaded);
+      }
+
+      //
+      protected function on_gms_loaded(ev:Event) :void
+      {
+         m4_DEBUG('on_gms_loaded');
+         var is_metc_member:Boolean;
+         // There are three MetC groups. We use the Editors group.
+         //    Metc Bikeways 2012 Owners
+         //    Metc Bikeways 2012 Arbiters
+         //    Metc Bikeways 2012 Editors
+         is_metc_member = ((G.user !== null)
+                           && G.user.belongs_to_group(Conf_Instance
+                                          .metrocouncil_group_name)
+                        // MAYBE: Check we're on the Cycloplan server, too?
+                        // && (G.url_base == 'http://cycloplan.cyclopath.org')
+                           );
+         this.ccp_header_group_icon_metc.visible = is_metc_member;
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      horizontalGap="11"
+      verticalAlign="middle"
+      >
+
+      <!-- Logo -->
+      <!-- BUG nnnn: [lb] resized the CcpV1 label but it's not as pretty as it
+                          could be.
+                          -->
+      <mx:Image
+         source="instance/logo-minisize.png"/>
+
+      <!-- Search Box -->
+      <!-- MAGIC_NUMBER: Restrict the maximum width of the search box. -->
+      <mx:HBox
+         width="100%"
+         >
+         <views_section_header:Search_Box
+            id="search_box"
+            height="26"
+            width="100%"
+            maxWidth="380"
+            />
+            <!--
+            width="100%"
+            maxWidth="380"
+            -->
+         <mx:HBox
+            id="ccp_header_group_icon_metc"
+            width="100%"
+            horizontalAlign="center"
+            height="100%"
+            verticalAlign="middle"
+            horizontalGap="0"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="0"
+
+            visible="true"
+            includeInLayout="{this.ccp_header_group_icon_metc.visible}"
+            >
+            <!-- BUG nnnn: Automatically from png from user's group names
+                           and look for corresponding graphic in assets
+                           folder. -->
+            <!--
+            <mx:Image
+               source="assets/img/grps/metc_bikeways_2012_editors.png"
+               click="this.on_cycloplan_click();"
+               buttonMode="true"
+               useHandCursor="true"
+               />
+            -->
+            <!--
+               width="230"
+               height="19"
+
+               buttonMode="true"
+               useHandCursor="true"
+               mouseEnabled="true"
+               mouseChildren="true"
+            -->
+            <mx:Image
+               source=
+            "assets/img/grps/metc_bikeways_2012_editors_01_cycloplan.png"
+               click="this.on_click_cycloplan();"
+               buttonMode="true"
+               useHandCursor="true"
+               toolTip=
+"Go to the Cycloplan features panel, where you can analyze routes and work with Shapefiles."
+               />
+            <mx:Image
+               source=
+           "assets/img/grps/metc_bikeways_2012_editors_02_vertbar.png"
+               />
+            <mx:Image
+               source=
+           "assets/img/grps/metc_bikeways_2012_editors_03_metcouncil.png"
+               click="this.on_click_metcouncil();"
+               buttonMode="true"
+               useHandCursor="true"
+               toolTip=
+"Metropolitan Council supports Cycloplan. Click to access the project page."
+               />
+         </mx:HBox>
+      </mx:HBox>
+
+      <!-- Notifications Counter -->
+      <!-- FIXME: Statewide UI: This is from [mm], but it's not implemented.
+      <views_section_header:Notifications_Counter
+         id="notifications_counter"/>
+      -->
+
+      <!-- Custom Group Icon -->
+      <!-- Our 2013 MetC client really, really wants his customers to know
+           when they're using Cycloplan. -->
+      <!-- BUG nnnn: Go through user's group_memberships if they are logged on.
+                     Use group name and lowercase and underscore.
+                     What about multiple group icons?
+                     -->
+      <!-- FIXME: Hide this if browser window is too narrow,
+                  otherwise account dropdown is off screen. -->
+
+      <!-- Account Control -->
+      <views_section_header:Account_Control
+         id="account_control"
+         horizontalAlign="right"
+         />
+
+      <!-- CcpV2/beta code. These are [lb]'s Hyper_Link controls to common
+           operations (Find Route, Log in/Out, etc.) that lived to the right of
+           the logo in the Cycloplan beta. This code can probably eventually be
+           deleted but [lb] might want to resurrect one or more of these (like,
+           I like the "Welcome, Username!" text).
+
+               <!- - MAGIC NUMBER: Using a width of 96 so both of these buttons
+               <                  are the same width. The width should be wider
+               <                  than the minimum width of the button with the
+               <                  longer label, 'natch. - ->
+               <mx:VBox
+                  width="100%"
+                  height="100%"
+                  horizontalAlign="right"
+                  horizontalGap="0"
+                  verticalGap="-3"
+                  paddingTop="3"
+                  verticalAlign="top"
+                  >
+                  <!- - Find route button - ->
+                  <!- - Replaced by: banner_button_find_route
+                  <mx:Button
+                     id="find_route_button"
+                     label="Find Route"
+                     click="G.tabs.route.panel_routes_new_open('top');"
+                     width="100%"/>
+                  - ->
+                  <!- - Login/logout button - ->
+                  <!- - Replaced by: banner_button_user_login
+                  <mx:Button
+                     id="login"
+                     click="G.user.login_or_logout();"
+                     label="Log In"
+                     width="100%"/>
+                  - ->
+                  <mx:HBox
+                     horizontalGap="0"
+                     verticalGap="0"
+                     verticalAlign="bottom"
+                     horizontalAlign="right"
+                     >
+                     <views_panel_util:Hyper_Link
+                        id="banner_button_user_login"
+                        text="Log In"
+                        toolTip=""
+                        enabled="true"
+                        click="G.user.login_or_logout();"
+                        color="0xffffff"
+                        />
+                     <!- - MAGIC NUMBER: paddingRight="-10"
+                          I [lb] can't figure out how to do this
+                          otherwise: which component is adding all this
+                          horizontalGapage? I think labels must be have a
+                          minimum width or something. - ->
+                     <mx:Label
+                        text="|"
+                        styleName="labelminor"
+                        color="#ffffff"
+                        paddingRight="-10"
+                        paddingLeft="0"
+                        visible="{this.help_link_sign_up.visible}"
+                        includeInLayout="{this.help_link_sign_up.visible}"
+                        />
+                     <views_panel_util:Help_Link
+                        id="help_link_sign_up"
+                        click_url="?title=Special:UserLogin&amp;type=signup"
+                        color="#ffffff"
+                        linkIcon="true"
+                        text="Sign Up"
+                        includeInLayout="{this.help_link_sign_up.visible}"
+                        />
+                        <!- -
+                        fontSize="11"
+                        - ->
+                  </mx:HBox>
+                  <views_panel_util:Hyper_Link
+                     id="banner_button_find_route"
+                     text="Get Route"
+                     toolTip=""
+                     enabled="true"
+                     click="G.tabs.route.panel_routes_new_open('top');"
+                     color="0xffffff"
+                     />
+                  <views_panel_util:Hyper_Link
+                     id="banner_button_item_search"
+                     text="Search Map"
+                  toolTip="Search for addresses, points, blocks, and regions."
+                     enabled="true"
+                     click="G.tabs.search.search_open();"
+                     color="0xffffff"
+                     />
+
+               </mx:VBox>
+            </mx:HBox>
+
+            ...
+
+            <mx:HBox
+               width="100%"
+               horizontalAlign="left">
+               <!- - E.g., "Welcome, <username>" - ->
+               <mx:Label
+                  id="hello"
+                  styleName="labelmajor"
+                  width="100%"
+                  minWidth="0"
+                  color="#ffffff"
+                  paddingLeft="0"/>
+            </mx:HBox>
+
+      end: [lb]'s long comment and old Cycloplan beta code.
+      -->
+
+   </mx:HBox>
+
+   <!-- All the paddings ensure that the throbber is appropriately placed. -->
+   <mx:HBox
+      horizontalAlign="center"
+      y="{0 - G.app.pad - 5}"
+      width="100%">
+
+      <mx:HBox
+         backgroundColor="{Conf.loading_widget_bgcolor}"
+         borderColor="{Conf.loading_widget_border_color}"
+         paddingLeft="8"
+         paddingRight="6"
+         paddingTop="9"
+         paddingBottom="4"
+         borderStyle="solid"
+         cornerRadius="5"
+         horizontalGap="4"
+         visible="false">
+
+         <utils_misc:Throbber
+            id="throbber"/>
+
+         <mx:Label
+            styleName="labelmajor"
+            text="Working..."/>
+
+      </mx:HBox>
+
+   </mx:HBox>
+
+</mx:Canvas>
+

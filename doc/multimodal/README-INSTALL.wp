@@ -1,0 +1,277 @@
+= Install Cyclopath Multimodal =
+
+== Configure Linux ==
+
+These instructions are gleaned from the Graphserver 
+[http://graphserver.github.com/graphserver/ Project Page] on GitHub.
+
+See also [http://docs.python.org/install/index.html Python install docs].
+
+=== Sudo, or Not Sudo? ===
+
+If you've got root access, link to your Cyclopath development directory.
+
+ export ccp=/ccp
+
+If you're in the lab, install to the local hard drive. 
+
+ export ccp=/export/scratch/ccp
+
+And setup your local Python path.
+
+ mkdir -p $ccp/opt/usr/lib/python
+
+Depending your machine's version of Python, include the site-packages directory. 
+Change python2.7 as appropriate.
+
+E.g., 
+
+ mkdir -p $ccp/opt/usr/lib/python2.7/site-packages
+
+Finally, adjust your Python path. Add something like this to your bash startup scripts,
+
+ export PYTHONPATH=$ccp/opt/usr/lib/python:$ccp/opt/usr/lib/python2.7/site-packages:$PYTHONPATH
+
+=== Get Git ===
+
+The lab machines should have git installed, otherwise:
+
+On Ubuntu:
+
+ sudo apt-get install git-core 
+
+On Fedora:
+
+ yum install git-core
+
+=== Setup Python and GCC ===
+
+If you're on a GroupLens/Cyclopath development machine, you shouldn't need to 
+install anything. But if you're not, make sure the following is installed.
+
+On Ubuntu:
+
+ sudo apt-get install python-setuptools
+ sudo apt-get install build-essential
+ sudo apt-get install python-dev
+
+On Fedora:
+
+ yum install python-setuptools-devel
+ yum install gcc
+ yum install gcc-c++
+ easy_install simplejson
+
+==== Python setuptools ====
+
+For development machines, you need to install setuptools locally.
+
+ cd $ccp/opt/.downloads
+
+Python 2.5:
+
+ wget -N http://pypi.python.org/packages/2.5/s/setuptools/setuptools-0.6c11-py2.5.egg#md5=64c94f3bf7a72a13ec83e0b24f2749b2
+ sh setuptools-0.6c11-py2.5.egg --prefix=$ccp/opt/usr
+
+Python 2.6:
+
+ wget -N http://pypi.python.org/packages/2.6/s/setuptools/setuptools-0.6c11-py2.6.egg#md5=bfa92100bd772d5a213eedd356d64086
+ sh setuptools-0.6c11-py2.6.egg --prefix=$ccp/opt/usr
+
+Python 2.7:
+
+ wget -N http://pypi.python.org/packages/2.7/s/setuptools/setuptools-0.6c11-py2.7.egg#md5=fe1f997bc722265116870bc7919059ea
+ sh setuptools-0.6c11-py2.7.egg --prefix=$ccp/opt/usr
+
+=== Setup RTree ===
+
+On either Ubuntu or Fedora:
+
+ cd $ccp/opt/.downloads
+ wget -N http://download.osgeo.org/libspatialindex/spatialindex-src-1.6.0.tar.gz
+ tar -xvzf spatialindex-src-1.6.0.tar.gz
+ cd spatialindex-src-1.6.0
+ ./configure --prefix=$ccp/opt/usr
+ make
+ make install
+ mkdir -p $ccp/opt/usr/lib/python2.5/site-packages
+ mkdir -p $ccp/opt/usr/lib/python2.6/site-packages
+ mkdir -p $ccp/opt/usr/lib/python2.7/site-packages
+ easy_install --prefix=$ccp/opt/usr RTree
+
+FIXME: Who needs to load the libraries at $ccp/opt/usr/lib?
+
+=== Setup servable ===
+
+==== Install simplejson ====
+
+Start with simplejson. It already comes with Python, but it you'd like the latest copy, download it.
+
+ cd $ccp/opt/.downloads
+ wget -N http://pypi.python.org/packages/source/s/simplejson/simplejson-2.1.6.tar.gz#md5=2f8351f6e6fe7ef25744805dfa56c0d5
+ tar xvzf simplejson-2.1.6.tar.gz
+ cd simplejson-2.1.6
+
+If not installing at root:
+
+ mkdir -p $ccp/opt/usr/lib/python
+ python setup.py install --home=$ccp/opt/usr
+
+Otherwise, as root:
+
+ sudo python setup.py install
+
+==== Install servable ====
+
+Install servable, [https://code.google.com/p/servable/ a minimal webservice framework].
+
+ cd $ccp/opt/.downloads
+ svn checkout http://servable.googlecode.com/svn/trunk/ servable_`date +%Y.%m.%d`
+ cd servable_`date +%Y.%m.%d`
+
+If not installing at root:
+
+ python setup.py install --home=$ccp/opt/usr
+
+Otherwise, as root:
+
+ sudo python setup.py install
+ sudo /ccp/bin/grpbin/fixperms --public /usr/lib/python2.7/site-packages/servable-2009c-py2.7.egg/
+
+=== pytz: World Timezone Definitions for Python ===
+
+Get the EGG for your Python version. See the [http://pypi.python.org/pypi/pytz/#downloads pytz project page] for download links.
+
+E.g., for Python 2.7,
+
+ cd $ccp/opt/.downloads
+ wget -N http://pypi.python.org/packages/2.7/p/pytz/pytz-2011g-py2.7.egg#md5=96d8b4b7fe225134376d42c195b4e0cf
+ easy_install --prefix=$ccp/opt/usr pytz-2011g-py2.7.egg 
+
+for Python 2.6,
+
+ cd $ccp/opt/.downloads
+ wget -N http://pypi.python.org/packages/2.6/p/pytz/pytz-2011g-py2.6.egg#md5=d5b33397f1b3350e36e226cff1844d7c
+ easy_install --prefix=$ccp/opt/usr pytz-2011g-py2.6.egg 
+
+for Python 2.5,
+
+ cd $ccp/opt/.downloads
+ wget -N http://pypi.python.org/packages/2.5/p/pytz/pytz-2011g-py2.5.egg#md5=7251c0a9c1ed3a17f4c6e1105a6ffca5
+ easy_install --prefix=$ccp/opt/usr pytz-2011g-py2.5.egg 
+
+If installing as root. E.g., Python 2.7:
+
+ sudo easy_install pytz-2011g-py2.7.egg
+ sudo /ccp/bin/grpbin/fixperms --public /usr/lib/python2.7/site-packages/pytz-2011g-py2.7.egg/
+
+== Install Graphserver ==
+
+Graphserver is new code and under active development. As such, you'll
+want to compare what's checked into Cyclopath against both the current 
+Graphserver release and the current Graphserver trunk.
+
+=== Download Graphserver ===
+
+The latest production release is from Oct 14, 2010. Get it.
+
+ cd $ccp/opt/.downloads
+ wget -O graphserver_1.0.0.tar.gz http://github.com/graphserver/graphserver/tarball/14102010
+
+If you get a certificate verification error, e.g.,
+
+ ERROR: Certificate verification error for github.com: unable to get local issuer certificate
+
+Run this command instead:
+
+ wget --no-check-certificate -O graphserver_1.0.0.tar.gz http://github.com/graphserver/graphserver/tarball/14102010
+
+Next, unpack the download.
+
+ tar xvzf graphserver_1.0.0.tar.gz
+ mv graphserver-graphserver-e999ef5 graphserver_1.0.0
+
+The trunk is hosted on GitHub.
+
+ cd $ccp/opt/.downloads
+ git clone git://github.com/graphserver/graphserver.git graphserver_`date +%Y.%m.%d`
+
+Compare the two.
+
+ meld graphserver_1.0.0 graphserver_`date +%Y.%m.%d` &
+
+If the trunk looks good, make it The One.
+
+ ln -s $ccp/opt/.downloads/graphserver_`date +%Y.%m.%d` $ccp/opt/graphserver
+
+=== Setup Graphserver ===
+
+Install Graphserver to, e.g., /usr/lib/python2.7/site-packages/.
+
+ cd $ccp/opt/graphserver/pygs
+
+Either,
+
+ python setup.py install --home=$ccp/opt/usr
+
+Or,
+
+ sudo python setup.py install
+ sudo /ccp/bin/grpbin/fixperms --public /usr/lib/python2.7/site-packages/graphserver-1.0.0-py2.7.egg/
+
+Lastly, check your PATH,
+
+ export PATH=/export/scratch/ccp/opt/usr/bin:$PATH
+
+== Configure Transit Data ==
+
+=== Download Transit Data ===
+
+Get the latest [http://www.datafinder.org/metadata/transit_schedule_google_feed.htm Metro Transit Schedule Data] (it's an 11MB file).
+
+ mkdir -p $ccp/var/transit/metc
+ cd $ccp/var/transit/metc
+ wget -N ftp://gisftp.metc.state.mn.us/google_transit.zip
+
+=== Compile Transit Data ===
+
+Compile the GTFS into a GTFSDB, or Google Transit Feed Specification Database.
+
+Note: In Graphserver 0.1, gs_gtfsdb_compile was called gs_gtfsdb_build.
+
+Note: This process takes a few minutes.
+
+ cd $ccp/var/transit/metc
+ gs_gtfsdb_compile google_transit.zip minnesota.gtfsdb
+
+Compile the GTFSDB into a Graphserver file. This process also takes a few minutes.
+
+ gs_import_gtfs minnesota.gdb minnesota.gtfsdb
+
+Inspect the compiled graph. E.g., running the command,
+
+ gs_gdb_inspect minnesota.gdb sta-3622
+
+should print something like this multiple times
+
+<pre>
+sta-3622 -> psv-0-605-046-MAY11-Multi-Weekday-01
+	<TripBoard int_sid=0 sid=MAY11-Multi-Weekday-01 
+              agency=0 calendar=0x1ca0d80 timezone=0x18261f0 
+              boardings=[...]>
+</pre>
+
+Question: How does gs_gdb_inspect compare to /usr/bin/gs_gtfsdb_inspect?
+
+You now have the large file, $ccp/var/transit/metc/minnesota.gdb, that 
+can be loaded by Graphserver.
+
+=== Configure Pyserver ===
+
+* Update "graph_" scripts in pyserver to point to the new gdb and gtfsdb files
+
+* Restart apache
+
+* Start routed
+** This will take around 4 minutes. When routed finishes loading, it'll print "ready" to the log file at /tmp/pyserver.minnesota-routed.log.
+

@@ -1,0 +1,101 @@
+
+=========================================
+
+Rather than adding to geofeature_layer, make layers attributes
+and add:
+railroad / train tracks
+lightrail
+residential alley (alleyway?) 2013.08.08: See Byway_Alley
+private road (i.e., for lakewood cemetary) (maybe private road/driveway?)
+  [private roads and trail tracks and light rail and alley
+   should be considered 'impassable' by the route-finder]
+glorified sidewalk
+
+=========================================
+
+2010.11.30 From Fernando:
+
+> 4) When moving layer types to geofeature_layer, last_modified is changed to the
+> time when the database is updated. This is not a big deal, and in a way the
+> layer types are being modified, but make sure this is the meaning intended with
+> last_modified. If not, then the layers should retain the previous
+> 'last_modified' value.
+
+> 5) It is confusing that the user_ table has some fields that start with
+> 'enable_' and another that ends with '_enable'. This usage should be
+> consistent.
+
+> 8) (Inconsistency alert!) Some deleted versions of byway_segments appear in
+> item_versioned but not in geofeature, and others appear in both.
+
+> 11) post_revision table 
+
+> 12) Many new regions in the new database have version 0 (and some appear as
+> deleted in that version 0).
+
+=========================================
+
+where's the sql schema scripts for colorado?
+(maybe in cp_scholarly, or an sandrewsheppared branch?)
+
+=========================================
+
+is special revision 0 ever used?
+
+=========================================
+
+Bug:
+FIXME [aa] Colorado instance has mysterious merged_to_id (byway table?)
+FIXME: 2011.04.04: Missing merged_to_id crashes revert in V1/Route Analytics. ???
+
+=========================================
+
+/* FIXME Is route really a geofeature? */
+
+=========================================
+
+SELECT byway_attribute_create_and_populate(
+   'lane_count', '/byway/lane_count', 'lane_count', '', FALSE, '', 
+   'Total number of lanes', 'Include both directions if two-way', 
+   '0', '12', '1',   -- Min, Max, StepSize
+   '4');             -- GUI Order
+-- FIXME Add Bug: "include both directions" is incorrect; see Wash ave
+huh?
+
+=========================================
+
+Do I need revert_event.num_items?
+
+CREATE TABLE revert_event (
+   id SERIAL,
+   created TIMESTAMP WITH TIME ZONE NOT NULL,
+   num_items INTEGER NOT NULL,
+   rid_reverting INTEGER NOT NULL,
+   rid_victim INTEGER NOT NULL,
+   PRIMARY KEY (id),
+   FOREIGN KEY (rid_reverting) REFERENCES revision(id) DEFERRABLE,
+   FOREIGN KEY (rid_victim) REFERENCES revision(id) DEFERRABLE
+);
+
+--ALTER TABLE revert_event ADD COLUMN num_items INTEGER NOT NULL;
+ALTER TABLE revert_event ADD COLUMN num_items INTEGER;
+--UPDATE revert_event SET num_items = -1;
+FIXME: does num_items get updated and get NOT NULLed?
+
+=========================================
+
+/* FIXME route.source is one of the four following:
+         deeplink    cnt: 24248
+         routes      cnt: 10104
+         search      cnt: 16
+         top         cnt: 16299 */
+
+Document this.
+Maybe make into source_id? And add to enum_definition.
+
+=========================================
+
+See Bug 1301 for Export ideas (i.e., filter by layer, region, attrs, user, etc.)
+
+========================================
+

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: What's up with this and Panel_Item_Region? -->
+
+<!-- FIXME: When this panel first shows for new waypoints,
+  BUG nnnn: bring focus to the item name and select all
+            (see code for selectionBeginIndex).
+            Do also for similar item types, like Region.
+            -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import items.Geofeature;
+      import items.feats.Waypoint;
+      import utils.misc.Logging;
+      //import utils.misc.Set;
+      //import utils.misc.Set_UUID;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Waypt');
+
+      // ***
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Waypoint;
+      }
+
+/*/
+      //
+      override protected function repopulate() :void
+      {
+         var o:Object;
+         var historic:Boolean = false;
+
+   super.repopulate();
+
+/*/
+/*/
+         if (this.tag_box === null) {
+            this.tag_box = new Widget_Tag_List;
+         }
+         if (this.tag_box_historic === null) {
+            this.tag_box_historic = new Widget_Tag_History;
+         }
+         this.tag_space.removeAllChildren();
+/*/
+/*/
+
+//         //m4_ASSERT(G.map.selectedset.item_get_random() is Waypoint);
+//         this.wp1 = G.map.selectedset.item_get_random() as Waypoint;
+         //m4_ASSERT(this.items_selected.item_get_random() is Waypoint);
+         this.wp1 = this.items_selected.item_get_random() as Waypoint;
+
+// FIXME [aa] Make Waypoints, Regions, Terrain, etc. work like Byway_Historic?
+//            Support multi-select?
+//         if (G.map.selectedset.length == 2) {
+         if (this.items_selected.length == 2) {
+            m4_ASSERT(this.wp1.rev_is_diffing);
+//            for each (o in G.map.selectedset) {
+            for each (o in this.items_selected) {
+               this.wp2 = o as Waypoint;
+               if (this.wp2 !== this.wp1) {
+                  break;
+               }
+            }
+            while (this.wp2 === null || this.wp2 === this.wp1)
+//               this.wp2 = G.map.selectedset.item_get_random() as Waypoint;
+               this.wp2 = this.items_selected.item_get_random() as Waypoint;
+            if (this.wp1.is_vgroup_new) {
+               o = this.wp1;
+               this.wp1 = this.wp2;
+               this.wp2 = o as Waypoint;
+            }
+            m4_ASSERT(this.wp2.is_vgroup_new && this.wp1.is_vgroup_old
+                     && this.wp1.counterpart_gf === this.wp2);
+
+            // Now we know we have the case where we're diffing, but both
+            // old and new versions are present
+            //this.tag_space.addChild(this.tag_box_historic);
+            //this.tag_box_historic.update(new Set_UUID([this.wp1]));
+            this.set_fields(null, this.wp1.name_, this.wp2.name_,
+// this.wp1.comments, this.wp2.comments,
+                            false);
+            historic = true;
+         }
+         else {
+//            m4_ASSERT(G.map.selectedset.length == 1);
+            m4_ASSERT(this.items_selected.length == 1);
+            views.commands.UI_Wrapper_ComboBox.wrap(
+               this.widget_item_layer,
+               [this.wp1], 'geofeature_layer_id');
+
+            this.wp2 = null;
+            // covers the case for old or new version not being present
+            // and no diffing
+            if (this.wp1.is_vgroup_static || this.wp1.is_vgroup_none) {
+               if (this.wp1.rev_is_working) {
+                  //this.tag_space.addChild(this.tag_box);
+                  //this.tag_box.show();
+                  this.box_discussions.init(this.wp1.nthreads, this.wp1.fresh);
+               }
+               else {
+                  //this.tag_space.addChild(this.tag_box_historic);
+                  //this.tag_box_historic.update(new Set_UUID([this.wp1]));
+                  historic = true;
+               }
+               this.set_fields(this.wp1, this.wp1.name_, null,
+//this.wp1.comments, null,
+                               this.wp1.rev_is_working);
+            }
+            else if (this.wp1.is_vgroup_old) {
+               //this.tag_space.addChild(this.tag_box_historic);
+               //this.tag_box_historic.update(new Set_UUID([this.wp1]));
+               this.set_fields(this.wp1, this.wp1.name_, '',
+//this.wp1.comments, '',
+                               false);
+               historic = true;
+            }
+            else if (this.wp1.is_vgroup_new) {
+               //this.tag_space.addChild(this.tag_box_historic);
+               //this.tag_box_historic.update(new Set_UUID([this.wp1]));
+               this.set_fields(this.wp1, '', this.wp1.name_,
+//'', this.wp1.comments,
+                               false);
+               historic = true;
+            }
+         }
+
+// FIXME [aa] This is a lot different than how Byway handles it...
+// FIXME: Reimplement and replace
+//        with annotation_cnt, discussion_cnt
+         if (historic) {
+            if (this.wp1.np_old >= 0 && this.wp1.np_new != this.wp1.np_old) {
+               this.box_discussions.init_text(
+                  (this.wp1.np_new - this.wp1.np_old) + " new post(s).");
+            }
+            else {
+               this.box_discussions.init_text(this.wp1.nthreads
+                                              + " threads(s).");
+            }
+         }
+      }
+/*/
+
+      // *** Protected Interface
+
+/*/
+Fcn. shared w/ Panel_Item_Region.
+      //
+      protected function set_fields(wp:Waypoint, name1:String, name2:String,
+// comments1:String, comments2:String,
+                                    enabled:Boolean) :void
+      {
+         this.item_name_control.mouseEnabled = enabled;
+         this.item_name_control.mouseChildren = enabled;
+         this.item_name_control.required = enabled;
+/*/
+//         this.comments.mouseEnabled = enabled;
+//         this.comments.mouseChildren = enabled;
+/*/
+
+         if (enabled) {
+            this.change_state(this.panel_default_state);
+            this.item_name_control.editor.setStyle("borderStyle", "inset");
+//this.comments.editor.setStyle("borderStyle", "inset");
+         }
+         else {
+            m4_ASSERT(false); // No such state: 'DiffMode'...
+            this.change_state('DiffMode);
+            this.item_name_control.editor.setStyle("borderStyle", "none");
+//this.comments.editor.setStyle("borderStyle", "none");
+         }
+/*/
+
+// FIXME [aa] Similar to byway at all?
+/*/ See this.item_name_control.features = new Set_UUID(this.items_selected);
+         this.item_name_control.features.clear();
+//this.comments.features.clear();
+         if (wp !== null) {
+            this.item_name_control.features.add(wp);
+//this.comments.features.add(wp);
+         }
+/*/
+
+/*/ handled by dp gf history
+         if (name2 !== null) {
+            this.item_name_control.use_html = true;
+            this.item_name_control.text = SequenceMatcher.diff_html(name1, name2);
+         }
+         else {
+            this.item_name_control.use_html = false;
+            this.item_name_control.text = name1;
+         }
+/*/
+/*/
+         if (comments2 !== null) {
+            this.comments.use_html = true;
+            this.comments.text = SequenceMatcher.diff_html(comments1,
+                                                           comments2);
+         }
+         else {
+            this.comments.use_html = false;
+            this.comments.text = comments1;
+         }
+/*/
+//      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         // No-op, and currently, no class overrides this method.
+         m4_DEBUG('Entering state default!');
+         super.on_enter_state_base();
+      }
+
+      // *** Base class overrides
+
+      //
+      override public function panel_supports_feat(feat:Geofeature)
+         :Boolean
+      {
+         var multi_okay:Boolean = false;
+         return this.panel_supports_feat_impl(feat, multi_okay);
+      }
+
+   ]]></mx:Script>
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+
+         <!-- Nix the "Item Type" -->
+         <mx:RemoveChild
+            target="{this.panel_item_details.widget_item_type}"/>
+
+      </mx:State>
+
+   </views_panel_items:states>
+
+</views_panel_items:Panel_Item_Geofeature>
+

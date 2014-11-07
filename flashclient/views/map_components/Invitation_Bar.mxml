@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   height="0"
+   resize="this.label_width_adjust_later()"
+   >
+
+   <mx:Script><![CDATA[
+
+      import gwis.GWIS_Region_Stats_Get;
+      import items.Geofeature;
+      import items.feats.Region;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_util.Pointing_Widget;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('+Invit_Bar');
+
+      // *** Instance variables
+
+      public var new_invitation:Boolean = false;
+      public var reason_pw:Pointing_Widget;
+
+      [Binadble]
+      public var reason_title:String;
+      public var reason_message:String;
+      public var look_at_clicked:Boolean;
+
+      // *** Instance methods
+
+      //
+      public function help(ev:Event=null) :void
+      {
+         UI.mediawiki('/Geowiki_Help');
+      }
+
+      //
+      public function label_width_adjust_later() :void
+      {
+         if (G.map !== null) {
+            m4_DEBUG_CLLL('>callLater: this.label_width_adjust');
+            G.map.callLater(this.label_width_adjust);
+         }
+         // else, map is still loading.
+      }
+
+      //
+      public function label_width_adjust() :void
+      {
+         m4_DEBUG_CLLL('<callLater: label_width_adjust');
+         var text_width:int = this.invitation_region.measureText(
+            this.invitation_region.text).width + 10;
+         if (text_width > this.invitation_inner.width - this.accept.width) {
+            this.invitation_region.width
+               = this.invitation_inner.width - this.accept.width - 5;
+         }
+         else {
+            this.invitation_region.width = text_width;
+         }
+      }
+
+      //
+      public function point_at_maybe() :void
+      {
+         if (this.look_at_clicked
+             && G.item_mgr.region_of_the_day.stack_id in Geofeature.all) {
+            G.item_mgr.region_of_the_day
+               = Geofeature.all[G.item_mgr.region_of_the_day.stack_id]
+                 as Region;
+            this.reason_pw = Pointing_Widget.show_pointer(
+               this.reason_title + '!',
+               this.invitation_region.text + '.  ' + this.reason_message,
+               //G.item_mgr.region_of_the_day, 300,
+               G.item_mgr.region_of_the_day.sprite, 300,
+               ['Help on contributing'],
+               [this.help],
+               true);
+            this.look_at_clicked = false;
+         }
+      }
+
+      //
+      public function pw_remove() :void
+      {
+         if (this.reason_pw !== null) {
+            this.reason_pw.on_close();
+         }
+      }
+
+      //
+      public function show() :void
+      {
+         this.visible = true;
+         this.height = this.invitation_container.height;
+         this.label_width_adjust_later();
+      }
+
+      //
+
+      //
+      public function update() :void
+      {
+         if (Conf.region_of_the_day) {
+            if (G.item_mgr.region_of_the_day === null) {
+               if (!this.new_invitation) {
+                  this.new_invitation = true;
+                  (new GWIS_Region_Stats_Get(this)).fetch();
+               }
+            }
+            else {
+               this.point_at_maybe();
+            }
+         }
+      }
+
+      // *** Event handlers
+
+      //
+      public function handle_click_accept() :void
+      {
+         if (G.item_mgr.region_of_the_day !== null) {
+            this.look_at_clicked = true;
+            G.map.lookat(G.item_mgr.region_of_the_day);
+            // FIXME Rn. id: stack_id
+            G.sl.event('exp/appeals/navigate', {
+               id: G.item_mgr.region_of_the_day.stack_id,
+               version: G.item_mgr.region_of_the_day.version });
+         }
+      }
+
+      //
+      public function handle_click_hide() :void
+      {
+        this.visible = false;
+        // Make sure the elements below us move up
+        this.height = 0;
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      id="invitation_container"
+      width="100%"
+      backgroundColor="{Conf.point_widget_bgcolor}"
+      borderColor="{Conf.region_of_the_day_color}"
+      borderStyle="solid"
+      verticalGap="0">
+
+      <mx:HBox
+         backgroundColor="{Conf.region_of_the_day_color}"
+         height="100%"
+         verticalAlign="middle">
+         <mx:Label
+            id="rod"
+            text="Region of the Day"
+            color="0xffffff"
+            fontWeight="bold"
+            paddingLeft="4"
+            paddingRight="4" />
+      </mx:HBox>
+
+      <mx:HBox
+         horizontalScrollPolicy="off"
+         id = "invitation_inner"
+         horizontalGap="2"
+         horizontalAlign="center"
+         width="100%"
+         paddingTop="2"
+         paddingBottom="2"
+         paddingRight="4"
+         verticalAlign="middle">
+         <mx:Label
+            id="invitation_region"
+            text="Loading..."
+            color="Black"
+            toolTip="{this.invitation_region.text}"
+            fontWeight="bold"
+            paddingRight="2"/>
+         <mx:Button
+            id="accept"
+            label="Go There"
+            enabled="false"
+            click="this.handle_click_accept();"
+            fillColors="[0xaaff33, 0x88cc11]" />
+      </mx:HBox>
+
+      <!-- MAYBE: If the invitation bar is removed, everything moves up but the
+                  Editing Tools panel does not and it's not draggable above
+                  where the edge of the map _used_ to be. See bug 1733.
+      <mx:HBox
+         id="invitation_right"
+         horizontalScrollPolicy="off"
+         width="14"
+         height="100%"
+         horizontalGap="0"
+         horizontalAlign="right"
+         paddingLeft="0"
+         paddingTop="5"
+         paddingBottom="0"
+         paddingRight="5"
+         verticalAlign="top">
+         <mx:Button
+            id="invitation_container_close"
+            width="6"
+            height="7"
+            buttonMode="true"
+            toolTip="Close the Region of the Day Invitation Bar"
+            icon="@Embed(source='/assets/img/icon_panelw_close.png')"
+            upSkin="@Embed(source='/assets/img/icon_panelw_close.png')"
+            overSkin="@Embed(source='/assets/img/icon_panelw_close.png')"
+            downSkin="@Embed(source='/assets/img/icon_panelw_close.png')"
+            disabledSkin="@Embed(source='/assets/img/icon_panelw_close.png')"
+            click="this.handle_click_hide();" />
+      </mx:HBox>
+      -->
+
+   </mx:HBox>
+
+</mx:VBox>
+

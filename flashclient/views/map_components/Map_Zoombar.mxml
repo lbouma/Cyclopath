@@ -1,0 +1,501 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- Zoombar
+
+     A zoom widget for the map.  Handles on zoom events
+     and performs zoom functions when map is loaded.
+
+     -->
+
+<!-- We implement the Map_Zoom_Listener interface, as does Pan_Select, so we
+     get notified when the zoom changes.
+     MAYBE: In the CcpV2 world, using Events seems more "normal". Oh, well. -->
+
+<mx:Canvas
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   initialize="init()"
+   implements="views.base.Map_Zoom_Listener" >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.core.IToolTip;
+      import mx.core.UIComponent;
+      import mx.managers.ToolTipManager;
+      import mx.styles.StyleManager;
+      import mx.utils.GraphicsUtil;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Map_Zoombr');
+
+      protected static const ZOOM_LEVELS:Number
+         = Conf.zoom_max - Conf.zoom_min + 1;
+      //protected static const TICK_WIDTH:Number = 11;
+      protected static const TICK_WIDTH:Number = 10;
+      protected static const TICK_PADDING:Number = 10;
+      protected static const TICK_THICKNESS:Number = 2;
+      //protected static const BUTTON_SIZE:Number = 21;
+      //protected static const BUTTON_SIZE:Number = 22;
+      //protected static const BUTTON_SIZE:Number = 20;
+      protected static const BUTTON_SIZE:Number = 18;
+      protected static const BAR_TOP:Number = BUTTON_SIZE - TICK_PADDING / 3;
+      protected static const BAR_HEIGHT:Number
+         = (ZOOM_LEVELS + 1.5) * TICK_PADDING
+           + ZOOM_LEVELS * TICK_THICKNESS;
+      protected static const ZOOM_BUTTON_OVER_FILL:int = Conf.button_highlight;
+      protected static const ZOOM_BUTTON_OUT_FILL:int = 0xFFFFFF;
+      protected static const ZOOM_BUTTON_BORDER_STROKE:int = 0x333333;
+
+      // *** Instance variables
+
+      [Embed(source="/assets/img/map_zoom_plus.png")]
+      public const icon_map_zoom_plus:Class;
+      [Embed(source="/assets/img/map_zoom_minus.png")]
+      public const icon_map_zoom_minus:Class;
+
+      protected var _slider_level:Number;
+      protected var _zoom_level:Number;
+
+      protected const slider:Sprite = new Sprite();
+
+      // *** Init. functions
+
+      /**
+        * init - draw the zoom bar and add event listeners
+        *        to the zoom bar components
+        */
+      protected function init() :void
+      {
+         this._zoom_level = Map_Zoombar.ZOOM_LEVELS;
+         this._slider_level = this._zoom_level;
+
+         this.slider_init();
+         this.zoom_button_init(this.zoomin);
+         this.zoom_button_init(this.zoomout);
+         this.tick_bar_draw();
+
+         // add event listeners
+
+         this.tickbar.addEventListener(MouseEvent.CLICK, this.bar_click);
+         this.zoomin.addEventListener(MouseEvent.CLICK, this.on_click_zoomin);
+         this.zoomout.addEventListener(MouseEvent.CLICK,
+                                       this.on_click_zoomout);
+         // FIXME: Care about priority here?
+         //        See Map_Canvas_Controller.mouse_priority_*.
+         // BUG nnnn: If you click the map and start panning, when you pan over
+         //           the zoombar, the map stops panning.
+         this.slider.addEventListener(MouseEvent.MOUSE_DOWN,
+                                      this.slider_start_dragging);
+
+         // It could just be [lb]'s dev machine, but the plus '+' and minus '-'
+         // icons don't always appear. This, so far, seems to help:
+         this.zoomin.setStyle('icon', this.icon_map_zoom_plus);
+         this.zoomout.setStyle('icon', this.icon_map_zoom_minus);
+         //this.setChildIndex(this.zoomin, this.numChildren - 1);
+         //this.setChildIndex(this.zoomout, this.numChildren - 1);
+      }
+
+      // *** Instance methods
+
+      //
+      protected function on_click_zoomin(e:Event) :void 
+      {
+         m4_DEBUG('on_click_zoomin');
+         var delta:Number = -1;
+         this.zoom_level = this._zoom_level + delta;
+         e.stopImmediatePropagation();
+      }
+
+      //
+      protected function on_click_zoomout(e:Event) :void
+      {
+         m4_DEBUG('on_click_zoomout');
+         var delta:Number = 1;
+         this.zoom_level = this._zoom_level + delta;
+         e.stopImmediatePropagation();
+      }
+
+      /**
+        * zoom_button_init - give zoom buttons skins, an easy way to
+        *                    reuse code without creating a Zoom_Button
+        *                    class
+        */
+      protected function zoom_button_init(btn:Button) :void
+      {
+         button_skin(btn, Map_Zoombar.ZOOM_BUTTON_OUT_FILL);
+         btn.addEventListener(MouseEvent.MOUSE_OVER,
+            skin_on_click(btn, Map_Zoombar.ZOOM_BUTTON_OVER_FILL));
+         btn.addEventListener(MouseEvent.MOUSE_OUT,
+            skin_on_click(btn, Map_Zoombar.ZOOM_BUTTON_OUT_FILL));
+      }
+
+      /**
+        * zoom_on_click - create a listener that zooms in #delta
+        *                 when button is clicked
+        */
+      protected function zoom_on_click(delta:Number) :Function
+      {
+         return function(e:Event) :void
+         {
+            this.zoom_level = this._zoom_level + delta;
+            e.stopImmediatePropagation();
+         }
+      }
+
+      /**
+        * skin_on_click - create a listener which skins #btn with
+        *                 #color when a button is clicked
+        */
+      protected static function skin_on_click(btn:Button, color:int) :Function
+      {
+         return function(e:MouseEvent) :void
+         {
+            button_skin(btn, color);
+         }
+      }
+
+      /**
+        * button_skin - draw #btn with fill #color
+        * NOTE: in the future we might want to implement these
+        *       skins as skin classes
+        */
+      protected static function button_skin(btn:Button, color:int) :void
+      {
+         var gr:Graphics = btn.graphics;
+         gr.clear();
+         gr.beginFill(color);
+         gr.lineStyle(1,
+                      Map_Zoombar.ZOOM_BUTTON_BORDER_STROKE,
+                      1.0,
+                      true,
+                      LineScaleMode.NORMAL,
+                      CapsStyle.ROUND,
+                      JointStyle.ROUND);
+         gr.drawRoundRect(0, 0,
+                          Map_Zoombar.BUTTON_SIZE,
+                          Map_Zoombar.BUTTON_SIZE,
+                          10, 10);
+         gr.endFill();
+      }
+
+      /**
+        * slider_init
+        */
+      //
+      protected function slider_init() :void
+      {
+         var slider_wrapper:UIComponent = new UIComponent();
+         var width:Number = Map_Zoombar.TICK_WIDTH * 2 - 1;
+         var height:Number = Map_Zoombar.TICK_PADDING * 2/3;
+
+         // DRAW slider
+
+         var gr:Graphics = this.slider.graphics;
+         gr.clear();
+         gr.beginFill(0xFFFFFF);
+         gr.lineStyle(1, 0x666666, 1.0, true, LineScaleMode.NORMAL,
+                      CapsStyle.ROUND, JointStyle.ROUND);
+         GraphicsUtil.drawRoundRectComplex(gr, 0, 0, width, height,
+                                           3, 3, 3, 3); // radiaa
+         gr.endFill();
+
+         this.addChild(slider_wrapper);
+         slider_wrapper.addChild(this.slider);
+         this.slider_level = this._zoom_level;
+      }
+
+      /**
+        * tick_bar_draw
+        */
+      protected function tick_bar_draw() :void
+      {
+         var center:int = Math.floor(Map_Zoombar.TICK_WIDTH / 2);
+         var gr:Graphics = this.tickbar.graphics;
+
+         // DRAW vertical bar
+
+         gr.moveTo(center, Map_Zoombar.TICK_PADDING * 0.5);
+         gr.lineStyle(1, 0x000000, 1.0, true,
+                     LineScaleMode.NORMAL, CapsStyle.ROUND, JointStyle.ROUND);
+
+         gr.beginFill(0xFFFFFF, 0.8);
+         GraphicsUtil.drawRoundRectComplex(gr,
+                                           center - 4, 0,
+                                           6, Map_Zoombar.BAR_HEIGHT,
+                                           3, 3, 3, 3); // radiaa
+         gr.endFill();
+         gr.lineStyle(Map_Zoombar.TICK_THICKNESS, 0x333333, 1.0, true,
+                      LineScaleMode.NORMAL, CapsStyle.ROUND, JointStyle.ROUND);
+
+         // DRAW tick marks.
+
+         // For raster zooms -- when the user can edit (i.e., not a tile zoom
+         // level) -- draw the tick differently.
+         // BUG nnnn: The meaning of the tick colors is soooo hidden from
+         //           new users (and non-editors).
+         var is_raster_level:Boolean;
+         var tick_color:Number;
+         
+         for (var i:int = 1; i <= Map_Zoombar.ZOOM_LEVELS; i++) {
+
+            var y_posit:int = Map_Zoombar.TICK_PADDING * (Number(i) + 0.25)
+                              + Map_Zoombar.TICK_THICKNESS * (i - 1);
+
+            is_raster_level = (i <= Conf.zoom_max - Conf.raster_only_zoom);
+
+            // 2013.06.13: A little something something extra to make the
+            //             raster ticks more distinguishable.
+            //const line_color:Number = 0x006600;
+            //const line_color:Number = 0x000000;
+            //const line_color:Number = 0x00AA00;
+            const line_color:Number = 0x00CC00;
+            if (is_raster_level) {
+               gr.lineStyle(Map_Zoombar.TICK_THICKNESS /* line thickness */,
+                            line_color, 1.0, true,
+                            LineScaleMode.NORMAL,
+                            CapsStyle.ROUND,
+                            JointStyle.ROUND);
+               gr.moveTo(0, y_posit - 1);
+               gr.lineTo(Map_Zoombar.TICK_WIDTH, y_posit - 1);
+            }
+
+            if (is_raster_level) {
+               tick_color = 0x000000;
+               //tick_color = 0x00CC00;
+               //tick_color = 0x006600;
+            }
+            else {
+               // 2013.06.13: [lb] finally figured this out! After years of
+               // squinting to distinguish between raster and tile ticks, why
+               // not just make the color more distinguishing!
+               //tick_color = 0x666666;
+               //tick_color = 0x000000;
+               //tick_color = 0x333333;
+               tick_color = 0x535353;
+            }
+            gr.lineStyle(Map_Zoombar.TICK_THICKNESS,
+                         tick_color, 1.0, true,
+                         LineScaleMode.NORMAL,
+                         CapsStyle.ROUND,
+                         JointStyle.ROUND);
+            gr.moveTo(-2, y_posit);
+            gr.lineTo(Map_Zoombar.TICK_WIDTH + 2, y_posit);
+
+         }
+      }
+
+      // *** Instance Methods
+
+      /**
+        * zoom_level - update the map zoom level and the
+        *              position of the slider
+        */
+      public function set zoom_level(level:Number) :void
+      {
+         // Check if the level is valid
+         if ((level > 0) && (level <= Map_Zoombar.ZOOM_LEVELS)) {
+            var diff:Number = this._zoom_level - level;
+            // check if the level has changed
+            if (diff != 0) {
+               this._zoom_level = level;
+               this.slider_level = level;
+               // check if the level is different than the map's
+               if (this._zoom_level
+                   != (Conf.zoom_max - G.map.zoom_level + 1)) {
+                  G.map.zoom_in(diff);
+               }
+            }
+         }
+      }
+
+      /**
+        *  slider_level - set the position of the slider based on
+        *                 a zoom level (without actually zooming)
+        */
+      public function set slider_level(level:Number) :void
+      {
+         if ((level > 0) && (level <= Map_Zoombar.ZOOM_LEVELS)) {
+            this._slider_level = level;
+            this.slider.y = Map_Zoombar.BAR_TOP
+                       + (level-1)
+                         * (Map_Zoombar.TICK_PADDING
+                            + Map_Zoombar.TICK_THICKNESS)
+                       + Map_Zoombar.TICK_PADDING * 3 / 4;
+         }
+      }
+
+      // *** Utility Methods
+
+      /**
+        * point_to_zoom_level - given a point on the zoom bar calculate the
+        *                       associated zoom level
+        */
+      protected function point_to_zoom_level(point:Point) :Number
+      {
+         var offset:Number = point.y - Map_Zoombar.BAR_TOP;
+         var level:Number =
+            int(offset / (Map_Zoombar.TICK_PADDING
+                          + Map_Zoombar.TICK_THICKNESS))
+            + 1;
+         return level;
+      }
+
+      // *** Event Handlers
+
+      // Map_Zoom_Listener implementation
+
+      /**
+        * on_zoom - react to changes to the map's zoom level
+        *           if the zoombar zoom level and the map's
+        *           zoom level already match, prevent infinite
+        *           loops by not updating zoom_level
+        */
+      public function on_zoom(o_level:int, n_level:int) :void
+      {
+         var new_1_based_zoom_level:int = (Conf.zoom_max - n_level) + 1;
+         if (new_1_based_zoom_level != this._zoom_level) {
+            this.zoom_level = new_1_based_zoom_level;
+         }
+      }
+
+      // END Map_Zoom_Listener implementation
+
+      /**
+        * bar_click - update the zoom level when the tick bar
+        *             is clicked
+        */
+      protected function bar_click(e:MouseEvent) :void
+      {
+         var local:Point = this.globalToLocal(new Point(e.stageX, e.stageY));
+         this.zoom_level = this.point_to_zoom_level(local);
+      }
+
+      /**
+        * slider_on_dragging - snap the slider to tick marks
+        */
+      protected function slider_on_dragging(e:MouseEvent) :void
+      {
+         var local:Point = this.globalToLocal(new Point(e.stageX, e.stageY));
+         this.slider_level = this.point_to_zoom_level(local);
+      }
+
+      /**
+        * slider_start_dragging - start following mouse with slider remove
+        *                         mouse move listeners from map canvas
+        */
+      protected function slider_start_dragging(e:MouseEvent) :void
+      {
+         m4_DEBUG('slider_start_dragging');
+         G.map.addEventListener(MouseEvent.MOUSE_UP,
+                                this.slider_stop_dragging);
+         G.map.addEventListener(MouseEvent.MOUSE_MOVE,
+                                this.slider_on_dragging);
+         G.map.removeEventListener(MouseEvent.MOUSE_MOVE, G.map.on_mouse_move);
+         this.addEventListener(MouseEvent.MOUSE_UP, this.slider_stop_dragging);
+         this.addEventListener(MouseEvent.MOUSE_MOVE, this.slider_on_dragging);
+      }
+
+      /**
+        * slider_stop_dragging - stop following mouse with slider add mouse
+        *                        move listeners back to map canvas
+        */
+      protected function slider_stop_dragging(e:MouseEvent) :void
+      {
+         m4_DEBUG('slider_stop_dragging');
+         G.map.removeEventListener(MouseEvent.MOUSE_MOVE,
+                                   this.slider_on_dragging);
+         G.map.removeEventListener(MouseEvent.MOUSE_UP,
+                                   this.slider_stop_dragging);
+         G.map.addEventListener(MouseEvent.MOUSE_MOVE, G.map.on_mouse_move);
+         this.removeEventListener(MouseEvent.MOUSE_MOVE,
+                                  this.slider_on_dragging);
+         this.removeEventListener(MouseEvent.MOUSE_UP,
+                                  this.slider_stop_dragging);
+
+         this.zoom_level = this._slider_level;
+      }
+
+      //
+      protected function on_mouse_move(evt:MouseEvent) :void
+      {
+         // Hacky way to clear the toolTip?
+         // Ug. This only delays that problem: We still get ArgumentError but
+         // in a different frame.
+         /*
+         var cur_tip:IToolTip = ToolTipManager.currentToolTip;
+         if (cur_tip !== null) {
+            try {
+               ToolTipManager.destroyToolTip(cur_tip);
+            }
+            catch (e:ArgumentError) {
+               // ?
+            }
+         }
+         */
+         var cur_tip:IToolTip = ToolTipManager.currentToolTip;
+         if (cur_tip !== null) {
+            ToolTipManager.enabled = false;
+            G.app.callLater(this.reenable_ttm);
+         }
+      }
+
+      //
+      protected function reenable_ttm() :void
+      {
+         ToolTipManager.enabled = true;
+      }
+
+   ]]></mx:Script>
+
+   <!-- MAYBE: Unfortunately, the toolTip is sticky once it's shown, and it
+               hides the zoombar. We'd need to listen on mouse events so that
+               we clear the toolTip when the mouse moves.
+      -->
+   <mx:Box
+      id="tickbar"
+      height="{Map_Zoombar.BAR_HEIGHT}"
+      width="{20}"
+      x="5"
+      y="{Map_Zoombar.BAR_TOP}"
+      mouseMove="this.on_mouse_move(event);"
+      />
+<!-- FIXME: This toolTip is annoying. Figure out how better to display this.
+            Can we add this to the Map Legend help?
+
+helpful information.
+      toolTip=
+"The top half of tick marks, with the green highlight, are interactive zoom levels. At interactive zoom levels, you can select items on the map."
+-->
+
+
+
+   <!-- Icon dimensions: 14x13 -->
+   <mx:Button
+      id="zoomin"
+      icon="@Embed(source='/assets/img/map_zoom_plus.png')"
+      paddingLeft="3"
+      paddingTop="2"
+      skin="{null}"
+      />
+
+   <!-- Icon dimensions: 14x13 -->
+   <mx:Button
+      id="zoomout"
+      icon="@Embed(source='/assets/img/map_zoom_minus.png')"
+      paddingLeft="2"
+      paddingTop="3"
+      skin="{null}"
+      y="{Map_Zoombar.BAR_TOP
+          + Map_Zoombar.BAR_HEIGHT
+          - Map_Zoombar.TICK_PADDING / 2}"
+      />
+
+</mx:Canvas>
+

@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   paddingLeft="4"
+   paddingRight="4"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   dataChange="this.entry_update();"
+   doubleClickEnabled="true"
+   doubleClick="this.on_double_click(event);"
+   mouseOver="this.on_list_entry_mouseover(event);"
+   mouseOut="this.on_list_entry_mouseout(event);">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.geom.Point;
+      import flash.text.TextLineMetrics;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.controls.Button;
+      import mx.controls.Menu;
+      import mx.events.FlexEvent;
+
+      import utils.geom.Dual_Rect;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('AddyPickrEnt');
+
+      // ***
+
+      protected var watcher_width:ChangeWatcher;
+
+      // ***
+
+      public function entry_update() :void
+      {
+         m4_TALKY2('entry_update: this.data:', (this.data !== null)
+                                 ? this.data.toXMLString() : 'null');
+
+         if (this.data !== null) {
+
+            this.geocode_result_text.text = this.data.@text;
+
+            var tlm:TextLineMetrics =
+               this.geocode_result_text.measureText(
+                     this.geocode_result_text.text);
+            m4_PPUSH4('entry_update: tlm.width:', tlm.width,
+               '/ geocode_result_text.width:', this.geocode_result_text.width,
+               '/ addr_input_label_container.width:',
+               this.addr_input_label_container.width);
+            if ((tlm.width > this.geocode_result_text.width)
+                || (G.tabs.settings.route_geocoder_show_details)) {
+               //this.geocode_result_text.toolTip = this.data.@text;
+               this.geocode_result_text.toolTip = this.address_tool_tip;
+            }
+            else {
+               this.geocode_result_text.toolTip = '';
+            }
+
+            var addy_picker:Address_Picker;
+            addy_picker = (this.parentDocument as Address_Picker);
+            m4_DEBUG3('entry_update: addy_picker:', addy_picker,
+                      'addy_picker.addy_resolved:',
+                      addy_picker.addy_resolved);
+            if ((addy_picker.addy_resolved === null)
+                || (addy_picker.addy_resolved.geocoded_index
+                    != this.data.@results_index)) {
+               this.geocode_choose_link.htmlText = "Choose";
+               this.geocode_choose_link.toolTip =
+                  'Click to use this location in your route.';
+               this.geocode_choose_link.enabled = true;
+            }
+            else {
+               this.geocode_choose_link.htmlText = "Chosen";
+               this.geocode_choose_link.toolTip = '';
+               this.geocode_choose_link.enabled = false;
+            }
+         }
+         m4_ASSERT_ELSE_SOFT;
+
+         this.on_change_width();
+      }
+
+      //
+      public function on_change_width(event:Event=null) :void
+      {
+         m4_PPUSH('on_change_width: this.width:', this.width);
+         // The parent's width seems to be the same as ours.
+         m4_PPUSH2('on_change_width: parentDocument.width:',
+                   this.parentDocument.width);
+         // And then the addr label might be ridiculously too large.
+         // E.g., look for the "megamall" point, whose name is very long.
+         m4_PPUSH2('on_change_width: addr_input_label_container.width:',
+                   this.addr_input_label_container.width);
+         //
+         m4_PPUSH2('on_change_width: addr_picker_container.width:',
+                   this.addr_picker_container.width);
+         //
+         m4_PPUSH2('on_change_width: geocode_lookat_link.width:',
+                   this.geocode_lookat_link.width);
+         m4_PPUSH2('on_change_width: geocode_choose_link.width:',
+                   this.geocode_choose_link.width);
+         m4_PPUSH2('on_change_width: geocode_apres_spacer.width:',
+                   this.geocode_apres_spacer.width);
+
+         m4_DEBUG('on_change_width: data:', this.data.toXMLString());
+         var addy_picker:Address_Picker;
+         addy_picker = (this.parentDocument as Address_Picker);
+         m4_PPUSH2('on_change_width: addy_picker.width:',
+                   addy_picker.width);
+         // Its parent is either an Address_Resolver or a Route_Stop_Entry.
+         m4_PPUSH2('on_change_width: addy_picker.parentDocument.width:',
+                   addy_picker.parentDocument.width);
+
+         //m4_PPUSH2('on_change_width: routes_new.optgroup_directions_inner:',
+         //   G.app.routes_panel.routes_new.optgroup_directions_inner.width);
+
+         if (this.parentDocument.width > 0) {
+
+            //this.geocode_result_text.toolTip = '';
+            this.geocode_result_text.toolTip = this.address_tool_tip;
+
+            var max_width:int
+               //= this.parentDocument.width
+               = addy_picker.parentDocument.width
+               - this.geocode_lookat_link.width
+               - this.geocode_choose_link.width
+               - this.geocode_apres_spacer.width
+               // MAGIC_NUMBER: There are 4 items in the HBox.
+               - (this.addr_picker_container.getStyle('horizontalGap') * 3)
+               - this.addr_picker_container.getStyle('paddingLeft')
+               - this.addr_picker_container.getStyle('paddingRight')
+               //
+               // Hrmm... we're still too wide...
+               //- this.addr_input_label_container.getStyle('paddingLeft')
+               //- this.addr_input_label_container.getStyle('paddingRight')
+               // MAGIC_NUMBER: So Sayeth the Pixel Pusher: "Eight".
+               - 8
+               ;
+            m4_PPUSH('on_change_width: max_width:', max_width);
+
+            var tlm:TextLineMetrics =
+               this.geocode_result_text.measureText(
+                     this.geocode_result_text.text);
+            m4_PPUSH4('entry_update: tlm.width:', tlm.width,
+               '/ geocode_result_text.width:', this.geocode_result_text.width,
+               '/ addr_input_label_container.width:',
+               this.addr_input_label_container.width);
+            if (tlm.width > max_width) {
+               this.addr_input_label_container.maxWidth = max_width;
+               //if (this.data !== null) {
+               //   this.geocode_result_text.toolTip = this.data.@text;
+               //}
+               this.geocode_result_text.maxWidth =
+                  max_width
+                  - this.addr_input_label_container.getStyle('paddingLeft')
+                  - this.addr_input_label_container.getStyle('paddingRight');
+            }
+         }
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_width = ChangeWatcher.watch(
+            this.addr_input_label_container, 'width', this.on_change_width);
+         this.on_change_width();
+      }
+
+      //
+      protected function on_double_click(ev:MouseEvent=null) :void
+      {
+         m4_DEBUG('on_double_click: ev:', ev);
+         this.on_geocode_choose_click();
+      }
+
+      //
+      public function on_list_entry_mouseover(event:MouseEvent=null) :void
+      {
+         m4_TALKY('on_list_entry_mouseover');
+      }
+
+      //
+      public function on_list_entry_mouseout(event:MouseEvent=null) :void
+      {
+         m4_TALKY('on_list_entry_mouseout');
+         var addy_picker:Address_Picker;
+         addy_picker = (this.parentDocument as Address_Picker);
+         addy_picker.addy_geocode_list.selectedIndex = -1;
+         //addy_picker.addy_geocode_list.clearSelected();
+         addy_picker.addy_geocode_list.selectedItem = null;
+
+         this.stage.focus = null;
+      }
+
+      // ***
+
+      //
+      public function get address_tool_tip() :String
+      {
+         m4_DEBUG('address_tool_tip: data:', this.data.toXMLString());
+
+         var tool_tip:String = this.data.@text;
+
+         if (G.tabs.settings.route_geocoder_show_details) {
+            if (   (this.data.@gc_id == 'ccp_gf')
+                || (this.data.@gc_id == 'ccp_pt')) {
+               tool_tip += ' (from Cyclopath geocoder / confidence: ';
+            }
+            else {
+               tool_tip += ' (from external geocoder / confidence: ';
+            }
+            if (!isNaN(this.data.@gc_ego)) {
+               tool_tip += String(this.data.@gc_ego) + '%';
+            }
+            tool_tip += ')';
+         }
+
+         return tool_tip;
+      }
+
+      // ***
+
+      //
+      public function on_geocode_choose_click(event:MouseEvent=null) :void
+      {
+         m4_DEBUG('on_geocode_choose_click');
+         var addy_picker:Address_Picker;
+         addy_picker = (this.parentDocument as Address_Picker);
+         addy_picker.picked_handler(this.data);
+      }
+
+      //
+      public function on_geocode_locate_click(event:MouseEvent=null) :void
+      {
+         // Panzoom to the location of the geocode result.
+         // No output: m4_DEBUG('on_geocode_locate_click: data:', this.data);
+         m4_DEBUG('on_geocode_locate_click: data:', this.data.toXMLString());
+         //G.map.pan_and_zoomto(G.map.xform_x_map2cv(this.data.@x),
+         //                     G.map.xform_y_map2cv(this.data.@y),
+         //                     (G.map.zoom_level < 15 ? 15 : G.map.zoom_level)
+         //                        // This is 2:1 meters:pixel.
+         //                     );
+         var mobr_dr:Dual_Rect = new Dual_Rect();
+         var minx:Number = Number.POSITIVE_INFINITY;
+         var miny:Number = Number.POSITIVE_INFINITY;
+         var maxx:Number = Number.NEGATIVE_INFINITY;
+         var maxy:Number = Number.NEGATIVE_INFINITY;
+         mobr_dr.map_min_x =
+            Math.min(minx, Number(this.data.@x)
+                         - Number(this.data.@width) / 2); // left
+         mobr_dr.map_max_y =
+            Math.max(maxy, Number(this.data.@y)
+                         + Number(this.data.@height) / 2); // top
+         mobr_dr.map_max_x =
+            Math.max(maxx, Number(this.data.@x)
+                         + Number(this.data.@width) / 2); // right
+         mobr_dr.map_min_y =
+            Math.min(miny, Number(this.data.@y)
+                         - Number(this.data.@height) / 2); // bottom
+         G.map.lookat_dr(mobr_dr);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      id="addr_picker_container"
+      width="100%"
+      verticalAlign="middle"
+      horizontalGap="4"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off">
+      <mx:HBox
+         id="addr_input_label_container"
+         width="100%"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off">
+         <!-- [lb] isn't sure about catching this click:
+              you have to click on the text itself, and
+              there's no finger cursor, so the behavior
+              is a littfle hidden. -->
+         <!-- [lb] isn't sure why we get the error "warning: unable to bind to
+               property 'text' on class 'XMLList' (class is not an
+               IEventDispatcher)" when trying text="{this.data.@text}"
+               even after also trying to wrap the XML in an ObjectProxy
+               (in Address_Picker, when it sets the DataGrid's dataProvider).
+               Oh, well, I guess we'll just set the text field from the
+               dataChange handler, entry_update.
+         -->
+         <mx:Label
+            id="geocode_result_text"
+            text=""
+            truncateToFit="true"
+            click="this.on_geocode_locate_click(event);"/>
+      </mx:HBox>
+      <views_panel_util:Hyper_Link
+         id="geocode_lookat_link"
+         htmlText="Locate"
+         toolTip="Click to zoom to this location on the map."
+         enabled="true"
+         click="this.on_geocode_locate_click(event);"/>
+      <views_panel_util:Hyper_Link
+         id="geocode_choose_link"
+         htmlText="Choose"
+         toolTip="Click to use this location in your route."
+         enabled="true"
+         click="this.on_geocode_choose_click(event);"/>
+      <!-- MAGIC_NUMBER: This matches the width of address_container
+                         in Address_Resolver (or addr_crazyclear_btn). -->
+      <mx:Spacer
+         id="geocode_apres_spacer"
+         width="16"/>
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

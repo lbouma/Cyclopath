@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- MAYBE: This class derives from Detail_Panel_Widget, but this.dp is never
+            set. Should this be a Detail_Panel_GridRow instead? -->
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   dataChange="this.get_bg_color(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import items.Geofeature;
+      import items.Item_Revisioned;
+      import items.Link_Value;
+      import items.attcs.Annotation;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.rev_spec.*;
+      import views.commands.Item_Delete;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Ann_Ent');
+
+      // *** Instance methods
+
+      //
+      protected function visible_maybe() :Boolean
+      {
+         m4_ASSERT(false); // FIXME: This fcn. no longer called
+         return ((G.map.rev_viewport is utils.rev_spec.Working)
+                 && G.map.zoom_is_vector());
+      }
+
+      //
+      protected function toggle_annotation(a:Annotation) :void
+      {
+// FIXME: Statewide UI: Verify this works. [lb] notes that downtown one the
+//        selected block gets the highlight, but more of 4th St S shares the
+//        same note. It's also not toggling.
+         // If the user clicks on a note in the notes list of a geofeature
+         // details panel, we want to maintain the item selection set, but
+         // we also want to highlight all of the geofeatures in the viewport
+         // that share this note.
+         m4_DEBUG('toggle_annotation: a:', a);
+         if (a !== null) {
+            // MAYBE: 2013.03.08: Double-check this behavior. If a user clicks
+            //        a list item a second time, we should disable the
+            //        highlight, right?
+            if (G.item_mgr.highlighted_attachment === a) {
+               G.item_mgr.highlighted_attachment = null;
+               // FIXME: How do you de-select the list item, too? [lb] hasn't
+               //        tested but assumes the list item remains selected...
+// FIXME: Error: Access of possibly undefined property selected through a
+//        reference with static type views.panel_items:Widget_Annotation_Entry.
+//        Statewide UI: I think [lb] wanted to highlight the list item??
+// this.selected = false; // Set selected on the Flex component.
+            }
+            else {
+               G.item_mgr.highlighted_attachment = a;
+            }
+
+            // The user can interact with tags similarly -- click a tag and the
+            // items to which it applies are highlighted on the map. Since the
+            // user clicked a note, clear the tag highlights.
+            // FIXME: Test this. [lb] wonders if there are other places we
+            //        should be calling Widget_Tag_Widget.clear_selected().
+            Widget_Tag_Widget.clear_selected();
+         }
+         // else, EXPLAIN: Why were we called? Did user click list, just not on
+         //       a list item? I.e., after the last item in the list box?
+
+// FIXME: This should only happen once: when the attachment is [de]selected.
+//         UI.attachment_highlights_update();
+//         G.map.highlight_manager.set_layer_visible(
+//                     Conf.attachment_highlight, true);
+      }
+
+      //
+      protected function on_delete_click() :void
+      {
+         var annot:Annotation = this.data as Annotation;
+         // NOTE: This fcn. assumes Annotations are linked to Geofeatures only
+         var gf:Geofeature;
+         var gfs:Array = Link_Value.items_for_attachment(annot);
+         var selected_set:Set_UUID = new Set_UUID();
+
+         for each (gf in gfs) {
+            if (gf.selected) {
+               selected_set.add(Link_Value.items_get_link_value(annot, gf));
+            }
+         }
+
+// FIXME: I don't think we should wiki-delete links, since they won't all be
+// loaded, and we don't want to send all that nonsense to the server. How did
+// V1 get away with doing this?   See also code in Attr_Entry
+
+         var cmd:Item_Delete = new Item_Delete(selected_set);
+         // FIXME: If we wire annotations to routes, make sure we somehow call
+         //        this.PARENT_PANEL.get_cmd_mgr.do_(cmd);
+         //        which we don't do because this.dp isn't set.
+         G.map.cm.do_(cmd);
+
+         // The item(s) being deleted should already be hydrated.
+         m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         if (cmd.is_prepared) {
+            m4_DEBUG('on_delete_click: success');
+            for each (gf in gfs) {
+               if (gf.selected) {
+                  gf.draw_all();
+               }
+            }
+         }
+         else {
+            m4_DEBUG('on_delete_click: failed');
+         }
+      }
+
+      //
+      protected function get_bg_color(ev:FlexEvent) :void
+      {
+         var an:Annotation = this.data as Annotation;
+         var lv:Link_Value;
+         var status:int = 0;
+         var gf:Geofeature;
+         var sel:Boolean;
+
+         //m4_VERBOSE('get_bg_color');
+
+         for each (lv in Link_Value.item_get_link_values(an.base_id)) {
+
+            sel = false;
+
+            if (lv.rhs_stack_id in Geofeature.all) {
+               gf = Geofeature.all[lv.rhs_stack_id] as Geofeature;
+               sel = gf.selected;
+            }
+            if (!sel
+                && (Item_Revisioned.version_id_hack(lv.rhs_stack_id, true)
+                    in Geofeature.all)) {
+               gf = Geofeature.all
+                     [Item_Revisioned.version_id_hack(lv.rhs_stack_id, true)];
+               sel = gf.selected;
+            }
+            if (!sel
+                && (Item_Revisioned.version_id_hack(lv.rhs_stack_id, false)
+                    in Geofeature.all)) {
+               gf = Geofeature.all
+                     [Item_Revisioned.version_id_hack(lv.rhs_stack_id,
+                                                      false)];
+               sel = gf.selected;
+            }
+
+            if (sel) {
+               if (lv.is_vgroup_old && lv.counterpart_untyped === null) {
+                  status -= 1;
+               }
+               else if (lv.is_vgroup_new && lv.counterpart_untyped === null) {
+                  status += 1;
+               }
+            }
+         }
+
+         if (status < 0) {
+            this.setStyle("backgroundColor", Conf.vgroup_move_old_color);
+         }
+         else if (status > 0) {
+            this.setStyle("backgroundColor", Conf.vgroup_move_new_color);
+         }
+         else if (an.rev_is_diffing
+                  && ((an.counterpart_untyped === null)
+                      || (an.digest_nongeo != (an.counterpart_untyped as
+                                               Annotation).digest_nongeo))) {
+            this.setStyle("backgroundColor", Conf.annotation_change_color);
+         }
+         else {
+            this.clearStyle("backgroundColor");
+         }
+      }
+
+      //
+      protected function on_edit_click() :void
+      {
+         m4_DEBUG('on_edit_click: this:', this);
+         var annotation:Annotation = this.data as Annotation;
+         annotation.prepare_and_activate_panel();
+      }
+
+      //
+      protected function on_tooltip_shown() :void
+      {
+         var a:Annotation = (this.data as Annotation);
+         // FIXME Should this (and others) just send system_id?
+         G.sl.event('ui/container/byway_detail/annot_tooltip',
+                    {annot_id: a.stack_id, version: a.version});
+      }
+
+   ]]></mx:Script>
+
+<!-- FIXME Add "Click 'Add Note' to create a new note." -->
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="4"
+      click="this.toggle_annotation(this.data as Annotation);">
+<!-- FIXME: Statewide UI: [lb] thinks toggle_annotation isn't working right.
+            You should be able to click an item in the notes list and see a
+            highlight on all of the geofeatures to which it applies. -->
+<!-- updateComplete="this.del.visible = this.visible_maybe();" -->
+      <mx:Label
+         width="100%"
+         minWidth="0"
+         text="{this.data.blurb_title}"
+         toolTip="{this.data.blurb}"
+         toolTipShown="this.on_tooltip_shown();"/>
+      <views_panel_util:Button_Small
+         label="open"
+         height="16"
+         click="this.on_edit_click();" />
+      <!-- label="more" -->
+      <!-- Use delete button on annotation's advanced tab. be consistent -->
+      <!--
+      <views_panel_util:Button_Small
+         id="del"
+         label="x"
+         height="16"
+         width="16"
+         click="this.on_delete_click();" />
+      -->
+<!-- FIXME: Go to Basic tab when changing item details panels... -->
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

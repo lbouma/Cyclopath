@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   paddingLeft="{G.app.pad}"
+   paddingTop="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.effects.Fade;
+      import mx.effects.Move;
+      import mx.events.CloseEvent;
+      import mx.events.EffectEvent;
+      import mx.validators.StringValidator;
+
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.section_header.Account_Control;
+
+/*/
+
+BUG nnnn/FIXME:
+Install php on runic and huffy
+Install mediawiki on pluto and runic
+Make gwis command to call local mediawiki when user sends password
+use python urllib2 to send/receive from mediawiki
+and maybe there's already a plugin...
+so just send the commands:
+- sign up
+- confirm sign up (need ccp deeplink of mediawiki deeplink)
+- password reset/forgot password
+- change password/email
+
+
+/*/
+
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Logon_DrpDwn');
+
+      // Instance variables
+
+      // Any failing validation will set this to false
+      protected var login_valid:Boolean;
+
+//      protected var key_mover:Move;
+
+      protected var effect_login_box_fade_in:Fade = new Fade();
+      protected var effect_login_box_fade_out:Fade = new Fade();
+
+      // *** Instance methods
+
+      // Validate. If all checks out, submit; otherwise, do nothing.
+      protected function login_submit_maybe() :void
+      {
+
+         var targets:Array = [this,];
+
+         this.effect_login_box_fade_in.targets = targets;
+         this.effect_login_box_fade_in.duration = 300;
+         this.effect_login_box_fade_in.alphaFrom = 0.0;
+         this.effect_login_box_fade_in.alphaTo = 1.0;
+
+         this.effect_login_box_fade_out.targets = targets;
+         this.effect_login_box_fade_out.duration = 300;
+         this.effect_login_box_fade_out.alphaFrom = 1.0;
+         this.effect_login_box_fade_out.alphaTo = 0.0;
+
+         this.effect_login_box_fade_in.addEventListener(
+            EffectEvent.EFFECT_END, on_effect_end_login_box_fade);
+//         this.effect_login_box_fade_in.end();
+//         this.effect_login_box_fade_in.play();
+
+         this.effect_login_box_fade_out.addEventListener(
+            EffectEvent.EFFECT_END, on_effect_end_login_box_fade);
+         this.effect_login_box_fade_out.end();
+         this.effect_login_box_fade_out.play();
+
+
+return;
+         var account_control:Account_Control
+            = G.app.ccp_header.account_control;
+         this.key_mover.end();
+         this.key_mover.captureStartValues();
+         this.key_mover.xTo = account_control.banner_button_user_login.x;
+         this.key_mover.yTo = account_control.banner_button_user_login.y
+                           + account_control.banner_button_user_login.height;
+         this.key_mover.play();
+
+return;
+
+         this.login_valid = true;
+
+         this.username_valid.validate();
+         this.password_valid.validate();
+
+         if (this.login_valid) {
+            if (this.rememberme.selected) {
+               G.fcookies_user.activate();
+            }
+            else {
+               G.fcookies_user.clear();
+            }
+            G.user.login_start();
+         }
+      }
+
+      // After the window is heightened (unshaded), fades in the save box
+      protected function on_effect_end_login_box_fade(ev:EffectEvent) :void
+      {
+         m4_DEBUG('on_effect_end_login_box_fade: ev:', ev, '/ tgt:', ev.target);
+      }
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      verticalGap="3"
+      horizontalGap="0"
+      verticalAlign="top"
+      horizontalAlign="right"
+      >
+
+      <mx:HBox
+         width="100%"
+         verticalAlign="middle">
+         <mx:Label
+            text="Don't have an account?"/>
+         <mx:Spacer
+            width="100%"/>
+         <views_panel_util:Help_Link
+            text="Sign Up"
+            toolTip="Go to cyclopath.org/wiki to sign up for an account!"
+            fontWeight="normal"
+            textDecoration="none"
+            fontSize="14"
+            click="UI.mediawiki('?title=Special:Userlogin&amp;type=signup');"/>
+      </mx:HBox>
+
+      <mx:HRule
+         width="100%"/>
+
+      <mx:Grid
+         width="100%">
+         <mx:GridRow
+            width="100%"
+            verticalAlign="middle">
+            <mx:GridItem>
+               <mx:Label
+                  text="Username:"/>
+            </mx:GridItem>
+            <mx:GridItem>
+               <mx:TextInput
+                  id="login_username"
+                  width="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow
+            width="100%"
+            verticalAlign="middle">
+            <mx:GridItem>
+               <mx:Label
+                  text="Password:"/>
+            </mx:GridItem>
+            <mx:GridItem>
+               <mx:TextInput
+                  id="login_password"
+                  width="100%"
+                  displayAsPassword="true"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow
+            width="100%"
+            verticalAlign="middle">
+            <mx:GridItem/>
+            <mx:GridItem>
+               <mx:CheckBox
+                  id="rememberme"
+                  label="Remember me"
+                  selected="{G.user.is_rememberingme()}" />
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow
+            width="100%"
+            verticalAlign="middle">
+            <mx:GridItem/>
+            <mx:GridItem>
+               <views_panel_util:Help_Link
+                  text="Forgot Password"
+                  toolTip=
+      "Go to cyclopath.org/wiki to learn more about resetting your password."
+                  fontWeight="normal"
+                  textDecoration="none"
+                  fontSize="14"
+                  click="UI.mediawiki('/Forgot_Password');"/>
+               <mx:Button
+                  id="ok"
+                  label="Log In"
+                  click="this.login_submit_maybe();"/>
+            </mx:GridItem>
+         </mx:GridRow>
+      </mx:Grid>
+
+   </mx:VBox>
+
+   <mx:Move
+      id="key_mover"
+      target="{this}"
+      duration="{Conf.map_key_slide_time}"/>
+
+   <mx:StringValidator
+      id="username_valid"
+      required="true"
+      source="{this.login_username}"
+      property="text"
+      invalid="this.login_valid = false;"/>
+
+   <mx:StringValidator
+      id="password_valid"
+      required="true"
+      source="{this.login_password}"
+      property="text"
+      invalid="this.login_valid = false;"/>
+
+</mx:VBox>
+

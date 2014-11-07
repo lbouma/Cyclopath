@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import items.utils.Geofeature_Layer;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapLgd_Base');
+
+      // *** Instance variables
+
+      [Bindable] public var fake_shadow_color:int = Conf.tile_skin.feat_pens[
+         String(Geofeature_Layer.BYWAY_MAJOR_ROAD)]['shadow_color'];
+      [Bindable] public var fake_park_color:int = Conf.tile_skin.feat_pens[
+         String(Geofeature_Layer.TERRAIN_OPENSPACE)]['pen_color'];
+      [Bindable] public var fake_water_color:int = Conf.tile_skin.feat_pens[
+         String(Geofeature_Layer.TERRAIN_WATER)]['pen_color'];
+      //[Bindable] public var fake_point_color:int = Conf.tile_skin.feat_pens[
+      //   String(Geofeature_Layer.WAYPOINT_DEFAULT)]['pen_color'];
+
+      // FIXME: Get rid of this after making Map_Legend_Byway_Ratings draw
+      //        real byways rather than faking it.
+      [Bindable] public var border_color:int = fake_shadow_color;
+
+      [Bindable] public var pad:int = 2; // padding, for all sides, in pixels
+
+      [Bindable] public var bar_width:int = 85; // color highlight bar width
+
+//      private var diffmode_:Boolean;
+
+      // *** Instance methods
+
+/*
+      //
+      public function get diffmode() :Boolean
+      {
+         return diffmode_;
+      }
+
+      //
+      public function set diffmode(diff:Boolean) :void
+      {
+         if (diff != this.diffmode) {
+            if (diff) {
+               //this.show_button.label = 'Comparison Key';
+               this.keys.selectedChild = diffmode_key;
+            }
+            else {
+               //this.show_button.label = 'Map Key';
+               this.keys.selectedChild = normal_key;
+            }
+            this.diffmode_ = diff;
+            //this.remeasure_title_text();
+         }
+      }
+*/
+
+      // ***
+
+      //
+      public function fill_values() :void
+      {
+      }
+
+      // ***
+
+      //
+      protected function byway_draw(gr:Graphics, xs:Array, ys:Array,
+                                    color:int, hcolor:int=-1,
+                                    controlled_access:Boolean=false) :void
+      {
+         // MAYBE: Ideally, we should just make a fake Byway and call its
+         //        draw() function, rather than hacking away here.
+         gr.moveTo(xs[0], ys[0]);
+         if (!controlled_access) {
+            if (hcolor > -1) {
+               gr.lineStyle(8 + 1 * 2 + 2 * Conf.comment_width, hcolor);
+               gr.lineTo(xs[1], ys[1]);
+               gr.moveTo(xs[0], ys[0]);
+            }
+         }
+         gr.lineStyle(8 + 1 * 2, this.fake_shadow_color);
+         gr.lineTo(xs[1], ys[1]);
+         gr.lineStyle(8, color);
+         gr.lineTo(xs[0], ys[0]);
+         if (controlled_access) {
+            gr.moveTo(xs[0], ys[0]);
+            gr.lineStyle(1, Conf.avoided_tag_color);
+            gr.lineTo(xs[1], ys[1]);
+         }
+      }
+
+      //
+      protected function point_draw(gr:Graphics, x:Number, y:Number,
+                                    color:int, hcolor:int=-1) :void
+      {
+         if (hcolor > -1) {
+            gr.beginFill(hcolor);
+            gr.drawCircle(x, y, (10 / 2 + 1 + Conf.comment_width));
+         }
+         gr.beginFill(this.fake_shadow_color);
+         gr.drawCircle(x, y, 10 / 2 + 1);
+         gr.beginFill(color);
+         gr.drawCircle(x, y, 10 / 2);
+      }
+
+   ]]></mx:Script>
+
+</mx:VBox>
+

@@ -1,0 +1,682 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_activity:Tab_Latest_Activity_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_activity="views.panel_activity.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   verticalGap="7"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.collections.ArrayCollection;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+
+      import gwis.GWIS_Checkout_Base;
+      import gwis.GWIS_Checkout_Count;
+      import gwis.GWIS_Checkout_Versioned_Items;
+      import gwis.GWIS_Item_Read_Event_Put;
+      import gwis.update.Update_Base;
+      import gwis.utils.Query_Filters;
+      import items.Attachment;
+      import items.attcs.Post;
+      import items.attcs.Thread;
+      import utils.misc.Counter;
+      import utils.misc.Logging;
+      import utils.misc.Strutil;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('##TbDsc-Base');
+
+      // *** Instance attributes
+
+      [Bindable] public var thread_type:String;
+
+      [Bindable] public var threads:ArrayCollection;
+
+      // Callback functions to deal with counts once they are fetched.
+      // These are assigned in Tab_Discussions_Reactions to retrieve counts of
+      // likes/dislikes/comments for reactions.
+      protected var count_callback_load:Function = null;
+      protected var count_callback_fail:Function = null;
+
+      protected var watcher_height:ChangeWatcher;
+
+      // *** Base class overrides
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         m4_DEBUG2('on_change_height: w:', this.threads_grid.width,
+                   '/ h:', this.threads_grid.height);
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this.threads_grid, 'height', this.on_change_height);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_initialize');
+
+         super.on_initialize(ev);
+
+         // FIXME: See shapeio_list_pager. I don't think thread_list_pager is
+         // totally implemented.
+         this.thread_list_pager.list_control_callback =
+            this.list_control_callback;
+         this.thread_list_pager.records_per_page = 20;
+         //this.thread_list_pager.current_page_number = 0;
+
+         // HACK: The base class, Tab_Latest_Activity_Base, has some fcns. that
+         // use the options combobobox widget, but we can't put visual elements
+         // in the base class unless we use state change to insert the element.
+         // So we cheat and just set the parents reference here.
+         this.filter_by_widget = this.filter_by_widget_impl;
+
+         m4_VERBOSE('on_initialize: addEventListener: g_initialized_event');
+         G.app.addEventListener('g_initialized_event',
+                                this.on_g_initialized_event);
+         this.on_g_initialized_event();
+      }
+
+      // ***
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching threads list');
+         this.fetch_list();
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Thread_Renderer = (
+            ev.target as Widget_Thread_Renderer);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Thread_Renderer can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      override protected function on_g_initialized_event(event:Event=null)
+         :void
+      {
+         m4_DEBUG('on_g_initialized_event: G.initialized:', G.initialized);
+         super.on_g_initialized_event(event);
+         if (G.initialized) {
+            m4_DEBUG('on_g_initialized_event');
+            // We can't add the event listener in on_initialize because
+            // the map is not set yet.
+            G.map.addEventListener('itemsCommitted', this.on_items_committed);
+         }
+      }
+
+      //
+      protected function on_items_committed(event:Event=null) :void
+      {
+         // The user saved a new revision.
+         m4_DEBUG('on_items_committed');
+         this.fetch_list();
+      }
+
+      // ***
+
+      //
+      public function add_new_thread(new_thread:Thread) :void
+      {
+         m4_DEBUG('add_new_thread: new_thread:', new_thread);
+         if (this.thread_list_pager.current_page_number == 1) {
+            var new_threads:ArrayCollection = new ArrayCollection();
+            new_threads.source.length = Math.min(
+               this.threads.length + 1,
+               this.thread_list_pager.records_per_page);
+            new_threads.source[0] = new_thread;
+            for (var i:int = 1; i < new_threads.source.length; i++) {
+               new_threads.source[i] = this.threads[i-1];
+            }
+            this.threads = new_threads;
+         }
+         else {
+            // this.thread_list_pager.current_page_number > 1
+            this.thread_list_pager.records_total_count =
+               this.thread_list_pager.records_total_count + 1;
+         }
+      }
+
+      //
+      override public function clear_list() :void
+      {
+         this.threads = new ArrayCollection();
+         this.mark_as_read.enabled = false;
+         m4_TALKY('clear_list: set_correct_heights');
+         this.set_correct_heights();
+      }
+
+      //
+      override public function fetch_list(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         if (qfs === null) {
+            qfs = this.qfs;
+         }
+
+         if (G.map.basics_loaded) {
+            this.fetch_list_really(update_paginator_count, qfs);
+         }
+         else {
+            m4_DEBUG('fetch_list: called early: not basics_loaded');
+         }
+      }
+
+      //
+      protected function fetch_list_really(
+         update_paginator_count:Boolean=false,
+         qfs:Query_Filters=null)
+            :void
+      {
+         // We're checking out threads, not posts.
+         m4_ASSURT(qfs.context_stack_id == 0);
+
+         var fetch_list_snip:String = Strutil.snippet(
+            String(this.thread_list_pager), /*tease_len*/35, /*reverse*/true);
+         m4_DEBUG5('fetch_list:', fetch_list_snip,
+                   '/ pagin: get_cnt:', update_paginator_count,
+                   '; p_tot:', qfs.pagin_total,
+                   '; p_cnt:', qfs.pagin_count,
+                   '; p_off:', qfs.pagin_offset);
+
+         // Configure qfs per the paginator.
+         // NOTE: fetch_prepare is a wrapper around configure_query_filters.
+         //       So it's part of qfs after this call.
+         var paginator:Paginator_Widget
+            = this.fetch_prepare(this.thread_list_pager);
+         m4_ASSERT(paginator === this.thread_list_pager);
+
+         var gwis_checkout:GWIS_Checkout_Base = null;
+         // We don't do historic threads.
+         var rev_cur:utils.rev_spec.Base = new utils.rev_spec.Current();
+         var buddy_ct:Counter = null;
+         var update_req:Update_Base = null;
+         var resp_items:Array = null; // This is for diffing.
+         var callback_load:Function = this.consume_thread_list;
+         var callback_fail:Function = null;
+
+         gwis_checkout = new GWIS_Checkout_Versioned_Items(
+            Thread.class_item_type, rev_cur, buddy_ct, qfs,
+            update_req, resp_items, callback_load, callback_fail);
+
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_checkout);
+         m4_ASSERT_SOFT(!found_duplicate);
+
+         // Since we're using pageination (OFFSET and COUNT), the total
+         // count must be fetched by a separate query and doesn't specify
+         // offset or count.
+         if (update_paginator_count) {
+            qfs = qfs.clone()
+            qfs.pagin_count = 0;
+            qfs.pagin_offset = 0;
+            qfs.pagin_total = true;
+            qfs.include_item_stack = false;
+            //
+            gwis_checkout = new GWIS_Checkout_Count(
+               Thread.class_item_type, 
+               this.thread_list_pager, 
+               qfs,
+               this.count_callback_load,
+               this.count_callback_fail);
+            found_duplicate = G.map.update_supplemental(gwis_checkout);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+      }
+
+      // ***
+
+      //
+      protected function consume_thread_list(
+         gwis_req:GWIS_Checkout_Base, xml:XML) :void
+      {
+         var item_container:XML;
+         var item_detail:XML;
+         var item_type:String;
+         var item_class:Class;
+
+         var t:Object;
+         var post:Post;
+         var thread:Thread;
+         var post_index:int;
+// FIXME: route reactions.
+//         var unread_posts:Boolean = false;
+//         var unread_reacs:Boolean = false;
+
+         var threads_list:Array = new Array();
+         if (gwis_req !== null) {
+            threads_list = gwis_req.resp_items;
+         }
+
+         m4_VERBOSE('consume_thread_list: received:', threads_list.length);
+         m4_VERBOSE('threads_list.length:', threads_list.length);
+         m4_VERBOSE('threads_list[0]:', threads_list[0] === null);
+
+         var mark_as_read:Boolean = false;
+
+         this.threads = new ArrayCollection();
+
+         for each (thread in threads_list) {
+
+            /* FIXED?: 2013.09.05: Do this after items_add, so we're sure
+                                   that we're using the resident item.
+            if (thread.count_posts_total > 0) {
+               m4_VERBOSE('consume_thread_list: adding:', thread);
+               this.threads.addItem(thread);
+               if (thread.count_posts_unread) {
+                  // Update the "Mark all as read" button.
+                  mark_as_read = true;
+               }
+            }
+            else {
+               m4_WARNING('consume_thread_list: thread has no posts:', thread);
+            }
+            */
+
+            // 2013.06.06: *ahem*
+            // (Otherwise you'll get a throbberer every time you activate a
+            // thread panel because we'll load the infer access ID and then
+            // we won't find the thread in Attachment.all.
+            // Not true after paging:
+            //   m4_ASSERT_SOFT(!(thread.stack_id in Attachment.all));
+            // BUG nnnn/MAYBE: Purge threads after paging?
+            G.map.items_add([thread,]);
+            // MAYBE: items_add returns a Boolean, but maybe it should return
+            //        the system item?
+
+            m4_VERBOSE('consume_thread_list: remote thread:', thread);
+            thread = Attachment.all[thread.stack_id];
+            m4_VERBOSE('consume_thread_list:  local thread:', thread);
+            m4_ASSERT(thread !== null);
+
+            if (thread.count_posts_total > 0) {
+               m4_VERBOSE('consume_thread_list: adding:', thread);
+               this.threads.addItem(thread);
+               if (thread.count_posts_unread) {
+                  // Update the "Mark all as read" button.
+                  mark_as_read = true;
+               }
+            }
+            else {
+               m4_WARNING('consume_thread_list: thread has no posts:', thread);
+            }
+         }
+
+         this.mark_as_read.enabled = mark_as_read;
+
+         m4_VERBOSE('consume_thread_list: threads_grid.invalidateList');
+         // MAYBE: [lb] knows of no circumstances whereby an invalidateList is
+         //        needed. This is probably unnecessary:
+         this.threads_grid.invalidateList();
+
+         // Reset scroll bar to the top of the list of changes.
+         this.dg_box.verticalScrollPosition = 0;
+
+         m4_DEBUG_CLLL('>callLater: set_correct_hghts [consume_thread_list]');
+         m4_TALKY('consume_thread_list: set_correct_heights');
+         G.map.callLater(this.set_correct_heights);
+
+         this.thread_list_pager.p_collect = this.threads;
+         this.thread_list_pager.update_pagination_text();
+
+         // See Bug 1918: Don't reset the scroll bar; let the user see what
+         //               they just posted.
+         // NO:
+         // this.dg_box.verticalScrollPosition = 0;
+      }
+
+      // ***
+
+      //
+      protected function on_click_mark_all_read() :void
+      {
+         m4_DEBUG('on_click_mark_all_read');
+
+         var thread:Thread;
+         var thread_ids:Array = new Array();
+
+         for each (thread in this.threads) {
+            if (thread.count_posts_unread > 0) {
+               thread_ids.push(thread.system_id);
+            }
+         }
+
+         this.mark_as_read.enabled = false;
+
+         var gwis_cmd:GWIS_Item_Read_Event_Put =
+            new GWIS_Item_Read_Event_Put(
+               thread_ids,
+               this.on_click_mark_all_read_callback);
+         var found_duplicate:Boolean;
+         found_duplicate = G.map.update_supplemental(gwis_cmd);
+         m4_ASSERT_SOFT(!found_duplicate);
+      }
+
+      //
+      protected function on_click_mark_all_read_callback(
+         gwis_read_event_put:GWIS_Item_Read_Event_Put,
+         rset:XML,
+         payload:*=null) :void
+      {
+         m4_DEBUG('on_click_mark_all_read_callback');
+
+         var thread:Thread;
+         for each (thread in this.threads) {
+            thread.count_posts_unread = 0;
+         }
+         // Redraw the list so the bolded titles of formerly unread threads and
+         // posts goes away.
+//this.threads_grid.invalidateList();
+
+      }
+
+      //
+      public function set_correct_heights() :void
+      {
+         // FIXME: Remove this fcn...
+         if ((this.threads !== null) && (this.threads.length > 0)) {
+            m4_VERBOSE('set_correct_heights: old:', this.threads_grid.height);
+            m4_VERBOSE(' >> threads.length:', this.threads.length);
+            m4_VERBOSE2(' >> threads_grid.rowHeight:',
+                        this.threads_grid.rowHeight);
+            // Let the ChangeWatcher handle the height.
+            //this.threads_grid.height = this.threads.length
+            //                           * this.threads_grid.rowHeight;
+            m4_VERBOSE('set_correct_heights: new:', this.threads_grid.height);
+         }
+      }
+
+      // ***
+
+      //
+      override protected function get_filter_okay_text_search() :Boolean
+      {
+         return true;
+      }
+
+      //
+      override protected function get_filter_okay_others_watched() :Boolean
+      {
+         return (G.user.logged_in);
+      }
+
+      //
+      override protected function get_filter_okay_items_unread() :Boolean
+      {
+         // 
+         return (G.user.logged_in);
+      }
+
+      //
+      override protected function get_filter_okay_near_map_edits() :Boolean
+      {
+         var show_filter:Boolean = false;
+         if ((G.user.logged_in)
+            // MAYBE: Determine if user has edited. If not, don't show this
+            //        option.
+            //        QUESTION: Is this session edits or forever edits?
+            //   e.g., && (G.user.map_edit_count > 0)
+            ) {
+            show_filter = true;
+         }
+         return show_filter;
+      }
+
+      //
+      override protected function get_filter_okay_item_watchers() :Boolean
+      {
+         return (G.user.logged_in);
+      }
+
+      // ***
+
+      //
+      [Bindable] protected function get filter_by_widget_hrule_width() :int
+      {
+         // FIXME: This is not getting set properly... ReferenceError happens
+         //        early, but correct width never gets set.
+         var hrule_width:int = 100;
+         try {
+            G.tabs.activity.activities.lat_act_hrule.width;
+         }
+         catch (e:ReferenceError) {
+            // No-op. The application is not ready yet.
+         }
+         return hrule_width;
+      }
+
+      //
+      protected function set filter_by_widget_hrule_width(w:int)
+         :void
+      {
+         m4_ASSERT(false);
+      }
+
+   ]]></mx:Script>
+
+   <!-- BUG 2764: "Flex bug?: Default horizontalScrollPolicy causing two
+                   minutes of blocking, memory-gobbling activity"
+         //       If you do not specify horizontalScrollPolicy,
+         //       Flex goes nuts on boot adding scrollbar components.
+         //
+         //
+         // 2012.11.15: Notes from [lb]. These could probably just live in the
+         //             bugtracker, but this seems like an important point to
+         //             make, at least for now, so the long comments are
+         //             preserved/published in the code, here, too.
+         //
+         //             It took me a while to fix this bug. I had merged route
+         //             sharing and route reactions and made a base class
+         //             for discussions and reactions, since the two panels
+         //             are very similar. What happened is flashclient would
+         //             spin for two minutes trying to create the panel. This
+         //             happened after some parts of main.mxml were displayed,
+         //             but before some of the details panels were ready
+         //             and before the map tiles were drawn (though they'd
+         //             been downloaded prior).  The first trace message
+         //             after the two minutes was the combobo_box_widget's
+         //             creationComplete. I ended up hooking it's parent
+         //             component's (Latest_Activity_Panel's) 'added' and
+         //             'removed' events (and also Tab_Discussions_Post's
+         //             events) and was able to see that a ton of scrollbars
+         //             were being created for the first VBox of this component
+         //             (and a few were being removed, but mostly lots of
+         //             memory was being gobbled). Somehow I tracked the
+         //             problem to horizontalScrollPolicy! For whatever reason,
+         //             not specifying the horizontalScrollPolicy triggers this
+         //             behavior (what's the default? "auto"?). It might be
+         //             because this is a base class, and the derived classes
+         //             use a state change to make their particular panel. But
+         //             that seems like a weird explanation. Or maybe it's
+         //             because the VBox contains a Filter_Combobo_Widget,
+         //             and that widget keeps changing its mind about its
+         //             width, which triggers the scrollbar on and off in the
+         //             containing component. Either way, I've never had this
+         //             problem the three years I've been Flexing.
+         //
+         //             Also, I googled and found some chatter about problems
+         //             with the scroll policy. But they were problems when a
+         //             list container couldn't determine the size of its child
+         //             components, but this was normal behavior. So its hard
+         //             to say if this is a Flex bug or not, but its obvious
+         //             there should have been an easier way to find the fault
+         //             - it took me days to find this.
+         //
+         //             I also used Flex Builder on Windows to profile
+         //             the code, and most of the activity was addChild -
+         //             but I didn't know how to explain that. It wasn't
+         //             until hooking 'added' and 'removed' (and adding
+         //             trace statements) that I was able to determine which
+         //             component was causing all of this activity. So, in
+         //             the future, if a similar problem happens - i.e., a
+         //             spinning, memory-gobbling two minutes - hook your main
+         //             component's 'added' and 'removed' and look for activity
+         //             (inspect event.target).
+      -->
+   <mx:VBox
+      id="filter_by_widget_box_box"
+      width="100%"
+      horizontalAlign="center"
+      verticalGap="7"
+      horizontalScrollPolicy="off"
+      >
+
+      <mx:HBox
+         id="filter_by_widget_box"
+         horizontalAlign="center"
+         width="100%"
+         >
+         <views_panel_util:Filter_Combobo_Widget
+            id="filter_by_widget_impl"
+            buttonVisible="true"
+            buttonText="Filter"
+            click="this.on_click_filter_by_widget(event);"
+            />
+      </mx:HBox>
+
+   </mx:VBox>
+
+   <!-- This is where Tab_Discussions_Reactions adds the Likes/dislikes/comment
+        counts. -->
+
+   <!-- Enclose the Canvas in a box to prevent horizontal bleeding. -->
+   <mx:HBox
+      id="dg_box_box"
+      width="100%"
+      height="100%"
+      >
+      <!-- Threads -->
+      <mx:Canvas
+         id="dg_box"
+         width="100%"
+         height="100%"
+         borderStyle="solid"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+         <mx:DataGrid
+            id="threads_grid"
+            dataProvider="{this.threads}"
+            width="100%"
+            height="100%"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="on"
+            allowMultipleSelection="false"
+            alternatingItemColors="{Conf.grid_alt_colours}"
+            borderStyle="none"
+            draggableColumns="false"
+            mouseWheel="this.dg_box.dispatchEvent(event)"
+            resizableColumns="true"
+            rowCount="{this.threads.length}"
+            showHeaders="false"
+            headerHeight="0"
+            sortableColumns="false"
+            variableRowHeight="true"
+            added="this.on_added_renderer_maybe(event);"
+            >
+            <mx:columns>
+               <mx:DataGridColumn
+      itemRenderer="views.panel_discussions.Widget_Thread_Renderer"/>
+            </mx:columns>
+         </mx:DataGrid>
+         <mx:HBox
+            id="nothreads"
+            horizontalAlign="center"
+            verticalAlign="middle"
+            visible="{this.threads.length == 0}"
+            includeInLayout="{this.nothreads.visible}"
+            backgroundColor="white"
+            width="100%"
+            height="100%"
+            paddingLeft="5"
+            paddingRight="5">
+            <mx:Text
+               fontWeight="bold"
+               textAlign="center">
+               <mx:htmlText>
+                  <![CDATA[Nothing found.
+Please try a different filter.]]>
+               </mx:htmlText>
+            </mx:Text>
+         </mx:HBox>
+      </mx:Canvas>
+   </mx:HBox>
+
+   <mx:VBox
+      id="thread_list_pager_box"
+      width="100%"
+      horizontalAlign="center">
+
+      <views_panel_util:Paginator_Widget
+         id="thread_list_pager"
+         width="100%"
+         horizontalAlign="right"
+         paddingRight="1"
+         paddingBottom="1"
+         horizontalGap="0"
+         />
+
+   </mx:VBox>
+
+   <!-- Mark As Read, Start New Buttons -->
+
+   <mx:HBox
+      id="mar_nt_box"
+      width="100%"
+      includeInLayout="true"
+      visible="{this.mar_nt_box.includeInLayout}">
+      <!--
+      paddingTop="6"
+      -->
+
+      <mx:Button
+         id="mark_as_read"
+         label="Mark All as Read"
+         click="this.on_click_mark_all_read();"
+         enabled="false"
+         visible="{G.user.logged_in}"/>
+
+      <mx:Spacer
+         width="100%"/>
+
+      <!-- This is where Tab_Discussions_Posts adds the New Thread button. -->
+
+   </mx:HBox>
+
+</views_panel_activity:Tab_Latest_Activity_Base>
+

@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- Highlight tab when conflicts exist.
+<    And don't so Empty Panel if conflicts exist? Go to conflicts? -->
+
+<!-- BUG nnnn: FIXME: Branch Conflicts panel (this file) is not implemented.
+     -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   label="Conflicts"
+   >
+   <!--               label="Conflicts" -->
+   <!--               label="Changes" -->
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Br_Clfx');
+
+      // *** Startup and Show methods
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         // Skipping: this.widget_conflict_list
+         m4_DEBUG('on_initialize');
+         //this.widget_conflict_list.detail_panel = this.dp;
+         this.register_widgets([
+            this.widget_conflict_list,
+            ]);
+         this.branch_list_pager.type_plural = 'conflicts';
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Branch Conflicts';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_click_changes_keep() :void
+      {
+         m4_DEBUG('on_click_changes_keep');
+      }
+
+      //
+      protected function on_click_changes_discard() :void
+      {
+         m4_DEBUG('on_click_changes_discard');
+      }
+
+      //
+      protected function on_click_refresh() :void
+      {
+         m4_DEBUG('on_click_refresh');
+      }
+
+// FIXME: Move to worker class...
+
+      //
+      protected function on_click_newest() :void
+      {
+         m4_DEBUG('on_click_newest');
+      }
+
+      //
+      protected function on_click_newer() :void
+      {
+         m4_DEBUG('on_click_newer');
+      }
+
+      //
+      protected function on_click_older() :void
+      {
+         m4_DEBUG('on_click_older');
+      }
+
+      //
+      protected function on_click_oldest() :void
+      {
+         m4_DEBUG('on_click_oldest');
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      paddingTop="0"
+      paddingBottom="1"
+      verticalGap="2">
+
+      <!-- FIXME This code is shared w/ many other files -->
+      <mx:Grid
+         width="100%"
+         verticalGap="0">
+         <!-- Item Name -->
+         <mx:GridRow
+            width="100%">
+            <mx:GridItem
+               horizontalAlign="right"
+               verticalAlign="middle">
+               <mx:Label
+                  text="Name:"
+                  fontWeight="bold"
+                  textAlign="right"/>
+            </mx:GridItem>
+            <mx:GridItem
+               width="100%">
+               <!-- FIXME: See Tab_Geofeature_Details and reimplement this
+                           control. -->
+               <mx:Label
+                  id="item_name_control"
+                  width="100%" />
+            </mx:GridItem>
+         </mx:GridRow>
+      </mx:Grid>
+
+      <mx:VBox
+         width="100%"
+         height="100%"
+         borderStyle="solid"
+         paddingLeft="2"
+         paddingTop="2"
+         paddingRight="2"
+         paddingBottom="2"
+         verticalGap="4">
+
+         <mx:VBox
+            width="100%"
+            height="100%"
+            borderStyle="solid"
+            backgroundColor="{Conf.branch_conflict_color}"
+            paddingLeft="4"
+            paddingRight="4"
+            paddingTop="2"
+            paddingBottom="4"
+            verticalGap="0">
+
+            <!--
+            <mx:HBox
+               width="100%"
+               paddingBottom="3">
+               <mx:Text
+                  width="100%"
+                  text="When another users saves an item that you are working on, it shows up here."
+                  />
+            </mx:HBox>
+            -->
+
+            <mx:HBox
+               width="100%"
+               verticalAlign="middle"
+               horizontalAlign="right"
+               paddingLeft="4"
+               paddingRight="4"
+               paddingTop="2"
+               paddingBottom="3">
+
+               <mx:HBox
+                  width="100%"
+                  >
+
+                  <!-- FIXME: Testing with it enabled, but this control should
+                              be disabled if the list is empty. -->
+                  <views_panel_branch:Widget_Conflict_Select
+                     id="widget_select"
+                     enabled="true"
+                     />
+
+                  <!-- FIXME: Maybe leave enabled and display message like,
+                  <           "No items selected." -->
+                  <views_panel_util:Button_Small
+                     id="cx_sel_keep_mine"
+                     label="Keep Mine"
+                     toolTip="Ignore changes on the server. Overwrite other users' changes with your own."
+                     click="this.on_click_changes_keep();"
+                     enabled="false"
+                     />
+
+                  <views_panel_util:Button_Small
+                     id="cx_sel_lose_mine"
+                     label="Discard Mine"
+                     toolTip="Accept the changes from the server, and discard your local changes."
+                     click="this.on_click_changes_discard();"
+                     enabled="false"
+                     />
+
+                  <views_panel_util:Button_Small
+                     id="cx_sel_reload"
+                     label="Reload"
+                     toolTip="Check the server for changes saved by other users."
+                     click="this.on_click_refresh();"
+                     enabled="true"
+                     />
+                  <!-- label="Refresh" use update to match svn lingo? -->
+                  <!-- label="Update" -->
+                  <!-- label="Refresh" -->
+                  <!-- label="Reload" -->
+
+               </mx:HBox>
+
+               <!--
+               <mx:HBox
+                  horizontalAlign="right">
+                  <views_panel_util:Help_Link
+                     textAlign="right"
+                     click_url="/Conflicts"
+                     text="Learn more" />
+               </mx:HBox>
+               -->
+
+            </mx:HBox>
+
+            <views_panel_branch:Widget_Conflict_List
+               id="widget_conflict_list"
+               width="100%"
+               height="100%"/>
+
+            <views_panel_util:Paginator_Widget
+               id="branch_list_pager"
+               width="100%"
+               horizontalAlign="right"
+               paddingRight="1"
+               paddingTop="3"
+               paddingBottom="1"
+               horizontalGap="0"
+visible="false"
+includeInLayout="{this.branch_list_pager.visible}"
+               />
+
+            <mx:HBox
+               width="100%"
+               paddingBottom="3">
+               <mx:Text
+                  fontStyle="italic"
+                  leading="0"
+                  width="100%"
+                  text="Hint: If you are working on an item that another user has changed and saved, it shows up here."
+                  />
+            </mx:HBox>
+
+            <mx:HBox
+               width="100%"
+               horizontalAlign="right">
+               <mx:Spacer width="100%" />
+               <views_panel_util:Help_Link
+                  textAlign="right"
+                  click_url="/Conflicts"
+                  text="Learn more" />
+            </mx:HBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Base>
+

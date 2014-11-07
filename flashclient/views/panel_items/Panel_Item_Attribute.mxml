@@ -1,0 +1,1054 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Attachment
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   resize="this.on_resize(null);"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.core.Container;
+      import mx.core.UIComponent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+
+      import items.Attachment;
+      import items.attcs.Attribute;
+      import utils.misc.Logging;
+      import utils.misc.NumericStepper_Nullable;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.base.App_Action;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Attr');
+
+      // *** Instance variables
+
+      protected var attribute_:Attribute;
+
+      // Collections of view controls to make changing modes easier.
+      protected var ctrls_not_editable:Array;
+      protected var ctrls_are_editable:Array;
+      protected var enabled_freshestly:Array;
+      protected var enabled_on_integer:Array;
+
+      // *** Simple base class overrides
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Attribute;
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'About the Attribute';
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+
+         // Since our parent calls on_panel_show, init things first, then call
+         // super.
+         var multiple_lines:Boolean = false;
+         this.attr_name_edit.init('name_', multiple_lines);
+         // Yes, Attributes must be named.
+         this.attr_name_edit.required = true;
+         //
+         // Use the label-edit toggler action.
+         this.attr_name_edit.use_label_toggle = true;
+         //
+         this.attr_name_edit.edit_enabled = true;
+// FIXME_2013_06_11: Need to set this.attr_name_edit.labeler if no name?
+
+         this.value_type_edit.dataProvider =
+             Attribute.values_valid_types_lookup;
+
+         this.value_hints_edit.init('value_hints_edit', false);
+
+         this.value_units_edit.init('value_units_edit', false);
+
+         // NOTE: Attributes are designed to be assignable to any item in the
+         //       system, but for now we only let them be assigned to
+         //       geofeatures.
+         this.applies_to_type_edit.dataProvider =
+            Attribute.applies_to_items_lookup;
+
+         this.spf_field_name_edit.init('spf_field_name', false);
+
+         // Group our children by the mode to which they apply.
+         this.ctrls_not_editable = [
+            this.attr_name_view,
+            this.value_type_view,
+            this.value_hints_view,
+            this.value_units_view,
+            this.value_minimum_view,
+            this.value_maximum_view,
+            this.value_stepsize_view,
+            this.applies_to_type_view,
+            this.spf_field_name_view,
+            ];
+         this.ctrls_are_editable = [
+            this.attr_name_edit,
+            this.value_type_edit,
+            this.value_hints_edit,
+            this.value_units_edit,
+            this.value_minimum_stepper,
+            this.value_maximum_stepper,
+            this.value_stepsize_stepper,
+            this.applies_to_type_edit,
+            this.spf_field_name_edit,
+            ];
+         //
+         this.enabled_freshestly = [
+            this.value_type_label,
+            this.value_type_edit,
+            this.applies_to_type_label,
+            this.applies_to_type_edit,
+            ];
+         //
+         this.enabled_on_integer = [
+            this.value_minimum_label,
+            this.value_maximum_label,
+            this.value_stepsize_label,
+            this.value_minimum_stepper,
+            this.value_maximum_stepper,
+            this.value_stepsize_stepper,
+            ];
+
+         G.app.side_panel.addEventListener(ResizeEvent.RESIZE,
+            this.on_resize_name_label, false, 0, true);
+
+         super.on_creation_complete(event);
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+
+         m4_DEBUG('on_initialize:', this);
+
+         this.widget_gia_sharing.footer_lock = true;
+         this.widget_gia_sharing.outside_scroll_area = true;
+
+         this.register_widgets([
+            this.widget_name_header,
+            this.widget_gia_sharing,
+            ]);
+      }
+
+      //
+      protected function on_resize_name_label(event:ResizeEvent=null) :void
+      {
+         this.attr_name_edit.labeler.maxWidth =
+            this.attr_name_griditem.width * 0.75;
+         m4_PPUSH2('on_resize_name_label  .. labeler.maxWidth:',
+                   this.attr_name_edit.labeler.maxWidth);
+      }
+
+      // ***
+
+      // Skipping: depopulate. Our repopulate takes care of both.
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate: attribute:', this.attribute);
+         m4_ASSERT(this.attribute === this.attc);
+
+         this.repopulate_init();
+
+         if (this.attribute !== null) {
+            this.repopulate_some();
+         }
+         else {
+            this.repopulate_none();
+         }
+
+         var child_freshest:UIComponent;
+         for each (child_freshest in this.enabled_freshestly) {
+            child_freshest.enabled =
+               ((this.attribute !== null)
+                && (this.attribute.fresh)
+                && (!this.attribute.not_so_fresh));
+         }
+
+         var child_integer:UIComponent;
+         for each (child_integer in this.enabled_on_integer) {
+            child_integer.enabled =
+               ((this.attribute !== null)
+                && (this.attribute.value_type == 'integer'));
+         }
+
+         this.on_resize_name_label();
+      }
+
+      //
+      protected function repopulate_init() :void
+      {
+         var edit_enabled:Boolean =
+            ((this.attribute !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit)));
+
+         this.value_type_edit.toolTip = '';
+         this.value_minimum_stepper.toolTip = '';
+         this.value_maximum_stepper.toolTip = '';
+         this.value_stepsize_stepper.toolTip = '';
+
+         var child_edit:UIComponent;
+         for each (child_edit in this.ctrls_not_editable) {
+            child_edit.visible = (!edit_enabled);
+            child_edit.includeInLayout = (!edit_enabled);
+         }
+
+         var child_view:UIComponent;
+         for each (child_view in this.ctrls_are_editable) {
+            child_view.visible = edit_enabled;
+            child_view.includeInLayout = edit_enabled;
+         }
+
+         this.widget_footer_box.visible = false;
+         this.widget_footer_box.includeInLayout = false;
+      }
+
+      //
+      protected function repopulate_none() :void
+      {
+         var nothingness:String = 'Nothing selected'
+
+         this.details_main_label.text = nothingness;
+
+         this.attr_name_edit.text = nothingness;
+         this.value_type_edit.selectedItem = -1;
+         this.value_hints_edit.text = '';
+         this.value_units_edit.text = '';
+         var stepper:NumericStepper_Nullable;
+         for each (stepper in [this.value_minimum_stepper,
+                               this.value_maximum_stepper,
+                               this.value_stepsize_stepper,]) {
+            stepper.minimum = 0;
+            stepper.maximum = 10;
+            stepper.stepSize = 1;
+            stepper.value = 0; // Clear the entry.
+         }
+         this.applies_to_type_edit.selectedItem = -1;
+         this.spf_field_name_edit.text = '';
+      }
+
+// FIXME: Attributes and the editing tool palette and the save button...
+//        and map modes...
+
+// - when user clicks 'add new attr', they enter edit mode
+// - testing undo of new attr
+// - in repopulate, if not fresh and/or editable, disable controls
+//   appropriately
+
+      //
+      protected function repopulate_some() :void
+      {
+         var combobox_defn:Object;
+
+         var attr_set:Set_UUID = new Set_UUID([this.attribute,]);
+
+         this.change_state(this.panel_default_state);
+
+// FIXME_2013_06_11
+// FIXME: This is not showing up for [lb] on new attribute
+// ALSO: What happens if you delete the name totally?
+//       Is it hard to double-click to get it back???
+// FIXME: Text_Field_Editable should capture double click
+//        across larger area of guarantee it'll show something
+//        if nothing is its text.
+         this.attr_name_edit.text = this.attribute.name_;
+         this.attr_name_edit.features = attr_set;
+         this.attr_name_view.text = this.attribute.name_;
+
+         // "Wrap" the combo box. This sets a callback on it that processes
+         // the attached items (well, the attached attribute).
+         views.commands.UI_Wrapper_ComboBox.wrap(
+            this.value_type_edit, attr_set, 'value_type_id');
+         this.value_type_view.text = 'Unknown';
+         for each (combobox_defn in Attribute.values_valid_types_lookup) {
+            if (this.attribute.value_type_id == combobox_defn.id) {
+               this.value_type_view.text = combobox_defn.label;
+               break;
+            }
+         }
+
+         this.value_hints_edit.text = this.attribute.value_hints;
+         this.value_hints_edit.features = attr_set;
+         this.value_hints_view.text = this.attribute.value_hints;
+
+         this.value_units_edit.text = this.attribute.value_units;
+         this.value_units_edit.features = attr_set;
+         this.value_units_view.text = this.attribute.value_units;
+
+         m4_DEBUG('attribute.value_minimum:', this.attribute.value_minimum);
+         m4_DEBUG('attribute.value_maximum:', this.attribute.value_maximum);
+
+         // FIXME For real, stepSize for next three can be real
+         //       Maybe for real we just use an edit box?
+         //
+         var stepper:NumericStepper_Nullable;
+         for each (stepper in [this.value_minimum_stepper,
+                               this.value_maximum_stepper,
+                               this.value_stepsize_stepper,]) {
+            stepper.minimum = NumericStepper_Nullable.limit_min;
+            stepper.maximum = NumericStepper_Nullable.limit_max;
+            stepper.stepSize = 1;
+         }
+         // The stepsize should be 1 or greater, so set the minimum to 0,
+         // since our control wants 1 less than the minimum
+         this.value_stepsize_stepper.minimum = 0;
+         //
+         // FIXME UI_Wrapper_Scalar should handle NaN (currently sets to 0)
+         //       (see: isNaN and isFinite)
+         // EXPLAIN: Why does UI_Wrapper_Scalar need to be able to handle NaN?
+         //          So that we can use isNaN/!isFinite to signal an unset
+         //          value, so that '0' isn't serving a dual purpose?
+         views.commands.UI_Wrapper_Scalar.wrap(this.value_minimum_stepper,
+            'value', attr_set, 'value_minimum');
+         views.commands.UI_Wrapper_Scalar.wrap(this.value_maximum_stepper,
+            'value', attr_set, 'value_maximum');
+         views.commands.UI_Wrapper_Scalar.wrap(this.value_stepsize_stepper,
+            'value', attr_set, 'value_stepsize');
+         //
+         if (this.attribute.value_type == 'integer') {
+            var stepperTT:String =
+   'This setting only applies to attributes whose value_type is "integer".';
+            this.value_minimum_stepper.toolTip = stepperTT;
+            this.value_maximum_stepper.toolTip = stepperTT;
+            this.value_stepsize_stepper.toolTip = stepperTT;
+         }
+
+         this.value_minimum_view.text = String(
+            this.attribute.value_minimum);
+         this.value_maximum_view.text = String(
+            this.attribute.value_maximum);
+         this.value_stepsize_view.text = String(
+            this.attribute.value_stepsize);
+
+         // NOTE Skipping gui_sortrank_ (it's controlled from
+         //      Widget_Attribute_Entry)
+         // MAYBE: Last statement is not true: flashclient has no way to
+         //        edit gui_sortrank. But how often do people edit or add
+         //        attributes? And usually a developer sets up the item
+         //        details panel to make it look pretty.
+
+         views.commands.UI_Wrapper_ComboBox.wrap(
+            this.applies_to_type_edit, // The ComboBox
+            attr_set,
+            'applies_to_type_id');
+         this.applies_to_type_view.text = 'Unknown';
+         for each (combobox_defn in Attribute.applies_to_items_lookup) {
+            if (this.attribute.applies_to_type_id == combobox_defn.id) {
+               this.applies_to_type_view.text = combobox_defn.label;
+               break;
+            }
+         }
+
+         this.spf_field_name_edit.text = this.attribute.spf_field_name;
+         this.spf_field_name_edit.features = attr_set;
+         this.spf_field_name_view.text = this.attribute.spf_field_name;
+
+         // NOTE Skipping uses_custom_control (it's a programmer-level
+         //      detail, not a user detail)
+
+         // Bug 2409: Implement value_restraints.
+
+         // BUG nnnn/MAYBE: Implement multiple_allowed.
+         //  this.checkbox_multiple_allowed.selected
+         //     = this.attribute.allow_multiple_values;
+
+         if (G.app.mode.is_allowed(App_Action.item_edit)) {
+            if (this.attribute.fresh) {
+               this.details_main_label.text = 'Define your new attribute';
+               if (this.attribute.not_so_fresh) {
+                  this.value_type_edit.toolTip =
+'This attribute has already been used, so you cannot change its value type.';
+                  this.applies_to_type_edit.toolTip =
+'This attribute has already been used, so you cannot change its applies to.';
+               }
+            }
+            else {
+               this.details_main_label.text = 'Edit the attribute definition';
+               this.value_type_edit.toolTip =
+'This attribute has already been saved, so you cannot change its value type.';
+               this.applies_to_type_edit.toolTip =
+'This attribute has already been saved, so you cannot change its applies to.';
+            }
+            this.fresh_not_so_fresh_hints.visible = true;
+            this.fresh_not_so_fresh_hints.includeInLayout = true;
+            this.widget_footer_box.visible = true;
+            this.widget_footer_box.includeInLayout = true;
+         }
+         else {
+            this.details_main_label.text = 'Details about the attribute';
+         }
+      }
+
+      // *** Event handlers
+
+      //
+      /*
+      protected function on_click_multiple_allowed() :void
+      {
+         // A checkbox was clicked. And a command to the stack.
+         // FIXME: When the user leaves this page, can they undo the command?
+         //        (Because they wouldn't see what happened! We could switch
+         //         to the panel and re-select that which was selected and
+         //         highlight the control that was undone.)
+         // MAYBE: implement... something like (but not) this:
+         //            new views.commands.Region_Data_Change(
+         //               new Set_UUID([this.attribute,]),
+         //               this.checkbox_item_watcher.selected));
+      }
+      */
+
+      // C.f. Panel_Item_Geofeature.on_click_panel.
+      override protected function on_click_panel(event:MouseEvent) :void
+      {
+         m4_VERBOSE2('_click_pnl:',
+                     Strutil.class_name_tail(String(event.target)));
+
+         // Skipping: super.on_click_panel();
+
+         //m4_DEBUG2('on_click_panel: target is type:',
+         //          String(Introspect.get_constructor(event.target)));
+         if (event.target === this.details_main_box) {
+            // Steal focus from whatever edit control may have the focus.
+            // FIXME: Can we tell what has focus?
+            m4_DEBUG('on_click_panel: Stealing focus from:', this.stage.focus);
+            this.stage.focus = null;
+         }
+      }
+
+      //
+      override protected function on_remove_event(event:FlexEvent) :void
+      {
+         super.on_remove_event(event);
+         m4_ASSERT(this.items_selected === null);
+         this.attribute.attribute_panel = null;
+         m4_ASSERT(this.attribute === null);
+      }
+
+      //
+      override public function on_resize(event:ResizeEvent=null) :void
+      {
+         // No need: super.on_resize(event);
+         m4_DEBUG('on_resize');
+         if (this.details_main_box !== null) {
+            if (this.height > 0) {
+               this.on_resize_(event);
+            }
+         }
+         else {
+            this.details_main_box.percentHeight = 100;
+         }
+      }
+
+      //
+      // Any time you use a Flex Grid, you have to manually resize it,
+      // otherwise it can bleed beneath its parent...
+      // FIXME: This seems so weird. Am I missing something?
+      // Also, ViewStack children need to have their height twiddled...
+      protected function on_resize_(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize: this.height:', this.height);
+
+         this.details_main_box.height = NaN;
+
+         var details_main_height:int;
+         details_main_height =
+            //
+            this.height
+            //
+            - this.getStyle('paddingTop')
+            - this.getStyle('paddingBottom')
+            //
+            // There are two VBoxes in the inner VBox, so one vertical Gap.
+            - this.box_details_all.getStyle('paddingTop')
+            - this.box_details_all.getStyle('paddingBottom')
+            //
+            - this.widget_name_header.height
+            - this.box_details_all.getStyle('verticalGap')
+            //
+            - this.details_main_wrap.getStyle('paddingTop')
+            - this.details_main_wrap.getStyle('paddingBottom')
+            // When borderStyle is "solid", check borderThickness (default: 1).
+            // MAGIC_NUMBER: The border has upper and lower edges, or 2 edges.
+            - 2 * this.details_main_wrap.getStyle('borderThickness')
+            //
+            - this.details_main_box.getStyle('paddingTop')
+            - this.details_main_box.getStyle('paddingBottom')
+            //
+            ;
+         if (this.widget_footer_box.visible) {
+            details_main_height =
+               //
+               details_main_height
+               //
+               - this.widget_footer_box.height
+               - this.box_details_all.getStyle('verticalGap')
+               //
+               ;
+         }
+
+         this.details_main_box.height = details_main_height;
+         this.details_main_box.maxHeight = details_main_height;
+
+         m4_PPUSH3('on_resize: details_main_box.height:',
+                   this.details_main_box.height,
+                   '/ maxHeight:', this.details_main_box.maxHeight);
+      }
+
+      //
+      override protected function has_auto_scroll_bar_policy() :Boolean
+      {
+         //return true;
+         return false; // ???
+      }
+
+      //
+      override public function get vertical_scrollbar_target()
+         :Container
+      {
+         return this.details_main_box;
+      }
+
+      // *** Getters and setters
+
+      //
+      override public function get attc() :Attachment
+      {
+         return this.attribute;
+      }
+
+      //
+      override public function set attc(at:Attachment) :void
+      {
+         m4_ASSERT(false);
+         this.attribute = (at as Attribute);
+      }
+
+      //
+      public function get attribute() :Attribute
+      {
+         return this.attribute_;
+      }
+
+      //
+      public function set attribute(attribute:Attribute) :void
+      {
+         this.attribute_ = attribute;
+         if (this.attribute_ !== null) {
+            this.items_selected = new Set_UUID([this.attribute_,]);
+         }
+         else {
+            this.items_selected = null;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="box_details_all"
+      width="100%"
+      height="100%"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      verticalGap="2"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <views_panel_items:Widget_Name_Header
+         id="widget_name_header"
+         width="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="2"
+         />
+
+      <mx:VBox
+         id="details_main_wrap"
+         width="100%"
+         paddingLeft="3"
+         paddingRight="3"
+         paddingTop="3"
+         paddingBottom="3"
+         verticalGap="0"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         borderStyle="solid"
+         borderColor="0xb7babc"
+         >
+
+         <mx:VBox
+            id="details_main_box"
+            width="100%"
+            height="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="0"
+            verticalGap="0"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="auto"
+            >
+
+            <mx:VBox
+               width="100%"
+               styleName="looknfeelCleanOuter"
+               paddingLeft="2"
+               paddingRight="2"
+               >
+
+               <mx:Label
+                  id="details_main_label"
+                  styleName="labelmajor"
+                  text="Define your new attribute"
+                  paddingTop="0"
+                  paddingBottom="0"
+                  />
+
+               <mx:VBox
+                  width="100%"
+                  styleName="looknfeelCleanInner"
+                  paddingTop="6"
+                  paddingBottom="5"
+                  paddingLeft="5"
+                  paddingRight="7"
+                  verticalGap="2"
+                  >
+
+                  <mx:Grid
+                     id="attr_content_grid"
+                     width="100%"
+                     verticalGap="{G.app.pad}"
+                     >
+
+                     <!-- Attribute Name -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <!-- text="Description:" -->
+                           <!-- text="Name:" -->
+                           <mx:Label
+                              text="Name:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           id="attr_name_griditem"
+                           width="100%">
+                           <views_commands:Text_Field_Editable
+                              id="attr_name_edit"
+                              width="80%"/>
+                           <mx:Label
+                              id="attr_name_view"
+                              text=""
+                              visible="false"
+                              includeInLayout="{this.attr_name_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Value Type -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              id="value_type_label"
+                              text="Value Type:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <mx:ComboBox
+                              id="value_type_edit"
+                              fontWeight="normal"
+                              rowCount="99" />
+                           <mx:Label
+                              id="value_type_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_type_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Allow Multiple Values? -->
+                     <!-- MAGIC_NUMBER: A height of 18... -->
+
+                     <!-- BUG nnnn/MAYBE: Is there any value in adding support
+                           for multiple link_value applications? We probably
+                           just need a way in the attribute list to let someone
+                           create a new link_value for an attribute when one
+                           already exists (currently, we'll show the existing
+                           link_value's widget so the user does not have
+                           the option of creating a new link_value for the
+                           attribute).
+
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <mx:CheckBox
+                              id="checkbox_multiple_allowed"
+                              height="18"
+                              label="May be assigned multiple times"
+                              toolTip=
+   "Choose this to be able to use this attribute more than once per map item."
+                              click="this.on_click_multiple_allowed();" />
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                           -->
+
+                     <!-- Input Hints -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              text="Input Hints:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <views_commands:Text_Field_Editable
+                              id="value_hints_edit"
+                              width="80%"/>
+                           <mx:Label
+                              id="value_hints_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_hints_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Input Units -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              text="Input Units:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <views_commands:Text_Field_Editable
+                              id="value_units_edit"
+                              width="33%"/>
+                           <mx:Label
+                              id="value_units_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_units_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Constraints for (Value_Type == Integer) -->
+                     <!-- FIXME Remove this object for not-integers -->
+
+                     <!-- [Integer] Minimum Value -->
+                     <mx:GridRow
+                        id="attr_content_grid_value_min"
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              id="value_minimum_label"
+                              text="Min. Value:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <utils_misc:NumericStepper_Nullable
+                              id="value_minimum_stepper"
+                              stepSize="1"/>
+                              <!--
+                              change="this.on_change_value_minimum_stepper();"
+                              -->
+                           <mx:Label
+                              id="value_minimum_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_minimum_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- [Integer] Maximum Value -->
+                     <mx:GridRow
+                        id="attr_content_grid_value_max"
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              id="value_maximum_label"
+                              text="Max. Value:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <utils_misc:NumericStepper_Nullable
+                              id="value_maximum_stepper"
+                              stepSize="1"/>
+                              <!--
+                              change="this.on_change_value_maximum_stepper();"
+                              -->
+                           <mx:Label
+                              id="value_maximum_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_maximum_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- [Integer] Value Increment (Step Size) -->
+                     <mx:GridRow
+                        id="attr_content_grid_value_stepsize"
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              text="Increment:"
+                              id="value_stepsize_label"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <utils_misc:NumericStepper_Nullable
+                              id="value_stepsize_stepper"
+                              stepSize="1"/>
+                              <!--
+                              change="this.on_change_stepper_stepsize();"
+                              -->
+                           <mx:Label
+                              id="value_stepsize_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.value_stepsize_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Applies To Item Type -->
+                     <!-- BUG nnnn: Implement. But one caveat: users should not
+                     <    be able to change the item type after the attribute
+                     <    has been used! Maybe: if user changes item type,
+                     <    prompt them, if okayed, mark all link_values deleted
+                     <    for item types to which it doesn not apply. -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              id="applies_to_type_label"
+                              text="Applies To:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <mx:ComboBox
+                              id="applies_to_type_edit"
+                              fontWeight="normal"
+                              rowCount="99" />
+                           <mx:Label
+                              id="applies_to_type_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.applies_to_type_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Shapefile Field name -->
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="right"
+                           verticalAlign="middle">
+                           <mx:Label
+                              text="Shpf. Field:"
+                              fontWeight="bold"
+                              textAlign="right"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           width="100%">
+                           <views_commands:Text_Field_Editable
+                              id="spf_field_name_edit"
+                              width="80%"/>
+                           <mx:Label
+                              id="spf_field_name_view"
+                              text=""
+                              visible="false"
+                              includeInLayout=
+                                 "{this.spf_field_name_view.visible}"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <!-- Bug 2409: Implement value_restraints. -->
+
+                     <!-- NOTE Skipping: GUI: Display Weight
+                     <         (It's in Widget_Attribute_Entry) -->
+
+                  </mx:Grid>
+
+                  <mx:VBox
+                     id="fresh_not_so_fresh_hints"
+                     width="100%"
+                     paddingTop="6"
+                     paddingBottom="4"
+                     paddingLeft="2"
+                     paddingRight="2"
+                     horizontalAlign="left"
+                     visible="false"
+                     includeInLayout="{this.fresh_not_so_fresh_hints.visible}"
+                     >
+
+<!-- FIXME: Show these only for new attributes.
+     FIXME: Once the attribute has been applied, remove these texts and show
+            something saying that...-->
+                     <mx:Text
+                        width="100%"
+                        mouseEnabled="false"
+                        mouseChildren="false"
+                        leading="1"
+   htmlText="Configure your new attribute above. You can start using it immediately, even before saving it, by clicking on map items and editing them." />
+
+                     <mx:Text
+                        width="100%"
+                        mouseEnabled="false"
+                        mouseChildren="false"
+                        leading="1"
+   htmlText="When you are ready to commit your new attribute and any other changes you've made to the map, click the Save Changes button in the Editing Tools menu." />
+
+                     <mx:Text
+                        width="100%"
+                        mouseEnabled="false"
+                        mouseChildren="false"
+                        leading="1"
+   htmlText="You can close this panel whenever you want &#8212; you can find it again by clicking View Attributes from the branch menu in the lower-right corner of the map." />
+
+                     <mx:Text
+                        width="100%"
+                        mouseEnabled="false"
+                        mouseChildren="false"
+                        fontStyle="italic"
+                        leading="1"
+   text="Note: Once you start using this attribute, you will not be able to change its Value Type or what it Applies To, but you can always change its name." />
+
+                  </mx:VBox>
+
+               </mx:VBox>
+
+            </mx:VBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+
+      <!-- Skipping the sharing widget, since currently the
+           new_item_policy_init scripts says only branch editors can
+           make attributes and that they're always public.
+
+           MAYBE/MEH: If you want users to be able to make private
+           attributes, change the access_style to pub_choice and then
+           add the sharing widget.
+
+      <mx:VBox
+         id="widget_footer_box"
+         width="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         verticalGap="0"
+         visible="false"
+         includeInLayout="{this.widget_footer_box.visible}"
+         >
+         <views_panel_items:Widget_Gia_Sharing
+            id="widget_gia_sharing_footer"
+            width="100%"
+            />
+      </mx:VBox>
+      -->
+
+      <mx:VBox
+         id="widget_footer_box"
+         width="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         verticalGap="0"
+         visible="false"
+         includeInLayout="{this.widget_footer_box.visible}"
+         >
+         <views_panel_items:Widget_Gia_Sharing
+            id="widget_gia_sharing"
+            width="100%"
+            visible="true"
+            includeInLayout="{this.widget_gia_sharing.visible}"
+            />
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_items:Panel_Item_Attachment>
+

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_util:DisabledComboBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   rowCount="3"
+   fontWeight="normal"
+   prompt="Users can..."
+   selectedIndex="-1"
+   toolTip="Indicate the access granted to other users."
+   initialize="this.on_initialize(event)"
+   >
+   <!--
+   id="combo_simple_acl"
+   Not needed:
+      maxWidth="..."
+      dropdownWidth="..."
+   -->
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Shr_SAL');
+
+      // *** Instance variables
+
+      public var option_never_access:Object;
+      public var option_only_view:Object;
+      public var option_help_edit:Object;
+      //public var option_inherit_public:Object;
+
+      // E.g., "when accessed with the web link URL.", or
+      //       "when accessed from the route library."
+      [Bindable] public var friendly_name_found_via:String;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         this.option_never_access = {
+            label: "Never Access",
+            toolTip:
+               "Other users cannot access this item "
+               + this.friendly_name_found_via,
+            // callback: this.on_option_never_access,
+            enabled: true,
+            visible: true };
+         this.option_only_view = {
+            label: "Only View",
+            toolTip:
+               "Other users can only view this item "
+               + this.friendly_name_found_via,
+            // callback: this.on_option_only_view,
+            enabled: true,
+            visible: true };
+         this.option_help_edit = {
+            label: "Help Edit",
+            toolTip:
+               "Other users can help edit this item "
+               + this.friendly_name_found_via,
+            // callback: this.on_option_help_edit,
+            enabled: true,
+            visible: true };
+         // 2013.09.06: [lb] cannot for the life of him remember what this one
+         //             was suppose to accomplish.
+         /*
+         this.option_inherit_public = {
+            label: "Inherit Public",
+            toolTip:
+               "Other users get the same rights as the public.",
+            // callback: this.on_option_inherit_public,
+            enabled: true,
+            visible: false };
+         */
+
+         var options_arr:Array = new Array();
+         options_arr.push(this.option_never_access);
+         options_arr.push(this.option_only_view);
+         options_arr.push(this.option_help_edit);
+         //options_arr.push(this.option_inherit_public);
+         this.dataProvider = options_arr;
+
+         this.rowCount = options_arr.length;
+      }
+
+   ]]></mx:Script>
+
+</views_panel_util:DisabledComboBox>
+

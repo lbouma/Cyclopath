@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Address_Chooser_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.controls.Button;
+      import mx.events.FlexEvent;
+      import mx.managers.PopUpManager;
+      import mx.validators.StringValidator;
+
+      import gwis.GWIS_Geocode;
+      import items.Geofeature;
+      import utils.misc.Collection;
+      import utils.misc.Logging;
+      import views.base.UI;
+      import views.panel_routes.Route_Stop;
+      import views.panel_search.Panel_Search_Result;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('AddyResolver');
+
+      // *** Instance variables
+
+      // 2014.April: Added ability to cancel in-progress geocode requests.
+      //             Also split geocoding into separate calls (i.e., one
+      //             address per request). Since pyserver is Python, it's
+      //             single-threaded, so sending separate requests should
+      //             conceivably halve the wait time. But wait, there's more!
+      //             We also preemptively send geocode commands, so when the
+      //             user hits Find Route, geocoding will have been completed.
+      //             Also, this code is now DRY. One for all, and one for one!
+
+      // The label_text is, e.g., "From" or "To".
+      [Bindable] public var label_text:String = '';
+
+      // For our parent, Panel_Routes_New, to check that we're geocoded.
+      public var raw_addr_valid:Boolean = false;
+
+      // If the user types an address and then pauses, we'll secretly geocode
+      // it.
+      protected var gc_raw_timer:Timer;
+      // To help track changes to the input, to know when to secretly geocode.
+      protected var raw_changed:Boolean = false;
+
+      // The outstanding geocode request. We keep a pointer to it, so, ya know,
+      // we can actual cancel the request... silly CcpV1....
+      public var gwis_geocode:GWIS_Geocode;
+
+      // The meat of it.
+      public var addy_chosen:Address_Resolved = new Address_Resolved();
+
+      // ***
+
+      //
+      override public function toString() :String
+      {
+         return ('Addy_Revolver:'
+                 + ' label_text: ' + this.label_text
+                 + ' raw_addr_valid: ' + this.raw_addr_valid
+                 + ' raw_changed: ' + this.raw_changed
+                 + ' // gwis_geocode: ' + this.gwis_geocode
+                 + ' // addy_chosen: ' + this.addy_chosen.toString()
+                 );
+      }
+
+      // ***
+
+      //
+      public function get proper_address() :String
+      {
+         return this.addy_chosen.proper_address;
+      }
+
+      //
+      public function get geocoded_ptx() :Number
+      {
+         return this.addy_chosen.geocoded_ptx;
+      }
+
+      //
+      public function get geocoded_pty() :Number
+      {
+         return this.addy_chosen.geocoded_pty;
+      }
+
+      //
+      public function get geocoded_w() :String
+      {
+         return this.addy_chosen.geocoded_w;
+      }
+
+      //
+      public function get geocoded_h() :String
+      {
+         return this.addy_chosen.geocoded_h;
+      }
+
+      //
+      public function get gc_fulfiller() :String
+      {
+         return this.addy_chosen.gc_fulfiller;
+      }
+
+      //
+      public function get gc_confidence() :int
+      {
+         return this.addy_chosen.gc_confidence;
+      }
+
+      //
+      public function get geocoded_index() :int
+      {
+         return this.addy_chosen.geocoded_index;
+      }
+
+      // ***
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+         m4_DEBUG('on_initialize');
+
+         this.gc_raw_timer = new Timer(Conf.route_pregeocode_delay,
+                                       /*repeatCount=*/1);
+
+         this.gc_raw_timer.addEventListener(
+            TimerEvent.TIMER, this.on_gc_raw_timer_event, false, 0, true);
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_DEBUG('repopulate');
+      }
+
+      // ***
+
+      //
+      public function get valid() :Boolean
+      {
+         // The "This field is required" pointer and red outline is kind of
+         // aggressive. People are smart enough to fill this information in,
+         // so don't be a jerk until after they've hit the Find Route button.
+         // Set the valid flag true, since the validator will only falsify it.
+         // (That is, it won't truthify its truthiness.)
+         this.raw_addr_valid = true;
+         // Calling validate() may set this.raw_addr_valid = false:
+         this.geocode_addr_valid.validate();
+         return this.raw_addr_valid;
+      }
+
+      // ***
+
+      //
+      override public function get addr_show_all_btn() :Button
+      {
+         return this.addr_show_all_btn_;
+      }
+
+      //
+      public function addr_input_clear() :void
+      {
+         this.raw_addr_input.text = '';
+         this.geocoded_clear();
+      }
+
+      //
+      public function address_from_search(result:Panel_Search_Result) :void
+      {
+         this.addr_input_clear();
+         this.raw_addr_input.text = result.gf_name;
+         this.addy_chosen.address_from_search(result);
+      }
+
+      //
+      public function address_from_rstop(rstop_endpt:Route_Stop) :void
+      {
+         this.addy_chosen.address_from_rstop(rstop_endpt);
+         if (this.addy_chosen.is_geocoded()) {
+            this.raw_addr_input.text = this.addy_chosen.proper_address;
+         }
+         else {
+            this.geocoded_clear();
+            m4_ASSERT_SOFT(false); // Does this happen?
+         }
+      }
+
+      //
+      public function manage_destinations_and_find_route_button() :void
+      {
+         var disable_clear_btn:Boolean = true;
+
+         this.addr_crazyclear_btn.label = '';
+         if (this.raw_addr_input.text != '') {
+            disable_clear_btn = false;
+            if ((this.geocode_picker.addy_picker_box.visible)
+                || (this.addy_chosen.is_geocoded())) {
+               // If picker is showing, or if we've already got a geocode
+               // candidate, let the user clear the text input via 'x' btn.
+               m4_DEBUG3('mng_dests_n_find_rte_btn: addy_picker_box.visible:',
+                         this.geocode_picker.addy_picker_box.visible,
+                         '/ is_geocoded:', this.addy_chosen.is_geocoded());
+               this.addr_crazyclear_btn.label = 'x';
+               this.addr_crazyclear_btn.toolTip =
+                  "Click to clear the input box.";
+            }
+            else if ((this.addy_chosen.results_xml !== null)
+                     || (this.addy_chosen.results_none)
+                     || (this.addy_chosen.results_error)) {
+               // If we've background geocoded and have more than result, we'll
+               // show the geocoded results picker when the user hits Find
+               // Route, or when then hit the what's this '?' button.
+               m4_DEBUG2('mng_dests_n_find_rte_btn: addy_chosen',
+                         this.addy_chosen);
+               this.addr_crazyclear_btn.label = '?';
+            }
+            else {
+               // Hasn't been geocoded, hasn't been deleted.
+               m4_DEBUG('mng_dests_n_find_rte_btn: neither geocoded nor dltd');
+               disable_clear_btn = true;
+            }
+         }
+         else {
+            // True: (this.raw_addr_input.text == '')
+            m4_DEBUG2('mng_dests_n_find_rte_btn: addy_picker_box.visible',
+                      this.geocode_picker.addy_picker_box.visible);
+            if (this.geocode_picker.addy_picker_box.visible) {
+               this.addr_crazyclear_btn.label = 'x';
+               this.addr_crazyclear_btn.toolTip =
+                  "Click to clear the input list.";
+               disable_clear_btn = false;
+            }
+         }
+         
+         m4_DEBUG('manage_dests_and_find_rte: enabl clr:', !disable_clear_btn);
+
+         this.addr_crazyclear_btn.enabled = !disable_clear_btn;
+         this.addr_crazyclear_btn.visible = !disable_clear_btn;
+
+         this.parentDocument.manage_destinations_and_find_route_button();
+      }
+
+      //
+      protected function on_addr_crazyclear_btn_click() :void
+      {
+         var clear_input:Boolean = false;
+
+         if (this.addy_chosen.is_geocoded()) {
+            // Geocoded candidate chosen, so ex 'x' showing.
+            // See if there were multiple choices for the addess: if so,
+            // we'll show the list again; otherwise, we'll just clear.
+            m4_ASSERT_SOFT(this.addr_crazyclear_btn.label == 'x');
+            m4_ASSERT_SOFT(this.addy_chosen.geocoded_index != -1);
+            clear_input = true;
+            if (this.addy_chosen.results_xml.length == 1) {
+               m4_DEBUG('on_addr_crazyclear_btn_click: is_geocoded: one');
+               this.geocoded_clear();
+            }
+            else {
+               // Multiple results. Clear what user previously selected and
+               // we'll show the resolver list again.
+               m4_DEBUG('on_addr_crazyclear_btn_click: is_geocoded: many');
+               this.addy_chosen.clear_addy(/*keep_results=*/true);
+               this.geocode_picker.resolver_instructions.htmlText =
+                  "Try a new destination or click 'x' to clear list.";
+            }
+         }
+         else {
+            // !geocoded.
+            if (this.addr_crazyclear_btn.label == 'x') {
+               if (this.raw_addr_input.text == '') {
+                  // Picker is showing, so either input text is empty (user hit
+                  // 'x' already), or it's the user's original query (so user
+                  // never chose a result in the first place). So stop showing
+                  // the resolver.
+                  m4_DEBUG('on_addr_crazyclear_btn_click: hide resolver');
+                  this.geocoded_clear();
+                  // Set focus to the input control.
+                  clear_input = true;
+               }
+               else {
+                  // Picker is not showing, nothing geocoded, just whack input.
+                  m4_DEBUG('on_addr_crazyclear_btn_click: clear all');
+                  clear_input = true;
+               }
+            }
+            else if (this.addr_crazyclear_btn.label == '?') {
+               // We preemptively geocoded and indicate to user that we have a
+               // results list by showing the '?' button. We'll do nothing
+               // here, for at the end of this fcn, we'll call
+               // show_addy_resolver.
+               m4_DEBUG('on_addr_crazyclear_btn_click: show resolver');
+               ; // No-op.
+            }
+            else {
+               m4_DEBUG('on_addr_crazyclear_btn_click: restore previous');
+               if (this.addy_chosen.proper_address) {
+                  this.raw_addr_input.text = this.addy_chosen.proper_address;
+               }
+               else {
+                  this.raw_addr_input.text = this.addy_chosen.raw_address;
+               }
+            }
+         }
+
+         if (clear_input) {
+            this.raw_addr_input.text = '';
+            this.raw_addr_input.setFocus();
+         }
+
+         this.raw_changed = false;
+         this.gc_raw_timer.reset();
+
+         this.show_addy_resolver();
+      }
+
+      //
+      protected function on_addr_show_all_btn_click() :void
+      {
+         m4_DEBUG('on_addr_show_all_btn_click');
+         this.addr_show_all_btn_.visible = false;
+         this.geocode_picker.force_show_list = true;
+         this.geocode_picker.show_addy_resolver(this.addy_chosen);
+      }
+
+      //
+      protected function on_gc_raw_timer_event(ev:TimerEvent) :void
+      {
+         m4_DEBUG('on_gc_raw_timer_event');
+         if (this.raw_changed) {
+            this.parentDocument.pregeocoding = true;
+            m4_DEBUG('on_gc_raw_timer_event: geocode_start');
+            this.geocode_start();
+         }
+         this.gc_raw_timer.reset();
+      }
+
+      //
+      protected function on_raw_addr_input_change() :void
+      {
+         m4_DEBUG('on_raw_addr_input_change:', this.raw_addr_input.text);
+         this.geocoded_clear(/*keep_results=*/false);
+         this.gc_raw_timer.reset();
+         if (this.raw_addr_input.text != '') {
+            this.raw_changed = true;
+            this.gc_raw_timer.start();
+         }
+         this.geocode_addr_valid.required = false;
+         this.show_addy_resolver();
+      }
+
+      //
+      protected function on_raw_addr_input_enter() :void
+      {
+         m4_DEBUG('on_raw_addr_input_enter');
+         if (this.raw_addr_input.text != '') {
+            // We can at least geocode the beg.
+            m4_DEBUG('on_raw_addr_input_enter: geocode_start');
+            this.geocode_start();
+            // We can maybe submit the route request.
+            this.parentDocument.on_either_addr_input_enter();
+         }
+      }
+
+      //
+      protected function on_raw_addr_input_focus_out() :void
+      {
+         m4_DEBUG2('on_raw_addr_input_focus_out:',
+                   this.raw_addr_input.text);
+         if (this.raw_changed) {
+            m4_DEBUG('on_raw_addr_input_focus_out: geocode_start');
+            this.geocode_start();
+         }
+         this.gc_raw_timer.reset();
+      }
+
+      // ***
+
+      //
+      public function geocoded_clear(keep_results:Boolean=false) :void
+      {
+         if (this.gwis_geocode !== null) {
+            this.gwis_geocode.cancel();
+            this.gwis_geocode = null;
+         }
+         m4_DEBUG('geocoded_clear: this.addy_chosen.clear_addy()');
+         this.addy_chosen.clear_addy(keep_results);
+      }
+
+      //
+      public function geocode_start() :void
+      {
+         if (this.raw_changed) {
+            this.geocoded_clear();
+            this.raw_changed = false;
+         }
+         if (   (!this.addy_chosen.is_geocoded())
+             && (this.addy_chosen.results_xml === null)
+             && (!this.addy_chosen.results_none)
+             && (!this.addy_chosen.results_error)
+             && (this.raw_addr_input.text != '')) {
+            if (this.gwis_geocode !== null) {
+               if (this.gwis_geocode.addrs[0] != this.raw_addr_input.text) {
+                  m4_DEBUG('geocode_start: canceling old gwis_geocode');
+                  this.geocoded_clear();
+               }
+               else {
+                  m4_DEBUG('geocode_start: not canceling old gwis_geocode');
+               }
+            }
+            if (this.gwis_geocode === null) {
+               this.addy_chosen.raw_address = this.raw_addr_input.text;
+               m4_DEBUG2('geocode_start: new gwis_geocode:',
+                         this.raw_addr_input.text);
+               this.gwis_geocode = new GWIS_Geocode(
+                  [this.raw_addr_input.text,],
+                  this.on_gwis_getgeocode_okay,
+                  this.on_gwis_getgeocode_fail);
+               var found_duplicate:Boolean;
+               found_duplicate = G.map.update_supplemental(this.gwis_geocode);
+               if (found_duplicate) {
+                  // 2014.09.09: Five times is past ten days.
+                  // EXPLAIN: When re-geocoding, we nix the prior request.
+                  // TEST: Or maybe the user is geocoding the same addy twice?
+                  //       Or just hitting the return twice or something?
+                  //  m4_ASSERT_SOFT(false);
+                  //  G.sl.event('error/addy_rslvr/geocode_start',
+                  //             {raw_addr_input: this.raw_addr_input.text});
+                  m4_WARNING('Success! You reproduced duplicate geocode req.');
+               }
+            }
+            // else, we've already started geocoding the address.
+         }
+         // else, find_route_start indiscriminently calls us.
+      }
+
+      //
+      public function on_gwis_getgeocode_fail(
+         gwis_req:GWIS_Geocode, rset:XML) :void
+      {
+         // MAYBE: Is the user alerted by normal error processing?
+         //        Do we have any other cleanup to do?
+         this.gwis_geocode = null;
+
+         if (rset !== null) {
+            //this.addy_chosen.clear_addy();
+            this.addy_chosen.results_error = true;
+            this.addy_chosen.error_message = rset.@msg;
+            m4_WARNING2('on_gwis_getgeocode_fail: GWIS_Geocode failed:',
+                        this.addy_chosen);
+         }
+         // else, called internally, i.e., this.gwis_geocode.cancel().
+
+         this.parentDocument.routstanding = false; // Full stop.
+         this.parentDocument.cleanup_popup_maybe();
+
+         this.show_addy_resolver();
+
+         this.parentDocument.find_route_maybe(
+            /*caller_alias=*/'on_gwis_getgeocode_fail');
+      }
+
+      // Called when GWIS_Geocode finishes. If both to and from addresses
+      // have been unambiguously geocoded, proceed to route finding; if not,
+      // present the disambiguation dialog box.
+      // C.f. Address_Resolver.on_gwis_getgeocode_okay / Route_Stop_Entry.same
+      public function on_gwis_getgeocode_okay(
+         gwis_req:GWIS_Geocode, results:XML) :void
+      {
+         //m4_DEBUG('on_gwis_getgeocode_ok: results:', results.toXMLString());
+         m4_DEBUG('on_gwis_getgeocode_ok: gwis_req.addrs:', gwis_req.addrs);
+
+         var results_xml:XML = null;
+         results_xml = results.addr[0];
+         m4_DEBUG('on_gwis_getgeocode_ok/1: results_xml:', results_xml);
+         m4_DEBUG2('on_gwis_getgeocode_ok/2: results_xml:',
+                   results_xml.toXMLString());
+
+         this.gwis_geocode = null;
+         this.addy_chosen.clear_addy();
+
+         // Process geocoding results if unambiguous.
+         if (results_xml !== null) {
+
+            var i:int;
+            this.addy_chosen.results_xml = results_xml.addr;
+            for (i = 0; i < this.addy_chosen.results_xml.length(); i++) {
+               this.addy_chosen.results_xml[i].@results_index = i;
+            }
+            m4_DEBUG2('on_gwis_getgeocode_ok/2: _chosen.results_xml:',
+                      this.addy_chosen.results_xml.toXMLString());
+            m4_DEBUG2('on_gwis_getgeocode_ok/3: _chosen.results_xml.length():',
+                      this.addy_chosen.results_xml.length());
+
+            if (results_xml.addr.length() == 1) {
+               // 2014.09.12: Might as well?
+               m4_DEBUG('on_gwis_getgeocode_ok/4: using only result');
+               this.addy_chosen.choose_addy(/*results_index=*/0);
+            }
+            else if (results_xml.addr.length() >= 2) {
+               if (results_xml.addr[0].@gc_ego == 100) {
+                  m4_DEBUG('on_gwis_getgeocode_ok/5: using 1st confident res');
+                  this.addy_chosen.choose_addy(/*results_index=*/0);
+               }
+               // 2014.09.12: Choose the first result if... somewhat confident.
+               // 1st result w/ at least 40% confidence, 2nd result 15%+ less.
+               else if (   (results_xml.addr[0].@gc_ego > 40)
+                        && ((  results_xml.addr[0].@gc_ego
+                             - results_xml.addr[1].@gc_ego) > 15)) {
+                  m4_DEBUG('on_gwis_getgeocode_ok/6: assuming 1st is okay');
+                  this.addy_chosen.choose_addy(/*results_index=*/0);
+               }
+            }
+            // If we didn't auto-choose an address, we'll proactively alert
+            // the user of ambiguous results with a '?' button, otherwise we
+            // wait until they hit Find Route to show the list. And we don't
+            // immediately show the list because that's disruptive -- e.g., if
+            // this is the "from" address, showing the list of geocoded results
+            // pushes the "to" address further down the panel.  See later:
+            // this.manage_destinations_and_find_route_button();
+         }
+         m4_ASSERT_ELSE_SOFT;
+
+         // Skipping, because we might start routing (or it's not showing):
+         //   this.parentDocument.cleanup_popup_maybe();
+
+         this.show_addy_resolver();
+
+         this.parentDocument.find_route_maybe(
+            /*caller_alias=*/'on_gwis_getgeocode_okay');
+      }
+
+      // ***
+
+      //
+      public function show_addy_resolver() :void
+      {
+         m4_DEBUG('show_addy_resolver: addy_chosen:', this.addy_chosen);
+         //m4_DEBUG3('show_addy_resolver:',
+         //          (this.addy_chosen.results_xml !== null)
+         //          ? this.addy_chosen.results_xml.toXMLString() : 'null');
+         m4_DEBUG4('show_addy_resolver:',
+                   (this.addy_chosen.results_xml !== null)
+                   ? (String(this.addy_chosen.results_xml.length()) + ' total')
+                   : 'null');
+
+         this.geocode_picker.show_addy_resolver(this.addy_chosen);
+
+         this.manage_destinations_and_find_route_button();
+      }
+
+      //
+      public function picked_callback(rstop_object:Object) :void
+      {
+         m4_DEBUG2('picked_callback: rstop_object:',
+                   rstop_object.toXMLString());
+
+         this.raw_addr_input.text = rstop_object.@text;
+
+         this.addy_chosen.choose_addy(rstop_object.@results_index);
+
+         this.geocode_picker.force_show_list = false;
+         this.show_addy_resolver();
+
+         // Parent (Panel_Routes_New) calls this.show_addy_resolver().
+         this.parentDocument.picked_callback();
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- I.e., "From", or "To". -->
+   <mx:Label
+      width="100%"
+      styleName="labelmajor"
+      text="{this.label_text}"/>
+
+   <mx:HBox
+      id="address_container"
+      width="100%"
+      horizontalGap="0"
+      verticalAlign="middle"
+      paddingRight="12"
+      >
+      <mx:HBox
+         width="100%"
+         horizontalGap="0"
+         >
+         <!-- MAGIC_NUMBERS: Are these hard-coded
+                             widths good/okay? -->
+         <mx:TextInput
+            id="raw_addr_input"
+            width="100%"
+            maxWidth="380"
+            change="this.on_raw_addr_input_change();"
+            enter="this.on_raw_addr_input_enter();"
+            focusOut="this.on_raw_addr_input_focus_out();"
+            />
+      </mx:HBox>
+      <mx:HBox
+         horizontalAlign="center"
+         verticalAlign="middle"
+         width="44"
+         paddingLeft="4"
+         paddingRight="4"
+         horizontalGap="4"
+         >
+         <!--
+            label="clear"
+         -->
+         <mx:Button
+            id="addr_crazyclear_btn"
+            label="x"
+            height="16"
+            width="16"
+            labelPlacement="top"
+            paddingBottom="1"
+            paddingRight="1"
+            styleName="small"
+            enabled="false"
+            visible="false"
+            includeInLayout="true"
+            click="this.on_addr_crazyclear_btn_click();"/>
+         <mx:Button
+            id="addr_show_all_btn_"
+            label="..."
+            toolTip="Show all destinations that matched the query."
+            height="16"
+            width="16"
+            labelPlacement="top"
+            paddingBottom="1"
+            paddingRight="1"
+            styleName="small"
+            enabled="true"
+            visible="false"
+            includeInLayout="true"
+            click="this.on_addr_show_all_btn_click();"/>
+      </mx:HBox>
+   </mx:HBox> <!-- end: address_container -->
+
+   <!-- Ambiguity cleanser. -->
+   <views_panel_routes:Address_Picker
+      id="geocode_picker"
+      picked_handler="{this.picked_callback}"
+      width="100%"
+      paddingTop="6"
+      visible="false"
+      includeInLayout="{this.geocode_picker.visible}"
+      />
+
+   <!-- NOTE: The StringValidator must be a direct descendant of this parent.
+              It cannot be enclosed in any Containers other than the parent
+              Detail_Panel_Widget container.
+              "Error: Component declarations are not allowed here. (Note:
+                      visual children must implement mx.core.IUIComponent)"
+              -->
+
+   <!-- The "This field is required" pointer and red outline is kind of
+        aggressive. People are smart enough to fill this information in,
+        so don't be a jerk until after they've hit the Find Route button.
+        We'll set requird=true later. -->
+
+   <mx:StringValidator
+      id="geocode_addr_valid"
+      required="false"
+      source="{this.raw_addr_input}"
+      property="text"
+      invalid="{this.raw_addr_valid = false}"/>
+
+</views_panel_routes:Address_Chooser_Base>
+

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.events.CloseEvent;
+
+      import utils.misc.Logging;
+      import views.panel_activity.Tab_Latest_Activity_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_ThdBase');
+
+      // *** Init methods
+
+      // *** Instance methods
+
+      // create a new thread that has the selected objects attached
+      protected function discussion_new() :void
+      {
+         // FIXME: Make sure we alert user when panel or app closed if
+         //        threads are dirty...
+         //
+         // QUESTION: We let the user navigate away from a thread with an
+         //           unsaved post? How do they get back there?
+         // ANSWER: It's when the panel is closed that we should alert.
+         // So don't do this, and note that Thread.dirty is an old indicator
+         // to mean that _any_ thread panel has a dirty post, and not just
+         // this panel's.
+         // Skipping:
+         //   if (Thread.dirty) {
+         //      Alert.show(
+         //         'You have unposted changes in another thread. '
+         //         + 'If you proceed with this operation, those changes '
+         //         + 'will be lost. Is this okay?',
+         //         'Create new thread',
+         //         Alert.CANCEL | Alert.OK,
+         //         null,
+         //         this.discussion_new_handler,
+         //         null,
+         //         Alert.OK);
+         //   }
+         //   else {
+         //      this.discussion_new_handler(null);
+         //   }
+         this.discussion_new_handler(null);
+      }
+
+      //
+      protected function discussion_new_handler(ev:CloseEvent) :void
+      {
+         if (ev === null || ev.detail == Alert.OK) {
+
+            m4_DEBUG('discussion_new_handler: activating activity_panel');
+            G.panel_mgr.panel_activate(G.app.activity_panel);
+
+            // FIXME: REACTIONS: new code:
+            G.tabs.activity.activities.select_general();
+
+            // FIXME: This feels weird. The widget can get to the panel manager
+            // through the detail_panel handle, I think... or at least is
+            // probably should.
+            G.tabs.discussions.post_auto_attach = true;
+            G.tabs.discuss_panel.on_new_thread_click();
+         }
+      }
+
+      // show the discussions/threads that have the selected objects attached
+      protected function discussion_show() :void
+      {
+         this.discussion_show_handler(null);
+      }
+
+      //
+      protected function discussion_show_handler(ev:CloseEvent) :void
+      {
+         m4_ASSERT(!(G.item_mgr.saving_discussion));
+
+         if ((ev === null) || (ev.detail == Alert.OK)) {
+
+            m4_DEBUG('discussion_show_handler: activating activity_panel');
+            G.panel_mgr.panel_activate(G.app.activity_panel);
+
+            G.tabs.activity.activities.select_general();
+
+            G.tabs.activity.activities.general.filter_by_widget.selectedId =
+               Tab_Latest_Activity_Base.filter_by_selected_item_index;
+         }
+      }
+
+   ]]></mx:Script>
+
+</views_panel_base:Detail_Panel_Widget>
+

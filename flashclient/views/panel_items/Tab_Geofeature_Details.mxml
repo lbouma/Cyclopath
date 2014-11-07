@@ -1,0 +1,505 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+      import mx.utils.UIDUtil;
+
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Gf_Dtl');
+
+      // *** Instance attributes
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         super.on_creation_complete(event);
+         m4_VERBOSE('Creation Complete: ==== ', UIDUtil.getUID(this));
+      }
+
+      //
+      override protected function on_preinitialize(event:FlexEvent) :void
+      {
+         super.on_preinitialize(event);
+         m4_VERBOSE('on_preinitialize');
+      }
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+         m4_VERBOSE('on_initialize');
+
+         //this.widget_gia_sharing_inline.footer_lock = false;
+         this.widget_gia_sharing_inline.footer_lock = true;
+         this.widget_gia_sharing_footer.footer_lock = true;
+         this.widget_gia_sharing_inline.outside_scroll_area = false;
+         this.widget_gia_sharing_footer.outside_scroll_area = true;
+      }
+
+      //
+      override public function on_panel_show() :void
+      {
+         m4_VERBOSE('on_panel_show: this.height:', this.height);
+         super.on_panel_show();
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         m4_ASSERT(false);
+         return 'About Item';
+      }
+
+      // ***
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         m4_VERBOSE('set detail_panel: dp:', dp);
+
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         this.register_widgets([
+            this.widget_name_header,
+            this.widget_item_type,
+            this.widget_tag_list,
+            this.widget_discussions,
+            this.widget_item_alerts,
+            this.widget_annotation_list,
+            this.widget_attribute_list,
+            this.widget_version_history,
+            this.widget_gia_sharing_inline,
+            this.widget_gia_sharing_footer,
+            ]);
+
+         // Configure the item type (geofeature layer ID) dropdown.
+         var inited:Boolean = this.widget_item_type.init_item_type_combo(
+                                                      this.dp.shows_type);
+         this.widget_item_type.visible = inited;
+         this.widget_item_type.includeInLayout = inited;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+         m4_VERBOSE('repopulate');
+
+         var fresh:Boolean = Objutil.consensus(
+            this.items_selected, 'fresh', false);
+
+         m4_VERBOSE('repopulate: fresh:', fresh);
+         m4_VERBOSE('repopulate: can_arbit:', this.dp.access_level_can_arbit);
+         if (G.map.rev_workcopy !== null) {
+            this.widget_item_alerts.visible = true;
+            this.widget_item_alerts.includeInLayout = true;
+            if ((G.app.mode.is_allowed(App_Action.item_edit))
+                && ((fresh) || (this.dp.access_level_can_arbit))) {
+               this.widget_gia_sharing_inline.visible = false;
+               this.widget_gia_sharing_inline.includeInLayout = false;
+               this.widget_footer_box.visible = true;
+               this.widget_footer_box.includeInLayout = true;
+            }
+            else {
+               this.widget_gia_sharing_inline.visible = true;
+               this.widget_gia_sharing_inline.includeInLayout = true;
+               this.widget_footer_box.visible = false;
+               this.widget_footer_box.includeInLayout = false;
+            }
+         }
+         else {
+            this.widget_item_alerts.visible = false;
+            this.widget_item_alerts.includeInLayout = false;
+            this.widget_gia_sharing_inline.visible = false;
+            this.widget_gia_sharing_inline.includeInLayout = false;
+            this.widget_footer_box.visible = false;
+            this.widget_footer_box.includeInLayout = false;
+         }
+         // Since we may have toggled widget_footer_box.visible, resize.
+         this.on_resize(null);
+      }
+
+      // *** Instance methods
+
+      //
+      override public function on_resize(event:ResizeEvent=null) :void
+      {
+         if (this.dp.height > 0) {
+            this.on_resize_(event);
+         }
+      }
+
+      //
+      protected function on_resize_(event:ResizeEvent) :void
+      {
+         // 2013.03.01: [lb] just tested without and this function very much
+         // still needed -- this widget gets clipped otherwise. So weird!
+
+         m4_PPUSH('on_resize_: this.height:', this.height);
+         
+         /*/
+         m4_DEBUG2('details_main_box.height (first):',
+                   this.details_main_box.height);
+         //
+         m4_VERBOSE('this/verticalGap:', this.getStyle('verticalGap'));
+         m4_VERBOSE('this/paddingTop:', this.getStyle('paddingTop'));
+         m4_VERBOSE('this/paddingBottom:', this.getStyle('paddingBottom'));
+         //
+         m4_DEBUG('on_resize: this:', this);
+         m4_DEBUG('on_resize: this.height:', this.height);
+         m4_DEBUG('on_resize: this.maxHeight:', this.maxHeight);
+         //
+         m4_DEBUG('on_resize: this.dp:', this.dp);
+         m4_VERBOSE('this.dp.height:', this.dp.height);
+         m4_VERBOSE('this.dp.maxHeight:', this.dp.maxHeight);
+         m4_VERBOSE('dp/verticalGap:', this.dp.getStyle('verticalGap'));
+         m4_VERBOSE('dp/paddingTop:', this.dp.getStyle('paddingTop'));
+         m4_VERBOSE('dp/paddingBottom:', this.dp.getStyle('paddingBottom'));
+         //
+         m4_VERBOSE('box_details_all.height:', this.box_details_all.height);
+         m4_VERBOSE2('box_details_all/verticalGap:',
+                     this.box_details_all.getStyle('verticalGap'));
+         m4_VERBOSE2('box_details_all/paddingTop:',
+                     this.box_details_all.getStyle('paddingTop'));
+         m4_VERBOSE2('box_details_all/paddingBottom:',
+                     this.box_details_all.getStyle('paddingBottom'));
+
+         m4_VERBOSE2('widget_name_header.height:',
+                     this.widget_name_header.height);
+         m4_VERBOSE2('widget_name_header/verticalGap:',
+                     this.widget_name_header.getStyle('verticalGap'));
+         m4_VERBOSE2('widget_name_header/paddingTop:',
+                     this.widget_name_header.getStyle('paddingTop'));
+         m4_VERBOSE2('widget_name_header/paddingBottom:',
+                     this.widget_name_header.getStyle('paddingBottom'));
+         /*/
+
+         this.details_main_box.height = NaN;
+         //m4_DEBUG('details_main_box.height:', this.details_main_box.height);
+
+         var details_main_height:int;
+         details_main_height =
+            //
+            this.dp.height
+            //
+            - this.dp.getStyle('paddingTop')
+            - this.dp.getStyle('paddingBottom')
+            //
+            - this.getStyle('paddingTop')
+            - this.getStyle('paddingBottom')
+            // Once more for good measure...
+            // Update: I got rid of two HRules and now these can go, too,
+            // even though the HRules were in other containers I'm still
+            // measuring here. Whatever, silly dimension calculations.
+            // - this.getStyle('paddingTop')
+            // - this.getStyle('paddingBottom')
+            //
+            // There are two VBoxes in the inner VBox, so one vertical Gap.
+            - this.box_details_all.getStyle('paddingTop')
+            - this.box_details_all.getStyle('paddingBottom')
+            // When borderStyle is "solid", check borderThickness (default: 1).
+            // MAGIC_NUMBER: The border has upper and lower edges, or 2 edges.
+            - 2 * this.box_details_all.getStyle('borderThickness')
+            //
+            - this.box_details_inner.getStyle('paddingTop')
+            - this.box_details_inner.getStyle('paddingBottom')
+            //
+            - this.widget_name_header.height
+            - this.box_details_inner.getStyle('verticalGap')
+            //
+            - this.details_main_wrap.getStyle('paddingTop')
+            - this.details_main_wrap.getStyle('paddingBottom')
+            - 2 * this.details_main_wrap.getStyle('borderThickness')
+            //
+            - this.details_main_box.getStyle('paddingTop')
+            - this.details_main_box.getStyle('paddingBottom')
+            - 2 * this.details_main_box.getStyle('borderThickness')
+            //
+            ;
+         if (this.widget_footer_box.visible) {
+            details_main_height =
+               //
+               details_main_height
+               //
+               - this.widget_footer_box.height
+               - this.box_details_inner.getStyle('verticalGap')
+               //
+               ;
+         }
+
+         this.details_main_box.height = details_main_height;
+         this.details_main_box.maxHeight = details_main_height;
+
+         m4_PPUSH3('on_resize: details_main_box.height:',
+                   this.details_main_box.height,
+                   '/ maxHeight:', this.details_main_box.maxHeight);
+      }
+
+      // ***
+
+      //
+      override protected function has_auto_scroll_bar_policy() :Boolean
+      {
+         //return true;
+         return false;
+      }
+
+      //
+      override public function get vertical_scrollbar_target()
+         :Container
+      {
+         return this.details_main_box;
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="box_details_all"
+      width="100%"
+      height="100%"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      verticalGap="0"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="box_details_inner"
+         width="100%"
+         height="100%"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0"
+         verticalGap="2"
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+
+         <views_panel_items:Widget_Name_Header
+            id="widget_name_header"
+            width="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="2"
+            />
+
+         <!-- EXPLAIN: Why is there a Canvas wrapper? Doesn't VBox work? -->
+         <mx:Canvas
+            id="details_main_canvas"
+            xmlns:mx="http://www.adobe.com/2006/mxml"
+            xmlns="*"
+            width="100%"
+            height="100%"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="off"
+            >
+
+            <!-- MAYBE: verticalScrollPolicy should be auto, but the
+                        VBox overlay with the border has bad width (could
+                        probably set width based on is scroller is present
+                        or not (how do you know if scrollbar is showing?).
+                        but also, item panel has lots of info, so on most
+                        monitors you'll want to scroll?
+                        -->
+
+            <!-- 2013.03.25: [lb] is not sure we still need a Canvas wrapper
+                 but so long as it's there, we want to set x,y to home. -->
+            <mx:VBox
+               id="details_main_wrap"
+               width="100%"
+               paddingLeft="3"
+               paddingRight="3"
+               paddingTop="3"
+               paddingBottom="3"
+               verticalGap="0"
+               horizontalScrollPolicy="off"
+               verticalScrollPolicy="off"
+               borderStyle="solid"
+               borderColor="0xb7babc"
+               >
+
+               <mx:VBox
+                  id="details_main_box"
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  paddingLeft="0"
+                  paddingRight="0"
+                  paddingTop="0"
+                  paddingBottom="0"
+                  verticalGap="0"
+                  horizontalScrollPolicy="off"
+                  verticalScrollPolicy="auto"
+                  >
+
+                  <mx:VBox
+                     id="details_main_box_box"
+                     width="100%"
+                     paddingLeft="5"
+                     paddingRight="7"
+                     paddingTop="0"
+                     paddingBottom="5"
+                     verticalGap="2"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="off"
+                     >
+
+                     <!-- *** Geofeature Layer ID -->
+                     <!-- This one goes first. -->
+                     <!-- NOTE: One could see Item Type as really just another
+                                attribute, but Cyclopath uses it specially, so
+                                we keep it specially.  (That is, it's used for
+                                TileCache, and whatnots.)
+                                -->
+                     <!-- FIXME: Byway is the only geofeature with multiple,
+                                 settable GFL IDs. Waypoints and Regions have
+                                 just one GFL choice.  Terrain, however, has
+                                 two (water and greenspace) but terrain is
+                                 not (currently) editable. Mayhap one day we
+                                 will make terrain editable, or give regions
+                                 or waypoints more than one GFL ID? (Consider
+                                 Waypoints:  We could assign GFLs for each
+                                 "point-type", i.e., library, house, business,
+                                 bar, restaurant, etc. (and also associate GFL
+                                 IDs with icon, mayhap).)
+                                 -->
+                     <!-- Use a smaller paddingTop since this is the first
+                          widget. -->
+                     <views_panel_items:Widget_Item_Type
+                        id="widget_item_type"
+                        width="100%"
+                        visible="true"
+                        includeInLayout="{this.widget_item_type.visible}"
+                        />
+
+                     <!-- This is where Widget_Bikeability puts itself. -->
+
+                     <views_panel_items:Widget_Tag_List
+                        id="widget_tag_list"
+                        width="100%"
+                        />
+
+                     <views_panel_items:Widget_Annotation_List
+                        id="widget_annotation_list"
+                        width="100%"
+                        />
+
+                     <views_panel_items:Widget_Discussions
+                        id="widget_discussions"
+                        width="100%"
+                        />
+
+                     <views_panel_items:Widget_Item_Alerts
+                        id="widget_item_alerts"
+                        width="100%"
+                        visible="true"
+                        includeInLayout="{this.widget_item_alerts.visible}"
+                        />
+
+                     <!-- *** Geofeature Attributes -->
+                     <!-- This one goes last. Ish. -->
+                     <views_panel_items:Widget_Attribute_List
+                        id="widget_attribute_list"
+                        width="100%"
+                        />
+
+                     <!-- 2014.05.09: Inline item history. -->
+                     <views_panel_items:Widget_Version_History
+                        id="widget_version_history"
+                        width="100%"
+                        verticalScrollPolicy="off"
+                        visible="false"
+                        includeInLayout="{this.widget_version_history.visible}"
+
+                        version_history_page_size="3"
+                        />
+
+                     <!-- This is where Widget_Gia_Sharing puts itself, maybe,
+                          if it's not outside the scrollbar container and
+                          acting as a footer (in the case of new items and
+                          items the user owns). See below for the footer
+                          version of this.
+                          -->
+                     <views_panel_items:Widget_Gia_Sharing
+                        id="widget_gia_sharing_inline"
+                        width="100%"
+                        visible="false"
+                        includeInLayout=
+                           "{this.widget_gia_sharing_inline.visible}"
+                        />
+
+                     <!-- This is where Widget_Byways_Merge puts itself. -->
+
+                  </mx:VBox>
+
+               </mx:VBox> <!-- end: details_main_box -->
+
+            </mx:VBox>
+
+         </mx:Canvas>
+
+         <mx:VBox
+            id="widget_footer_box"
+            width="100%"
+            paddingLeft="0"
+            paddingRight="0"
+            paddingTop="0"
+            paddingBottom="0"
+            verticalGap="0"
+            visible="false"
+            includeInLayout="{this.widget_footer_box.visible}"
+            >
+            <views_panel_items:Widget_Gia_Sharing
+               id="widget_gia_sharing_footer"
+               width="100%"
+               />
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

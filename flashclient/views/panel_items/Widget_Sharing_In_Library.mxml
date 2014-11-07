@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_util:DisabledComboBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   rowCount="3"
+   fontWeight="normal"
+   prompt="Show In Library?"
+   selectedIndex="-1"
+   toolTip="Indicate how easily people can find this item."
+   initialize="this.on_initialize(event)"
+   >
+   <!--
+   id="combo_show_in_lib"
+   Not needed:
+      maxWidth="..."
+      dropdownWidth="..."
+   -->
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import grax.Library_Squelch;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Shr_InL');
+
+      // *** Instance variables
+
+      public var option_always_show:Object;
+      public var option_searches_only:Object;
+      public var option_never_show:Object;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         this.option_always_show = {
+            label: "Always Show",
+
+// BUG_FALL_2013: Finish implement squelches in client: or at least test.
+//                The values seem to be committed to the server okay, but
+//                do they work when filtering the route lists?
+// FIXME: implement usage of squelch_value
+            squelch_value: Library_Squelch.squelch_show_in_library,
+            toolTip:
+               "This item can be found by browsing through the library.",
+            // callback: this.on_action_create_link,
+            enabled: true,
+            visible: true };
+
+         this.option_searches_only = {
+            label: "Searches Only",
+            squelch_value: Library_Squelch.squelch_searches_only,
+            toolTip:
+               "This item can only be found by searching the library.",
+            // callback: this.on_action_create_link,
+            enabled: true,
+            visible: true };
+         this.option_never_show = {
+            label: "Never Show",
+            squelch_value: Library_Squelch.squelch_always_hide,
+            toolTip:
+               "This item will be excluded from the library.",
+            // callback: this.on_action_create_link,
+            enabled: true,
+            visible: true };
+
+         var options_arr:Array = new Array();
+         options_arr.push(this.option_always_show);
+         options_arr.push(this.option_searches_only);
+         options_arr.push(this.option_never_show);
+         this.dataProvider = options_arr;
+      }
+
+   ]]></mx:Script>
+
+</views_panel_util:DisabledComboBox>
+

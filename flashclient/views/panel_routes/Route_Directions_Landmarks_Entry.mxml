@@ -1,0 +1,451 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off"
+   dataChange="this.entry_update(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TextEvent;
+      import flash.events.TimerEvent;
+      import flash.text.TextLineMetrics;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.containers.HBox;
+      import mx.controls.Alert;
+      import mx.controls.Button;
+      import mx.controls.CheckBox;
+      import mx.controls.TextInput;
+      import mx.events.FlexEvent;
+
+      import items.feats.Direction_Step;
+      import items.feats.Route;
+      import items.utils.Landmark;
+      import utils.misc.Data_Change_Event;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.base.UI;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Lst_Ent');
+
+      // *** Instance variables
+
+      protected var landmark_checkboxes:Array;
+      protected var landmark_lookup:Dictionary;
+      // The list entry components in Flex are a little weird: they get reused
+      // as the user scrolls through the list. So expect this.data to change
+      // frequently. But try to reuse similar items, to avoid some pitfalls
+      // (like items losing focus) and having to recreate the same items all
+      // the time. We reuse the "Other:" checkbox and label.
+      protected var landmark_other_cbox:CheckBox;
+      protected var landmark_other_text:TextInput;
+
+      protected var ignore_next_mouse_event:Boolean = false;
+
+      // ***
+
+      // update stuff
+      public function entry_update(event:FlexEvent=null) :void
+      {
+         // The parentDocument is Panel_Item_Route_Cue_Sheet (which owns
+         // the Route_Directions_Landmarks DataGrid), and the event.target
+         // and event.currentTarget is this, or null if explicitly called
+         // by another class method.
+
+         var dir:Direction_Step = (this.data as Direction_Step);
+         m4_TALKY('entry_update: dir:', dir, '/ this:', this.class_name_snip);
+
+         this.set_directions_text(dir);
+
+         this.update_landmark_list(dir.show_landmark_list);
+
+         // Set up landmarks.
+
+         this.rt_landmarks.removeAllChildren();
+         this.landmark_checkboxes = new Array();
+         this.landmark_lookup = new Dictionary();
+
+         if (dir.landmarks === null) {
+            m4_TALKY('entry_update: dir.landmarks empty; returning');
+            return;
+         }
+         m4_TALKY('entry_update: dir.landmarks.len:', dir.landmarks.length);
+
+         var the_landmark:Landmark;
+         var landmark_checkbox:CheckBox;
+         var landmark_label:Text;
+         var container:HBox;
+
+         var landmark_ct:int = dir.landmarks.length - 1;
+         for (var i:int = 0; i < landmark_ct; i++) {
+
+            the_landmark = (dir.landmarks[i] as Landmark);
+            m4_TALKY('entry_update: i:', i, '/ the_landmark:', the_landmark);
+
+            container = new HBox();
+            container.verticalScrollPolicy = 'off';
+            container.horizontalScrollPolicy = 'off';
+
+            // Make a new checkbox.
+            landmark_checkbox = new CheckBox();
+            landmark_checkbox.buttonMode = true;
+            landmark_checkbox.useHandCursor = true;
+            landmark_checkbox.mouseChildren = false;
+            landmark_checkbox.selected = the_landmark.display;
+            landmark_checkbox.addEventListener(MouseEvent.CLICK,
+                                               this.on_checkbox_click);
+
+            landmark_label = new Text();
+
+            // We explicitly set the label width to get word wrap to work.
+            // We could go to more lengths to calculate the "correct" width,
+            // but [lb] notes that DataGrid item renderers are fussy. It's
+            // usually quite tedious to figure out which other components
+            // to measure to calculate the width, and it's not always obvious
+            // which events to hook to know when to recalculate the width.
+            // Anyway, do what the code does below for the width: use 40
+            // less than the explicitWidth. We also throw in 14 pixels for
+            // the checkbox (and we'd use cbox.width instead of the hardcoded
+            // value if it weren't for the fact that none of the components
+            // we've created in this function have any dimensions yet).
+            var recalculated_width:int =
+               this.explicitWidth - 40
+               - 14; // landmark_checkbox.width
+            m4_PPUSH('entry_update: recalculated_width:', recalculated_width);
+            landmark_label.width = recalculated_width; // GOOD ENOUGH.
+
+            landmark_label.text = '(' + the_landmark.type_str + ') '
+                                  + the_landmark.name;
+
+            landmark_label.buttonMode = true;
+            landmark_label.useHandCursor = true;
+            landmark_label.mouseChildren = false;
+
+            landmark_label.addEventListener(MouseEvent.CLICK,
+                                            this.on_checkbox_click);
+
+            // [lb] slighlty couples the Landmark item to the GUI to avoid a
+            // list search when looking for the landmark or its components.
+            m4_ASSERT(the_landmark.dstep_index == i);
+            this.landmark_checkboxes[i] = landmark_checkbox;
+            this.landmark_lookup[landmark_checkbox] = the_landmark;
+            this.landmark_lookup[landmark_label] = the_landmark;
+
+            // Make a new HBox to contain previous two items (we are not using
+            // the checkbox label because it does not support word wrap).
+            container.addChild(landmark_checkbox);
+            container.addChild(landmark_label)
+            this.rt_landmarks.addChild(container);
+
+            landmark_checkbox = null;
+            landmark_label = null;
+         }
+
+         // The "Other:" checkbox and label.
+
+         the_landmark = dir.landmarks[landmark_ct];
+         m4_ASSERT(the_landmark.dstep_index == landmark_ct);
+
+         container = new HBox();
+         container.percentWidth = 100;
+
+         if (this.landmark_other_cbox === null) {
+            this.landmark_other_cbox = new CheckBox();
+            this.landmark_other_cbox.buttonMode = true;
+            this.landmark_other_cbox.useHandCursor = true;
+            this.landmark_other_cbox.mouseChildren = false;
+            this.landmark_other_cbox.label = "Other:";
+            this.landmark_other_cbox.addEventListener(MouseEvent.CLICK,
+                                                      this.on_checkbox_click);
+         }
+         this.landmark_other_cbox.selected = the_landmark.display;
+         this.landmark_checkboxes[landmark_ct] = this.landmark_other_cbox;
+         this.landmark_lookup[this.landmark_other_cbox] = the_landmark;
+         container.addChild(this.landmark_other_cbox);
+
+         if (this.landmark_other_text === null) {
+            m4_TALKY('entry_update: new TextInput');
+            this.landmark_other_text = new TextInput();
+            this.landmark_other_text.addEventListener(
+               Event.CHANGE, this.on_other_text_edit);
+            this.landmark_other_text.addEventListener(
+               FlexEvent.DATA_CHANGE, this.on_other_text_data_change);
+         }
+         m4_TALKY('entry_update: the_landmark.name:', the_landmark.name);
+         this.landmark_other_text.text = the_landmark.name;
+         this.landmark_lookup[this.landmark_other_text] = the_landmark;
+         container.addChild(this.landmark_other_text);
+
+         this.rt_landmarks.addChild(container);
+      }
+
+      //
+      protected function on_checkbox_click(event:Event) :void
+      {
+         var dir:Direction_Step = (this.data as Direction_Step);
+
+         var landmark:Landmark;
+         landmark = (this.landmark_lookup[event.target] as Landmark);
+         m4_TALKY2('on_checkbox_click: landmark:', landmark,
+                   '/ this:', this.class_name_snip);
+
+         m4_ASSERT(landmark !== null);
+
+         var cbox1:CheckBox = (event.target as CheckBox);
+         var cbox2:CheckBox = (
+            this.landmark_checkboxes[landmark.dstep_index] as CheckBox);
+         m4_ASSERT((cbox1 === null) || (cbox1 === cbox2));
+         // Remember the selected state.
+         if (cbox1 === null) {
+            // A label was checked, so the CheckBox needs toggling.
+            cbox2.selected = !cbox2.selected;
+         }
+         landmark.display = cbox2.selected;
+
+         // Update the header to include/exclude the affected landmark.
+         this.set_directions_text(dir);
+      }
+
+      //
+      public function on_collapse_expand_click(event:MouseEvent=null) :void
+      {
+         m4_TALKY2('on_collapse_expand_click: this:', this.class_name_snip,
+                   '/ ignore_next_mouse_event:', this.ignore_next_mouse_event);
+         if (!this.ignore_next_mouse_event) {
+            var dir:Direction_Step = (this.data as Direction_Step);
+            dir.show_landmark_list = !dir.show_landmark_list;
+            this.update_landmark_list(dir.show_landmark_list);
+         }
+         else {
+            this.ignore_next_mouse_event = false;
+         }
+      }
+
+      //
+      public function on_directions_link_click(event:TextEvent) :void
+      {
+         m4_TALKY('on_directions_link_click: event.text:', event.text);
+         // There's only one link in the header text so far, so...
+         this.on_lookat_click();
+         // Kill the stop so on_collapse_expand_click isn't called.
+         event.stopPropagation();
+         // ... except the MouseEvent is a different event.
+         this.ignore_next_mouse_event = true;
+      }
+
+      //
+      protected function on_lookat_click() :void
+      {
+         m4_TALKY('on_lookat_click: this:', this.class_name_snip);
+         var dir:Direction_Step = (this.data as Direction_Step);
+         G.map.pan_and_zoomto(G.map.xform_x_map2cv(dir.coords[0]),
+                              G.map.xform_y_map2cv(dir.coords[1]),
+                              (G.map.zoom_level < 15 ? 15 : G.map.zoom_level)
+                                 // This is 2:1 meters:pixel.
+                              );
+         dir.route.update_cur_dir(dir.coords);
+      }
+
+      //
+      protected function on_other_text_edit(event:Event) :void
+      {
+         m4_TALKY('on_other_text_edit: this:', this);
+
+         var dir:Direction_Step = (this.data as Direction_Step);
+
+         // if (!dir.landmarks[dir.landmarks.length - 1].name) {
+         //    // Assume if the user starts editing an empty edit
+         //    // box that they also want this landmark selected.
+         //    this.landmark_other_cbox.selected = true;
+         // }
+         // On second though, why not just always select "Other:" when the
+         // user edits the value? [lb]
+         this.landmark_other_cbox.selected = true;
+         dir.landmarks[dir.landmarks.length - 1].display = true;
+
+         // The "Other:" edit box is always the last one in the list.
+         dir.landmarks[dir.landmarks.length - 1].name
+            = this.landmark_other_text.text;
+         m4_TALKY2('on_other_text_edit: landmark_other_text.text:',
+                   this.landmark_other_text.text);
+
+         this.set_directions_text(dir);
+
+         // See the next fcn. for why we stop propagation.
+         event.stopPropagation();
+      }
+
+      //
+      protected function on_other_text_data_change(event:FlexEvent) :void
+      {
+         // Kill the event, otherwise the DataGrid will see it and clobber
+         // all of our components, and then entry_update gets called and
+         // the text field will lose focus and all havoc will break out.
+         event.stopPropagation();
+      }
+
+      //
+      protected function set_directions_text(dir:Direction_Step) :void
+      {
+         this.rt_directions.htmlText = dir.text;
+
+         var tlm:TextLineMetrics = this.rt_directions.measureHTMLText(
+                                      this.rt_directions.htmlText);
+
+         m4_PPUSH('set_dirs_text: rt_directions:', this.rt_directions.text);
+         m4_PPUSH('set_dirs_text: rt_dirs.wid:', this.rt_directions.width);
+         m4_PPUSH('set_dirs_text: rt_dirs.hgt:', this.rt_directions.height);
+         m4_PPUSH('set_dirs_text: rt_lmarks.hgt:', this.rt_landmarks.height);
+         m4_PPUSH('set_dirs_text: this.hgt:', this.height);
+         m4_PPUSH('set_directions_text: tlm.width:', tlm.width);
+         m4_PPUSH('set_directions_text: tlm.height:', tlm.height);
+
+         // Note that the height * row count alone is not enough: the last line
+         // of text will be clipped. So... use one more than each height? Or 2?
+         // Also, fudge the dividend a little: in practice, [lb] sees clipping
+         // (where the widget should have two rows but only has one). It's
+         // better to error on having an extra line of whitespace than not.
+         var pixels_per_line:int =
+            int(tlm.width / (this.rt_directions.width * 0.90));
+         var multiline_height:int =
+            ((tlm.height + 1) + (tlm.height + 1) * pixels_per_line);
+
+         m4_TALKY('set_directions_text: multiline_height:', multiline_height);
+
+         this.rt_directions.height = multiline_height;
+      }
+
+      //
+      public function update_landmark_list(show:Boolean) :void
+      {
+         m4_TALKY('update_landmark_list: this:', this.class_name_snip);
+         this.rt_landmarks.includeInLayout = show;
+         if (show) {
+            // FIXME: I should use an image button here.
+            this.more_btn.text = "v"
+         }
+         else {
+            this.more_btn.text = ">"
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      id="list_entry_container"
+      width="100%"
+      height="100%"
+      paddingLeft="4"
+      paddingRight="3"
+      horizontalGap="5"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+      >
+
+      <mx:Label
+         id="more_btn"
+         click="this.on_collapse_expand_click(event);"
+         text=">"
+         buttonMode="true"
+         useHandCursor="true"
+         mouseChildren="false"
+         />
+
+      <mx:VBox
+         width="100%"
+         height="100%">
+         <!-- Top row of the entry: Direction.
+              Reason for explicitWidth hack:
+   blogs.adobe.com/aharui/2010/10/mx-datagrid-list-and-variablerowheight.html
+         -->
+         <mx:HBox
+            width="{this.explicitWidth - 40}"
+            verticalAlign="top">
+            <!-- 2014.04.21: BUG nnnn/Directions Header Hyperlink:
+                 [lb] disabled the direction header hyperlink (see
+                 Direction_Step.text), which is what this class's
+                 on_directions_link_click handler handles.
+                 For now, we're using the "Locate" hyperlink.
+                 In the future, we might want to re-enable embedded hyperlinks.
+                 We've so far tried three ways to implement this:
+                 1. The whole header is hot and clicking it performs a lookat
+                    (which is how the normal cue sheet behaves; but [lb]
+                    complains that the lookat feature is too hidden and now
+                    that each cue sheet row is expandable/collapsable, the
+                    behavior seems wrong (it seems clicking a header should
+                    expand/collapse the collpasable area below it and should
+                    not pan-zoom the map)); or
+                 2. There's a "Locate" hyperlink repeated in every header (this
+                    is similar to what the route lists do, whose rows all have
+                    "Lookat" and "More" buttons); this approach makes the
+                    feature easily discoverable (users don't have to discover
+                    it at all; it's just there), but it does visually clutter
+                    the cue sheet a little (though [lb] doesn't think it's too
+                    bad; the "Locate" hyperlinks are compact and are
+                    right-aligned); or
+                 3. We convert the street name part of the direction header
+                    text into the lookat hyperlink (e.g., if the header is
+                    "Turn L on Main St", then "Main St" is a hyperlink that,
+                    when clicked, does a lookat); one of [ft]'s concerns is
+                    that when clicking a street name, one might expect that
+                    the whole, complete street be lookedat, and not just the
+                    part that's in the route.
+                 2014.04.21: [lb] and [ft] discussed these options, and I
+                    [lb] kind of like the 3. option the best, but [ft] says
+                    he'll be using more colors in the second part of the
+                    landmarks experiment, so let's not overload the direction
+                    header text; for now, let's just use the header text for
+                    landmarks and keep the lookat feature separate.
+                 mouseChildren="true"
+                    -->
+            <mx:Text
+               id="rt_directions"
+               width="100%"
+               click="this.on_collapse_expand_click(event);"
+               buttonMode="true"
+               mouseEnabled="true"
+               useHandCursor="true"
+               mouseChildren="false"
+               link="this.on_directions_link_click(event);"
+               />
+            <views_panel_util:Hyper_Link
+               id="rt_step_lookat"
+               htmlText="Locate"
+               toolTip="Pan and zoom the map to show this part of the route."
+               styleName="labelminor"
+               visible="true"
+               includeInLayout="true"
+               click="this.on_lookat_click();"/>
+         </mx:HBox>
+         <!-- Second row of entry: Landmark editing -->
+         <mx:VBox
+            width="{this.explicitWidth - 40}"
+            id="rt_landmarks"
+            includeInLayout="false"
+            visible="{this.rt_landmarks.includeInLayout}"
+            verticalScrollPolicy="off"
+            horizontalScrollPolicy="off"
+         />
+      </mx:VBox>
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

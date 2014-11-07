@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   width="100%">
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__RtListKey');
+
+      // *** Instance methods
+
+      //
+      protected function on_link_key_help() :void
+      {
+         // NOTE: The Panel_Routes_Box is this component's
+         //       great-great-grandparent. But this component
+         //       is a proper Detail_Panel_Widget, so we can
+         //       just use this.dp.
+         (this.dp as Panel_Routes_Box).on_show_tag_help();
+      }
+
+
+      // COUPLING: The event handler, on_show_tag_help, used to live here,
+      //           but this widget is used by more than one panel, and it's not
+      //           OOP, so we've moved the code to the parent container,
+      //           Panel_Routes_Box.
+
+      //
+      public function set_visible(make_visible:Boolean) :void
+      {
+         if (!make_visible) {
+            this.link_key_help.htmlText = 'What do the colors mean? &#187;';
+         }
+         else {
+            this.link_key_help.htmlText = 'Hide what the colors mean &#171;';
+         }
+         this.list_key_grid.visible = make_visible;
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      paddingBottom="0"
+      verticalAlign="middle">
+
+      <views_panel_util:Hyper_Link
+         id="link_key_help"
+         enabled="true"
+         styleName="labelminor"
+         htmlText="What do the colors mean? &#187;"
+         toolTip="Click to learn more about the route list colors."
+         click="this.on_link_key_help();"/>
+
+      <mx:Spacer
+         width="100%"/>
+
+      <views_panel_util:Help_Link
+         text="More info"
+         styleName="labelminor"
+         click_url="/Route_Sharing"/>
+
+   </mx:HBox>
+
+   <mx:Grid
+      id="list_key_grid"
+      width="100%"
+      verticalGap="1"
+      horizontalGap="0"
+      paddingLeft="8"
+      paddingTop="-4"
+      includeInLayout="{this.list_key_grid.visible}"
+      visible="false">
+
+      <mx:GridRow
+         width="100%">
+
+         <mx:GridItem>
+            <mx:Canvas
+               width="12"
+               height="12"
+               backgroundColor="{Conf.private_color}"
+               borderStyle="solid"
+               borderThickness="1"/>
+         </mx:GridItem>
+
+         <mx:GridItem
+            width="100%">
+            <mx:Label
+               text="Routes that are private to you"/>
+         </mx:GridItem>
+
+      </mx:GridRow>
+
+      <mx:GridRow
+         width="100%">
+
+         <mx:GridItem>
+            <mx:Canvas
+               width="12"
+               height="12"
+               backgroundColor="{Conf.shared_color}"
+               borderStyle="solid"
+               borderThickness="1"/>
+         </mx:GridItem>
+
+         <mx:GridItem
+            width="100%">
+            <mx:Label
+               text="Routes that you have shared"/>
+         </mx:GridItem>
+
+      </mx:GridRow>
+
+      <mx:GridRow
+         width="100%">
+
+         <mx:GridItem>
+            <mx:Canvas
+               width="12"
+               height="12"
+               backgroundColor="0xffffff"
+               borderStyle="solid"
+               borderThickness="1"/>
+         </mx:GridItem>
+
+         <mx:GridItem
+            width="100%">
+            <mx:Label
+               text="Routes made public or shared by other users"/>
+         </mx:GridItem>
+
+      </mx:GridRow>
+
+   </mx:Grid>
+
+</views_panel_base:Detail_Panel_Widget>
+

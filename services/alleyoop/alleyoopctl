@@ -1,0 +1,148 @@
+#!/bin/bash
+
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# This script should be auto-started on boot. See /etc/init.d/cyclopath-alleyoop.
+
+DEBUG_TRACE=false
+#DEBUG_TRACE=true
+
+IGNORE_ME="""
+
+
+"""
+
+if [[ -z "$PYSERVER_HOME" ]]; then
+  echo "ERROR: Please set the PYSERVER_HOME environment variable."
+  exit 1
+fi
+
+# Load the common Cyclopath service script.
+. $PYSERVER_HOME/../services/ccpctl
+
+# Daemon path and action
+DAEMON_PATH=$PYSERVER_HOME/../services/alleyoop/alleyoop.py
+DAEMON_CMD=""
+
+if [[ ! -x "$DAEMON_PATH" ]]; then
+   echo "Error: Cannot find alleyoop or it's not executable."
+   exit 1
+fi
+
+# Arguments for alleyoop.
+ARGS=""
+
+LAST_SPLIT_ARG=""
+
+MAYBE_ANOTHER_ARG=0
+while [[ "$1" != "" ]]; do
+   if [[ $MAYBE_ANOTHER_ARG -ne 0 && "$1" != "--*" ]]; then
+       if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+         ARGS="$ARGS $LAST_SPLIT_ARG"
+       fi
+       LAST_SPLIT_ARG=$1
+       shift
+   else
+      MAYBE_ANOTHER_ARG=0
+   fi
+   if [[ $MAYBE_ANOTHER_ARG -eq 0 ]]; then
+     case $1 in
+        --something)
+           SOMETHING=$2
+           shift 2
+           ;;
+        --something=?*)
+           SOMETHING=${1#--something=}
+           shift
+           ;;
+        # Arguments (real or fake) that we don't care about in this script are
+        # passed to alleyoop.py, which uses Python's argument parser.
+        --*=?*)
+           ARGS="$ARGS $1"
+           shift
+           ;;
+        --*)
+           ARGS="$ARGS $1"
+           shift
+           MAYBE_ANOTHER_ARG=1
+           ;;
+        --help)
+           echo "$0: Usage: alleyoopctl [opts] {daemon-command}"
+           echo ""
+           echo "Where [opts] is one or more of the following switches:"
+           echo "  --something={something}"
+           echo "  --delay_load"
+           echo "  --no-daemon"
+           echo ""
+           echo "And {daemon-command} is one of [start, stop, restart, status]"
+           # FIXME: Can we just do this and get rid of the switches help above?
+           echo
+           ${DAEMON_PATH} --help
+           echo
+           exit 1
+           ;;
+        --*[^=]*)
+           if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+              ARGS="$ARGS $LAST_SPLIT_ARG $1"
+              LAST_SPLIT_ARG=""
+           else
+              LAST_SPLIT_ARG=$1
+           fi
+           shift
+           ;;
+        *)
+           if [[ "$DAEMON_CMD" != "" ]]; then
+              echo "$0: Usage: alleyoopctl [opts] {daemon-command}"
+              echo "Error: Two or more cmds specified: '$DAEMON_CMD' and '$1'."
+              echo "Try alleyoopctl --help' for more."
+              exit 1
+           else
+              DAEMON_CMD=$1
+              shift
+           fi
+           ;;
+     esac
+   fi
+done
+
+if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+   if [[ "$DAEMON_CMD" == "" ]]; then
+      DAEMON_CMD=$LAST_SPLIT_ARG
+   elif [[ $MAYBE_ANOTHER_ARG -ne 0 ]]; then
+      ARGS="$ARGS $LAST_SPLIT_ARG"
+   else
+      echo "Error: Two+ cmds specified: '$DAEMON_CMD' and '$LAST_SPLIT_ARG'."
+   fi
+   LAST_SPLIT_ARG=""
+fi
+
+# alleyoop_pid_dir is defined in pyserver/CONFIG, generally as /tmp.
+PIDDIR=`grep alleyoop_pid_dir $PYSERVER_HOME/CONFIG | cut -d' ' -f2`
+
+# CAVEAT: The Ccp_Script_Args argparse lets you specify the branch as a name,
+# an ID, or just plain old zero if you want the basemap. But that doesn't fly
+# so well for the pid filename. So here we restrict you to specifying an
+# absolute branch stack ID.
+# FIXME: This script should be a bash script (since we call start-stop-daemon),
+#        but we could probably write a short Python script to call to translate
+#        $BRANCH from a name or 0 into a real branch ID.
+# SYNC_ME: Search: Alleyoop PID filename.
+PIDFILE="$PIDDIR/alleyoop-pid-$SOMETHING"
+
+# Arguments we needed for this script that we need to pack back up.
+ARGS="--something=$SOMETHING $ARGS"
+
+$DEBUG_TRACE && echo "alleyoopctl: PIDFILE: $PIDFILE"
+$DEBUG_TRACE && echo "alleyoopctl: DAEMON_PATH: $DAEMON_PATH"
+#$DEBUG_TRACE && echo "alleyoopctl: PYSERVER_HOME: $PYSERVER_HOME"
+$DEBUG_TRACE && echo "alleyoopctl: SOMETHING: $SOMETHING"
+$DEBUG_TRACE && echo "alleyoopctl: ARGS: $ARGS"
+$DEBUG_TRACE && echo "alleyoopctl: DAEMON_CMD: $DAEMON_CMD"
+
+max_wait_seconds=30
+
+ccpctl_go $max_wait_seconds
+
+exit 0
+

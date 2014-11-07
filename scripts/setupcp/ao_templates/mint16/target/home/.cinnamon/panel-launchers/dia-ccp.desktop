@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=Cyclopath Data Model
+Exec=dia /ccp/dev/cp/doc/data-model.dia
+Type=Application
+Icon=dia

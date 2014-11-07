@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   horizontalGap="0"
+   verticalAlign="middle"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off"
+
+   click="this.on_click(event);"
+   dataChange="this.on_data_change();"
+
+   width="{Facility_Icon_Base.total_width}"
+   height="{Facility_Icon_Base.total_height}"
+   >
+   <!-- We have to be explicit about our dimensions, since we're our own
+        renderer but aren't part of the master layout (so using percentages
+        is meaningless).
+        
+        CAVEAT: If height isn't (Facility_Icon_Base.total_height == 26),
+                then the dropdown button doesn't draw correctly.
+        -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.display.Sprite;
+      import flash.text.TextLineMetrics;
+      import mx.controls.ComboBox;
+      import mx.events.FlexEvent;
+      import mx.utils.ObjectProxy;
+
+      import items.feats.Byway;
+      import items.utils.Geofeature_Layer;
+      import utils.misc.Combo_Box_V2;
+      import utils.misc.Logging;
+      import views.panel_items.Widget_Bike_Facility;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__FacilIconB');
+
+      public static var key_no_facils:String = "no_facils";
+      public static var key_no_cautys:String = "no_cautys";
+
+      // *** Instance variables
+
+      [Bindable]
+      protected var data_proxy:ObjectProxy;
+
+      // MAGIC_NUMBERS: Search: Facility_Icon_Base renderer dimensions.
+      public static const total_width:int = 266;
+      public static const total_height:int = 26;
+      // MAGIC_NUMBER: Dashes are 9 on, 7 off (80% of 9), so 4*9 + 3*7 = 57.
+      protected const canvas_width:int = 57;
+      protected const canvas_height:int = Facility_Icon_Base.total_height;
+
+      // SYNC_ME: Search: bike_facil values.
+      //          See, e.g., mapserver/skins/skin_bikeways.py
+      //          Some values: paved_trail, loose_trail, bike_lane, etc.
+      // 
+      [Bindable] public var attr_pen_group:String;
+      [Bindable] public var attr_key_name:String;
+
+      // *** Instance methods
+
+      //
+      protected function byway_draw(gr:Graphics, xs:Array, ys:Array,
+                                    color:int, hcolor:int=-1) :void
+      {
+         // DEVS: This was for debugging, before the Paint fcn. supported
+         //       skip_transform (so that our xs and ys don't get transformed
+         //       to map canvas space, but stay relative to our widget's own
+         //       canvas).
+         m4_DEBUG('byway_draw');
+         gr.moveTo(xs[0], ys[0]);
+         if (hcolor > -1) {
+            gr.lineStyle(8 + 1 * 2 + 2 * Conf.comment_width, hcolor);
+            gr.lineTo(xs[1], ys[1]);
+            gr.moveTo(xs[0], ys[0]);
+         }
+         gr.lineStyle(8 + 1 * 2, 0xffffff);
+         gr.lineTo(xs[1], ys[1]);
+         gr.lineStyle(8, color);
+         gr.lineTo(xs[0], ys[0]);
+      }
+
+      //
+      protected function on_click(ev:MouseEvent) :void
+      {
+         //m4_DEBUG('on_click: this:', Strutil.class_name_tail(String(this)));
+         //m4_DEBUG2('on_click: this.owner:',
+         //          Strutil.class_name_tail(String(this.owner)));
+
+         // We could find the ComboBox via this.parentDocument, which is
+         // Widget_Bike_Facility, but then we don't know if the user clicked
+         // one of our items in the list, or if the user clicked the selected
+         // item in the list head. So use this.owner, which tell is if we're an
+         // item in the dropdown (owner is List_Disableable) or if we're the
+         // selected item that the unopened combobox shows.
+         var bike_facil_cbox:Combo_Box_V2 = (this.owner as Combo_Box_V2);
+         if (bike_facil_cbox !== null) {
+            // Open or close the dropdown. Otherwise when the user clicks
+            if (bike_facil_cbox.dropdown === null) {
+               bike_facil_cbox.open();
+            }
+            else if (!bike_facil_cbox.dropdown.visible) {
+               bike_facil_cbox.open();
+            }
+            else {
+               bike_facil_cbox.close();
+            }
+         }
+      }
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+         // The data proxy is so Flex doesn't print warnings to our log about
+         // not being able to bind to the data.
+         this.data_proxy = new ObjectProxy(this.data);
+
+         // Since when can Strings be null? Weird.
+         if ((this.attr_pen_group !== null)
+             && (this.attr_key_name !== null)
+             && (this.attr_pen_group != '')
+             && (this.attr_key_name != '')) {
+            this.paint_bike_facility();
+         }
+      }
+
+      //
+      protected function on_data_change() :void
+      {
+         //m4_DEBUG2('on_data_change: this:',
+         //          Strutil.class_name_tail(String(this)));
+
+         // We're a tad narrower than the dimensions that Widget_Bike_Facility
+         // explicitly sets for dropdownWidth. E.g., if it sets 266, we're 266
+         // wide when we're added and in on_creation_complete, but by now we're
+         // 254 pixels wide. This information might count if we ever resize 
+         // paint_bike_facility explicitly in paint_bike_facility when we're
+         // making sure the dropdown.width is sufficient. (Because a dropdown
+         // and its renderers are not part of the master layout, they have to
+         // explicitly size themselves.)
+         //
+         //m4_DEBUG('on_data_change: this.width:', this.width);
+         //m4_DEBUG('on_data_change: this.height:', this.height);
+
+         var obj:Object = (this.data as Object);
+         if (obj !== null) {
+            //m4_DEBUG('on_data_change: obj.id:', obj.id);
+            this.attr_pen_group = obj.pen_group;
+            this.attr_key_name = obj.id;
+            this.paint_bike_facility();
+         }
+         else {
+            // See: frameworks/projects/framework/src/mx/controls/List.as
+            //        getMeasuringRenderer
+            // [lb] thinks this is a fake item to help the ComboBox figure out
+            //      the size of itself.
+            // E.g., List_Disableable4602.ListBaseContentHolder4605.hiddenItem
+            m4_WARNING('EXPLAIN: What component is this?');
+            m4_DEBUG('on_data_change: this.data:', this.data);
+            m4_DEBUG('on_data_change: hiddenItem:', this.width, this.height);
+            ; // No-op.
+
+            m4_DEBUG('on_data_change: attr_pen_group:', this.attr_pen_group);
+            m4_DEBUG('on_data_change: attr_key_name:', this.attr_key_name);
+         }
+      }
+
+      //
+      public function paint_bike_facility() :void
+      {
+         //m4_DEBUG('paint_bf: attr_pen_group:', this.attr_pen_group);
+         //m4_DEBUG('paint_bf: attr_key_name:', this.attr_key_name);
+
+         m4_ASSERT(this.bike_facil_label !== null);
+         this.bike_facil_label.text = Conf.tile_skin
+                                       .attr_pens[this.attr_pen_group]
+                                          [this.attr_key_name]['key_friendly'];
+
+         //var xs:Array = new Array(0 + 5, this.canvas_width - 5);
+         //var xs:Array = new Array(0, this.canvas_width);
+         var xs:Array = new Array(this.canvas_width, 0);
+         var halfway_y:int = this.byway_canvas.height / 2;
+         //var halfway_y:int = this.total_height / 2;
+         var ys:Array = new Array(halfway_y, halfway_y);
+
+         //m4_DEBUG('on_creation_complete: xs:', xs);
+         //m4_DEBUG('on_creation_complete: ys:', ys);
+         //m4_DEBUG('on_creation_complete: halfway_y:', halfway_y);
+
+         this.byway_canvas.graphics.clear();
+
+         if (false) {
+            // DEVS: This is old code for helping develop, before the icon
+            //       classes were built and the Byway and Paint classes were
+            //       wired to draw the new facility ornaments.
+            this.byway_draw(
+               this.byway_canvas.graphics, xs, ys,
+               Conf.rating_colors_generic[3],
+               Conf.comment_color);
+         }
+         else {
+            //m4_DEBUG('paint_bike_facil: bk_facil_key:', this.attr_key_name);
+            //m4_DEBUG2('paint_bike_facil: bike_facil_label.text:',
+            //          this.bike_facil_label.text);
+            m4_ASSERT(this.attr_pen_group != '');
+            m4_ASSERT(this.attr_key_name != '');
+            // It really doesn't matter which geofeature_layer we use since the
+            // bike facility just clobbers it, but the zoom level determines
+            // the pen width.
+            var gfl_id:int = Geofeature_Layer.BYWAY_LOCAL_ROAD;
+            // MAGIC_NUMBER: Zoom level 15 has 9-pixel wide lines, in
+            //               skin_bikeways.py.
+            var zoom_level:int = 15;
+            var force_caps:Boolean = false;
+            var skip_transform:Boolean = true;
+            Byway.draw_bike_facil(this.byway_canvas.graphics,
+                                  xs,
+                                  ys,
+                                  this.attr_pen_group,
+                                  this.attr_key_name,
+                                  gfl_id,
+                                  zoom_level,
+                                  force_caps,
+                                  skip_transform,
+                                  /*alpha=*/1);
+
+            // MAYBE: If the entry is wider than we've hardcoded for in the
+            //        dropdown width, we should resize the dropdown width.
+            var tlm:TextLineMetrics = this.bike_facil_label.measureText(
+                                             this.bike_facil_label.text);
+            var min_width:int = 0
+               + this.containing_box.getStyle('paddingLeft')
+               + this.containing_box.getStyle('paddingRight')
+               + this.canvas_and_label_box.getStyle('paddingLeft')
+               + this.canvas_and_label_box.getStyle('paddingRight')
+               + this.byway_canvas.width
+               + this.byway_canvas.getStyle('paddingLeft')
+               + this.byway_canvas.getStyle('paddingRight')
+               + this.bike_facil_label.getStyle('paddingLeft')
+               + this.bike_facil_label.getStyle('paddingRight')
+               + tlm.width;
+
+            //m4_DEBUG2('paint_bike_facil: MAYBE: tlm.width:', tlm.width,
+            //          '/ min_width:', min_width);
+
+            // Sometimes this.owner is List_Disableable and sometimes it's
+            // Combo_Box_V2 -- the latter is what shows when the combo box
+            // is closed, otherwise the parent is the combo box dropdown.
+            // But this.parentDocument is always our the combo box widget.
+            //m4_DEBUG('paint_bike_facil: this.owner:', this.owner);
+            //m4_DEBUG2('paint_bike_facil: this.parentDocument:',
+            //          this.parentDocument);
+            var facil_widget:Widget_Bike_Facility;
+            facil_widget = (this.parentDocument as Widget_Bike_Facility);
+            if (facil_widget !== null) {
+               //m4_DEBUG(' .. facil_widget.width:', facil_widget.width);
+               //m4_DEBUG2(' .. facil_widget.bike_facil_button.width:',
+               //          facil_widget.bike_facil_button.width);
+               //m4_DEBUG2(' .. bike_facil_button.dropdown.width:',
+               //          facil_widget.bike_facil_button.dropdown.width);
+               if (facil_widget.bike_facil_button.dropdown.width < min_width) {
+                  //MAYBE?: facil_widget.bike_facil_button.width = min_width;
+                  facil_widget.bike_facil_button.dropdown.width = min_width;
+               }
+            }
+         }
+      }
+
+      //
+      [Bindable] public function get planners_hint() :String
+      {
+         // DEVS: Make sure your bike facility classes override this fcn.
+         m4_ERROR('planners_hint: missing custom hint!');
+         return 'Error 753ATB: Hint not found.';
+      }
+
+      //
+      public function set planners_hint(hint:String) :void
+      {
+         m4_ASSERT(false);
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="containing_box"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingRight="{G.app.pad}"
+      paddingLeft="{G.app.pad}"
+      horizontalGap="0"
+      verticalGap="0"
+      verticalAlign="top"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+
+      width="{Facility_Icon_Base.total_width}"
+      >
+      <!--
+      height="{Facility_Icon_Base.total_height}"
+      -->
+
+      <mx:HBox
+         id="canvas_and_label_box"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingRight="0"
+         paddingLeft="0"
+         horizontalGap="0"
+         verticalGap="0"
+         verticalAlign="middle"
+         verticalScrollPolicy="off"
+         horizontalScrollPolicy="off"
+         width="100%"
+         >
+
+         <mx:Canvas
+            id="byway_canvas"
+            verticalScrollPolicy="off"
+            horizontalScrollPolicy="off"
+
+            width="{this.canvas_width}"
+            height="{this.canvas_height}"
+            />
+            <!--
+            this.canvas_height same as Facility_Icon_Base.total_height
+            -->
+
+            <!-- MAGIC_NUMBERS: 6 * 2 is paggingLeft and paddingRight and the
+                                G.app.pad * 2 is for containing_box.
+                                -->
+         <mx:VBox
+            id="bike_facil_label_canvas"
+            verticalAlign="middle"
+            verticalScrollPolicy="off"
+            horizontalScrollPolicy="off"
+
+            width="{Facility_Icon_Base.total_width
+                    - this.canvas_width
+                    - (G.app.pad * 2) - (6 * 2)}"
+
+            >
+            <mx:Label
+               id="bike_facil_label"
+               paddingLeft="6"
+               paddingRight="6"
+               width="100%"
+               />
+         </mx:VBox>
+
+      </mx:HBox>
+
+      <mx:HBox
+         id="facil_hint_box"
+         horizontalGap="0"
+         verticalAlign="middle"
+         verticalScrollPolicy="off"
+         horizontalScrollPolicy="off"
+         width="100%"
+
+         paddingTop="0"
+         paddingBottom="0"
+         paddingRight="4"
+         paddingLeft="20"
+         >
+         <!-- CAVEAT: If you don't disable the mousewheel (scroll wheel),
+                      scrolling the mouse while its hovered over this Text
+                      causes the first line of the text to disappear (it's
+                      like there's a hidden newline after the text). -->
+         <!-- MAYBE: Are there other mx:Text components to change to
+                     Text_Mousewheelless? -->
+         <views_panel_util:Text_Mousewheelless
+            id="bike_facil_hint"
+            htmlText="{this.planners_hint}"
+            paddingLeft="0"
+            paddingRight="0"
+            width="100%"
+            visible="false"
+            includeInLayout="{this.bike_facil_hint.visible}"
+            />
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

@@ -1,0 +1,14 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+MimeType=application/pdf;application/vnd.fdf;application/vnd.adobe.pdx;application/vnd.adobe.xdp+xml;application/vnd.adobe.xfdf;
+Exec=/opt/Adobe/Reader9/bin/acroread /ccp/doc/postgis-2.1.0.pdf /ccp/doc/mapserver-6.0.1.pdf /ccp/doc/gnuplot-4.4.pdf /ccp/doc/python-2.7.2/library.pdf
+Type=Application
+GenericName=PDF Viewer
+Terminal=false
+Icon=AdobeReader9
+Caption=PDF Viewer
+X-KDE-StartupNotify=false
+Categories=Application;Office;Viewer;X-Red-Hat-Base;
+InitialPreference=9
+Name[en_US]=View Cyclopath Dev docs
+Name=Dev Docs

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import grax.Access_Infer;
+      import grax.Library_Squelch;
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import utils.misc.Strutil;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_RtFootr');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_ASSERT(this.dp !== null);
+
+         this.register_widgets([
+            this.save_footer,
+            this.widget_gia_sharing,
+            ]);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         m4_DEBUG('on_initialize');
+
+         this.widget_gia_sharing.footer_lock = true;
+         this.widget_gia_sharing.outside_scroll_area = true;
+
+         // Tell the normal sharing widget that we're sitting atop
+         // to not show its header, and to only show the summary
+         // message when its expanded. Otherwise, we're left with
+         // little room with the window is small; also, the summary
+         // just adds to the clutter/confusion, and we want to emphasize
+         // the reset/undo/redo/save buttons, and not distract the user
+         // with mundane information.
+         this.widget_gia_sharing.enable_stealth_mode();
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_ASSERT(this.items_selected.length == 1);
+         var route:Route = (this.items_selected.item_get_random() as Route);
+// Does this print Item_Stack.Access_Infer?
+         m4_DEBUG('repopulate: route:', route);
+         m4_DEBUG2('repopulate: access_infer_id:',
+                   Strutil.as_hex(route.access_infer_id));
+         m4_DEBUG('repopulate: can_arbit:', route.can_arbit);
+
+         m4_DEBUG2('repopulate: fbilty_usr_libr_squel:',
+                   route.fbilty_usr_libr_squel);
+         m4_DEBUG2('repopulate: fbilty_usr_histy_show:',
+                   route.fbilty_usr_histy_show);
+         m4_DEBUG2('repopulate: fbilty_pub_libr_squel:',
+                   route.fbilty_pub_libr_squel);
+
+// BUG_FALL_2013
+// FIXME: If not logged on, swap Save for login-to-save Label.
+// ALSO: Don't show the Sharing widget, with the delete and link commands
+//       (which do not work, anyway!)
+
+         // 2013.12.11: [lb] moved a route's undo/redo to the footer, so that
+         //             editing a route doesn't invoke editing mode.
+         //  var got_new_route:Boolean = route.can_arbit && route.unlibraried;
+         // Note that anon. users should be can_edit && route.unlibraried.
+         m4_DEBUG('repopulate: route.can_edit:', route.can_edit);         
+         this.save_footer.visible = route.can_edit;
+         this.save_footer.includeInLayout = route.can_edit;
+
+         // Wrong: this.save_footer.current_state_void();
+         G.panel_mgr.panels_mark_dirty([this.save_footer,]);
+
+         (this.dp as Panel_Item_Route).resize_route_tabs();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      verticalGap="0"
+      >
+
+      <views_panel_routes:Route_Save_Footer
+         id="save_footer"
+         width="100%"
+         paddingTop="0"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalAlign="center"
+         visible="true"
+         includeInLayout="{this.save_footer.visible}"
+         />
+      <!-- Can I remove this?:
+         backgroundColor="0xffffff"
+         -->
+
+      <views_panel_items:Widget_Gia_Sharing
+         id="widget_gia_sharing"
+         width="100%"
+         visible="true"
+         includeInLayout="{this.widget_gia_sharing.visible}"
+         />
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

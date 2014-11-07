@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+
+      import items.Item_Revisioned;
+      import items.feats.Byway;
+      import utils.misc.Inflector;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+      import views.commands.UI_Wrapper_ComboBox;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_ItmType');
+
+      // *** Instance methods
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         m4_DEBUG('on_initialize');
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+         this.on_mode_change();
+      }
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_VERBOSE('depopulate: this.dp:', this.dp);
+         this.geofeature_item_type_label.text = 'Nothing Selected';
+         this.geofeature_item_type_label.toolTip = '';
+         this.geofeature_item_type_label.doubleClickEnabled = false;
+
+         this.geofeature_item_type_combo.selectedIndex = -1;
+
+         this.geofeature_item_type_label.visible = true;
+         this.geofeature_item_type_label.includeInLayout = true;
+         this.box_combo_and_butts.visible = false;
+         this.box_combo_and_butts.includeInLayout = false;
+         this.link_edit_item_type.visible = false;
+         this.link_edit_item_type.includeInLayout = false;
+
+         this.update_link_edit_item_type();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_VERBOSE('repopulate: this.dp:', this.dp);
+
+         super.repopulate();
+
+         var friendly_name:String = this.dp.identity_get_friendly();
+         var pluralize:Boolean = (this.feats_selected.length > 1);
+
+         this.label_item_type_type.text = friendly_name + ' Type';
+
+         var gfl_name:String = Item_Revisioned.consensus(
+            this.items_selected, 'geofeature_layer_friendly',
+            /*default_=*/'Varies', /*on_empty=*/'');
+         this.geofeature_item_type_label.text = gfl_name;
+         if (gfl_name != 'Varies') {
+            this.geofeature_item_type_label.setStyle('fontStyle', 'normal');
+         }
+         else {
+            this.geofeature_item_type_label.setStyle('fontStyle', 'italic');
+         }
+
+         var label_tool_tip:String =
+            'The type of the selected '
+            + Inflector.pluralize(friendly_name.toLowerCase(), pluralize)
+            //+ ' ' + Inflector.pluralize('is', pluralize) + ': "'
+            + ' is: "'
+            + this.geofeature_item_type_label.text + '".';
+
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_edit))
+             && (this.dp.access_level_can_edit)) {
+
+// 2013.03.28: wrap failed on this.items_selected.length == 0
+//             when [lb] closed a thread panel, and byway panel
+//             was being activated, because somehow i had cleared
+//             the selection set without causing road details to close...
+// 2013.04.03: See depopulate().
+//
+//
+// FIXME: i think green-shading is better than "lock" controls for selection
+//        set.
+//
+// FIXME: This check would get around the bug [lb] notes previously.
+//        But it seems less than ideal: wouldn't we have to do this to all
+//        repopulate()s? Maybe base class should check items_selected.length
+//        and call either repopulate() or depopulate()??
+//         if (this.items_selected.length > 0) { }
+            views.commands.UI_Wrapper_ComboBox.wrap(
+               this.geofeature_item_type_combo,
+               this.items_selected,
+               'geofeature_layer_id');
+
+            label_tool_tip += ' Double-click to edit.';
+
+            this.geofeature_item_type_label.visible = false;
+            this.geofeature_item_type_label.includeInLayout = false;
+            this.box_combo_and_butts.visible = true;
+            this.box_combo_and_butts.includeInLayout = true;
+            // NOTE: Not using the view/edit hyperlink toggle.
+            this.link_edit_item_type.visible = false;
+            this.link_edit_item_type.includeInLayout = false;
+
+            this.geofeature_item_type_label.doubleClickEnabled = true;
+         }
+         else {
+            this.geofeature_item_type_label.visible = true;
+            this.geofeature_item_type_label.includeInLayout = true;
+            this.box_combo_and_butts.visible = false;
+            this.box_combo_and_butts.includeInLayout = false;
+            // NOTE: Not using the view/edit hyperlink toggle.
+            this.link_edit_item_type.visible = false;
+            this.link_edit_item_type.includeInLayout = false;
+
+            this.geofeature_item_type_label.doubleClickEnabled = false;
+         }
+
+         this.geofeature_item_type_label.toolTip = label_tool_tip;
+
+         this.update_link_edit_item_type();
+
+      }
+
+      //
+      public function init_item_type_combo(cls:Class) :Boolean
+      {
+         var inited:Boolean = false;
+
+         var lookup:Array = new Array();
+
+         m4_DEBUG('item_item_type_combo: cls:', cls);
+         //m4_DEBUG2('item_item_type_combo: cls.class_item_type:',
+         //          cls.class_item_type);
+         //m4_DEBUG2('item_item_type_combo: cls.geofeature_layer_types:',
+         //          cls.geofeature_layer_types);
+
+         for each (var gfl_id:int in cls.geofeature_layer_types) {
+            var feat_pen:Object = Conf.tile_skin.feat_pens[String(gfl_id)];
+            if (!feat_pen['restrict_usage']) {
+               lookup.push({id: gfl_id, label: feat_pen.friendly_name});
+            }
+         }
+                  
+         m4_VERBOSE('item_item_type_combo: lookup:', lookup);
+         // NOTE: Only show the GFL lookup if there's *more than one* choice.
+         if (lookup.length > 1) {
+            this.geofeature_item_type_combo.dataProvider = lookup;
+            inited = true;
+         }
+         // else, return False so the owning component hides us.
+
+         return inited;
+      }
+
+      //
+      protected function on_click_link_edit_item_type() :void
+      {
+         m4_DEBUG('on_click_link_edit_item_type');
+         // Toggle the combo visibility.
+         this.box_combo_and_butts.visible =
+            !this.box_combo_and_butts.visible;
+         this.box_combo_and_butts.includeInLayout =
+            this.box_combo_and_butts.visible;
+         this.update_link_edit_item_type();
+      }
+
+      //
+      protected function update_link_edit_item_type() :void
+      {
+         // DEVS: See minHeight below. Use this to suss it out.
+         //m4_DEBUG('TESTING: combo.height:', this.box_label_and_combo.height);
+
+         if (this.dp !== null) {
+            var friendly_name:String = this.dp.identity_get_friendly();
+            m4_DEBUG('on_click_link_edit_item_type');
+            if (!this.box_combo_and_butts.visible) {
+               this.link_edit_item_type.htmlText =
+                  'Edit ' + friendly_name + ' type &#187;';
+               this.geofeature_item_type_label.visible = true;
+               this.box_combo_and_butts.visible = false;
+               this.box_combo_and_butts.includeInLayout = false;
+            }
+            else {
+               this.link_edit_item_type.htmlText =
+                  'Show ' + friendly_name + ' type &#171;';
+               this.geofeature_item_type_label.visible = false;
+               this.box_combo_and_butts.visible = true;
+               this.box_combo_and_butts.includeInLayout = true;
+            }
+         }
+      }
+
+      //
+      protected function on_double_click_item_type_label(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_double_click_item_type_label: ev:', ev);
+         this.on_click_link_edit_item_type();
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_mode_change');
+
+         // Show the dropdown by default, since the user has to explicitly
+         // enter edit mode. Otherwise, there's an extra, unnecessary mouse
+         // click to edit this control, even though the user's in edit mode.
+         // MAYBE/FIXME: Don't show the Show/Edit Road type Hyper_link.
+         if (G.app.mode.is_allowed(App_Action.item_edit)) {
+            if (!this.box_combo_and_butts.visible) {
+               this.box_combo_and_butts.visible = true;
+               this.box_combo_and_butts.includeInLayout = true;
+               this.update_link_edit_item_type();
+            }
+         }
+         // else, repopulate will show/hide things as appropriate.
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <!-- PLAYGROUND: What to call this control?
+         text="Item Type"
+         text="Category"
+         -->
+      <mx:Label
+         id="label_item_type_type"
+         styleName="labelmajor"
+         text="Item Type"
+         paddingTop="0"
+         paddingBottom="2"
+         mouseEnabled="true"
+         mouseChildren="true"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         paddingTop="2"
+         verticalGap="4"
+         >
+
+         <!-- MAGIC_NUMBER: minHeight="55" because the ComboBox is taller than
+              everything else, so when we show it, everything else in the panel
+              gets nudged down (and then nudges up with the combo box is
+              hidden).
+              2013.04.07: 20 pixels height for Label, 24 for the ComboBox.
+              -->
+         <mx:HBox
+            id="box_label_and_combo"
+            width="100%"
+            horizontalGap="0"
+            verticalAlign="bottom"
+            horizontalScrollPolicy="off"
+
+            minHeight="24"
+            >
+
+            <!-- NOTE: This is pre-Editing button behavior, when editing was
+                       always on, but the item type is just a label until you
+                       double-click on it, which turns it into a pumpkin, er,
+                       dropdown. -->
+            <mx:Label
+               id="geofeature_item_type_label"
+               toolTip="The type of item. Double-click to edit."
+               doubleClickEnabled="true"
+               doubleClick="this.on_double_click_item_type_label(event);"
+               visible="true"
+               includeInLayout="{this.geofeature_item_type_label.visible}"/>
+
+            <mx:HBox
+               id="box_combo_and_butts"
+               width="100%"
+               paddingBottom="2"
+               horizontalGap="6"
+               horizontalAlign="left"
+               verticalAlign="top"
+               visible="false"
+               includeInLayout="{this.box_combo_and_butts.visible}"
+               >
+               <!-- EXPLAINED: Magic Number 99 so we always show all options
+                               but as DEVs don't really have to worry about
+                               changing rowCount whenever we change the
+                               dataProvider. -->
+               <mx:ComboBox
+                  id="geofeature_item_type_combo"
+                  fontWeight="normal"
+                  rowCount="99"
+                  />
+
+            </mx:HBox>
+
+            <mx:Spacer
+               width="100%"/>
+
+            <!-- NOTE: Before we implemented Edit mode (with the Editing
+                       button), users could double-click the item type
+                       label to transform it into a dropdown. So this is
+                       here because of that but it's no longer used. -->
+            <views_panel_util:Hyper_Link
+               id="link_edit_item_type"
+               htmlText="Edit item type &#187;"
+               toolTip=""
+               enabled="true"
+               visible="false"
+               includeInLayout="{this.link_edit_item_type.visible}"
+               click="this.on_click_link_edit_item_type();"/>
+
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

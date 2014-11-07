@@ -1,0 +1,870 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   initialize="this.on_initialize(event);"
+   creationComplete="this.on_creation_complete(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_Lgd_Ccp_Abt');
+
+      // *** Instance variables
+
+      protected var watch_main_toolbar_width:ChangeWatcher;
+      protected var watch_side_panel_width:ChangeWatcher;
+      protected var watch_side_panel_height:ChangeWatcher;
+
+      // *** Instance methods
+
+      //
+      protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete: this:', this);
+
+         this.on_change_width();
+         this.on_change_height();
+      }
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize: this:', this);
+
+         m4_ASSURT(G.app.main_toolbar !== null);
+         m4_ASSURT(G.app.side_panel !== null);
+
+         this.watch_main_toolbar_width = ChangeWatcher.watch(
+            G.app.main_toolbar, 'width', this.on_change_width);
+         this.watch_side_panel_width = ChangeWatcher.watch(
+            G.app.side_panel, 'width', this.on_change_width);
+         this.watch_side_panel_height = ChangeWatcher.watch(
+            G.app.side_panel, 'height', this.on_change_height);
+      }
+
+      //
+      public function on_change_width(ev:Event=null, skip_btn:Boolean=false)
+         :void
+      {
+         m4_PPUSH('on_change_width');
+         this.debug_print_dims();
+
+         if ((G.app !== null) && (G.app.side_panel !== null)) {
+            
+            if (G.app.main_toolbar.width > 0) {
+
+               var dwr:Map_Key_Drawer = this.parentDocument as Map_Key_Drawer;
+               var btn:Map_Key_Button = dwr.parentDocument as Map_Key_Button;
+
+               m4_PPUSH2(" .. this.section_what_is_non_scrolling.width:",
+                         this.section_what_is_non_scrolling.width);
+               //
+               m4_PPUSH2(" .. dwr.menu_container.width:",
+                         dwr.menu_container.width);
+               m4_PPUSH2(" .. dwr.first_container.getStyle/paddingLeft:",
+                         dwr.first_container.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. dwr.first_container.getStyle('paddingRight'):",
+                         dwr.first_container.getStyle('paddingRight'));
+               //
+               m4_PPUSH2(" .. dwr.first_container.getStyle('horizontalGap'):",
+                         dwr.first_container.getStyle('horizontalGap'));
+               m4_PPUSH2(" .. dwr.first_container.numChildren - 1:",
+                         dwr.first_container.numChildren - 1);
+               //
+               m4_PPUSH2(" .. dwr.separator_container.width:",
+                         dwr.separator_container.width);
+               //
+               m4_PPUSH2(" .. dwr.not_a_view_stack.getStyle('paddingLeft'):",
+                         dwr.not_a_view_stack.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. dwr.not_a_view_stack.getStyle('paddingRight'):",
+                         dwr.not_a_view_stack.getStyle('paddingRight'));
+               //
+               m4_PPUSH2(" .. sections_container.getStyle('paddingLeft'):",
+                         this.sections_container.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. sections_container.getStyle('paddingRight'):",
+                         this.sections_container.getStyle('paddingRight'));
+               m4_PPUSH2(" .. section_what_is_content.getStyle('paddingTop'):",
+                         this.section_what_is_content.getStyle('paddingTop'));
+               m4_PPUSH2(" .. section_what_is_content....('paddingBottom'):",
+                      this.section_what_is_content.getStyle('paddingBottom'));
+               //
+               m4_PPUSH2(" .. this.outer_container.getStyle('paddingLeft'):",
+                         this.outer_container.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. this.outer_container.getStyle('paddingRight'):",
+                         this.outer_container.getStyle('paddingRight'));
+               //
+               m4_PPUSH2(" .. this.getStyle('paddingLeft'):",
+                         this.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. this.getStyle('paddingRight'):",
+                         this.getStyle('paddingRight'));
+               //
+               m4_PPUSH2(" .. btn.fake_left_hand_border.width:",
+                         btn.fake_left_hand_border.width);
+               m4_PPUSH2(" .. btn.fake_left_hand_canvas.width:",
+                         btn.fake_left_hand_canvas.width);
+               //
+               m4_PPUSH2(" .. btn.drawer.getStyle('paddingLeft'):",
+                         btn.drawer.getStyle('paddingLeft'));
+               m4_PPUSH2(" .. btn.drawer.getStyle('paddingRight'):",
+                         btn.drawer.getStyle('paddingRight'));
+
+               var drawer_width_base:int =
+                  0
+                  //
+                  + this.sections_container.getStyle('paddingLeft')
+                  + this.sections_container.getStyle('paddingRight')
+                  + this.section_what_is_content.getStyle('paddingLeft')
+                  + this.section_what_is_content.getStyle('paddingRight')
+                  //
+                  + this.outer_container.getStyle('paddingLeft')
+                  + this.outer_container.getStyle('paddingRight')
+                  //
+                  + this.getStyle('paddingLeft')
+                  + this.getStyle('paddingRight')
+                  ;
+
+               m4_PPUSH2('on_change_width: drawer_width_base- 1:',
+                         drawer_width_base);
+
+               var canvas_width_base:int =
+                  0
+                  + drawer_width_base
+                  //
+                  + btn.keys.getStyle('paddingLeft')
+                  + btn.keys.getStyle('paddingRight')
+                  + btn.fake_left_hand_border.width
+                  //
+                  + dwr.menu_container.width
+                  + dwr.first_container.getStyle('paddingLeft')
+                  + dwr.first_container.getStyle('paddingRight')
+                  //
+                  + (dwr.first_container.getStyle('horizontalGap')
+                     * (dwr.first_container.numChildren - 1))
+                  //
+                  + dwr.separator_container.width
+                  //
+                  // This is what we're avoiding: + dwr.menu_container.width
+                  + dwr.not_a_view_stack.getStyle('paddingLeft')
+                  + dwr.not_a_view_stack.getStyle('paddingRight')
+                  ;
+
+               m4_PPUSH2('on_change_width: canvas_width_base- 1:',
+                         canvas_width_base);
+
+               if (Detail_Panel_Base.has_VerticalScrollBar_(
+                                       dwr.first_container)) {
+                  // MAGIC_NUMBER: See Map_Key_Button.relative_x().
+                  //               So the legend is moved one pixel to the
+                  //               left, so the scrollbar isn't clipped.
+                  canvas_width_base +=
+                     Detail_Panel_Base.get_vsb_width_(dwr.first_container)
+                     //+ 1
+                     - 1
+                     ;
+                  m4_PPUSH2('on_change_width: canvas_width_base- 2:',
+                            canvas_width_base);
+               }
+
+               if (canvas_width_base > G.app.main_toolbar.width) {
+                  canvas_width_base = G.app.main_toolbar.width;
+                  m4_PPUSH('on_change_width: too wide/1:', canvas_width_base);
+               }
+
+               var max_width:int = G.app.main_toolbar.width
+                                   - canvas_width_base;
+// FIXME: Make this 305 and height's similar MAGIC_NUMBER into Conf vars.
+//
+               var desired_min_content_width:int =
+                  Math.min(305,
+                           Math.max(max_width,
+                                    // MAYBE: This just assumes the parent, so 
+                                    // it's always, e.g., 345.
+                                    // this.section_what_is_non_scrolling.width
+                                    245
+                                    ));
+
+               m4_PPUSH2('on_change_width: max_width- 1:',
+                         max_width);
+
+               m4_PPUSH2(' .. dwr.first_container.horizontalScrollPolicy:',
+                         dwr.first_container.horizontalScrollPolicy);
+               m4_PPUSH2(' .. dwr.first_container.verticalScrollPolicy:',
+                         dwr.first_container.verticalScrollPolicy);
+
+               var change_policy:String = '';
+               if (max_width < desired_min_content_width) {
+                  max_width = desired_min_content_width;
+                  m4_PPUSH2('on_change_width: was not wide enough- 2:',
+                            max_width);
+                  canvas_width_base = G.app.main_toolbar.width;
+                  m4_PPUSH2('on_change_width: canvas_width_base- 4:',
+                            canvas_width_base);
+                  if (dwr.first_container.horizontalScrollPolicy != 'on') {
+                     change_policy = 'on';
+                  }
+               }
+               else {
+                  max_width = desired_min_content_width;
+
+                  m4_PPUSH2('on_change_width: max_width- 2:',
+                            max_width);
+                  canvas_width_base += max_width;
+                  m4_PPUSH2('on_change_width: canvas_width_base- 3:',
+                            canvas_width_base);
+                  if (dwr.first_container.horizontalScrollPolicy != 'off') {
+                     change_policy = 'off';
+                  }
+               }
+
+               if (change_policy != '') {
+                  dwr.first_container.horizontalScrollPolicy = change_policy;
+                  // This is a cute hack to get the other dimension to redraw,
+                  // since it sizes differently based on the existance of the
+                  // scrollbar.
+                  m4_DEBUG_CLLL('>callLater: this.on_change_height');
+                  var fake_ev:Event = null;
+                  var skip_btn:Boolean = true;
+                  G.app.callLater(this.on_change_height, [fake_ev, skip_btn,]);
+               }
+
+               m4_PPUSH('on_change_width: max_width:', max_width);
+               this.ccp_about_text_scroller.width = max_width;
+
+               var content_width:int = drawer_width_base + max_width;
+               m4_PPUSH('on_change_width: content_widthght:', content_width);
+               this.width = content_width;
+
+               m4_PPUSH(' .. canvas_width_base:', canvas_width_base);
+               dwr.width = canvas_width_base;
+               dwr.first_container.width = canvas_width_base;
+               btn.width = canvas_width_base;
+               btn.dim_expanded_width = canvas_width_base;
+               if (!skip_btn) {
+                  m4_PPUSH('on_change_width: remeasure_title_text');
+                  btn.remeasure_title_text();
+                  btn.on_canvas_change_dimensions();
+               }
+            }
+         }
+      }
+
+      //
+      public function on_change_height(ev:Event=null, skip_btn:Boolean=false)
+         :void
+      {
+         m4_PPUSH('on_change_height');
+         this.debug_print_dims();
+
+         if ((G.app !== null) && (G.app.side_panel !== null)) {
+
+            if (G.app.side_panel.height > 0) {
+
+               var dwr:Map_Key_Drawer = this.parentDocument as Map_Key_Drawer;
+               var btn:Map_Key_Button = dwr.parentDocument as Map_Key_Button;
+
+               m4_PPUSH2('on_change_height: outer_container.numChildren:',
+                         this.outer_container.numChildren); // numChildren: 2
+
+               var drawer_height_base:int =
+                  0
+                  //
+                  + this.getStyle('paddingTop')
+                  + this.getStyle('paddingBottom')
+                  //
+                  + this.outer_container.getStyle('paddingTop')
+                  + this.outer_container.getStyle('paddingBottom')
+                  + (this.outer_container.getStyle('verticalGap')
+                     * (this.outer_container.numChildren - 1))
+                  //
+                  + this.drawer_panel_header.height
+                  //
+                  + this.sections_container.getStyle('paddingTop')
+                  + this.sections_container.getStyle('paddingBottom')
+                  + (this.sections_container.getStyle('verticalGap')
+                     * (this.sections_container.numChildren - 1))
+                  //
+                  + this.section_what_is_label.height
+                  //
+                  + this.section_what_is_content.getStyle('paddingTop')
+                  + this.section_what_is_content.getStyle('paddingBottom')
+                  + (this.section_what_is_content.getStyle('verticalGap')
+                     * (this.section_what_is_content.numChildren - 1))
+                  //
+                  + this.ccp_about_text_scroller.getStyle('paddingTop')
+                  + this.ccp_about_text_scroller.getStyle('paddingBottom')
+                  + (this.ccp_about_text_scroller.getStyle('borderThickness')
+                     * 2)
+                  + this.ccp_about_text_text.getStyle('paddingTop')
+                  + this.ccp_about_text_text.getStyle('paddingBottom')
+                  //
+                  + this.section_what_is_non_scrolling.height
+                  //
+                  + this.section_version_label.height
+                  + this.section_version_content.height
+                  ;
+
+               m4_PPUSH2('on_change_height: drawer_height_base- -2:',
+                         drawer_height_base);
+               if (Detail_Panel_Base.has_HorizontalScrollBar_(
+                                       dwr.first_container)) {
+                  drawer_height_base +=
+                     Detail_Panel_Base.get_hsb_height_(dwr.first_container)
+                     //+ 1
+                     ;
+                  m4_PPUSH2('on_change_height: drawer_height_base- -1:',
+                            drawer_height_base);
+               }
+
+               m4_PPUSH2('on_change_height: G.app.side_panel.height:',
+                         G.app.side_panel.height);
+
+               m4_PPUSH2('on_change_height: btn.show_button.height:',
+                         btn.show_button.height);
+               m4_PPUSH2('on_change_height: G.app.main_toolbar.height:',
+                         G.app.main_toolbar.height);
+
+               m4_PPUSH2('on_change_height: .map_toolbar_and_viewport.height:',
+                         G.app.map_toolbar_and_viewport.height);
+
+               m4_PPUSH2('on_change_height: G.app.map_canvas.height:',
+                         G.app.map_canvas.height);
+
+               var canvas_height_base:int =
+                  0
+                  + drawer_height_base
+                  //
+                  + btn.show_button.height
+                  ;
+               m4_PPUSH2('on_change_height: canvas_height_base/1:',
+                         canvas_height_base);
+
+               if (canvas_height_base > G.app.side_panel.height) {
+                  canvas_height_base = G.app.side_panel.height;
+                  m4_PPUSH2('on_change_height: too tall/1:',
+                            canvas_height_base);
+               }
+               var max_height:int = G.app.map_canvas.height
+                                    - canvas_height_base;
+               m4_PPUSH('on_change_height: max_height:', max_height);
+
+               var zoombarish_height:int = G.app.zoombar.height
+                  + G.app.zoombar_container.getStyle('paddingTop')
+                  + G.app.zoombar_container.getStyle('paddingBottom');
+               m4_PPUSH(' .. zoombarish_height:', zoombarish_height);
+
+               m4_PPUSH2(' .. dwr.first_container.horizontalScrollPolicy:',
+                         dwr.first_container.horizontalScrollPolicy);
+               m4_PPUSH2(' .. dwr.first_container.verticalScrollPolicy:',
+                         dwr.first_container.verticalScrollPolicy);
+               
+               var change_policy:String = '';
+               if (max_height < 125) {
+
+                  if (dwr.first_container.verticalScrollPolicy != 'on') {
+                     change_policy = 'on';
+                  }
+
+                  max_height = 125;
+                  m4_PPUSH('on_change_height: too tall- 2:', max_height);
+                  canvas_height_base = Math.min(G.app.map_canvas.height,
+                                                canvas_height_base);
+
+                  m4_PPUSH2('on_change_height: canvas_height_base- 3:',
+                            canvas_height_base);
+               }
+               else {
+
+                  if (dwr.first_container.verticalScrollPolicy != 'off') {
+                     change_policy = 'off';
+                  }
+
+                  // Leave room for the zoombar if there's at least a certain
+                  // amount of height available for the legend.
+                  max_height =
+                     Math.max(max_height - zoombarish_height,
+                              Math.min(225, max_height));
+               }
+
+               if (change_policy != '') {
+                  dwr.first_container.verticalScrollPolicy = change_policy;
+                  // This is a cute hack to get the other dimension to redraw,
+                  // since it sizes differently based on the existance of the
+                  // scrollbar.
+                  m4_DEBUG_CLLL('>callLater: this.on_change_width');
+                  var fake_ev:Event = null;
+                  var skip_btn:Boolean = true;
+                  G.app.callLater(this.on_change_width, [fake_ev, skip_btn,]);
+               }
+
+               m4_PPUSH('on_change_height: max_height:', max_height);
+
+               this.ccp_about_text_scroller.height = max_height;
+
+               var content_height:int = drawer_height_base
+                                        + max_height;
+               m4_PPUSH('on_change_height: content_height:', content_height);
+               this.height = content_height;
+               //
+               dwr.menu_container.height = content_height;
+               dwr.separator_container.height = content_height;
+               dwr.not_a_view_stack.height = content_height;
+
+               var container_height:int;
+               container_height = G.app.map_canvas.height
+                                  - G.app.main_toolbar.height;
+               container_height = Math.min(container_height,
+                                           content_height);
+               m4_PPUSH(' .. container_height:', container_height);
+
+               dwr.height = container_height;
+               dwr.first_container.height = container_height;
+               btn.height = container_height + btn.show_button.height;
+               btn.dim_expanded_height = container_height
+                                         + btn.show_button.height;
+               if (!skip_btn) {
+                  m4_PPUSH('on_change_height: remeasure_title_text');
+                  btn.remeasure_title_text();
+                  btn.on_canvas_change_dimensions();
+               }
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function debug_print_dims() :void
+      {
+         m4_PPUSH2('debug_print_dims: this.w:', this.width,
+                     '/ h:', this.height);
+         if ((G.app !== null) && (G.app.side_panel !== null)) {
+            m4_PPUSH3('on_canvas_change_dim: map:',
+                        'w:', G.app.map_canvas.width,
+                        '/ h:', G.app.map_canvas.height);
+
+            m4_PPUSH(' .. G.app.side_panel.width:', G.app.side_panel.width);
+            m4_PPUSH(' .. G.app.side_panel.height:', G.app.side_panel.height);
+
+            m4_PPUSH2(' .. G.app.main_toolbar.width:',
+                      G.app.main_toolbar.width);
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="outer_container"
+      width="100%"
+      paddingLeft="7"
+      paddingTop="7"
+      paddingRight="7"
+      paddingBottom="0"
+      verticalGap="3"
+      horizontalAlign="left"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="drawer_panel_header"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         verticalGap="0"
+         horizontalAlign="center"
+         >
+         <mx:Label
+            styleName="labelmajor"
+            paddingTop="0"
+            text="Welcome to Cyclopath!"/>
+      </mx:VBox>
+
+      <mx:VBox
+         id="sections_container"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="7"
+         paddingLeft="7"
+         paddingRight="0"
+         verticalGap="0"
+         >
+
+         <mx:Label
+            id="section_what_is_label"
+            styleName="labelminor"
+            fontWeight="bold"
+            fontStyle="italic"
+            paddingTop="7"
+            text="What is Cyclopath?"/>
+
+         <mx:VBox
+            id="section_what_is_content"
+            width="100%"
+            paddingTop="7"
+            paddingBottom="7"
+            paddingLeft="7"
+            paddingRight="0"
+            verticalGap="7"
+            >
+
+            <!-- Instance specific introduction -->
+            <mx:VBox
+               id="ccp_about_text_scroller"
+               horizontalScrollPolicy="off"
+               verticalScrollPolicy="auto"
+               paddingTop="7"
+               paddingBottom="7"
+               paddingLeft="7"
+               paddingRight="14"
+               borderStyle="solid"
+               borderThickness="1"
+               borderColor="{Conf.application_background_color}"
+               borderSides="top bottom left right"
+               backgroundColor="0xffffff"
+               >
+               <mx:Text
+                  id="ccp_about_text_text"
+                  leading="0"
+                  condenseWhite="true"
+                  mouseEnabled="true"
+                  mouseChildren="true"
+                  selectable="true"
+                  width="100%"
+                  >
+                  <mx:htmlText><![CDATA[
+Cyclopath finds people-friendly bike routes.
+<br/><br/>
+
+Are you looking for a better bike route? Find one here!
+<br/><br/>
+
+Do you like helping others, or do you like working on maps?
+Edit the map, add tags, or write notes and participate in
+discussions. Help us maintain the map so we can always find
+the best bike routes.
+<br/><br/>
+
+Thousands of Twin Cities bicyclists have been editing and 
+using Cyclopath since 2008, making Cyclopath one of
+the best bicycling resources in the Mpls.-St. Paul
+metropolitan area -- and now, since 2013, the best 
+bicycling resource in the State of Minnesota!
+Thanks for checking us out!!
+<br/><br/>
+
+<i>How do I Get Started?</i>
+<br/><br/>
+If you're looking for a new bike route, click on the "Routes" button in the
+menu in the upper-left part of the window. Enter the address, intersection or
+point from where you're leaving, enter your destination, and click Find Route.
+<br/><br/>
+
+There are also lots of other things you can do:
+<br/><br/>
+
+<ul>
+<li>Look at routes that other users have shared.
+ </li><br/>
+<li>Look at recent activity, such as recent changes, or edits, to the map.
+Or look at recent discussions, or topics, that users have started about items.
+Or look at discussions about bike routes that users have saved or edited.
+ </li><br/>
+<li>Search the map for anything and everything, including street names,
+intersections, addresses, points, region names, user tags, notes, and
+discussions about map items.
+ </li><br/>
+<li>Edit the map, including adding and removing items, changing item
+geometry, and editing item attributes.
+ </li><br/>
+<li>Change the map display. Each user can customize the map look 'n feel
+to suit their tastes.
+ </li><br/>
+<li>And much, much more!
+ </li><br/>
+</ul>
+<br/>
+
+For additional information, click on the link below to
+visit the "Cyclopath Text Wiki", a resource for anything and everything
+Cyclopath. Or you can jump right in and start poking around the map.
+<br/><br/>
+
+Also, you can email
+<u><a href="mailto:info@cyclopath.org">info@cyclopath.org</a></u>
+to talk to us personally, or you can start a new discussion and mingle
+with other Cyclopath users.
+<br/><br/>
+
+<b>Credits</b>
+<br/><br/>
+
+Cyclopath is a product of
+<a href="http://www.grouplens.org/">GroupLens Research</a>,
+part of the <a href="http://www.cs.umn.edu/">
+Computer Science & Engineering</a> Department at the
+<a href="http://umn.edu/">University of Minnesota</a>.
+<br/><br/>
+
+Cyclopath, Cycloplan, and Cyclopath Greater MN are enthusiastically
+sponsored by
+<a href="http://www.metrocouncil.org/">Metropolitan Council</a>
+and 
+<a href="http://www.dot.state.mn.us/">
+Minnesota Department of Transportation</a>.
+<br/><br/>
+
+<ul>
+
+<li>
+<a href="http://www-users.cs.umn.edu/~terveen/">
+Professor Loren Terveen</a> manages the project.
+</li><br/>
+
+<li>
+<a href="mailto:cyclopath@retrosoft.com">Landon Bouma</a>
+is the lead software engineer on Cycloplan and Cyclopath
+Greater MN, a/k/a Cyclopath 2.0. He loves pixel pushing,
+discussing magic numbers, and DRYing out flocked multi-
+threaded geometric sequences. Check out the source code
+for nuggets of random insights into the depths of his
+minimalist soles.
+</li><br/>
+
+<li>
+Reid Priedhorsky conceived the project and made the first Cyclopath.
+</li><br/>
+
+<li>
+And these awesome researchers and engineers helped make this
+all possible:
+</li><br/>
+
+<li>
+Fernando Torre created the Android application, the Search feature,
+helped develop tags, and fixed a lot of bugs.
+</li><br/>
+
+<li>
+Mikhil Masli helped drive the Statewide redesign, created Discussions,
+Route Reactions, Route Analytics, and many more features.
+</li><br/>
+
+<li>
+Michael Ludwig created Route Editing, encoded the first Permissions Model,
+and wrote lots of the initial code.
+</li><br/>
+
+<li>
+Andrew Sheppard contributed long hours, lots of code, and indelible GIS
+knowledge to the initial release.
+</li><br/>
+
+<li>
+Katie Panciera conducted lots of user research and interviews.
+</li><br/>
+
+<li>
+Carol Drysdale developed the impossible: the multimodal route finder.
+</li><br/>
+
+<li>
+Additional contributors:
+Anthony Johnson, Jordan Focht, Zach Schloss, and Stephanie Dahl.
+</li><br/>
+
+<li>
+We acknowledge and appreciate the support of the many people
+from Metropolitan Council and MnDOT who have provided resources,
+and, more importantly, lots of feedback and guidance.
+</li><br/>
+
+<li>
+And many thanks to our users -- cyclists, planners, and map geeks,
+and especially our most prolific map editors --
+for keeping Cyclopath rolling!
+</li><br/>
+
+</ul>
+</li>
+
+</ul>
+
+We hope you enjoy using Cyclopath!
+<br/>
+                  ]]></mx:htmlText>
+               </mx:Text>
+            </mx:VBox>
+
+            <mx:VBox
+               id="section_what_is_non_scrolling"
+               width="100%"
+               paddingTop="2"
+               verticalGap="0"
+               horizontalAlign="left"
+               >
+               <mx:HBox
+                  width="100%"
+                  horizontalGap="0"
+                  verticalAlign="middle"
+                  >
+                  <mx:Label
+                     styleName="labelminor"
+                     text="Find more help on the"
+                     paddingLeft="0"
+                     paddingRight="0"/>
+                  <views_panel_util:Help_Link
+                     click_url="/"
+                     text="Cyclopath Text Wiki"
+                     paddingTop="0"
+                     paddingLeft="0"
+                     paddingRight="0"/>
+               </mx:HBox>
+               <mx:HBox
+                  width="100%"
+                  horizontalGap="0"
+                  verticalAlign="middle"
+                  >
+                  <mx:Label
+                     styleName="labelminor"
+                     text="Read the user agreement and"
+                     paddingLeft="0"
+                     paddingRight="0"/>
+                  <views_panel_util:Help_Link
+                     styleName="labelminor"
+                     id="privacy_label"
+                     click_url="/User_Agreement"
+                     text="privacy policy"
+                     paddingTop="0"
+                     paddingLeft="0"
+                     paddingRight="0"/>
+               </mx:HBox>
+            </mx:VBox>
+
+         </mx:VBox>
+
+         <mx:Label
+            id="section_version_label"
+            styleName="labelminor"
+            fontWeight="bold"
+            fontStyle="italic"
+            paddingTop="3"
+            paddingBottom="0"
+            text="Software Version"/>
+
+         <mx:VBox
+            id="section_version_content"
+            width="100%"
+            paddingTop="3"
+            paddingBottom="0"
+            paddingLeft="7"
+            paddingRight="0"
+            verticalGap="0"
+            >
+
+            <mx:HBox
+               width="100%"
+               horizontalGap="0"
+               verticalAlign="middle"
+               >
+               <mx:Label
+                  id="latestrel_label"
+                  styleName="labelminor"
+                  text="Date:"
+                  paddingLeft="0"
+                  paddingRight="0"/>
+               <mx:Label
+                  id="nowdate_label"
+                  styleName="labelminor"
+                  text="{BUILD_INFO.nowdate}"
+                  paddingLeft="0"
+                  paddingRight="0"/>
+            </mx:HBox>
+
+            <mx:HBox
+               width="100%"
+               horizontalGap="0"
+               verticalAlign="middle"
+               >
+               <mx:Label
+                  id="version_label"
+                  styleName="labelminor"
+                  text="Version:"
+                  paddingLeft="0"
+                  paddingRight="0"
+                  />
+               <views_panel_util:Help_Link
+                  styleName="labelminor"
+                  click_url="/Release_Notes"
+                  text="{BUILD_INFO.major}"
+                  paddingLeft="0"
+                  paddingRight="3"
+                  paddingTop="-2"
+                  toolTip="{
+                     'Click to view the software release notes for release '
+                     + '&quot;' + BUILD_INFO.major + '&quot;'
+                     + ' (' + BUILD_INFO.now + ')'
+                     + ', built on: '
+                     + BUILD_INFO.nowdate
+                     + '.'}"
+                  />
+               <mx:Spacer
+                  width="100%"
+                  />
+               <views_panel_util:Help_Link
+                  styleName="labelminor"
+                  click_url="/Tech:CcpV2/Release_Bugs"
+                  text="Known Issues"
+                  paddingLeft="0"
+                  paddingRight="3"
+                  paddingTop="-2"
+                  toolTip=""
+                  />
+            </mx:HBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+   <!-- FIXME/BUG nnnn: Update the Geowiki help documentation.
+        -->
+   <!-- FIXME: The /Geowiki_Help help page is weak, and generally is a subset
+               of the main page at http://cyclopath.org/wiki/
+   <views_panel_util:Help_Link
+      click_url="/Geowiki_Help"
+      text="Help "/>
+      -->
+
+   <!-- FIXME: Deprecate Conf.welcome_text? -->
+
+</mx:VBox>
+

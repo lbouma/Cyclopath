@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_map_legend:Map_Legend_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import items.utils.Geofeature_Layer;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapLgd_Misc');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      // Draws the features, maybe with fake colors if draw_param hasn't been
+      // loaded yet
+      override public function fill_values() :void
+      {
+         var gr:Graphics;
+         var pcolor:int;
+
+         var xs:Array = new Array(
+            this.byway_byway.width / 2 - this.bar_width / 2 + this.pad,
+            this.byway_byway.width / 2 + this.bar_width / 2 - this.pad);
+         var ys:Array = new Array(
+            this.byway_byway.height / 2,
+            this.byway_byway.height / 2);
+
+         // Draw the fake byway.
+         // FIXME: These don't use the skin colors for the byways.
+         gr = this.byway_byway.graphics;
+         gr.clear();
+         this.byway_draw(gr, xs, ys,
+                         Conf.rating_colors_generic[3],
+                         Conf.comment_color);
+
+         // Draw the controlled access red line.
+         gr = this.byway_closed.graphics;
+         gr.clear();
+         var controlled_access:Boolean = true;
+         this.byway_draw(gr, xs, ys,
+                         Conf.rating_colors_generic[2],
+                         Conf.comment_color, controlled_access);
+
+         // BUG nnnn/FIXME: Draw the editing controls, like vertices.
+         // MAYBE: Draw the one-way arrows?
+
+         // Draw the fake point.
+         var x:Number = this.point.width / 2;
+         var y:Number = this.point.height / 2;
+         pcolor = Conf.tile_skin.feat_pens[
+            String(Geofeature_Layer.WAYPOINT_DEFAULT)]['pen_color'];
+         this.point.graphics.clear();
+         this.point_draw(this.point.graphics, x, y, pcolor);
+
+         // Draw the green space.
+         this.park.setStyle("backgroundColor", Conf.tile_skin.feat_pens[
+            String(Geofeature_Layer.TERRAIN_OPENSPACE)]['pen_color']);
+
+         // Draw the water.
+         this.water.setStyle("backgroundColor", Conf.tile_skin.feat_pens[
+            String(Geofeature_Layer.TERRAIN_WATER)]['pen_color']);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="outer_container"
+      width="100%"
+      height="100%"
+      paddingLeft="8"
+      paddingRight="8"
+      paddingTop="8"
+      paddingBottom="16"
+      verticalGap="8"
+      horizontalAlign="center"
+      horizontalScrollPolicy="off"
+      verticalScrollPolicy="off"
+      >
+
+      <mx:VBox
+         id="drawer_panel_header"
+         width="100%"
+         paddingTop="0"
+         paddingBottom="0"
+         paddingLeft="0"
+         paddingRight="0"
+         verticalGap="0"
+         horizontalAlign="center"
+         >
+         <mx:Label
+            text="Other Symbols Key"
+            fontWeight="bold"/>
+      </mx:VBox>
+
+      <mx:VBox
+         id="other_box_scroller"
+         width="100%"
+         paddingLeft="8"
+         paddingRight="8"
+         paddingTop="8"
+         paddingBottom="8"
+         horizontalGap="0"
+         verticalGap="8"
+         horizontalAlign="center"
+         verticalAlign="top"
+         borderThickness="1"
+         borderStyle="solid"
+         borderColor="0x000000"
+
+         horizontalScrollPolicy="off"
+         verticalScrollPolicy="off"
+         >
+
+         <mx:Grid>
+
+            <mx:GridRow>
+               <mx:GridItem
+                  width="100%"
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="-4"
+                     verticalAlign="middle"
+                     horizontalAlign="center"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     >
+                     <mx:Label
+                        text="Green Space"/>
+   <!-- FIXME: Add disclaimer: 
+   Green is Open Space and Parks. Please be aware: green space is not necessarily
+   public property. -->
+                  </mx:VBox>
+               </mx:GridItem>
+               <mx:GridItem
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:Canvas
+                     id="park"
+                     width="{this.bar_width}"
+                     height="100%"
+                     backgroundColor="{this.fake_park_color}"/>
+               </mx:GridItem>
+            </mx:GridRow>
+
+            <mx:GridRow>
+               <mx:GridItem
+                  width="100%"
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="-4"
+                     verticalAlign="middle"
+                     horizontalAlign="center"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     >
+                     <mx:Label
+                        text="Water"/>
+                  </mx:VBox>
+               </mx:GridItem>
+               <mx:GridItem
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:Canvas
+                     id="water"
+                     width="{this.bar_width}"
+                     height="100%"
+                     backgroundColor="{this.fake_water_color}"/>
+               </mx:GridItem>
+            </mx:GridRow>
+
+            <mx:GridRow>
+               <mx:GridItem
+                  width="100%"
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="-4"
+                     verticalAlign="middle"
+                     horizontalAlign="center"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     >
+                     <!-- SEARCH_ME: 'Dots are Points of Interest' -->
+                     <mx:Label text="A circle indicates"/>
+                     <mx:Label text="a point of interest"/>
+                  </mx:VBox>
+               </mx:GridItem>
+               <mx:GridItem
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:Canvas
+                     id="point"
+                     width="{this.bar_width}"
+                     height="100%"/>
+               </mx:GridItem>
+            </mx:GridRow>
+
+            <mx:GridRow>
+               <mx:GridItem
+                  width="100%"
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="-4"
+                     verticalAlign="middle"
+                     horizontalAlign="center"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     >
+                     <!--
+                     <mx:Label text="A red line means"/>
+                     <mx:Label text="closed to bicycles"/>
+                       -->
+                     <mx:Label text="A narrow, red centerline"/>
+                     <mx:Label text="means closed to bicycles"/>
+                  </mx:VBox>
+               </mx:GridItem>
+               <mx:GridItem
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:Canvas
+                     id="byway_closed"
+                     width="{this.bar_width}"
+                     height="100%"/>
+               </mx:GridItem>
+            </mx:GridRow>
+
+            <mx:GridRow>
+               <mx:GridItem
+                  width="100%"
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:VBox
+                     width="100%"
+                     verticalGap="-4"
+                     verticalAlign="middle"
+                     horizontalAlign="center"
+                     paddingLeft="0"
+                     paddingTop="0"
+                     paddingRight="0"
+                     paddingBottom="0"
+                     >
+                     <!-- SEARCH_ME: 'Highlights Indicate Notes and Posts'
+                       -->
+                     <!-- SEARCH_ME: 'Click Item to see Notes and Posts'
+                       -->                        
+                     <!-- SEARCH_ME: 'Highlight means Notes and Posts'
+                       -->
+                     <!--
+                     <mx:Label text="A purple outline"/>
+                     <mx:Label text="shows notes/posts"/>
+                       -->
+                     <mx:Label text="A point or road outlined in"/>
+                     <mx:Label text="purple has notes or posts"/>
+                  </mx:VBox>
+               </mx:GridItem>
+               <mx:GridItem
+                  paddingLeft="{this.pad}"
+                  paddingRight="{this.pad}"
+                  paddingTop="{this.pad}"
+                  paddingBottom="{this.pad}">
+                  <mx:Canvas
+                     id="byway_byway"
+                     width="{this.bar_width}"
+                     height="100%"/>
+               </mx:GridItem>
+            </mx:GridRow>
+
+         </mx:Grid>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_map_legend:Map_Legend_Base>
+

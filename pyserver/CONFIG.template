@@ -1,0 +1,400 @@
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# SECURITY: Please do not check this file into public-facing SVN.
+#
+# NOTE: You must restart Apache for changes to take effect.
+#
+# To use this template file, copy it to "CONFIG" in the pyserver directory
+# and edit appropriately.
+
+[gwis]
+
+protocol_version: 3
+dump_requests: no
+dump_responses: no
+dump_dir: /ccp/var/log/pyserver_dumps
+# HINT: To make a shared_secret, use python:
+#    $ python
+#    >>> import uuid
+#    >>> uuid.uuid4()
+#  or use your shell (provided you have e2fsprogs installed):
+#    $ uuidgen
+shared_secret:
+
+[db]
+
+# Leave host empty to connect using UNIX sockets, for lab devs
+# on the corporate network.
+#host:
+# Set host to localhost to develop from a virtual machine.
+host: localhost
+# SYNC_ME: Database name is also set in MediaWiki's LocalSettings.php.
+database: cycling
+user: cycling
+# Leave password empty to rely on database's "ident" authentication.
+password:
+owner: postgres
+owner_pass:
+
+# Choose a port:
+# - The default Postgres port, port 5432, for most developers.
+port: 5432
+# - The PgBouncer port.
+#   2013.07.08: [lb] trying PgBouncer, which runs on port 6432.
+#   2013.08.12: PgBouncer causes Ccp to stop working after a while; disabling.
+#               Either figure out PgB'r or find another db pool to use.
+#port: 6432
+# - Connect to remote server using SSL port forwarding.
+#   To use: ssh -L 7432:localhost:5432 your-name@your-machine.cs.umn.edu
+#           psql -U cycling -h localhost -p 7432 ccpv3_lite
+#port: 7432
+
+[instance_minnesota]
+# The instance name (e.g. "minnesota") is:
+# - the name of the mod_python interpreter for this instance (virtual host)
+# - the name of the postgres schema containing instance-specific data
+# - the name of the tilecache layer for this instance
+
+# Server name: The main part of the URL serving the application. Each instance
+# should be given a unique server name that corresponds to a valid Apache
+# virtual host; and each Apache virtual host should have PythonInterpreter set
+# to match the instance name.
+# SYNC_ME: Search hostname (Py); hostcurrent (MW); ServerName (Apache).
+# DEVS: For server_names, you can use 'localhost', or whatever Apache maps to
+#       (and what you might have mapped in /etc/hosts). If you need to allow
+#       external access, map your machine name or the domain name(s).
+#server_names: your.domain.org, dev.cs.umn.edu, localhost
+server_names: localhost
+server_ip: 127.0.0.1
+
+# Server port: Historically, we've only defined the port number in the Apache
+# config, but if you've got multiple Cyclopath branches on a machine and want
+# to use the ./ccp.py script easily (i.e., without having to always specify
+# --py_host and --py_port), it makes sense to define the port number here, too.
+# NOTE: This option just applies to ./ccp.py, so it's easier to use.
+# MAGIC_NUMBER: 80 is the Well Known port number for HTTP.
+# SYNC_ME: Search hostname; Search VirtualHost (Apache conf).
+server_port: 80
+
+# US/Central tells Postgres to automatically switch between CST & CDT depending
+# on the time of year. This can also be set using the keyword CST6CDT.
+timezone: US/Central
+
+# State name and aliases (for geocoding).
+admin_district_primary: Minnesota, MN
+admin_districts_nearby: North Dakota, ND, South Dakota, SD, Iowa, IA, Wisconsin, WI, Ontario, ON, Manitoba, MB
+country_region_primary: United States
+
+# Spatial reference system (UTM 15N; NAD83)
+srid: 26915
+
+# The starting TCP port for route daemons. Increments by one for each deamon.
+starting_routed_port: 4444
+maximum_routed_ports: 100
+
+# DEVS: To use a remote route finder, use roles 'client' and 'server'.
+remote_routed_host: localhost
+remote_routed_port: 4666
+remote_routed_role:
+
+# DEVS: Set this higher if you have more cores to spare.
+routed_async_limit: 1
+
+# Max. parallel requests user jobs are allowed to send to their route finder.
+# DEVS: Set this higher if you have more cores to spare.
+analysis_async_limit: 1
+
+# NED model (National Elevation Dataset).
+elevation_tiff: /ccp/var/elevation/minnesota.dem
+# The DEM might express itself in feet or in meters.
+elevation_units: feet
+# This is the average elevation of Minnesota.
+# http://www.netstate.com/states/geography/mn_geography.htm
+elevation_mean: 1200.0
+
+# This point identifies a known location within the road network wherein
+# we should be able to find a node that's well-connected to the biggest
+# subtree.
+# This is near the 55401 post office.
+known_node_pt_x: 480292.5
+known_node_pt_y: 4980909.8
+
+# Seed for the aliases script.
+# You can leave this blank, or set to a unique value for each installation.
+aliases_seed: 12345678
+
+# NOTE: An instance could equally be its own Cyclopath server, or just another
+#       branch, but making it an instance means you can share user accounts
+#       easily with other instances and you can make 'lite' databases easily.
+# 2013.04.21: Disabling colorado...
+# [instance_colorado]
+# # See [instance_minnesota] above for an explanation of these options
+# # SYNC_ME: Search hostname.
+# server_names: co.cyclopath.org
+# #server_ip: 127.0.0.1
+# server_port: 80
+# #
+# timezone: US/Mountain
+# #
+# admin_district_primary: Colorado, CO
+# admin_districts_nearby: Kansas, KS, Nebraska, NE, New Mexico, NM, Oklahoma, OK, Utah, UT, Wyoming, WY
+# country_region_primary: United States
+# #
+# srid: 26913
+# #
+# starting_routed_port: 4444
+# maximum_routed_ports: 50
+# #
+# routed_async_limit: 1
+# analysis_async_limit: 1
+# #
+# elevation_tiff: /ccp/var/elevation/colorado.tif
+# elevation_units: meters
+# # 5278.0: Mile-High City
+# elevation_mean: 5278.0
+# 
+# # This point identifies a known location within the road network wherein
+# # we should be able to find a node that's well-connected to the biggest
+# # subtree.
+# known_node_pt_x:
+# known_node_pt_y:
+#
+# # Seed for the aliases script.
+# # You can leave this, or you can set to a unique value for each installation.
+# aliases_seed: 87654321
+
+[misc]
+
+# PYTHONPATHs can be specified in many ways. Interactive user's can add the 
+# paths to their shell startup scripts, so they can get at libraries from a 
+# Python prompt whenever they want. For apache, we can just add the paths to 
+# the httpd.conf file. But for sudo commands (and possibly for other usages) 
+# there's not a clear place to hardcode paths. So this is a catchall location.
+pythonpath: /ccp/opt/usr/lib/python:/ccp/opt/usr/lib/python2.6/site-packages
+
+# As with PYTHONPATH, LD_LIBRARY_PATH can be specified by the caller's
+# environment. It can also be enstated system-wide, by editing /etc/ld.so.conf
+# and calling 'sudo ldconfig'. It can also be specified here.
+ld_library_path: /ccp/opt/geos/lib:/ccp/opt/gdal/lib
+
+# If nonzero, enable semi-protected mode. Anonymous users and users with
+# accounts younger than this many hours cannot save public changes.
+# MAYBE: There are other ways to restrict editing. One is using the
+# new_item_policy. Another is using the cp_maint_beg and cp_maint_fin
+# key_value_pair entries (see kval_get.py).
+semiprotect: 0
+# 2013.06.07: commit_to_testing lets users test commit but fails at the end.
+commit_to_testing: off
+
+# If true, users on localhost (127.0.0.1) can bypass authentication and be
+# anyone they want. WARNING: This should remain false except for testing,
+# because DNS can be hacked and IPs can be spoofed (and some networks don't
+# filter out incoming packets that claim falsely to be internal).
+magic_localhost_auth: off
+# DANGEROUS: magic_localhost_auth: on
+
+# WARNING: Normally, you'll only want to spoof locally, but if you're testing
+# code on the server, you may find yourself wanting to spoof remotely. As
+# stated above, the ip addr we get from apache cannot be trusted, so
+# do not do this on the production server.
+magic_auth_remoteip: 127.0.0.1
+
+# If this many authentication failures from a single IP address within one
+# hour, place a temporary ban_all_gwis on that IP address.
+# FIXME: Put log.warning messages around as these numbers add up. 100 seems
+# like a problem... but maybe since loading flashclient causes lots of packets,
+# each packet costs one failure, so 100 is, like, three flashclient bootstraps.
+auth_fail_hour_limit_password: 10
+auth_fail_hour_limit_token: 100
+
+# If this many authentication failures from a single IP address within one day,
+# place a permanent ban_all_gwis on that IP address.
+auth_fail_day_limit_password: 30
+auth_fail_day_limit_token: 300
+
+# Leave profiling off in checked-in template
+profiling: off
+profile_file: /tmp/pyserver.prof
+
+# STMP host.
+# DEVs: Set this to, e.g., your_mail_host.domain.tld
+mail_host:
+
+# From address to use in emails.
+# DEVs: Set this to, e.g., your_company_email@domain.tld
+mail_from_addr:
+
+# Internal email address.
+# DEVs: Set this to, e.g., your_internal_group@domain.tld
+internal_email_addr:
+
+# An empty mail_ok_addrs used to mean that any and all emails will be sent.
+# But that seems dangerous. So now ALL_OKAY means any and all emails will be
+# sent. DEVs should use a comma delimited list of their email address and other
+# emails that are okay to email while testing.
+# DEVS: !!! This list should *not* be "ALL_OKAY" on dev. machines.
+# DEVs: Set this to, e.g., your_email@somewhere.tld,your_company_email@domain.tld
+mail_ok_addrs:
+# Do this on the production server:
+#mail_ok_addrs: ALL_OKAY
+
+# TileCache directory (this is where the TileCache scripts live)
+tilecache_dir: /ccp/opt/tilecache
+tilecache_cache_dir: /ccp/var/tilecache-cache/cp
+tile_size: 256
+
+# Maximum size of a request rectangle for features to prevent DOS attacks,
+# measured in square meters.
+# 2012.05.04: [lb] notes that the speedier SQL times and reduced packet size
+#                  make 100000000 seem restrictive.
+#   ./ccp.py -t waypoint -r -b 2404832 -B 442368.0,4964352.0,491520.0,5013504.0
+#     --verbose -G -U landonb --no-password
+#   returns 2222 items at 329320 bytes (321.60 Kb) in 0.06 mins.
+# 2013.11.21: Added two zooms for Statewide... * 2 * 2, or just another magn.
+# So this is too small (large monitors trigger it):
+#constraint_bbox_max: 100000000
+constraint_bbox_max: 1000000000
+constraint_page_max: 1000
+# FIXME: [lb] 2012.05.04: We should make a temporary table, so maybe this isn't
+# that bad. And maybe we'll never hit this, anyway, because how the new sql
+# works (by using a temporary stack ID table) do the client has no reason to
+# send long lists of stack IDs anymore.
+constraint_sids_max: 10000
+
+[geocoding]
+
+# Geocoder Service Authentication
+# 
+# NOTE: Cyclopath has only been tested against Bing since 2010.
+#
+# DEVs: Ask someone else for the dev key, or signup for a
+#       free Basic Key at: http://www.bingmapsportal.com/
+bing_maps_id:
+#
+# 2012.08.20: Cyclopath MN does not use Yahoo or Mappoint for geocoding.
+yahoo_app_id:
+mappoint_user:
+mappoint_password:
+# 2014.06.16: Bing (MS) was down all day and MapQuest (AOL) seems more
+# us-friendly.
+mapquest_application_key:
+
+# Converting an address to byway nodes requires a nearest neighbor search,
+# which isn't possible to do directly -- we instead search for nodes within
+# this radius and filter the results. A smaller radius yields faster queries
+# but a higher probability of not finding the nearest neighbor in sparse areas.
+# NOTE: The value represents the radius in meters.
+filter_radius: 1000
+
+# Return at most this many hits for a geocode request.
+## Note: as of 4/29/2010, 5 is the highest viable number because otherwise the
+## Choose Address box is larger than the screen if both start and end addresses
+## are ambiguous.
+hit_limit: 5
+# Limit for geocoding SQL query
+sql_limit: 100
+
+# When geocoding, we filter results by distance to covered areas in order to
+# avoid taking users to addresses that are far from the actual map. This buffer
+# indicates in meters how far from the covered area we permit geocoded
+# addresses.
+# Old Cyclopath: The coverage geometry was computed only once and resides in
+#                the database table 'coverage_area'.
+# New Cyclopath: The tilecache_update script computes this value whenever it
+#                runs after the map is updated. It store the coverage_area in
+#                the key_value table.
+#
+# 2014.02.06: This value is no longer used; the one function that references
+#             it is deprecated.
+geocode_buffer: 30000
+
+[routing]
+
+# Directory containing PID files (e.g. /tmp/minnesota-routed.pid)
+routed_pid_dir: /tmp
+
+# If a byway has at least this many user ratings, its mean user rating is
+# considered useful.
+rating_ct_mean_threshold: 1
+
+# How much to penalize turns (in extra distance willing to travel to avoid).
+penalty_left: 100
+penalty_right: 40
+penalty_straight: 20
+
+# Google Transit Feed Specification Database for Graphserver (GTFSDB)
+# FIXME: This should be instance-specific.
+transit_db_source: ftp://gisftp.metc.state.mn.us/google_transit.zip
+transit_db_gtfsdb: /ccp/var/transit/metc/minnesota.gtfsdb
+# FIXME: Does this name match the db, or can we drop 'Minneapolis'?
+transit_db_agency: Minneapolis Metro Transit
+
+# This is the path a file used to get data about the current commit.
+# Note that we're using a GETable location so people can poll this value.
+cp_maint_lock_path: /ccp/dev/cp/htdocs/exports/devs/cp_maint_lock
+
+[jobs_queueing]
+
+# The jobs queue listens on the jobs port, nine-nine-nine to the rescue.
+# NOTE: On the production server, the /etc/init.d/cyclopath-mr_do*
+#       scripts use different ports numbers for Mr. Do! And the number
+#       is stored in key_value_pair. So this value only matters if you
+#       start Mr. Do! without a port number.
+jobs_queue_port: 4999
+
+# Where to store the PID file.
+mr_do_pid_dir: /tmp
+
+# How many consumers to create.
+# DEVS: Increase this per no. cores you got.
+mr_do_total_consumers: 3
+
+[logging]
+
+filename: /ccp/var/log/pyserver/%s.log
+
+# NOTE: On the production server, this should usually be WARNING.
+#level: WARNING
+level: DEBUG
+
+db_glue_acquire_timeout_normal: 1.5
+db_glue_acquire_timeout_longer: 10.0
+
+db_glue_sql_time_limit: 0.25
+
+[debugging]
+
+enable_winpdb_rpdb2: off
+
+break_on_gwis_request: off
+break_on_assurt: off
+
+# The width of the developers debug console (where trace messages print).
+log_line_len: -1
+# Whether the logger should wrap and pad long lines (pretty print traces).
+log_smart_wrap: True
+
+search_pretty_print: no
+db_glue_strict_assurts: no
+
+debug_mem_usage: False
+# If the memory usage changes by at least this many Mbs., log a message.
+debug_mem_limit: 0.01
+
+[branching]
+
+# How many parent branches a leaf branch may have. This number arbitrary:
+# we could probably support a lot more before we see performance degradation.
+#max_parent_chain_len: 9
+# Restricting to two until it matters.
+max_parent_chain_len: 2
+
+[shapeio]
+
+shapefile_directory: /ccp/var/cpdumps
+
+[landmarks_experiment]
+
+landmarks_exp_active: False
+

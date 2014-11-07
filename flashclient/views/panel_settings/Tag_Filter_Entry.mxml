@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   verticalAlign="middle"
+   paddingLeft="4"
+   paddingRight="4"
+   horizontalGap="4">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.CheckBox;
+
+      import items.attcs.Tag;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tag_Fltr_E');
+
+      // ***
+
+      //
+      protected function on_tag_entry_click() :void
+      {
+         m4_DEBUG('on_tag_entry_click');
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:CheckBox
+      id="tag_entry"
+      maxWidth="200"
+      label="{data.blurb_title}"
+      selected="{data.filter_show_tag}"
+      fontStyle="{(data as Tag) === G.map.untagged ? 'italic' : 'normal'}"
+      click="this.on_tag_entry_click();"
+      />
+
+</views_panel_base:Detail_Panel_Widget>
+

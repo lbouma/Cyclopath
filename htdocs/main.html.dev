@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Cyclopath Geowiki</title>
+<!--  These two lines are to make browser URL manipulation work. -->
+<link rel="stylesheet" type="text/css" href="history/history.css"/>
+<script src="history/history.js" language="javascript"></script>
+<script type="text/javascript" src="swfobject.js"></script>
+<script type="text/javascript">
+   if (false) {
+      // Docs say this works but [lb] has no such luck.
+      swfobject.registerObject("cpmainswf", "7.0.0", "expressInstall.swf");
+   }
+   else {
+      if (swfobject.hasFlashPlayerVersion("7.0.0")) {
+         ; // User has flash
+      }
+      else {
+         // User does not have flash
+         window.location="misc/withoutflash.html";
+      }
+   }
+</script>
+</head>
+
+<script language=JavaScript>
+function show_directions(directions) {
+   // Hack to load images for the dynamic html, otherwise they wouldn't load.
+   // SYNC_ME: Search: cue png (htdocs/main.html flashclient/Conf.as).
+   var misc_right = new Image();
+   misc_right.src = "assets/img/misc_right.png";
+   //
+   var misc_up = new Image();
+   misc_up.src = "assets/img/misc_up.png";
+   //
+   var misc_left = new Image();
+   misc_left.src = "assets/img/misc_left.png";
+   //
+   var misc_down = new Image();
+   misc_down.src = "assets/img/misc_down.png";
+   //
+   var route_stop_transit = new Image();
+   route_stop_transit.src = "assets/img/route_stop_transit.png";
+   //
+   var route_stop_bicycle = new Image();
+   route_stop_bicycle.src = "assets/img/route_stop_bicycle.png";
+   //
+   var misc_start = new Image();
+   misc_start.src = "assets/img/misc_start.png";
+   //
+   var misc_end = new Image();
+   misc_end.src = "assets/img/misc_end.png";
+
+   var dir_window = window.open('', 'dir_window', 'scrollbars=yes,toolbar=yes,status=1,location=1,menubar=1,resizable=1,directories=1');
+
+   if (dir_window == null) {
+      alert("You seem to have a popup blocker enabled, which prevented the printer-friendly directions window from opening. Please allow popups from this site in order to see the printer-friendly directions.");
+   }
+   else {
+      dir_window.document.open();
+      dir_window.document.write(directions);
+      dir_window.document.close();
+      dir_window.sizeToContent();
+      dir_window.focus();
+   }
+}
+
+function swf_get(id) {
+   if (-1 != navigator.appName.indexOf("Microsoft")) {
+      return window[id];
+   }
+   else {
+      return document[id];
+   }
+}
+
+function on_load() {
+   var map = swf_get("cpmainswf");
+
+   window.onbeforeunload = function () {
+      var map = swf_get("cpmainswf");
+      map.save_non_wiki();
+      if (map.is_dirty()) {
+         return "You have unsaved changes in Cyclopath. If you click OK, these changes will be lost.";
+      }
+   }
+}
+</script>
+
+<!-- Google Analytics tracking code -->
+<script type="text/javascript">
+<!-- SYNC_ME: Search hostname. -->
+<!-- DEVS: Comment this out on your dev. machine to speed up bootstrap. -->
+//if (document.URL.indexOf("cycloplan.cyclopath.org") != -1) {
+//   var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+//   document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+//}
+</script>
+<script type="text/javascript">
+<!-- SYNC_ME: Search hostname. -->
+<!-- DEVS: Comment this out on your dev. machine to speed up bootstrap. -->
+//if (document.URL.indexOf("cycloplan.cyclopath.org") != -1) {
+//   try {
+//      var pageTracker = _gat._getTracker("UA-6767022-1");
+//      pageTracker._trackPageview();
+//   } catch(err) {}
+//}
+</script>
+
+<body style="margin: 0px; padding: 0px; overflow: hidden;" onload="on_load();">
+<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000" id="cpmainswf" 
+        codebase="http://download.macromedia.com/pub/shockwave/cabs/flash/swflash.cab#version=9,0,124,0"
+        width=100%" height="100%" allowScriptAccess="sameDomain">
+  <param name="movie" value="main.swf" />
+  <param name="quality" value="high" />
+  <!-- DEVS: To debug on Windows from file:///c:/, use always, not sameDomain.
+  <param name="allowScriptAccess" value="always" />
+   -->
+  <param name="allowScriptAccess" value="sameDomain" />
+
+  <embed src="main.swf" quality="high" name="cpmainswf" allowScriptAccess="always" 
+         pluginspage="http://www.adobe.com/shockwave/download/download.cgi?P1_Prod_Version=ShockwaveFlash"
+         type="application/x-shockwave-flash" width="100%" height="100%">
+
+  <!--[if !IE]>-->
+  <!-- <object type="application/x-shockwave-flash"
+               data="main.swf"
+               width="100%" height="100"> -->
+  <!--<![endif]-->
+  <!-- See: expressInstall.swf, above: this is where this is supposed to work:
+    <p>Alternative content</p>
+  -->
+  <!--[if !IE]>-->
+  <!-- </object> -->
+  </embed>
+  <!--<![endif]-->
+
+</object>
+</body>
+</html>
+

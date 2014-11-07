@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:TitleWindow
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   borderAlpha="1"
+   title="Landmarks Experiment Instructions"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   defaultButton="{this.ok}"
+   close="titleWindow_close(event);"
+   keyDown="titleWindow_keyDown(event);"
+
+   width="544"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.managers.PopUpManager;
+      import mx.core.IFlexDisplayObject;
+      import mx.events.CloseEvent;
+
+      import gwis.GWIS_Landmark_Exp_Begin;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('LndM_Exp_Ins');
+
+      protected static const instructions:String = 
+           "In this part of the experiment, you will tell us whether you think landmarks selected by other users are helpful or not. <b>Note: Each route will appear three times, each time displaying a different users' selected landmarks.</b> For each route presented, complete the following tasks:"
+         + "<br /><br />"
+
+         + "<b>1)</b> On the experiment panel on the right, tell us how familiar you are with the route by selecting the option from the drop-down menu that best fits your experience with the route.<br /><br />"
+         + "<b>2)</b> On the route directions on the left panel, you will see landmarks selected by other users for each route. You can rate each landmark as useful or not useful by mousing over the landmark and selecting the \"thumbs up\" (useful) or \"thumbs down\" (not useful) button. The landmark's color will be green if you rated it as useful, red if rated as not useful, and blue otherwise.<br /><br />";
+      
+      protected static const instructions2:String =
+         "<br /><b>3)</b> Once you are done choosing landmarks, you can use the buttons on the right panel to either go to the next route or finish the experiment.<br /><br />";
+         
+
+      // *** Event handlers
+
+      // BUG 1692: The next two fcns are common throughout the code;
+      //           can we make a base class for them?
+
+      // Respond to the close event
+      private function titleWindow_close(evt:CloseEvent) :void
+      {
+         PopUpManager.removePopUp(evt.target as IFlexDisplayObject);
+      }
+
+      // Respond to special keydown events
+      private function titleWindow_keyDown(evt:KeyboardEvent) :void
+      {
+         if (evt.charCode == Keyboard.ESCAPE) {
+            this.dispatchEvent(new CloseEvent(CloseEvent.CLOSE));
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="{G.app.pad}"
+      paddingRight="{G.app.pad}"
+      paddingTop="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+
+      maxHeight="{G.app.map_canvas.height}"
+      verticalScrollPolicy="auto"
+      horizontalScrollPolicy="off"
+
+      >
+      <mx:Text
+         width="95%"
+         htmlText="{Landmark_Experiment_Instructions.instructions}"
+         />
+      <mx:Image
+         source="@Embed(source='/assets/img/validation_ui.png')" />
+      <mx:Text
+         width="95%"
+         htmlText="{Landmark_Experiment_Instructions.instructions2}"
+         />
+      <mx:HBox
+         width="95%"
+         horizontalAlign="right">
+         <mx:Button
+            id="ok"
+            label="Okay"
+            click="PopUpManager.removePopUp(this);"/>
+      </mx:HBox>
+   </mx:VBox>
+
+</mx:TitleWindow>
+

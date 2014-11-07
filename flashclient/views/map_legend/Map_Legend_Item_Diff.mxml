@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_map_legend:Map_Legend_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+      import views.base.Paint;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_MapLgd_Diff');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override public function fill_values() :void
+      {
+         var gr:Graphics;
+
+         var xs:Array = new Array(
+            // NOTE: This code has always canceled self out?
+            this.bar_width / 2 - this.bar_width / 2 + this.pad,
+            this.bar_width / 2 + this.bar_width / 2 - this.pad);
+         var ys:Array = new Array(
+            this.bar_width / 2,
+            this.bar_width / 2);
+
+         // Draw the fake diffmode points
+         this.staticpoint.graphics.clear();
+         this.point_draw(this.staticpoint.graphics, x, y,
+                         Conf.vgroup_static_color);
+         this.oldpoint.graphics.clear();
+         this.point_draw(this.oldpoint.graphics, x, y, Conf.vgroup_old_color);
+         this.newpoint.graphics.clear();
+         this.point_draw(this.newpoint.graphics, x, y, Conf.vgroup_new_color);
+         this.nonwaypoint.graphics.clear();
+         this.point_draw(this.nonwaypoint.graphics, x, y,
+                         Conf.vgroup_static_color, Conf.change_color);
+
+         // Draw the fake moved diffmode points
+         gr = this.movepoint.graphics;
+         gr.clear();
+         Paint.arrow_draw(gr, x - 12, y, x + 12, y, 7.5,
+                          this.fake_shadow_color, 1, 5);
+         gr.lineStyle(0, this.fake_shadow_color, 0);
+         this.point_draw(gr, x - 12, y, Conf.vgroup_move_old_color);
+         this.point_draw(gr, x + 12, y, Conf.vgroup_move_new_color);
+
+         // Draw the fake diffmode byways
+         this.staticbyway.graphics.clear();
+         this.byway_draw(this.staticbyway.graphics, xs, ys,
+                         Conf.vgroup_static_color);
+         this.oldbyway.graphics.clear();
+         this.byway_draw(this.oldbyway.graphics, xs, ys,
+                         Conf.vgroup_old_color);
+         this.newbyway.graphics.clear();
+         this.byway_draw(this.newbyway.graphics, xs, ys,
+                         Conf.vgroup_new_color);
+         this.nongeobyway.graphics.clear();
+         this.byway_draw(this.nongeobyway.graphics, xs, ys,
+                         Conf.vgroup_static_color, Conf.change_color);
+
+         // Draw the fake moved diffmode byways.
+         gr = this.movebyway.graphics;
+         gr.clear();
+         xs[1] = x + 5;
+         ys[1] -= 7;
+         this.byway_draw(gr, xs, ys, Conf.vgroup_move_old_color);
+         xs[1] = x + (x - xs[0]);
+         xs[0] = x - 5;
+         ys[1] = ys[0];
+         ys[0] += 7;
+         this.byway_draw(gr, xs, ys, Conf.vgroup_move_new_color);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="diffmode_key"
+      width="100%"
+      height="100%"
+      paddingLeft="{4*this.pad}"
+      paddingRight="{4*this.pad}"
+      paddingBottom="{4*this.pad}">
+
+      <mx:Grid>
+         <mx:GridRow>
+            <mx:GridItem>
+                  <mx:Label/>
+            </mx:GridItem>
+            <mx:GridItem
+               horizontalAlign="center">
+               <mx:Label
+                  text="Points"
+                  fontWeight="bold"/>
+            </mx:GridItem>
+            <mx:GridItem
+               horizontalAlign="center">
+               <mx:Label
+                  text="Blocks"
+                  fontWeight="bold"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow>
+            <mx:GridItem>
+               <mx:Label
+                  text="Added"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="newpoint"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="newbyway"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow>
+            <mx:GridItem>
+               <mx:Label
+                  text="Removed"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="oldpoint"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="oldbyway"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow>
+            <mx:GridItem>
+               <mx:Label
+                  text="Moved"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="movepoint"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="movebyway"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow>
+            <mx:GridItem>
+               <mx:Label
+                  text="Info Change"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="nonwaypoint"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="nongeobyway"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+         <mx:GridRow>
+            <mx:GridItem>
+               <mx:Label
+                  text="Unchanged"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="staticpoint"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+            <mx:GridItem
+               paddingLeft="{this.pad}"
+               paddingRight="{this.pad}"
+               paddingTop="{this.pad}"
+               paddingBottom="{this.pad}">
+               <mx:Canvas
+                  id="staticbyway"
+                  width="{this.bar_width}"
+                  height="100%"/>
+            </mx:GridItem>
+         </mx:GridRow>
+      </mx:Grid>
+
+   </mx:VBox>
+
+</views_map_legend:Map_Legend_Base>
+

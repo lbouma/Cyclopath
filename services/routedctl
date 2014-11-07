@@ -1,0 +1,534 @@
+#!/bin/bash
+
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# This script should be auto-started on boot. See /etc/init.d/cyclopath-routed.
+
+DEBUG_TRACE=false
+#DEBUG_TRACE=true
+
+IGNORE_ME="""
+
+# You bash scripts should set these:
+#   export PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/python2.7/site-packages:/ccp/opt/gdal/lib/python2.7/site-packages
+#   export PYSERVER_HOME=/ccp/dev/cp/pyserver
+
+tail -F /ccp/var/log/pyserver/minnesota-routed.log
+
+# *** Basemap and Metc Branch
+
+# New Cycloplan server:
+INSTANCE=minnesota___cycloplan_live
+PYSERVER_HOME=/ccp/dev/cycloplan_live/pyserver
+
+# New Statewide demo:
+INSTANCE=minnesota___greatermn_prod
+PYSERVER_HOME=/ccp/dev/greatermn_prod/pyserver
+
+# [lb]'s route server for remote debugging
+INSTANCE=minnesota___cp_2628
+PYSERVER_HOME=/ccp/dev/cp_2628/pyserver
+export PYTHONPATH=$ccp/opt/usr/lib/python:$ccp/opt/usr/lib/$PYTHONVERS/site-packages:$ccp/opt/gdal/lib/$PYTHONVERS/site-packages:$ccp/dev/cp/pyserver/bin/winpdb
+echo 'DELETE FROM routed_ports WHERE port=4666;' \
+ | psql -U cycling ccpv3_test
+echo 'SELECT * FROM routed_ports WHERE port=4666;' \
+ | psql -U cycling ccpv3_test
+
+# Old Cycloplan demo:
+INSTANCE=minnesota___ccpv2_trunk
+PYSERVER_HOME=/ccp/dev/ccpv2_trunk/pyserver
+
+svccmd=stop
+svccmd=restart
+sudo -v
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $PYSERVER_HOME/../services/mr_doctl \
+  $svccmd
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p1 \
+  --purpose=general \
+  $svccmd
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p1 \
+  --purpose=general \
+  --branch='Metc Bikeways 2012' \
+  $svccmd
+
+
+
+# For some reason, even with quotes, the space in 'Cyclopath Export' is
+# is being split... and even setting IFS='' didn't help.
+#  --source_shp='/ccp/var/shapefiles/p3_routed/Cyclopath-Export/Cyclopath Export.shp' \
+#  --shp_cache_dir='/ccp/var/shapefiles/p3_routed' \
+INSTANCE=minnesota___cycloplan_sib1
+PYSERVER_HOME=/ccp/dev/cycloplan_sib1/pyserver
+INSTANCE=minnesota___cycloplan_test
+PYSERVER_HOME=/ccp/dev/cycloplan_test/pyserver
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  SHP_CACHE_DIR='/ccp/var/shapefiles/p3_routed' \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p3 \
+  --source_zip='/ccp/var/htdocs/cycloplan_live/exports/Minnesota.zip' \
+  --shp_cache_dir='/ccp/var/shapefiles/p3_routed' \
+  $svccmd
+
+
+INSTANCE=minnesota___cycloplan_test
+PYSERVER_HOME=/ccp/dev/cycloplan_test/pyserver
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  SHP_CACHE_DIR='/ccp/var/shapefiles/p3_routed-testMN' \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p3 \
+  --source_zip='/ccp/dev/cycloplan_test/htdocs/exports/daily/2014.07.10-Minnesota.zip' \
+  --shp_cache_dir='/ccp/var/shapefiles/p3_routed-testMN' \
+  $svccmd
+
+
+
+
+
+
+
+
+# Lake cty test:
+#SOURCE_SHP='/ccp/var/shapefiles/test/Cyclopath-Export/Cyclopath Export.shp' \
+INSTANCE=minnesota___cp_2628
+PYSERVER_HOME=/ccp/dev/cp_2628/pyserver
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  SHP_CACHE_DIR='/ccp/var/shapefiles/p3_routed' \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p3 \
+  --source_zip='/ccp/var/shapefiles/test/2014.04.16-Mpls-St._Paul-lake.zip' \
+  --shp_cache_dir='/ccp/var/shapefiles/p3_routed-test' \
+  --regions=Lake \
+  $svccmd
+
+# Hennepin cty test:
+#SOURCE_SHP='/ccp/var/shapefiles/test/Cyclopath-Export/Cyclopath Export.shp' \
+#  --source_zip='/ccp/var/shapefiles/test/2014.06.12-Minnesota-Hennepin.zip' \
+INSTANCE=minnesota___cp_2628
+PYSERVER_HOME=/ccp/dev/cp_2628/pyserver
+svccmd=start
+INSTANCE=minnesota___cycloplan_test
+PYSERVER_HOME=/ccp/dev/cycloplan_test/pyserver
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  SHP_CACHE_DIR='/ccp/var/shapefiles/p3_routed' \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p3 \
+  --source_zip='/ccp/var/shapefiles/test/2014.09.16-Minnesota-Hennepin.zip' \
+  --shp_cache_dir='/ccp/var/shapefiles/p3_routed-test-henn' \
+  --regions=Hennepin \
+  $svccmd
+
+
+
+  --source_zip='/ccp/var/shapefiles/p3_routed/2014.03.01-Mpls-St._Paul.zip' \
+
+
+
+sudo -u $httpd_user \
+  INSTANCE=$INSTANCE \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  $PYSERVER_HOME/../services/routedctl \
+  --routed_pers=p1 \
+  --purpose=general \
+  --regions=Lake \
+  $svccmd
+
+
+# *** Route Analytics testing
+
+svccmd=restart
+sudo -u $httpd_user \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  INSTANCE=minnesota \
+  $cp/services/routedctl \
+  --routed_pers=p1 \
+  --purpose=analysis \
+  --branch=0 \
+  $svccmd
+svccmd=restart
+sudo -u $httpd_user \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  INSTANCE=minnesota \
+  $cp/services/routedctl \
+  --routed_pers=p1 \
+  --purpose=analysis \
+  --branch='Metc Bikeways 2012' \
+  $svccmd
+
+# *** Restrict to regions
+
+sudo -u $httpd_user \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=$PYSERVER_HOME \
+  INSTANCE=minnesota \
+  $cp/services/routedctl \
+  --routed_pers=p2 \
+  --purpose=general \
+  --regions=Minneapolis \
+  start
+
+# Test HUP:
+
+ps aux | grep routed_pers=p1 | awk '{print $2}' | xargs sudo kill -s 1
+
+# Reset routed_ports:
+
+psql -U postgres -d ccpv2 -c 'TRUNCATE routed_ports;'
+
+# Test checking out a route
+
+cd $cp/pyserver
+./ccp.py -i -U landonb --no-password
+from item.feat import route
+rts = route.Many()
+rts.search_by_stack_id(1556236, self.qb)
+
+# Test a specific route
+
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'length' --p3-path-alg 'astar_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'length' --p3-path-alg 'all_shortest_paths'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'length' --p3-path-alg 'dijkstra_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'length' --p3-path-alg 'shortest_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'rating' --p3-path-alg 'astar_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'rating' --p3-path-alg 'all_shortest_paths'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'rating' --p3-path-alg 'dijkstra_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'rating' --p3-path-alg 'shortest_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'facility' --p3-burden 10 --p3-path-alg 'astar_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'facility' --p3-burden 25 --p3-path-alg 'all_shortest_paths'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'facility' --p3-burden 35 --p3-path-alg 'dijkstra_path'
+./ccp.py --route --p3 --from 'Two Harbors' --to 'Pipestone' \
+   --p3-weights 'facility' --p3-burden 40 --p3-path-alg 'shortest_path'
+
+
+# CcpV1
+
+sudo -u $httpd_user \
+  PYTHONPATH=$PYTHONPATH \
+  PYSERVER_HOME=/ccp/dev/ccpv1_trunk/pyserver \
+  INSTANCE=minnesota \
+  /ccp/dev/ccpv1_trunk/pyserver/routedctl \
+  start
+
+/*
+
+BUG_JUL_2014/TESTME: Good routed test candidates
+                     (a/k/a route requests that led [lb] to fixing things)
+
+20140610:
+
+the MegaMall
+1800 W Old Shakopee Rd, Minneapolis, MN 55431
+
+20140610:
+
+5429 barbett blvd, mound
+5000 plymouth ave. n., golden valley
+
+*/
+
+"""
+
+if [[ -z "$PYSERVER_HOME" ]]; then
+  echo "ERROR: Please set the PYSERVER_HOME environment variable."
+  exit 1
+fi
+
+# Load the common Cyclopath service script.
+. $PYSERVER_HOME/../services/ccpctl
+
+#if [[ -z "$ROUTED_PERS" ]]; then
+#  #echo "Please set the ROUTED_PERS environment variable."
+#  #exit
+#  ROUTED_PERS="p1"
+#fi
+
+# Route daemon version to load.
+ROUTED_PERS="p1"
+
+# Purpose for the route-finder: general or analysis.
+PURPOSE="general"
+
+# Default to using the public branch.
+# FIXME: What about accepting branch name?
+BRANCH="0"
+
+# For the p3 planner, paths to the Shapefile or Zip to load.
+SHP_CACHE_DIR_=""
+SOURCE_SHP_=""
+SOURCE_ZIP_=""
+
+ONLY_REGIONS=""
+
+# Daemon path and action
+DAEMON_PATH=$PYSERVER_HOME/../services/routed.py
+DAEMON_CMD=""
+
+if [[ ! -x "$DAEMON_PATH" ]]; then
+   echo "Error: Cannot find routed or it's not executable."
+   exit 1
+fi
+
+# Arguments for routed.
+ARGS=""
+
+LAST_SPLIT_ARG=""
+
+MAYBE_ANOTHER_ARG=0
+while [[ "$1" != "" ]]; do
+   if [[ $MAYBE_ANOTHER_ARG -ne 0 && "$1" != "--*" ]]; then
+       if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+         ARGS="$ARGS $LAST_SPLIT_ARG"
+       fi
+       LAST_SPLIT_ARG=$1
+       shift
+   else
+      MAYBE_ANOTHER_ARG=0
+   fi
+   if [[ $MAYBE_ANOTHER_ARG -eq 0 ]]; then
+     case $1 in
+        # FIXME: These switches are pointless, since we expect PYSERVER_HOME 
+        #        env var to be specified.
+        #--pyserver_home)
+        #   PYSERVER_HOME=$2
+        #   shift 2
+        #   ;;
+        #--pyserver_home=?*)
+        #   PYSERVER_HOME=${1#--pyserver_home=}
+        #   shift
+        #   ;;
+        #
+        # FIXME: These switches is pointless, since we expect INSTANCE 
+        #        env var to be specified.
+        #--instance)
+        #   INSTANCE=$2
+        #   shift 2
+        #   ;;
+        #--instance=?*)
+        #   INSTANCE=${1#--instance=}
+        #   shift
+        #   ;;
+        #
+        --routed_pers)
+           ROUTED_PERS=$2
+           shift 2
+           ;;
+        --routed_pers=?*)
+           ROUTED_PERS=${1#--routed_pers=}
+           shift
+           ;;
+        --purpose)
+           PURPOSE=$2
+           shift 2
+           ;;
+        --purpose=?*)
+           PURPOSE=${1#--purpose=}
+           shift
+           ;;
+        --branch)
+           BRANCH=$2
+           shift 2
+           ;;
+        --branch=?*)
+           BRANCH=${1#--branch=}
+           shift
+           ;;
+        --shp_cache_dir)
+           SHP_CACHE_DIR_=$2
+           shift 2
+           ;;
+        --shp_cache_dir=?*)
+           SHP_CACHE_DIR_=${1#--shp_cache_dir=}
+           shift
+           ;;
+        --source_shp)
+           SOURCE_SHP_=$2
+           shift 2
+           ;;
+        --source_shp=?*)
+           SOURCE_SHP_=${1#--source_shp=}
+           shift
+           ;;
+        --source_zip)
+           SOURCE_ZIP_=$2
+           shift 2
+           ;;
+        --source_zip=?*)
+           SOURCE_ZIP_=${1#--source_zip=}
+           shift
+           ;;
+        --regions)
+           ONLY_REGIONS=$2
+           shift 2
+           ;;
+        --regions=?*)
+           ONLY_REGIONS=${1#--regions=}
+           shift
+           ;;
+        # Arguments (real or fake) that we don't care about in this script are
+        # passed to routed.py, which uses Python's argument parser.
+        --*=?*)
+           ARGS="$ARGS $1"
+           shift
+           ;;
+        --*)
+           ARGS="$ARGS $1"
+           shift
+           MAYBE_ANOTHER_ARG=1
+           ;;
+        --help)
+           echo "$0: Usage: routedctl [opts] {daemon-command}"
+           echo ""
+           echo "Where [opts] is one or more of the following switches:"
+           echo "  --python_path={DIR} (or use PYSERVERHOME evn. var.)"
+           #echo "  --pyserver_home={DIR} (or use PYSERVER_HOME evn. var.)"
+           echo "  --routed_pers=p1|p2|p3"
+           echo "  --shp_cache_dir=path to Shapefile cache (p3 planner)"
+           echo "  --source_shp=path to Shapefile (p3 planner)"
+           echo "  --source_zip=(or) path to Zip of Shapefile (p3)"
+           echo "  --purpose=GENERAL|analysis-*"
+           # Bug nnnn: Rename to PYSERVER_INSTANCE or CCP_INSTANCE? 
+           #           Same for all of our env vars.?
+           #echo "  --instance={INSTANCE} (or use INSTANCE evn. var.)"
+           echo "  --branch={ID|name}"
+           echo "  --revision_id={ID}"
+           echo "  --regions={region1[,region2,...,regionn]}"
+           echo "  --delay_load"
+           echo "  --no-daemon"
+           echo ""
+           echo "And {daemon-command} is one of [start, stop, restart, status]"
+           # FIXME: Can we just do this and get rid of the switches help above?
+           echo
+           ${DAEMON_PATH} --help
+           echo
+           exit 1
+           ;;
+        --*[^=]*)
+           if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+              ARGS="$ARGS $LAST_SPLIT_ARG $1"
+              LAST_SPLIT_ARG=""
+           else
+              LAST_SPLIT_ARG=$1
+           fi
+           shift
+           ;;
+        *)
+           if [[ "$DAEMON_CMD" != "" ]]; then
+              echo "$0: Usage: routedctl [opts] {daemon-command}"
+              echo "Error: Two or more cmds specified: '$DAEMON_CMD' and '$1'."
+              echo "Try 'routedctl --help' for more."
+              exit 1
+           else
+              DAEMON_CMD=$1
+              shift
+           fi
+           ;;
+     esac
+   fi
+done
+
+if [[ "$LAST_SPLIT_ARG" != "" ]]; then
+   if [[ "$DAEMON_CMD" == "" ]]; then
+      DAEMON_CMD=$LAST_SPLIT_ARG
+   elif [[ $MAYBE_ANOTHER_ARG -ne 0 ]]; then
+      ARGS="$ARGS $LAST_SPLIT_ARG"
+   else
+      echo "Error: Two+ cmds specified: '$DAEMON_CMD' and '$LAST_SPLIT_ARG'."
+   fi
+   LAST_SPLIT_ARG=""
+fi
+
+# routed_pid_dir is defined in pyserver/CONFIG, generally as /tmp.
+PIDDIR=`grep routed_pid_dir $PYSERVER_HOME/CONFIG | cut -d' ' -f2`
+
+# CAVEAT: The Ccp_Script_Args argparse lets you specify the branch as a name,
+# an ID, or just plain old zero if you want the basemap. But that doesn't fly
+# so well for the pid filename. So here we restrict you to specifying an
+# absolute branch stack ID.
+# FIXME: This script should be a bash script (since we call start-stop-daemon),
+#        but we could probably write a short Python script to call to translate
+#        $BRANCH from a name or 0 into a real branch ID.
+# SYNC_ME: Search: Routed PID filename.
+PIDFILE="$PIDDIR/routed-pid-$INSTANCE.$BRANCH.$ROUTED_PERS.$PURPOSE"
+
+# Arguments we needed for this script that we need to pack back up.
+#if ! [[ "$BRANCH" =~ ^[0-9]+$ ]] ; then
+#   # Not a number, so a string.
+#   BRANCH=\"$BRANCH\"
+#fi
+ARGS="--routed_pers=$ROUTED_PERS --purpose=$PURPOSE --branch $BRANCH $ARGS"
+if [[ -n $SHP_CACHE_DIR_ ]]; then
+   ARGS="$ARGS --shp_cache_dir=$SHP_CACHE_DIR_"
+fi
+if [[ -n $SOURCE_SHP_ ]]; then
+   ARGS="$ARGS --source_shp=$SOURCE_SHP_"
+fi
+if [[ -n $SOURCE_ZIP_ ]]; then
+   ARGS="$ARGS --source_zip=$SOURCE_ZIP_"
+fi
+if [[ -n $ONLY_REGIONS ]]; then
+   ARGS="$ARGS --regions=$ONLY_REGIONS"
+fi
+
+$DEBUG_TRACE && echo "routedctl: PIDFILE: $PIDFILE"
+$DEBUG_TRACE && echo "routedctl: DAEMON_PATH: $DAEMON_PATH"
+#$DEBUG_TRACE && echo "routedctl: PYSERVER_HOME: $PYSERVER_HOME"
+$DEBUG_TRACE && echo "routedctl: INSTANCE: $INSTANCE"
+$DEBUG_TRACE && echo "routedctl: ROUTED_PERS: $ROUTED_PERS"
+$DEBUG_TRACE && echo "routedctl: PURPOSE: $PURPOSE"
+$DEBUG_TRACE && echo "routedctl: BRANCH: $BRANCH"
+$DEBUG_TRACE && echo "routedctl: SHP_CACHE_DIR: $SHP_CACHE_DIR"
+$DEBUG_TRACE && echo "routedctl: SOURCE_SHP: $SOURCE_SHP"
+$DEBUG_TRACE && echo "routedctl: SOURCE_ZIP: $SOURCE_ZIP"
+$DEBUG_TRACE && echo "routedctl: SHP_CACHE_DIR_: $SHP_CACHE_DIR_"
+$DEBUG_TRACE && echo "routedctl: SOURCE_SHP_: $SOURCE_SHP_"
+$DEBUG_TRACE && echo "routedctl: SOURCE_ZIP_: $SOURCE_ZIP_"
+$DEBUG_TRACE && echo "routedctl: ONLY_REGIONS: $ONLY_REGIONS"
+$DEBUG_TRACE && echo "routedctl: ARGS: $ARGS"
+$DEBUG_TRACE && echo "routedctl: DAEMON_CMD: $DAEMON_CMD"
+
+max_wait_seconds=30
+
+ccpctl_go $max_wait_seconds
+
+exit 0
+

@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.utils.Dictionary;
+
+      import items.attcs.Attribute;
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Atr_Mng');
+
+      // *** Startup and Show methods
+
+      // *** Instance methods
+
+      //
+      public function attributes_compare(obj1:Object, obj2:Object) :int
+      {
+         /*/
+         var comp:int = 0;
+         if (((obj1 as Attribute).gui_sortrank)
+             < ((obj2 as Attribute).gui_sortrank)) {
+            comp = -1;
+         }
+         else if (((obj1 as Attribute).gui_sortrank)
+                  > ((obj2 as Attribute).gui_sortrank)) {
+            comp = 1;
+         }
+         /*/
+         // FIXME: Flex docs says -1, 0, 1, not < 0, 0, > 0
+         var comp:int = (obj2 as Attribute).gui_sortrank
+                        - (obj1 as Attribute).gui_sortrank;
+         m4_DEBUG('attributes_compare:', comp);
+         return comp;
+      }
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Widget_Attribute_Entry = (
+            ev.target as Widget_Attribute_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Widget_Attribute_Entry can also use
+            //       its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate: Calling update');
+super.repopulate();
+this.update();
+      }
+
+      //
+      public function update() :void
+      {
+         var attr:Attribute;
+         var attrs_lookup:Dictionary = new Dictionary();
+         var attrs_array:Array = new Array();
+         //
+         for each (attr in Attribute.all) {
+            /* FIXME What about Diffs?
+            gf = o as Geofeature;
+            if ((gf.is_vgroup_old) && (gf.counterpart_gf !== null)) {
+               continue; // new version will add the link_values
+            }
+            */
+            // Walk the list of Attributes so we don't add duplicates when
+            // Diffing
+            // FIXME Can we check G.map.rev_viewport to avoid this?
+            // FIXME We shouldn't be worrying about Diff here...
+            //for each (attr in Attribute.all_named) {
+               if (!(attr.base_id in attrs_lookup)) {
+                  m4_DEBUG('update: add attr to lookup:', attr);
+                  attrs_lookup[attr.base_id] = attr;
+               }
+            //}
+         }
+         // FIXME Isn't there a utility fcn. for Dict->Array?
+         for each (attr in attrs_lookup) {
+            attrs_array.push(attr);
+         }
+
+         attrs_array.sortOn('gui_sortrank', Array.NUMERIC);
+
+         // m4_DEBUG2('this.dp_box_attr_edit_grid:',
+         //           this.dp_box_attr_edit_grid);
+         // m4_DEBUG('attrs_array.length:', attrs_array.length);
+         // m4_DEBUG('attrs_array:', attrs_array);
+
+         this.dp_box_attr_edit_grid.dataProvider = attrs_array;
+      }
+
+   ]]></mx:Script>
+
+   <mx:DataGrid
+      id="dp_box_attr_edit_grid"
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      borderColor="0xb7babc"
+      sortableColumns="false"
+      verticalScrollPolicy="auto"
+      showHeaders="false"
+      headerHeight="0"
+      added="this.on_added_renderer_maybe(event);"
+      >
+
+      <mx:columns>
+         <mx:DataGridColumn
+            dataField="Attribute"
+            headerText=""
+            itemRenderer="views.panel_branch.Widget_Attribute_Entry"
+            />
+            <!--sortCompareFunction="attributes_compare""-->
+            <!--headerText="Attributes"-->
+            <!--headerText="Manage Attributes"-->
+
+      </mx:columns>
+
+   </mx:DataGrid>
+
+</views_panel_base:Detail_Panel_Widget>
+

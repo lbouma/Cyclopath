@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Application
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_demo_apps="utils.demo_apps.*"
+   xmlns="*"
+   creationPolicy="all"
+   layout="vertical"
+   backgroundColor="0xffffff">
+
+   <mx:Script><![CDATA[
+
+      import utils.difflib.SequenceMatcher;
+
+      public function diff() :void
+      {
+         out.htmlText = SequenceMatcher.diff_html(a.text, b.text);
+         trace(out.htmlText);
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox width="100%" height="100%">
+      <mx:TextArea id="a" width="100%" height="100%"/>
+      <mx:TextArea id="b" width="100%" height="100%"/>
+      <mx:Text id="out" width="100%" height="100%" text="Waiting..."/>
+   </mx:HBox>
+
+   <mx:Button label="Diff" click="diff();"/>
+
+</mx:Application>
+

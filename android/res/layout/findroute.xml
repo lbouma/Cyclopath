@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent" android:orientation="vertical">
+   <TextView android:text="@string/route_finder_from"
+             android:id="@+id/route_finder_from_lbl"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:textStyle="bold"
+             android:textSize="20sp"></TextView>
+   <AutoCompleteTextView android:text=""
+             android:id="@+id/route_finder_from_box"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+             android:imeOptions="actionNext"></AutoCompleteTextView>
+   <TextView android:text="@string/route_finder_to"
+             android:id="@+id/route_finder_to_lbl"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:textStyle="bold"
+             android:textSize="20sp"></TextView>
+   <AutoCompleteTextView android:text=""
+             android:id="@+id/route_finder_to_box"
+             android:layout_width="fill_parent"
+             android:layout_height="wrap_content"
+             android:imeOptions="actionDone"></AutoCompleteTextView>
+   <View android:layout_height="10px"
+         android:layout_width="wrap_content"
+         android:visibility="invisible" />
+   <RelativeLayout android:layout_width="fill_parent"
+                   android:layout_height="wrap_content">
+      <SeekBar android:id="@+id/route_finder_slider"
+               android:layout_width="180px"
+               android:layout_weight="1"
+               android:layout_height="wrap_content"
+               android:layout_centerHorizontal="true"
+               android:progress="4"
+               android:max="8"></SeekBar>
+      <TextView android:text="@string/route_finder_slider_distance"
+                android:id="@+id/route_finder_slider_distance_lbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_toLeftOf="@id/route_finder_slider"
+                android:layout_marginRight="3px"></TextView>
+      <TextView android:text="@string/route_finder_slider_bikeability"
+                android:id="@+id/route_finder_slider_bikeability_lbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_toRightOf="@id/route_finder_slider"
+                android:layout_marginLeft="3px"></TextView>
+   </RelativeLayout>
+   <View android:layout_height="10px"
+         android:layout_width="wrap_content"
+         android:visibility="invisible" />
+   <RelativeLayout android:layout_width="wrap_content"
+                   android:layout_height="wrap_content">
+      <CheckBox android:text="@string/route_finder_remember"
+                android:id="@+id/route_finder_remember"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"></CheckBox>
+      <Button android:id="@+id/route_finder_btn"
+              android:text="@string/route_finder_btn"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:layout_alignParentRight="true" />
+   </RelativeLayout>
+</LinearLayout>

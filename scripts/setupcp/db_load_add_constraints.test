@@ -1,0 +1,23 @@
+/* Copyright (c) 2006-2014 Regents of the University of Minnesota
+   For licensing terms, see the file LICENSE. */
+
+/* ======================================================================== */
+/* ======================================================================== */
+
+/* DEVs: If scripts/setupcp/db_load_add_constraints.sql fails, it's
+         easiest to debug by using this shell to run the SQL to the point
+         of failure, and then committing the transaction. Otherwise, for
+         every subsequent error in the SQL, you'll have to rerun the
+         constraints script from the beginning, which gets tedious very fast,
+         mainly since the script takes a while to run.
+
+         Basically, copy db_load_add_constraints.sql herein and delete
+         from the point of failure up to the commit; run the script;
+         then delete the code you just ran and paste in the previously
+         deleted code, fix it, and run this script again. Repeat as needed.
+*/
+
+
+*** COPY-PASTE INTO THE BLANK HERE ***
+
+

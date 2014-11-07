@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Reg_OTD');
+
+      // *** Instance variables
+
+      // *** Instance methods
+
+      //
+      override protected function repopulate() :void
+      {
+
+         super.repopulate();
+
+/*/
+            if (G.item_mgr.region_of_the_day !== null
+                && G.item_mgr.region_of_the_day.stack_id
+                   == this.region1.stack_id) {
+//this.rod.height = 73;
+               this.rod.visible = true;
+               this.rod.includeInLayout = true;
+            }
+            else {
+//this.rod.height = 0;
+               this.rod.visible = false;
+               this.rod.includeInLayout = false;
+            }
+/*/
+
+         if (this.items_selected.length == 1) {
+            if ((G.item_mgr.region_of_the_day !== null)
+                //&& G.item_mgr.region_of_the_day.stack_id
+                //   == this.region1.stack_id) {
+                && (G.item_mgr.region_of_the_day.stack_id
+                    == this.items_selected.one().stack_id)) {
+//this.rod.height = 73;
+//               this.rod.visible = true;
+//               this.rod.includeInLayout = true;
+               this.visible = true;
+               this.includeInLayout = true;
+
+            }
+            else {
+//this.rod.height = 0;
+//               this.rod.visible = false;
+//               this.rod.includeInLayout = false;
+               this.visible = false;
+               this.includeInLayout = false;
+            }
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      borderStyle="solid"
+      paddingLeft="2"
+      paddingTop="6"
+      paddingRight="2"
+      paddingBottom="0"
+      verticalGap="0"
+      verticalScrollPolicy="off"
+      horizontalScrollPolicy="off"
+      >
+
+      <mx:HBox
+         width="100%"
+         horizontalAlign="left"
+         paddingTop="3">
+         <mx:Label
+            text="Region Of The Day"
+            width="100%"
+            fontWeight="bold"/>
+         <mx:HBox
+            paddingRight="6"
+            horizontalAlign="right">
+            <views_panel_util:Help_Link
+               id="more_info"
+               click_url="/Item_Details/Sharing"
+               text="[?]" />
+         </mx:HBox>
+      </mx:HBox>
+
+      <mx:VBox
+         id="box_region"
+         width="100%">
+         <!-- The Region of the Day box -->
+         <mx:VBox
+            backgroundColor="{Conf.region_of_the_day_color}"
+            width="100%"
+            height="73"
+            paddingTop="{G.app.pad}"
+            paddingLeft="1"
+            paddingRight="1"
+            paddingBottom="1"
+            horizontalAlign="center"
+            verticalGap="0"
+            verticalAlign="middle">
+            <mx:Label
+               text="Region of the Day"
+               color="0xffffff"
+               fontWeight="bold" />
+            <mx:Spacer
+               height="100%" />
+            <mx:VBox
+               backgroundColor="{Conf.point_widget_bgcolor}"
+               width="100%"
+               verticalGap="0"
+               horizontalAlign="center">
+               <mx:Label
+                  text="{G.app.invitation_bar.reason_title}" />
+               <mx:Label
+                  text="by contributing in this region!"
+                  paddingTop="-5" />
+            </mx:VBox>
+         </mx:VBox>
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

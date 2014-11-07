@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   paddingTop="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   resize="this.on_resize(null);"
+
+   icon="@Embed(source='/assets/img/icon_tabs_item_details.png')"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.containers.VBox;
+      import mx.controls.Alert;
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.IndexChangedEvent;
+      import mx.events.ResizeEvent;
+
+      import grax.Access_Level;
+      import items.Item_Revisioned;
+      import items.Item_User_Access;
+      import utils.misc.Collection;
+      import utils.misc.Inflector;
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import views.base.App_Action;
+      import views.commands.Command_Manager;
+      import views.commands.Item_Delete;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Item_V');
+
+      // *** Class resources
+
+      [Embed(source='/assets/img/icon_tabs_item_details.png')]
+      protected static var detail_panel_icon:Class;
+
+      public static var multipanel_limit:int = 1;
+
+      // *** Instance variables
+
+      // The user is granted the least privelege of all the items selected.
+      public var access_level_id_amity:*;
+      public var access_level_id_least:int;
+      // These are just convenience variables based on the value of
+      // access_level_id_amity.
+      public var access_level_can_edit:Boolean;
+      public var access_level_can_arbit:Boolean;
+      public var access_level_can_own:Boolean;
+
+      // To support changing permissions on multiple-selected items, we have to
+      // determine the common access_style.
+      public var access_style_id_amity:*;
+
+      public var access_infer_id_amity:*;
+      public var access_infer_id_union:*;
+
+      // The default label of the "Delete" button. This label changes based on
+      // the items selected.
+
+      [Bindable] public var button_delete_label:String;
+      [Bindable] public var button_delete_toolTip:String;
+
+      // This is true if the item was given a default name. We'll
+      // politely suggest to the user that they give the new item a more
+      // meaningful name.
+      public var freshnom:Boolean;
+
+      //
+      public var this_or_these_items_clause:String;
+      public var this_or_these_items_capped:String;
+
+      // *** Base class overrides
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      //
+      public function get_cmd_mgr() :Command_Manager
+      {
+         return G.map.cm;
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         var capitalize_words:Boolean = true;
+         //var capitalize_words:Boolean = false;
+         // FIXME: Statewide UI: [mm] simplifies this to 'Details'
+         //                      but [lb] likes 'About the Selected Items'
+         // var panel_title_get:String = 'Details';
+         var panel_title_get:String =
+            'About the ' + this.items_selected_label(capitalize_words);
+         // If more than one item is selected, indicate the number of selected
+         // items (this is helpful, e.g., after creating an intersection,
+         // because it might appear to the user that only two byways are
+         // selected, when in reality it's four byways).
+         if (this.items_selected.length > 1) {
+            panel_title_get += ' (' + String(this.items_selected.length) + ')';
+         }
+         return panel_title_get;
+      }
+
+      //
+      override public function panel_toolTip_get() :String
+      {
+         var toolTip:String = "";
+         if (this.items_selected !== null) {
+            toolTip = Item_Revisioned.consensus(this.items_selected, 'name_');
+         }
+         // else, [lb] found items_selected to be null for
+         //       Panel_Item_Annotation when trying to add a discussion to a
+         //       new point, which is illegal (you have to save the map before
+         //       discussing).
+         return toolTip;
+      }
+
+      // Returns the panel that owns the component that receives scrollbar.
+      public function get scroll_owner() :Detail_Panel_Base
+      {
+         return this;
+      }
+
+      // *** Startup and Show methods
+
+      //
+      override protected function on_initialize(event:FlexEvent) :void
+      {
+         super.on_initialize(event);
+
+         m4_DEBUG('on_initialize:', this);
+
+         /*/ Statewide UI: We set our icon above, in the MXML of our parent,
+                           but we could also do it programmatically.
+         // Set our icon.
+         this.setStyle('icon',
+            Panel_Item_Versioned.detail_panel_icon);
+         */
+
+         // No widgets: this.register_widgets([]);
+
+         // Listen for mouse clicks and defocus if an edit control has focus.
+         this.addEventListener(MouseEvent.CLICK, this.on_click_panel);
+
+         // Change states to the descendant class's state.
+         // FIXME: Panel_Item_Annotation and Panel_Item_Attachment, among other
+         //        classes, set currentState in repopulate.
+         //        State should only change when map rev changes?
+
+         m4_DEBUG('on_initialize: change_state:', this.panel_base_state);
+         this.change_state(this.panel_base_state);
+      }
+
+      //
+      override protected function on_remove_event(event:FlexEvent) :void
+      {
+         super.on_remove_event(event);
+         // Some item types have references to their panel, so derived classes
+         // will nullify those links. But by default, only them panel has
+         // reference to the items, via items_selected, which we nullify here.
+         m4_DEBUG('on_remove_event: clearing items_selected');
+         this.items_selected = null;
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+
+         this.label = 'Details';
+
+         this.identity_strings_reset();
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+
+         super.repopulate();
+
+         // Update the tab button label and toolTip.
+         this.label = this.items_selected.item_get_random().friendly_name;
+         this.set_panel_tool_tip();
+
+         this.identity_strings_reset();
+
+         // Determine the user's least-common-access to the selected items
+         // MAYBE: Should only need to call this when the selection changes...
+         this.update_selected_items_access();
+
+         // Update the delete button
+         m4_TALKY(' >> this.button_delete_label_:', this.button_delete_label_);
+         this.button_delete_label = this.button_delete_label_;
+         this.button_delete_toolTip = this.button_delete_toolTip_;
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_click_panel(event:MouseEvent) :void
+      {
+         ; // No-op.
+      }
+
+      //
+      public function on_delete_click() :void
+      {
+         if (!G.item_mgr.on_delete_warned_once) {
+            Alert.show(this.on_delete_click_warning,  // text
+                       this.button_delete_label,      // title
+                       Alert.CANCEL | Alert.OK,       // flags
+                       null,                          // parent
+                       this.delete_alert_handler,     // closeHandler
+                       null,                          // iconClass
+                       Alert.OK);                     // defaultButtonFlag
+            G.item_mgr.on_delete_warned_once = true;
+         }
+         else {
+            this.delete_alert_handler(/*event=*/null);
+         }
+      }
+
+      //
+      protected function get on_delete_click_warning() :String
+      {
+         // 20111229: Fires on Delete the Map.
+         m4_ASSERT(false); // Abstract
+         return null;
+      }
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_DEBUG('on_enter_state_base');
+         super.on_enter_state_base();
+
+// FIXME: 2011.04.07 new error on byway_create: if you click to create byway
+// and click on map fast to deselect byway, but only on map startup, while
+// throbber is still going.
+// || TypeError: Error #1034: Type Coercion failed: cannot convert
+//                            views.panels::Panel_Item_Byway@f3f6bae1
+//                            to mx.containers.Grid.
+
+// FIXME: Is this necessary?:
+//         this.on_panel_show();
+      }
+
+      //
+      override public function on_resize(event:ResizeEvent=null) :void
+      {
+         m4_PPUSH('on_resize: this.height:', this.height);
+         super.on_resize(event);
+      }
+
+      //
+      public function on_view_history_click() :void
+      {
+         // This is a no-op; derived classes should implement this feature or
+         // they should keep the "View history" action hidden from the user.
+         m4_WARNING('on_view_history_click');
+         m4_ASSERT_SOFT(false);
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get button_delete_label_() :String
+      {
+         var the_label:String;
+         var capitalize_words:Boolean = true;
+         // the_label =
+         //    'Delete ' + this.items_selected_label(capitalize_words);
+         the_label = 'Delete ' + this.this_or_these_items_clause;
+         m4_VERBOSE('button_delete_label_: button_delete_label:', the_label);
+         return the_label;
+      }
+
+      //
+      public function get button_delete_toolTip_() :String
+      {
+         const tip:String =
+            'Delete the selected map item(s). Users can restore deleted items'
+            + ' by going to Recent Changes and reverting your changes.';
+         return tip;
+      }
+
+      //
+      override public function get close_when_emptied() :Boolean
+      {
+         return true;
+      }
+
+      // *** Instance methods
+
+      //
+      protected function delete_alert_handler(event:CloseEvent) :void
+      {
+         if ((event === null) || (event.detail == Alert.OK)) {
+            if (this.items_selected.length > 0) {
+               //? m4_ASSERT(this.items_selected.can_edit);
+               var cmd:Item_Delete;
+               cmd = new Item_Delete(this.items_selected.clone());
+               this.get_cmd_mgr().do_(cmd);
+               // The item(s) being deleted should already be hydrated.
+               // So, e.g., Command_Base.prepare_command won't call
+               // prepare_items_step_1 to hydrate the item.
+               // 2014.02.04: Except that the Delete point is accessible
+               // while the item is still lazy-loading, just after you
+               // select it. If you delete the item, it's panel and sprite
+               // on the map won't disappear until the lazy load is complete.
+               // WRONG: m4_ASSERT(cmd.is_prepared !== null);
+            }
+            else {
+               m4_WARNING('delete_alert_handler: items_selected is empty');
+            }
+         }
+      }
+
+      //
+      public function is_action_actionable(
+         action:String, loosey:Boolean=false) :Boolean
+      {
+         // FIXME: [lb] notes that [mm] is working on code that'll either
+         //        replace or complement this -- he's implementing a mapping
+         //        of edit modes to states. This fcn. is similar, but applies
+         //        just to the actions dropdown.
+         // See also: actionable_at_raster, get useable, others?
+         // MAYBE: MAGIC_NUBMERs. Use an enum? Use the Command_Base classes?
+         const valid_actions:Array = [
+            'item-rename',
+            'item-delete',
+            'item-revert',
+            'donate-public',
+            'clone-private',
+            ];
+         const editor_actions:Array = [
+            'item-rename',
+            'item-delete',
+            'item-revert',
+            ];
+         const arbiter_actions:Array = [
+            'donate-public',
+            ];
+         const creator_actions:Array = [
+            'clone-private',
+            ];
+         // By default, actions are enabled only if editing is. But some item
+         // type panels allow certain actions even when enabled is disabled.
+         var is_actionable:Boolean = false;
+         if (Collection.array_in(action, valid_actions)) {
+            if (Collection.array_in(action, editor_actions)) {
+               is_actionable = (
+                 (this.access_level_can_edit)
+                  && (loosey || G.app.mode.is_allowed(App_Action.item_edit)));
+            }
+            else if (Collection.array_in(action, arbiter_actions)) {
+               is_actionable = (
+                 (this.access_level_can_arbit)
+                  && (loosey || G.app.mode.is_allowed(App_Action.item_edit)));
+            }
+            else if (Collection.array_in(action, creator_actions)) {
+               var some_item:Item_User_Access =
+                  (this.items_selected.item_get_random() as Item_User_Access);
+               var item_class:Class = Introspect.get_constructor(some_item);
+               is_actionable = (G.item_mgr.create_allowed_get(item_class)
+                  && (loosey || G.app.mode.is_allowed(App_Action.item_edit)));
+            }
+            else {
+               m4_ERROR('is_action_actionable: unknown action:', action);
+               m4_ASSURT(false);
+            }
+         }
+         else {
+            m4_ERROR('is_action_actionable: unknown action:', action);
+            m4_ASSURT(false);
+         }
+         m4_DEBUG2('is_action_actionable: action:', action,
+                   '/ is_actionable:', is_actionable);
+         return is_actionable;
+      }
+
+      //
+      protected function update_selected_items_access() :void
+      {
+         // Since the user may have more than one item selected, we have to
+         // check each item to see what the user's least-privileged access to
+         // the items is.
+         //
+         // Amity means "a state of friendship and cordiality", and is set
+         // only if all of the access_level_ids are equal.
+         this.access_level_id_amity = Objutil.consensus(
+            //this.items_selected, 'access_level_id', Access_Level.denied);
+            this.items_selected, 'access_level_id', null);
+         m4_TALKY('usia: access_level_id_amity:', this.access_level_id_amity);
+
+         // The least access level is the user's most restricted access to any
+         // of the items, since the user cannot bulk-edit unless the user is
+         // an editor of every item selected.
+         var acl_ids:Array
+            = Objutil.values_collect(this.items_selected, 'access_level_id');
+         m4_TALKY('update_sel...access: acl_ids:', acl_ids);
+         this.access_level_id_least =
+            Access_Level.least_of(acl_ids, this.items_selected);
+         m4_TALKY('update_sel...access: least:', this.access_level_id_least);
+
+         // We also want to know if the user can edit every one of the items,
+         // and if they own each of them... or can arbit them all.
+         //this.access_level_can_edit =
+         //   Objutil.consensus_b(this.items_selected, 'can_edit', false);
+         ////this.access_level_can_arbit =
+         ////   Objutil.consensus_b(this.items_selected, 'can_arbit', false);
+         //this.access_level_can_own =
+         //   Objutil.consensus_b(this.items_selected, 'can_own', false);
+         this.access_level_can_edit =
+            Access_Level.can_edit(this.access_level_id_least);
+         this.access_level_can_arbit =
+            Access_Level.can_arbit(this.access_level_id_least);
+         this.access_level_can_own =
+            Access_Level.can_own(this.access_level_id_least);
+
+         this.access_style_id_amity = Objutil.consensus(
+            ////this.items_selected, 'access_style_id', Access_Style.all_denied
+            //this.items_selected, 'access_style_id', Access_Style.nothingset);
+            this.items_selected, 'access_style_id', null);
+         m4_TALKY('usia: access_style_id_amity:', this.access_style_id_amity);
+
+         this.access_infer_id_amity = Objutil.consensus(
+            this.items_selected, 'access_infer_id', null);
+         m4_TALKY('usia: access_infer_id_amity:', this.access_infer_id_amity);
+         //
+         this.access_infer_id_union = 0;
+         for each (var item:Item_User_Access in this.items_selected) {
+            this.access_infer_id_union |= item.access_infer_id;
+         }
+         m4_TALKY('usia: access_infer_id_union:', this.access_infer_id_union);
+      }
+
+      // *** Static methods
+
+      //
+      // MAYBE: Hook the selectionChanged event and call this fcn.
+      //
+      public function items_selected_label(capitalize_words:Boolean=false)
+         :String
+      {
+         var item_title:String;
+         var pluralize:Boolean = (this.items_selected.length > 1);
+         // var map_word:String = capitalize_words ? 'Map' or 'map';
+         // item_title = 'Selected ' + map_word + ' '
+         //              + Inflector.pluralize('item', pluralize);
+         var friendly_name:String = this.identity_get_friendly();
+         if (!capitalize_words) {
+            friendly_name = friendly_name.toLowerCase();
+            item_title = 'selected ';
+         }
+         else {
+            item_title = 'Selected ';
+         }
+         item_title += Inflector.pluralize(friendly_name, pluralize);
+         return item_title;
+      }
+
+      // ***
+
+      //
+      public function identity_get_friendly() :String
+      {
+         var friendly_name:String = Item_Revisioned.consensus(
+            this.items_selected, 'friendly_name', '');
+         if (!friendly_name) {
+            friendly_name = 'item';
+         }
+         return friendly_name;
+     }
+
+      //
+      public function identity_strings_reset() :void
+      {
+         var pluralize:Boolean = (this.items_selected.length > 1);
+         var friendly_name:String = this.identity_get_friendly().toLowerCase();
+         if (!pluralize) {
+            this.this_or_these_items_clause = 'this ' + friendly_name;
+         }
+         else {
+            this.this_or_these_items_clause =
+               'these ' + Inflector.pluralize(friendly_name, pluralize);
+         }
+         this.this_or_these_items_capped =
+            this_or_these_items_clause.substr(0, 1).toUpperCase()
+            + this_or_these_items_clause.substr(1);
+      }
+
+   ]]></mx:Script>
+
+</views_panel_base:Detail_Panel_Base>
+

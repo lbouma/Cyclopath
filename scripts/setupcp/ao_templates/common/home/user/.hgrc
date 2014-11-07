@@ -1,0 +1,21 @@
+[ui]
+username = HG_USER_NAME() <HG_USER_EMAIL>
+# Enable SSH compression for Mercurial
+# https://confluence.atlassian.com/pages/viewpage.action?pageId=270827678
+ssh = ssh -C
+
+[paths]
+default = HG_DEFAULT_PATH()
+
+[extensions]
+## http://mercurial.selenic.com/wiki/ConvertExtension
+hgext.convert=
+# colorize Mercurial output on the terminal
+hgext.color=
+# delete files that don't belong
+hgext.purge=
+# rewrite commits to be based on a different version (dangerous, use with care)
+#hgext.rebase=
+# create partial commits
+hgext.record=
+

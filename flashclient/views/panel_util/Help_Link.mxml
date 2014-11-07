@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- Use click= because in-line link in htmlText doesn't work. -->
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   horizontalGap="0"
+   paddingTop="1"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   verticalAlign="middle"
+   initialize="this.on_initialize(event);">
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Help_Link');
+
+      // *** Instance variables
+
+      public var text_:String = '';
+      public var toolTip_:String = '';
+      public var color_:int = 0x0000ff;
+
+      [Bindable] public var linkIcon:Boolean = true;
+
+      [Bindable] public var click_url:String;
+
+      // *** Instance methods
+
+      //
+      [Bindable] public function get color() :int
+      {
+         return this.color_;
+      }
+
+      //
+      public function set color(c:int) :void
+      {
+         this.color_ = c;
+         if (this.the_label) {
+            this.the_label.setStyle("color", this.color_);
+         }
+      }
+
+      //
+      [Bindable] public function get text() :String
+      {
+         return this.text_;
+      }
+
+      //
+      public function set text(t:String) :void
+      {
+         this.text_ = t;
+         if (this.the_label !== null) {
+            this.the_label.text = this.text_;
+         }
+      }
+
+      //
+      [Bindable] override public function get toolTip() :String
+      {
+         return this.toolTip_;
+      }
+
+      //
+      override public function set toolTip(toolTip:String) :void
+      {
+         this.toolTip_ = toolTip;
+         if (this.the_label !== null) {
+            this.the_label.toolTip = toolTip;
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_initialize: this:', this);
+         this.the_label.text = this.text_;
+         this.the_label.toolTip = this.toolTip_;
+         this.the_label.setStyle("color", this.color_);
+         if (!this.linkIcon) {
+            this.ext_link_icon.includeInLayout = false;
+            this.ext_link_icon.visible = false;
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:Label
+      id="the_label"
+      styleName="labelminor"
+      textDecoration="underline"
+      buttonMode="true"
+      useHandCursor="true"
+      mouseChildren="false"
+      paddingTop="0"
+      paddingBottom="0"
+      paddingRight="0"
+      paddingLeft="0"
+      click="UI.mediawiki(this.click_url);"/>
+
+   <mx:HBox
+      id="ext_link_icon"
+      width="100%"
+      verticalAlign="middle"
+      paddingTop="0"
+      paddingBottom="1"
+      paddingRight="0"
+      paddingLeft="0"
+      >
+      <mx:Image
+         source="@Embed(source='/assets/img/icon_external_link2.png')"/>
+   </mx:HBox>
+
+</mx:HBox>
+

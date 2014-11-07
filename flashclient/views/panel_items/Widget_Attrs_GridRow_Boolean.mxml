@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Widget_Attrs_GridRow_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns="*"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingRight="0"
+   paddingLeft="0"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.events.FlexEvent;
+
+      import utils.misc.Logging;
+      import utils.misc.NumericStepper_Nullable;
+      import views.commands.UI_Wrapper_Attr_Link;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Wgt_AGR_Boo');
+
+      // *** Instance variables
+
+      // For booleans, we show a stepper.
+      // BUG nnnn: For now, using a simple stepper.
+      //           But what about trying a custom
+      //           control? True/False text toggle?
+      public var stepper:NumericStepper_Nullable;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         //m4_DEBUG('on_initialize: this:', this);
+         //m4_DEBUG('on_initialize: this.attr_name:', this.attr_name);
+         // CxPx: The Widget_Attrs_GridRow_* classes all cheat and do this:
+         this.attr_name_ = this.attr_name;
+         this.value_hints_ = this.value_hints;
+         this.value_units_ = this.value_units;
+         this.box_edit_control_ = this.box_edit_control;
+         this.box_view_control_ = this.box_view_control;
+         this.label_view_value_ = this.label_view_value;
+      }
+
+      // ***
+
+      //
+      override public function set_enabled(is_enabled:Boolean) :void
+      {
+         if (this.stepper !== null) {
+            m4_VERBOSE('set_enabled: stepper.enabled:', this.stepper.enabled);
+            this.stepper.enabled = is_enabled;
+         }
+      }
+
+      //
+      override protected function setup_attr_controls_specific(
+         can_edit_lvals:Boolean) :void
+      {
+         if (can_edit_lvals) {
+            this.init_as_boolean();
+         }
+      }
+
+      // ***
+
+      //
+      protected function init_as_boolean() :void
+      {
+         m4_VERBOSE('init_as_boolean');
+
+         m4_ASSERT(this.stepper === null);
+
+         this.stepper = new NumericStepper_Nullable();
+         this.stepper.id = 'stepper';
+         this.stepper.minimum = -1;
+         this.stepper.maximum = 1;
+         this.stepper.stepSize = 1;
+
+         // Wire the control
+         views.commands.UI_Wrapper_Attr_Link.wrap(
+            this.stepper, 'value',
+            this.dp.items_selected,
+            this.attr, 'integer');
+
+         // ... add it to the griditem
+         // FIXME: See comment below; use Label if Link_Value not editable.
+         this.box_edit_control.addChildAt(this.stepper, 0);
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <!-- SYNC_ME: The MXML is exactly the same in both:
+                  Widget_Attrs_GridRow_Integer
+              and Widget_Attrs_GridRow_Boolean
+                 and similar to the MXML in:
+                  Widget_Attrs_GridRow_Text
+      -->
+
+   <mx:GridItem
+      horizontalAlign="left"
+      verticalAlign="middle"
+      width="100%"
+      height="100%"
+      >
+      <mx:VBox
+         width="100%"
+         verticalGap="0"
+         height="100%"
+         >
+         <mx:Label
+            id="attr_name"
+            fontWeight="bold"
+            paddingTop="2"/>
+         <mx:Text
+            id="value_hints"
+            width="100%"
+            styleName="labelminor"
+            paddingTop="-6"
+            leading="0"/>
+      </mx:VBox>
+   </mx:GridItem>
+   <mx:GridItem
+      horizontalAlign="right"
+      verticalAlign="middle"
+      height="100%"
+      >
+      <!-- CAVEAT: [lb] had issues on 2013.04.09 using one HBox child of the
+                   GridItem. The HBox itself had three HBox children, but the
+                   children all rendered atop one another. But if the GridItem
+                   child is a VBox, and the solo HBox is within that, well,
+                   things seem to be golden. (Update: The problem might really
+                   have been that we have to set includeInLayout explicitly.)
+                   -->
+      <mx:VBox
+         horizontalAlign="right"
+         verticalAlign="middle"
+         horizontalGap="0"
+         width="100%"
+         height="100%"
+         >
+         <mx:HBox
+            id="box_edit_control"
+            horizontalAlign="right"
+            verticalAlign="middle"
+            visible="true"
+            includeInLayout="{this.box_edit_control.visible}"
+            >
+         </mx:HBox>
+         <mx:HBox
+            id="box_view_control"
+            horizontalAlign="right"
+            verticalAlign="middle"
+            paddingTop="1"
+            visible="false"
+            includeInLayout="{this.box_view_control.visible}"
+            >
+            <!-- Should this be Text so it wraps if it's a long string?
+            <mx:Label
+               selectable="true"
+               maxWidth="0"
+               truncateToFit="true"
+               -->
+            <mx:Text
+               id="label_view_value"
+               />
+         </mx:HBox>
+      </mx:VBox>
+   </mx:GridItem>
+   <mx:GridItem
+      horizontalAlign="left"
+      verticalAlign="middle"
+      height="100%"
+      >
+      <mx:VBox
+         horizontalAlign="left"
+         verticalAlign="middle"
+         horizontalGap="0"
+         paddingLeft="0"
+         paddingTop="1"
+         width="100%"
+         height="100%"
+         >
+         <mx:Label
+            id="value_units"
+            paddingLeft="0"
+            />
+      </mx:VBox>
+   </mx:GridItem>
+
+</views_panel_items:Widget_Attrs_GridRow_Base>
+

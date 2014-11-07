@@ -1,0 +1,1318 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_map_components="views.map_components.*"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_settings="views.panel_settings.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+      import mx.utils.Base64Encoder;
+
+      import gwis.GWIS_User_Preference_Put;
+      import items.Attachment;
+      import items.feats.Byway;
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import views.base.App_Action;
+      import views.base.UI;
+      import views.panel_discussions.Panel_Item_Thread;
+      import views.panel_items.Panel_Item_Byway;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@TabStgs_Opt');
+
+      // ***
+
+      protected var persist_opts:XML;
+
+      // *** Base class overrides
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+
+         super.on_creation_complete(ev);
+
+         this.user_settings_refresh();
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+         G.app.addEventListener('user_event_changing', this.on_user_changing);
+      }
+
+      //
+      public function on_user_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_user_change');
+         this.user_settings_refresh();
+         if (G.user.logged_in) {
+            this.settings_remember_btn.label = "Remember Settings";
+            // Not yet: this.settings_remember_btn.enabled = true;
+            this.settings_remember_btn.setStyle('fillColors',
+               [Conf.save_button_fill_light, Conf.save_button_fill_dark,]);
+         }
+         else {
+            //this.settings_remember_btn.label = "Login to Save Settings";
+            this.settings_remember_btn.label = "Please Login to Save";
+            this.settings_remember_btn.enabled = false;
+            this.settings_remember_btn.clearStyle('fillColors');
+         }
+      }
+
+      //
+      public function on_user_changing(event:Event=null) :void
+      {
+         m4_DEBUG('on_user_changing');
+         if ((G.user !== null) && (G.user.logged_in)) {
+            // User is logging out.
+            this.user_settings_init(/*force=*/true, /*deliberate=*/false);
+            //?: this.user_settings_persist();
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+
+         super.repopulate();
+
+         this.container.enabled =
+            G.app.mode.is_allowed(App_Action.settings_edit);
+         this.feature_unavailable_alert.visible =
+            !G.app.mode.is_allowed(App_Action.settings_edit);
+         this.feature_unavailable_alert.alert_text =
+            G.app.mode.unavailable_text;
+         G.app.main_toolbar.road_or_aerial_tbbutton.enabled =
+            G.app.mode.is_allowed(App_Action.settings_edit);
+         //G.app.main_toolbar.map_layers.enabled =
+         // G.app.mode.is_allowed(App_Action.settings_edit);
+      }
+
+      // ***
+
+      //
+      protected function on_added_renderer_maybe(ev:Event) :void
+      {
+         m4_VERBOSE('on_added_renderer_maybe');
+         // m4_DEBUG('on_added_renderer_maybe: target:', ev.target);
+         var renderer:Tag_Filter_Entry = (
+            ev.target as Tag_Filter_Entry);
+         if (renderer !== null) {
+            // m4_DEBUG('  .. setting renderer.detail_panel:', this.dp);
+            // Note: Tag_Filter_Entry can also use its this.parentDocument.
+            renderer.detail_panel = this.dp;
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_aerial_cbox_click(event:Event) :void
+      {
+         G.map.aerial_enabled = this.aerial_cbox.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_aerial_layer_change(event:Event) :void
+      {
+         G.map.update_viewport_tiles();
+
+         this.user_interacted();
+      }
+
+      //
+      public function block_alpha(x:Number) :void
+      {
+         this.alpha_slider.value = x;
+         m4_DEBUG('block_alpha: geofeatures_redraw');
+         G.map.geofeatures_redraw();
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_pt_vis_click(event:Event) :void
+      {
+         G.tabs.settings.points_visible = this.pt_vis.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_wr_vis_click(event:Event) :void
+      {
+         G.tabs.settings.regions_visible = this.wr_vis.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_bike_facil_vis_click(event:Event) :void
+      {
+         G.tabs.settings.facils_visible = this.bike_facil_vis.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_gf_links_exist_highlight_click(event:Event) :void
+      {
+         G.tabs.settings.links_visible = this.gf_links_exist_highlight.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      /*
+      protected function on_nt_vis_click(event:Event) :void
+      {
+         G.tabs.settings.links_visible = this.nt_vis.selected;
+
+         this.user_interacted();
+      }
+      */
+
+      //
+      protected function on_byway_tooltips_cbox_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_map_sknnng_select_change(event:Event) :void
+      {
+         G.map.update_map_sknnng(this.map_sknnng_select.selectedItem.skin_class);
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_gf_shade_roads_by_rating_click(event:Event) :void
+      {
+         G.tabs.settings.shade_roads_by_rating = this.gf_shade_roads_by_rating.selected;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_multiselections_cbox_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_opts_routes_clickable_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_opts_routes_hide_old_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_always_editing_cbox_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_connectivity_cbox_click(event:Event) :void
+      {
+         Byway.connectivity_remove_maybe();
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_route_line_transparency_click_label(lbl_val:int)
+         :void
+      {
+         // The aerial photos slider goes all the way -- to either 0 to 100% --
+         // when you click either label, but maybe it should just jump one
+         // tick closer, rather than going all the way.
+         var new_alpha:Number = this.route_transparency_slider.value;
+         if (lbl_val == 1) {
+            new_alpha = Math.min(1.0, new_alpha + 0.2);
+         }
+         else if (lbl_val == 0) {
+            new_alpha = Math.max(0.0, new_alpha - 0.2);
+         }
+         m4_ASSERT_ELSE_SOFT();
+
+         this.route_transparency_slider.value = new_alpha;
+
+         m4_DEBUG2('on_route_line_transparency_click_lbl: Route.redraw_all:',
+                   this.route_transparency_slider.value);
+         Route.redraw_all();
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_route_transparency_slider_change(event:Event)
+         :void
+      {
+         m4_DEBUG2('on_route_transparency_slider_change: Route.redraw_all:',
+                   this.route_transparency_slider.value);
+
+         Route.redraw_all();
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_sticky_intersections_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_show_node_stack_ids_cbox_click(event:Event)
+         :void
+      {
+         this.user_interacted();
+         // MAYBE: Signal an event instead of poking Byway panels directly?
+         for each (var o:Object in G.panel_mgr.panel_lookup) {
+            var byway_sidep:Panel_Item_Byway;
+            byway_sidep = (o as Panel_Item_Byway);
+            m4_DEBUG('on_show_node_ids_cbox_click: byway_sidep:', byway_sidep);
+            if (byway_sidep !== null) {
+               G.panel_mgr.panels_mark_dirty([byway_sidep,]);
+            }
+         }
+      }
+
+      //
+      protected function on_show_item_stack_ids_cbox_click(event:Event) :void
+      {
+         this.user_interacted();
+         // The thread panels don't auto-update... but [lb] isn't sure
+         // why the other item panels update on their own (see
+         // G.tabs.settings.show_item_stack_ids_cbox in Panel_Item_Thread and
+         // Widget_Name_Header). Anyway, just poke the thread panels.
+         // MAYBE: Signal an event instead? Would the thread panel just
+         //        dirty itself and force a repopulate()?
+         for each (var o:Object in G.panel_mgr.panel_lookup) {
+            var thread_sidep:Panel_Item_Thread;
+            thread_sidep = (o as Panel_Item_Thread);
+            m4_DEBUG('on_show_stk_ids_click: thread_sidep:', thread_sidep);
+            if (thread_sidep !== null) {
+               G.panel_mgr.panels_mark_dirty([thread_sidep,]);
+            }
+         }
+      }
+
+      //
+      protected function on_close_panel_on_noselect_click(event:Event) :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_always_resolve_multiple_on_click_click(event:Event)
+         :void
+      {
+         this.user_interacted();
+      }
+
+      //
+      protected function on_check_all_tag_filters_check(check:Boolean) :void
+      {
+         m4_DEBUG('on_check_all_tag_filters_check');
+         this.tag_filter_list.toggle_all_check(check);
+         this.filter_check_all_btn.enabled
+            = this.tag_filter_list.is_check_all_enableable;
+         this.filter_check_none_btn.enabled
+            = this.tag_filter_list.is_uncheck_all_enableable;
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_route_color_picker_change(event:Event) :void
+      {
+         m4_DEBUG2('on_route_color_picker_change: color:',
+                   this.route_color_picker.selectedColor);
+         if (this.route_color_picker.selectedColor != Conf.route_color) {
+            Conf.route_color = this.route_color_picker.selectedColor;
+            m4_DEBUG('on_route_color_picker_change:', Conf.route_color);
+            Route.redraw_all();
+         }
+
+         this.user_interacted();
+      }
+
+      //
+      protected function on_route_geocoder_show_details_click(event:Event)
+         :void
+      {
+         m4_DEBUG('on_route_geocoder_show_details_click');
+         this.user_interacted();
+      }
+
+      //
+      protected function user_interacted() :void
+      {
+         if (G.user.logged_in) {
+            this.settings_remember_btn.enabled = true;
+         }
+      }
+
+      // ***
+
+      //
+      protected function user_settings_deploy_to_controls() :void
+      {
+         m4_DEBUG2('user_settings_deploy_to_controls: persist_opts:',
+                   this.persist_opts.toXMLString());
+
+         this.aerial_cbox.selected
+            = (this.persist_opts.@aerial_aerial_photos == 'true');
+         G.map.aerial_enabled = this.aerial_cbox.selected;
+         //
+         var alayeri:int = 0;
+         if (this.persist_opts.@aerial_imagery != '') {
+            while (alayeri < Conf.photo_layers.length) {
+               if (Conf.photo_layers[alayeri]._label
+                   == this.persist_opts.@aerial_imagery) {
+                  break;
+               }
+               alayeri += 1;
+            }
+            if (alayeri >= Conf.photo_layers.length) {
+               alayeri = 0;
+            }
+         }
+         //m4_ASSERT_ELSE_SOFT;
+         this.aerial_layer.selectedIndex = alayeri;
+         //
+         this.alpha_slider.value
+            = Number(this.persist_opts.@aerial_transparency);
+         G.map.geofeatures_redraw();
+
+         this.pt_vis.selected
+            = (this.persist_opts.@display_show_points == 'true');
+         G.tabs.settings.points_visible = this.pt_vis.selected;
+         this.wr_vis.selected
+            = (this.persist_opts.@display_show_regions == 'true');
+         G.tabs.settings.regions_visible = this.wr_vis.selected;
+         this.bike_facil_vis.selected
+            = (this.persist_opts.@display_show_bike_facilities == 'true');
+         G.tabs.settings.facils_visible = this.bike_facil_vis.selected;
+         this.gf_links_exist_highlight.selected
+            = (this.persist_opts.@display_highlight_annots == 'true');
+         G.tabs.settings.links_visible
+            = this.gf_links_exist_highlight.selected;
+         this.byway_tooltips_cbox.selected
+            = (this.persist_opts.@display_show_tooltips == 'true');
+         //
+         var slayeri:int = 0;
+         if (this.persist_opts.@display_tile_styling != '') {
+            while (slayeri < Conf.map_sknnng_skins.length) {
+               if (Conf.map_sknnng_skins[slayeri]._name
+                   == this.persist_opts.@display_tile_styling) {
+                  break;
+               }
+               slayeri += 1;
+            }
+            if (slayeri >= Conf.map_sknnng_skins.length) {
+               slayeri = 0;
+            }
+         }
+         //m4_ASSERT_ELSE_SOFT;
+         this.map_sknnng_select.selectedIndex = slayeri;
+         //
+         this.gf_shade_roads_by_rating.selected
+            = (this.persist_opts.@display_shade_rating == 'true');
+         G.tabs.settings.shade_roads_by_rating
+            = this.gf_shade_roads_by_rating.selected;
+         this.multiselections_cbox.selected
+            = (this.persist_opts.@display_new_tabs_on_select == 'true');
+
+         this.opts_routes_clickable.selected
+            = (this.persist_opts.@routes_clickable == 'true');
+         this.opts_routes_hide_old.selected
+            = (this.persist_opts.@routes_hide_old_on_click == 'true');
+         this.route_color_picker.selectedColor
+            = this.persist_opts.@route_color_picker_color;
+         m4_DEBUG2('user_sttgs_dply_to_ctrls: rte_color_picker.selectedColor:',
+                   this.route_color_picker.selectedColor);
+         if (this.route_color_picker.selectedColor != Conf.route_color) {
+            Conf.route_color = this.route_color_picker.selectedColor;
+            m4_DEBUG('user_sttgs_dply_to_ctrls:', Conf.route_color);
+            Route.redraw_all();
+         }
+
+         this.always_editing_cbox.selected
+            = (this.persist_opts.@editing_editing_on_start == 'true');
+         if ((this.always_editing_cbox.selected) && (G.initialized)) {
+            G.edit_mode.activate();
+         }
+         this.connectivity_cbox.selected
+            = (this.persist_opts.@editing_show_connectivity == 'true');
+         Byway.connectivity_remove_maybe();
+         this.sticky_intersections.selected
+            = (this.persist_opts.@editing_sticky_intersections == 'true');
+         this.show_item_stack_ids_cbox.selected
+            = (this.persist_opts.@editing_show_stack_ids == 'true');
+         this.show_node_stack_ids_cbox.selected
+            = (this.persist_opts.@editing_show_node_stack_ids == 'true');
+         this.close_panel_on_noselect.selected
+            = (this.persist_opts.@editing_nothing_click_clears == 'true');
+         this.always_resolve_multiple_on_click.selected
+            = (this.persist_opts.@editing_ask_on_resolve_many == 'true');
+
+         /* MAYBE: It doesn't make a lot of sense to support tag filters
+                   since the list changes based on the viewport.
+         for each (var filter_entry:Tag_Filter_Entry in this.tag_filter_list) {
+            var tag:Tag = (filter_entry.data as Tag);
+            m4_DEBUG('user_sttgs_dply_to_ctrls: tag:', tag);
+            m4_DEBUG2('user_sttgs_dply_to_ctrls: tag_filters.@[tag.name_]:',
+                      this.persist_opts.tag_filters.@[tag.name_]);
+            filter_entry.tag_entry.selected
+               = (this.persist_opts.tag_filters.@[tag.name_] == 'true');
+         }
+         */
+      }
+
+      //
+      protected function user_settings_from_controls() :void
+      {
+         this.persist_opts = <flashclient_options/>;
+
+         this.persist_opts.@aerial_aerial_photos
+            = this.aerial_cbox.selected;
+         if (this.aerial_layer.selectedItem !== null) {
+            this.persist_opts.@aerial_imagery =
+               this.aerial_layer.selectedItem.label;
+         }
+         else {
+            this.persist_opts.@aerial_imagery = '';
+         }
+         this.persist_opts.@aerial_transparency
+            = this.alpha_slider.value;
+
+         this.persist_opts.@display_show_points
+            = this.pt_vis.selected;
+         this.persist_opts.@display_show_regions
+            = this.wr_vis.selected;
+         this.persist_opts.@display_show_bike_facilities
+            = this.bike_facil_vis.selected;
+         this.persist_opts.@display_highlight_annots
+            = this.gf_links_exist_highlight.selected;
+         this.persist_opts.@display_show_tooltips
+            = this.byway_tooltips_cbox.selected;
+         if (this.map_sknnng_select.selectedItem !== null) {
+            this.persist_opts.@display_tile_styling =
+               this.map_sknnng_select.selectedItem._name;
+         }
+         else {
+            this.persist_opts.@display_tile_styling = '';
+         }
+         this.persist_opts.@display_shade_rating
+            = this.gf_shade_roads_by_rating.selected;
+         this.persist_opts.@display_new_tabs_on_select
+            = this.multiselections_cbox.selected;
+
+         this.persist_opts.@routes_clickable
+            = this.opts_routes_clickable.selected;
+         this.persist_opts.@routes_hide_old_on_click
+            = this.opts_routes_hide_old.selected;
+         this.persist_opts.@route_color_picker_color
+            = this.route_color_picker.selectedColor;
+
+         this.persist_opts.@editing_editing_on_start
+            = this.always_editing_cbox.selected;
+         this.persist_opts.@editing_show_connectivity
+            = this.connectivity_cbox.selected;
+         this.persist_opts.@editing_sticky_intersections
+            = this.sticky_intersections.selected;
+         this.persist_opts.@editing_show_stack_ids
+            = this.show_item_stack_ids_cbox.selected;
+         this.persist_opts.@editing_show_node_stack_ids
+            = this.show_node_stack_ids_cbox.selected;
+         this.persist_opts.@editing_nothing_click_clears
+            = this.close_panel_on_noselect.selected;
+         this.persist_opts.@editing_ask_on_resolve_many
+            = this.always_resolve_multiple_on_click.selected;
+
+         /* MAYBE: It doesn't make a lot of sense to persist tag filters.
+         for each (var filter_entry:Tag_Filter_Entry in this.tag_filter_list) {
+            var tag:Tag = (filter_entry.data as Tag);
+            m4_DEBUG('user_sttgs_dply_to_ctrls: tag:', tag);
+            m4_DEBUG2('user_sttgs_dply_to_ctrls: tag:',
+                      filter_entry.tag_entry.selected);
+            if (filter_entry.tag_entry.selected) {
+               if (tag === G.map.untagged) {
+                  this.persist_opts.tag_filters.@with_no_tag = true;
+               }
+               else {
+                  this.persist_opts.tag_filters.@[tag.name_] = true;
+               }
+            }
+         }
+         */
+
+         m4_DEBUG2('user_settings_from_controls: persist_opts:',
+                   this.persist_opts.toXMLString());
+      }
+
+      //
+      protected function user_settings_init(force:Boolean=false,
+                                            deliberate:Boolean=false) :void
+      {
+         if ((force) || (this.persist_opts === null)) {
+
+            this.persist_opts = <flashclient_options/>;
+
+            this.persist_opts.@aerial_aerial_photos = false;
+            this.persist_opts.@aerial_imagery = '';
+            this.persist_opts.@aerial_transparency = 1.0;
+
+            this.persist_opts.@display_show_points = true;
+            this.persist_opts.@display_show_regions = false;
+            this.persist_opts.@display_show_bike_facilities = true;
+            this.persist_opts.@display_highlight_annots = true;
+            this.persist_opts.@display_show_tooltips = false;
+            this.persist_opts.@display_tile_styling = '';
+            this.persist_opts.@display_shade_rating = true;
+            this.persist_opts.@display_new_tabs_on_select = false;
+
+            this.persist_opts.@routes_clickable = false;
+            this.persist_opts.@routes_hide_old_on_click = false;
+            this.persist_opts.@route_color_picker_color = Conf.route_color;
+
+            this.persist_opts.@editing_editing_on_start = false;
+            this.persist_opts.@editing_show_connectivity = false;
+            this.persist_opts.@editing_sticky_intersections = true;
+            this.persist_opts.@editing_show_stack_ids = false;
+            this.persist_opts.@editing_show_node_stack_ids = false;
+            this.persist_opts.@editing_nothing_click_clears = false;
+            this.persist_opts.@editing_ask_on_resolve_many = false;
+
+            /* MAYBE: It doesn't make a lot of sense to persist tag filters.
+            var tag_filters:XML = <tag_filters/>;
+            tag_filters.@with_no_tags = true;
+            this.persist_opts.appendChild(tag_filters);
+            */
+
+            this.settings_remember_btn.enabled = deliberate;
+         }
+
+         m4_DEBUG2('user_settings_init: persist_opts:',
+                   this.persist_opts.toXMLString());
+
+         this.user_settings_deploy_to_controls();
+      }
+
+      //
+      protected function user_settings_persist() :void
+      {
+         m4_DEBUG2('user_settings_persist: persist_opts:',
+                   this.persist_opts.toXMLString());
+
+         this.user_settings_from_controls();
+
+         /*
+         m4_DEBUG2('opts_cmmt_gwis_cmd: unencoded persist_opts:',
+                   this.persist_opts);
+         m4_DEBUG2('opts_cmmt_gwis_cmd: persist_opts.toString:',
+                   this.persist_opts.toString());
+         m4_DEBUG2('opts_cmmt_gwis_cmd: persist_opts.toXMLString:',
+                   this.persist_opts.toXMLString());
+         m4_DEBUG2('opts_cmmt_gwis_cmd: escape persist_opts:',
+                   escape(this.persist_opts));
+         m4_DEBUG2('opts_cmmt_gwis_cmd: escape persist_opts.toStr:',
+                   escape(this.persist_opts.toString()));
+         var b64e:Base64Encoder = new Base64Encoder();
+         b64e.encode(this.persist_opts.toString());
+         m4_DEBUG2('opts_cmmt_gwis_cmd: encode persist_opts.toStr:',
+                   b64e.toString());
+         m4_DEBUG2('opts_cmmt_gwis_cmd: encodeURI:',
+                   encodeURI(this.persist_opts.toString()));
+         m4_DEBUG2('opts_cmmt_gwis_cmd: encodeURIComponent:',
+                   encodeURIComponent(this.persist_opts.toString()));
+         */
+
+         if ((G.user.logged_in) && (G.initialized)) {
+
+            var encoded:String;
+            //encoded = encodeURI(this.persist_opts.toString());
+            encoded = encodeURIComponent(this.persist_opts.toXMLString());
+
+            G.user.flashclient_settings = encoded;
+            G.fcookies_user.set('flashclient_settings', encoded);
+
+            m4_ASSERT_SOFT(G.user.logged_in);
+
+            var prefs:XML = <preferences/>;
+            prefs.@fc_opts = encoded;
+            var gwis_cmd:GWIS_User_Preference_Put;
+            gwis_cmd = new GWIS_User_Preference_Put(prefs);
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_cmd);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+
+         this.settings_remember_btn.enabled = false;
+      }
+
+      //
+      protected function user_settings_refresh() :void
+      {
+         var fc_opts:String = null;
+         if (!G.user.flashclient_settings) {
+            m4_DEBUG('user_settings_refresh: no flashclient_settings G.user');
+            fc_opts = G.fcookies_user.get('flashclient_settings');
+         }
+         else {
+            m4_DEBUG('user_settings_refresh: yes flashclient_settings G.user');
+            fc_opts = G.user.flashclient_settings;
+         }
+         if (!fc_opts) {
+            m4_DEBUG('user_settings_refresh: no flashclient_settings cookie');
+            this.user_settings_init(/*force=*/false, /*deliberate=*/false);
+            this.user_settings_persist();
+         }
+         else {
+            m4_DEBUG('user_settings_refresh: fc_opts:', fc_opts);
+            //this.persist_opts = new XML(decodeURI(
+            //                     G.user.flashclient_settings));
+            this.persist_opts = new XML(decodeURIComponent(fc_opts));
+            if (this.persist_opts) {
+               m4_DEBUG2('user_settings_refresh: persist_opts:',
+                         this.persist_opts.toXMLString());
+               // MAYBE: Should we verify that which we've decoded?
+               this.user_settings_deploy_to_controls();
+            }
+            else {
+               m4_WARNING('user_settings_refresh: nothing decoded?');
+               this.user_settings_init(/*force=*/false, /*deliberate=*/false);
+               this.user_settings_persist();
+            }
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <views_map_components:Alert_Bar
+      id="feature_unavailable_alert"
+      visible="false"
+      includeInLayout="{this.feature_unavailable_alert.visible}"
+      />
+
+   <mx:VBox
+      id="container"
+      width="100%"
+      paddingTop="-4"
+      verticalGap="0"
+      >
+
+      <!-- Aerial Photos -->
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Aerial Photos"/>
+
+      <mx:CheckBox
+         id="aerial_cbox"
+         label="Show aerial photos"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, aerial photo images will be shown beneath the streets on the map. If you are zoomed out, you will only see the aerial photos."
+         click="this.on_aerial_cbox_click(event);"/>
+
+      <mx:VBox
+         visible="{this.aerial_cbox.selected}"
+         includeInLayout="{this.aerial_cbox.selected}"
+         width="100%"
+         paddingTop="4"
+         paddingLeft="{G.app.pad + 19}">
+         <mx:Grid>
+            <mx:GridRow>
+               <mx:GridItem>
+                  <mx:Label
+                     text="Imagery:" />
+               </mx:GridItem>
+               <mx:GridItem>
+                  <mx:ComboBox
+                     id="aerial_layer"
+                     width="210"
+                     rowCount="99"
+                     dataProvider="{Conf.photo_layers}"
+                     change="this.on_aerial_layer_change(event);"
+                     toolTip="Note: Some photo layers are not available in outlying areas."/>
+               </mx:GridItem>
+            </mx:GridRow>
+            <mx:GridRow>
+               <mx:GridItem>
+                  <mx:Label
+                     text="Blocks:" />
+               </mx:GridItem>
+               <mx:GridItem>
+                  <mx:HBox
+                     horizontalGap="1"
+                     width="100%">
+                     <mx:Label
+                        text="transparent"
+                        click="this.block_alpha(0.2);"/>
+                     <mx:HSlider
+                        id="alpha_slider"
+                        change="G.map.geofeatures_redraw();"
+                        value="1.0"
+                        minimum="0.2"
+                        maximum="1.0"
+                        tickInterval="0.2"
+                        snapInterval="0.2"
+                        width="100"
+                        showDataTip="false"/>
+                     <mx:Label
+                        text="opaque"
+                        click="this.block_alpha(1.0);"/>
+                  </mx:HBox>
+               </mx:GridItem>
+            </mx:GridRow>
+         </mx:Grid>
+      </mx:VBox>
+
+      <!-- Map Layers -->
+
+      <!-- Formerly: text="Map Layers" -->
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Map Display"/>
+
+      <mx:CheckBox
+         id="pt_vis"
+         label="Show points (when zoomed-in)"
+         selected="{Conf.map_default_show_points}"
+         enabled="{G.map.zoom_is_vector()}"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, points (like restaurants and bike shops) will be displayed."
+         click="this.on_pt_vis_click(event);"
+         />
+
+      <mx:CheckBox
+         id="wr_vis"
+         label="Show regions (at all zoom levels)"
+         selected="{Conf.map_default_show_regions}"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, regions (like cities and neighborhoods) will be displayed."
+         click="this.on_wr_vis_click(event);"
+         />
+
+      <mx:CheckBox
+         id="bike_facil_vis"
+         label="Show bike facilities (when zoomed-in)"
+         selected="{Conf.map_default_show_facils}"
+         enabled="{G.map.zoom_is_vector()}"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, roads with bike facilities will be colored specially (see the Attributes Key in the Map Legend, at the lower-right corner of the map). If not checked, all roads with be drawn using a color gradiant to indicate the road's average user rating (see the Ratings Key in the Map Legend)."
+         click="this.on_bike_facil_vis_click(event);"
+         />
+
+<!-- BUG 2457: Highlight streets with notes or discussions.
+               Implement this and remove the
+               visible/includeInLayout: -->
+      <mx:CheckBox
+         id="gf_links_exist_highlight"
+         label="Highlight items with notes or discussions"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, items on the map that have notes or are in a discussion are highlighted with a purple outline."
+         visible="true"
+         includeInLayout="{this.gf_links_exist_highlight.visible}"
+         click="this.on_gf_links_exist_highlight_click(event);"
+         selected="{Conf.map_default_show_links}"
+         enabled="{G.map.zoom_is_vector()}"
+         />
+
+<!--
+      <mx:CheckBox
+         id="nt_vis"
+         label="Highlight annotations (when zoomed-in)"
+         selected="{Conf.map_default_show_links}"
+         enabled="{G.map.zoom_is_vector()}"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, points, blocks and regions with annotations (like notes or discussions about them) will be highlighted."
+         click="this.on_nt_vis_click(event);"
+         />
+-->
+
+<!-- BUG nnnn: G.tabs.settings.byway_tooltips
+     needs to tell pyserver to load latest note for each byway. -->
+      <mx:CheckBox
+         id="byway_tooltips_cbox"
+         label="Show details when mousing over items"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, mousing over streets will show a summary of the street, such as its name and rating."
+         click="this.on_byway_tooltips_cbox_click(event);"
+         />
+
+      <mx:HBox
+         width="100%"
+         horizontalAlign="left"
+         verticalAlign="middle"
+         paddingLeft="{G.app.pad}"
+         visible="{Conf_Instance.panel_layout_enable}"
+         includeInLayout="{Conf_Instance.panel_layout_enable}">
+         <!-- Formerly: label="Map Sknnng" -->
+         <!--
+         <mx:CheckBox
+            id="map_sknnng_enable"
+            label="Map Look 'n Feel"
+            toolTip=
+               "If checked, you can select from a variety of map skins."
+            click="G.map.update_map_sknnng();"/>
+         <mx:ComboBox
+            ...
+            enabled="{this.map_sknnng_enable.selected}"
+         -->
+         <mx:Label
+            text="Tile Styling:"
+            />
+         <!-- Formerly: width="210" -->
+         <mx:ComboBox
+            id="map_sknnng_select"
+            rowCount="99"
+            enabled="true"
+            dataProvider="{Conf.map_sknnng_skins}"
+            change="this.on_map_sknnng_select_change(event);"
+            toolTip="..."/>
+      </mx:HBox>
+
+      <mx:CheckBox
+         id="gf_shade_roads_by_rating"
+         label="Shade roads by their rating"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, items on the map will be shaded more or less by their bikeability rating."
+         visible="true"
+         includeInLayout="{this.gf_shade_roads_by_rating.visible}"
+         click="this.on_gf_shade_roads_by_rating_click(event);"
+         selected="true"/>
+
+      <!--
+         label="Create new tabs for new item selections"
+         label="Use different tabs for each item selection"
+      -->
+      <mx:CheckBox
+         id="multiselections_cbox"
+         label="Create new tabs when selecting items"
+         visible="true"
+         includeInLayout="{this.multiselections_cbox.visible}"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         toolTip=
+"If checked, when you select an item on the map, a new item details panel will be opened, rather than the new selection replacing the existing panel's selection."
+         click="this.on_multiselections_cbox_click(event);"
+         />
+
+      <!-- Routes -->
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Bike Routes"/>
+
+
+<!-- BUG_FALL_2013: BUG nnnn: The clickable-routes option problem might be fixed.
+                    We've got a new option on the route panel, rather than the
+                    control panel. But there might be some cleanup left! Like,
+                    removing the old button, or determining better defaults. -->
+      <!-- Route display options. -->
+      <mx:CheckBox
+         id="opts_routes_clickable"
+         label="Routes always clickable when zoomed in"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, you can click on routes on the map, even when zoomed in. If unchecked, clicking will go through routes to the map objects underneath them when zoomed in. Routes can be selected by mouse-click anytime when zoomed out."
+         click="this.on_opts_routes_clickable_click(event);"/>
+
+      <mx:CheckBox
+         id="opts_routes_hide_old"
+         label="Hide old routes when a new route is found"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, whenever you use 'Find Route', old routes will be hidden. If unchecked, your viewing choices below will be unchanged by 'Find Route'."
+         click="this.on_opts_routes_hide_old_click(event);"/>
+
+      <mx:HBox
+         id="opts_route_color_picker_box"
+         visible="true"
+         includeInLayout="{this.opts_route_color_picker_box.visible}"
+         width="100%"
+         paddingTop="1"
+         paddingLeft="3"
+         paddingRight="3"
+         horizontalGap="3"
+         verticalAlign="middle">
+
+         <mx:Label
+            paddingTop="1"
+            paddingLeft="0"
+            paddingRight="0"
+            text="Choose a route line color:"/>
+
+         <!--
+            SYNC_ME: flashclient/Conf.as::route_color
+                     mapserver/skins/skin_bikeways.py::assign_feat_pen(route...
+                     -->
+         <!--
+            closeEasingFunction="undefined"
+            change="No default"
+            close="No default"
+            enter="No default"
+            itemRollOut="No default"
+            itemRollOver="No default"
+            open="No default"
+         -->
+         <mx:ColorPicker
+            colorField="color"
+            labelField="label"
+            selectedColor="0x000000"
+            selectedIndex="0"
+            showTextField="true"
+            borderColor="0xA5A9AE"
+            closeDuration="250"
+            disabledIconColor="0x999999"
+            fillAlphas="[0.6,0.4]"
+            fillColors="[0xFFFFFF, 0xCCCCCC]"
+            focusAlpha="0.5"
+            focusRoundedCorners="tl tr bl br"
+            fontAntiAliasType="advanced"
+            fontFamily="Verdana"
+            fontGridFitType="pixel"
+            fontSharpness="0"
+            fontSize="10"
+            fontStyle="normal"
+            fontThickness="0"
+            fontWeight="normal"
+            highlightAlphas="[0.3,0.0]"
+            iconColor="0x000000"
+            leading="2"
+            openDuration="250"
+            openEasingFunction="undefined"
+            paddingBottom="5"
+            paddingLeft="5"
+            paddingRight="5"
+            paddingTop="4"
+            swatchBorderColor="0x000000"
+            swatchBorderSize="1"
+            swatchPanelStyleName="undefined"
+            textAlign="left"
+            textDecoration="none"
+            textIndent="0"
+
+            id="route_color_picker"
+            change="this.on_route_color_picker_change(event);"
+            color="{Conf.route_color}"
+            />
+
+      </mx:HBox> <!-- end: opts_route_color_picker_box -->
+
+      <mx:HBox
+         id="opts_route_transparency_box"
+         visible="true"
+         includeInLayout="{this.opts_route_transparency_box.visible}"
+         width="100%"
+         paddingTop="1"
+         paddingLeft="3"
+         paddingRight="3"
+         horizontalGap="3"
+         verticalAlign="middle">
+         <mx:Label
+            paddingTop="1"
+            paddingLeft="0"
+            paddingRight="0"
+            text="Choose an opacity:"/>
+         <mx:Label
+            text="0%"
+            click="this.on_route_line_transparency_click_label(0);"/>
+         <mx:HSlider
+            id="route_transparency_slider"
+            change="this.on_route_transparency_slider_change(event);"
+            value="1.0"
+            minimum="0.2"
+            maximum="1.0"
+            tickInterval="0.2"
+            snapInterval="0.2"
+            width="100"
+            toolTip="Set the transparency of the route lines."
+            showDataTip="false"/>
+         <mx:Label
+            text="100%"
+            click="this.on_route_line_transparency_click_label(1);"/>
+      </mx:HBox> <!-- end: opts_route_transparency_box -->
+
+      <mx:CheckBox
+         id="route_geocoder_show_details"
+         label="Show source and confidence of geocoder results"
+         visible="true"
+         includeInLayout="{this.route_geocoder_show_details.visible}"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, whenever you search for a route and one or more destinations match multiple results, we'll display a toolTip (like this toolTip) indicating the source of and confidence of the match."
+         click="this.on_route_geocoder_show_details_click(event);"/>
+
+      <!-- Map Editing -->
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Map Editing"/>
+
+      <mx:CheckBox
+         id="always_editing_cbox"
+         label="Always start in editing mode"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         enabled="{G.user.logged_in}"
+         visible="true"
+         includeInLayout="true"
+         toolTip="If checked, whenever you log on to Cyclopath, the map will be in editing mode."
+         click="this.on_always_editing_cbox_click(event);"/>
+
+      <mx:CheckBox
+         id="connectivity_cbox"
+         label="Show connectivity on hover"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, mousing over a street will highlight the street and all streets connected to it. Streets are connected if you can travel from one street to the other (like an intersection) but disconnected if you cannot (like a bridge)."
+         click="this.on_always_editing_cbox_click(event);"/>
+
+      <mx:CheckBox
+         id="sticky_intersections"
+         label="Enable sticky intersections"
+         paddingLeft="{G.app.pad}"
+         toolTip="If checked, moving an endpoint vertex will move the whole intersection even if the other streets are not selected; if unchecked, only selected streets will move, allowing streets to be disconnected from one another."
+         selected="true"
+         click="this.on_sticky_intersections_click(event);"/>
+      <mx:HBox
+         width="100%"
+         paddingLeft="16">
+         <mx:Text
+            mouseChildren="false"
+            mouseEnabled="false"
+            condenseWhite="true"
+            width="100%"
+            fontStyle="italic"
+            >
+            <mx:htmlText><![CDATA[
+               Hint: When editing the map, double-click an
+               item vertex to toggle sticky intersections
+            ]]></mx:htmlText>
+         </mx:Text>
+      </mx:HBox>
+
+      <mx:CheckBox
+         id="show_item_stack_ids_cbox"
+         label="Show stack IDs (for working with Shapefiles)"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         visible="true"
+         includeInLayout="true"
+         toolTip="When checked, the item detail panel shows the stack IDs of the selected items. The stack ID correlates to the internal ID of each item and is useful for finding specific items or referencing Shapefile data."
+         click="this.on_show_item_stack_ids_cbox_click(event);"/>
+
+      <mx:CheckBox
+         id="show_node_stack_ids_cbox"
+         label="Show node IDs (for working with Shapefiles)"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         visible="true"
+         includeInLayout="true"
+         toolTip="When checked, the byway detail panel shows the node endpoint stack IDs of the selected items. The node IDs are useful for checking the integrity of the database and code."
+         click="this.on_show_node_stack_ids_cbox_click(event);"/>
+
+      <mx:CheckBox
+         id="close_panel_on_noselect"
+         label="Clicking on nothing clears active selection"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         visible="true"
+         includeInLayout="true"
+         toolTip="If checked, if you have items selected, clicking on &quot;nothing&quot; in the map will clear the selection and close the associated details panel."
+         click="this.on_close_panel_on_noselect_click(event);"/>
+
+      <!--
+         label="Ask before selecting when clicking overlapping streets"
+         -->
+      <mx:CheckBox
+         id="always_resolve_multiple_on_click"
+         label="Clicking intersection asks to select street"
+         selected="false"
+         paddingLeft="{G.app.pad}"
+         visible="true"
+         includeInLayout="{this.always_resolve_multiple_on_click.visible}"
+         toolTip="If unchecked, clicking on two overlapping map items chooses the top-most one, regardless of z-level. But if checked, you will be asked which item you want to select."
+         click="this.on_always_resolve_multiple_on_click_click(event);"/>
+      <mx:HBox
+         width="100%"
+         paddingLeft="16">
+         <mx:Text
+            mouseChildren="false"
+            mouseEnabled="false"
+            condenseWhite="false"
+            width="100%"
+            fontStyle="italic"
+            >
+            <mx:htmlText><![CDATA[Hint: Press and hold the mouse on an intersection or overlapping features to activate the selection resolver.<br/>]]></mx:htmlText>
+         </mx:Text>
+      </mx:HBox>
+
+<!-- BUG_JUL_2014/FIXME: Add option to enable Conf_Instance.debug_goodies -->
+
+      <!-- Tag Filters -->
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="6"
+         text="Tag Filters"/>
+
+      <mx:VBox
+         width="100%"
+         verticalGap="0"
+         paddingTop="2"
+         paddingLeft="{G.app.pad}"
+         paddingRight="{G.app.pad}"
+         >
+         <mx:Label
+            paddingLeft="-2"
+            text="Filter points and regions by tags:"/>
+         <!-- Obj also returned via Panel_Settings' get tag_filter_list(). -->
+         <views_panel_settings:Tag_Filter_Viewer
+            id="tag_filter_list"
+            height="120"
+            added="this.on_added_renderer_maybe(event);"
+            />
+         <!-- MAYBE: In an early CcpV2, we used a checkbox to enable the tag
+                     filters widget.
+         <mx:CheckBox
+            id="gf_tags_filter_enable"
+            label="Use Tag Filters to Show/Hide Map Items"
+            paddingTop="-3"
+            paddingBottom="2"
+            paddingRight="0"
+            toolTip="..."
+            visible="{Conf_Instance.bug_2457_hlgt}"
+            includeInLayout="{Conf_Instance.bug_2457_hlgt}"
+            selected="true"/>
+            -->
+         <!-- CcpV1: There used to be help text here. But it seems unnecessary.
+            <mx:Text
+               width="100%"
+               condenseWhite="true">
+               <mx:htmlText><![CDATA[
+               Only points and regions that have at least one
+               of the checked tags will be displayed.
+               <b><i>Hint:</i></b> Add tags to more points and regions
+               to improve filtering options for yourself and others.
+               ]]></mx:htmlText>
+            </mx:Text>
+            -->
+         <mx:HBox
+            paddingTop="4"
+            horizontalGap="4"
+            paddingBottom="4"
+            width="100%">
+            <views_panel_util:Button_Small
+               id="filter_check_all_btn"
+               label="Check All"
+               enabled="{this.tag_filter_list.is_check_all_enableable}"
+               click="this.on_check_all_tag_filters_check(true);"/>
+            <views_panel_util:Button_Small
+               id="filter_check_none_btn"
+               label="Check None"
+               enabled="{this.tag_filter_list.is_uncheck_all_enableable}"
+               click="this.on_check_all_tag_filters_check(false);"/>
+         </mx:HBox>
+      </mx:VBox>
+
+
+<!-- BUG_FALL_2013: BUG nnnn: Finish implementing saving/restoring settings -->
+
+      <!-- Save and Restore Defaults -->
+
+      <mx:VBox
+         id="ctnr_remember_restore"
+         width="100%"
+         verticalGap="0"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingTop="0"
+         paddingBottom="0">
+
+         <mx:Label
+            styleName="labelmajor"
+            paddingTop="6"
+            text="Save or Restore Settings"/>
+
+         <mx:HBox
+            width="100%"
+            verticalGap="6"
+            paddingTop="2"
+            paddingBottom="4"
+            paddingLeft="{G.app.pad}"
+            paddingRight="{G.app.pad}"
+            >
+
+            <mx:Button
+               id="settings_remember_btn"
+               label="Remember Settings"
+               fillColors="{[Conf.save_button_fill_light,
+                             Conf.save_button_fill_dark,]}"
+               click="this.user_settings_persist();"
+               enabled="false"/>
+
+            <mx:Spacer
+               width="100%"/>
+
+            <mx:Button
+               id="settings_defaults_btn"
+               label="Restore Defaults"
+               click=
+            "this.user_settings_init(/*force=*/true, /*deliberate=*/true);"
+               enabled="true"/>
+
+         </mx:HBox>
+
+      </mx:VBox> <!-- ctnr_remember_restore -->
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

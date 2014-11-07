@@ -1,0 +1,90 @@
+== ==
+
+add ctor/dtor to style guide, along with other acceptable
+abvs.make a list of attrs on wiki and let everyone 
+contribute
+
+      // *** Constructor
+
+      public function My_Class()
+      {
+         .
+         .
+         . // ... very long function
+      } // ctor
+
+
+
+// FIXME Style Guide -- old Map_Canvas was 79K, the largest MXML file, at over
+//                      2K lines. Now it's a half-dozen files of < 500 ll. ea.
+so suggest that ~ 1K lines ideal, >2K lines considering splitting
+
+
+== Abbrevs ==
+
+C.f. and Cxpx
+
+=== Code convention ===
+
+Abstract classes. You can do interfaces, but nothing with members?
+So just do 
+   m4_ASSERT(false); // Abstract
+
+== Style Guide ==
+
+item_details_panel_update_impl
+// FIXME [aa] _impl or _real? I was told not to use _impl [add to naming convs]
+//            (real sounds like a number...)
+
+
+== ==
+
+Style guide: 
+
+DB_SYNC_ME
+
+== ==
+
+Search // [A-Z][A-Z] and find all your special comment tags and put in style guide
+
+== ==
+
+Syle guide:
+         if ((attc_type in Link_Value.item_type_lookup) 
+             && (gf.base_id in Link_Value.item_type_lookup[attc_type])) {
+            for (o in Link_Value.item_type_lookup[attc_type][gf.base_id]) {
+               link = o as Link_Value;
+// FIXME Not having brackets screwed me here! Make this a learned lesson
+//       Failure -- link_values for attrs not loading, or loading intermittent
+//       Fault -- missing brackets; break always happened first time through
+//                for loop
+//       Why brackets saved me -- the visual clue said i was missing something
+
+               if (link.lhs_stack_id == at.base_id) {
+                  the_link = link;
+                  break;
+               }
+            }
+         }
+
+Style guide:
+      // FIXME Add style guide note about underscoring to mean private or
+      //       conflicts with package name or function name (generally 
+                  function get gui_sortrank() :int
+      [Bindable] public var gui_sortrank_:int;
+
+// FIXME Add to style guide: empty stars okay! helps you keep working
+//       uninterrupted, but serves to separate thoughts/units of code
+      // ***
+
+      // LATER What's the code convention for postfixing with an underscore?
+      //       Does that mean it's private?
+
+
+== Style guide: Short circuit ==
+
+In wfs_mod_python, short-circuit return misses(missed?) profiler.close()
+
+== ==
+
+

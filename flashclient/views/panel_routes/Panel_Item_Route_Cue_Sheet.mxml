@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Route_Widget_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views="views.*"
+   xmlns:views_base="views.base.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_discussions="views.panel_discussions.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_utils="views.utils.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingBottom="0"
+   paddingLeft="0"
+   paddingRight="0"
+   verticalGap="6"
+   label="Directions"
+   resize="this.on_resize_(event);"
+   >
+   <!-- Formerly:
+   label="Cue Sheet"
+   label="Step-by-Step Directions"
+   -->
+
+<!--
+BUG nnnn: Visualize Elevation Profile......
+          In a panel or on the map with click to zoom...
+          Also in the cue sheet...
+-->
+
+   <mx:Script><![CDATA[
+
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+      import mx.states.*;
+
+      import gwis.GWIS_Landmark_Exp_Lmrk_Put;
+      import gwis.GWIS_Route_Get_Saved;
+      import items.feats.Route;
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Rte_Cue');
+
+      // *** Instance variables
+
+      // *** Base class overrides
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_DEBUG('repopulate');
+
+         this.display_route_stats();
+
+         this.route_dir_list.on_panel_show(this.route);
+
+         this.route_dirs_setup();
+
+         if (G.app.landmark_experiment_panel.active_route === this.route) {
+            this.show_landmarks_checkbox.enabled = true;
+            this.show_landmarks_checkbox.selected = this.route.show_landmarks;
+            this.show_edit_landmarks_ctrls.visible = false;
+            this.show_edit_landmarks_ctrls.includeInLayout = false;
+            if (!G.map.landmark_exp_validation_active) {
+               this.edit_landmarks_checkbox.enabled = true;
+               this.edit_landmarks_checkbox.selected = true;
+            }
+         }
+         else {
+            this.show_edit_landmarks_ctrls.visible = true;
+            this.show_edit_landmarks_ctrls.includeInLayout = true;
+         }
+      }
+
+      // *** Base class getters and setters
+
+      //
+      override public function get panel_owning_panel() :Detail_Panel_Base
+      {
+         return this.dp;
+      }
+
+      // *** Instance methods
+      
+      //
+      public function check_lmrks_saved() :void
+      {
+         if ((this.route_lmrk_list.visible) && (this.route !== null)) {
+            var gwis_cmd:GWIS_Landmark_Exp_Lmrk_Put =
+               new GWIS_Landmark_Exp_Lmrk_Put(this.route.system_id,
+                                              this.route.directions);
+            G.map.update_supplemental(gwis_cmd);
+         }
+      }
+
+      //
+      protected function display_route_stats() :void
+      {
+         if (this.route !== null) {
+            if (this.route.alternate_steps === null) {
+               this.cue_sheet_warning.includeInLayout = false;
+               this.route_lmrk_list.dataProvider = this.route.directions;
+               this.route_dir_list.dataProvider = this.route.directions;
+               m4_DEBUG('display_route_stats:.dataProvider: route.dirs 1');
+               //m4_DEBUG2('display_route_stats: route.directions:',
+               //          this.route.directions);
+            }
+            else {
+               this.cue_sheet_warning.includeInLayout = true;
+               // NOTE: These ifs are oddly coupled to the parent detail_panel.
+               if (this.dp.tab_route_details.conflict_old.selected) {
+                  this.cue_sheet_warning.text = "Showing old directions";
+                  this.route_dir_list.dataProvider = this.route.directions;
+                  m4_DEBUG('display_route_stats:.dataProvider: route.dirs 2');
+               }
+               else if (this.dp.tab_route_details.conflict_diff.selected) {
+                  this.cue_sheet_warning.text = "Showing suggested directions";
+                  this.route_dir_list.dataProvider =
+                     this.route.alternate_directions;
+                  m4_DEBUG('display_route_stats:.dataProvider: alt_dirs 1');
+               }
+               else if (this.dp.tab_route_details.conflict_new.selected) {
+                  this.cue_sheet_warning.text = "Showing suggested directions";
+                  this.route_dir_list.dataProvider =
+                     this.route.alternate_directions;
+                  m4_DEBUG('display_route_stats:.dataProvider: alt_dirs 2');
+               }
+               else {
+                  // This code is unreachable, right?
+                  m4_ASSERT(false);
+               }
+            }
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      //
+      protected function on_click_as_gpx() :void
+      {
+         // Before route manip, we couldn't return multimodal routes as GPX,
+         // but that's since been fixed.
+         G.tabs.route.gpx_download_start(this.route);
+      }
+
+      //
+      protected function on_click_show_landmarks() :void
+      {
+         this.route.show_landmarks = this.show_landmarks_checkbox.selected;
+         if (this.route.landmarks_loaded) {
+            m4_DEBUG('on_click_show_landmarks: landmarks loaded:', this.route);
+            this.route.update_route_stats();
+            this.display_route_stats();
+            if (!this.show_landmarks_checkbox.selected) {
+               this.edit_landmarks_checkbox.selected = false;
+            }
+            this.route_dirs_setup();
+         }
+         else if (this.route.show_landmarks) {
+            m4_DEBUG('on_click_show_landmarks: loading lmarks:', this.route);
+            var gwis_cmd:GWIS_Route_Get_Saved;
+            gwis_cmd = new GWIS_Route_Get_Saved(
+               this.route.stack_id,
+               /*caller_source=*/'on_click_show_landmarks',
+               /*callback_okay=*/this.on_click_show_landmarks_okay,
+               /*callback_fail=*/this.on_click_show_landmarks_fail,
+               /*as_gpx=*/false,
+               /*check_invalid=*/false,
+               /*gia_use_sessid=*/this.route.unlibraried,
+               /*get_steps_and_stops=*/true,
+               /*compute_landmarks=*/this.route.show_landmarks);
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_cmd);
+            m4_ASSERT_SOFT(!found_duplicate);
+         }
+      }
+
+      //
+      protected function on_click_show_landmarks_okay(
+         gwis_cmd:GWIS_Route_Get_Saved, route:Route) :void
+      {
+         m4_DEBUG('on_click_show_landmarks_okay:', this.route);
+         m4_ASSERT_SOFT(route.stack_id === this.route.stack_id);
+         // The Route is able to decude landmarks_loaded except
+         // in the case that we look for landmarks but find none.
+         this.route.landmarks_loaded = true;
+      }
+
+      //
+      protected function on_click_show_landmarks_fail(
+         gwis_cmd:GWIS_Route_Get_Saved, route:Route) :void
+      {
+         m4_WARNING('on_click_show_landmarks_fail');
+         // A base should alert the user with an error, so
+         // all we need to do, probably, is reset the button.
+         this.route.show_landmarks = false;
+         this.show_landmarks_checkbox.selected = false;
+      }
+
+      //
+      protected function on_click_edit_landmarks() :void
+      {
+         this.route_dirs_setup();
+      }
+
+      //
+      protected function on_printer_friendly() :void
+      {
+         var rt_panel:Panel_Item_Route = this.dp as Panel_Item_Route;
+         m4_ASSERT(rt_panel.route === this.route);
+
+         var conflict_old:Boolean
+            = rt_panel.tab_route_details.conflict_old.selected;
+
+         G.tabs.route.printer_friendly_show(
+            this.route,
+            ((this.route.alternate_steps === null) || (conflict_old)));
+      }
+
+      //
+      protected function on_resize_(event:ResizeEvent=null) :void
+      {
+         this.route_dir_list.update_width();
+         this.route_lmrk_list.update_width();
+      }
+
+      //
+      protected function route_dirs_setup() :void
+      {
+         // See also: G.map.landmark_experiment_active.
+         if ((this.edit_landmarks_checkbox.selected)
+             || ((G.app.landmark_experiment_panel.active_route === this.route)
+                 && (!G.map.landmark_exp_validation_active))) {
+            m4_DEBUG('route_dirs_setup: landmark route active');
+            this.route_dir_list.visible = false;
+            this.route_dir_list.includeInLayout = false;
+            this.route_lmrk_list.visible = true;
+            this.route_lmrk_list.includeInLayout = true;
+            // Does this do anything? [lb] has never met an invalidate*()
+            // that did anything. Anyway, when switching from landmark
+            // viewing to landmark editing, not all the landmarks draw
+            // properly -- the checkboxes are there, but no labels, so
+            // probably something to do with widths being zeroes.
+            G.map.callLater(this.route_lmrk_list.invalidateList);
+         }
+         else {
+            m4_DEBUG('route_dirs_setup: just another route');
+            this.route_dir_list.visible = true;
+            this.route_dir_list.includeInLayout = true;
+            this.route_lmrk_list.visible = false;
+            this.route_lmrk_list.includeInLayout = false;
+         }
+         if ((G.app.landmark_experiment_panel.active_route === this.route)
+             && (!G.map.landmark_exp_validation_active)) {
+            // Don't show either checkbox; the landmarks editing mode is on.
+            this.edit_landmarks_checkbox.selected = true;
+            this.edit_landmarks_checkbox.enabled = true;
+            this.edit_landmarks_checkbox.visible = false;
+         }
+         // FIXME/BUG nnnn: Implement Landmark editing/suggestions.
+         else if (!Conf_Instance.debug_goodies) {
+            this.edit_landmarks_checkbox.selected = false;
+            this.edit_landmarks_checkbox.enabled = false;
+            this.edit_landmarks_checkbox.visible = false;
+         }
+         else if (!this.route.can_edit) {
+            this.edit_landmarks_checkbox.selected = false;
+            this.edit_landmarks_checkbox.enabled = false;
+            this.edit_landmarks_checkbox.visible = true;
+         }
+         else {
+            this.edit_landmarks_checkbox.enabled = true;
+            this.edit_landmarks_checkbox.visible = true;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      verticalGap="0"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingTop="0"
+      paddingBottom="0"
+      width="100%"
+      height="100%"
+      >
+
+      <mx:Label
+         id="cue_sheet_warning"
+         color="0xff0000"
+         text="Showing directions for the suggested route"
+         includeInLayout="false"
+         visible="{cue_sheet_warning.includeInLayout}"/>
+
+      <!-- Route_Directions is its own class so its measure() can be
+      <    overriden and we can correct the height of each row. -->
+      <views_panel_routes:Route_Directions
+         id="route_dir_list"
+         height="100%"
+         verticalScrollPolicy="auto"
+         visible="true"
+         includeInLayout="{this.route_dir_list.visible}"
+         />
+      <views_panel_routes:Route_Directions_Landmarks
+         id="route_lmrk_list"
+         height="100%"
+         verticalScrollPolicy="auto"
+         visible="false"
+         includeInLayout="{this.route_lmrk_list.visible}"
+         />
+
+      <mx:HBox
+         width="100%"
+         paddingTop="6"
+         horizontalAlign="right"
+         verticalAlign="bottom">
+
+         <mx:VBox
+            id="show_edit_landmarks_ctrls"
+            visible="true"
+            includeInLayout="{this.show_edit_landmarks_ctrls.visible}"
+            paddingTop="0"
+            verticalGap="1"
+            horizontalAlign="left"
+            verticalAlign="top">
+            <mx:CheckBox
+               id="show_landmarks_checkbox"
+               label="Show Landmarks"
+               toolTip=
+   "Show route landmarks in cue sheet. This might take extra time."
+               selected="true"
+               click="this.on_click_show_landmarks();"/>
+            <mx:CheckBox
+               id="edit_landmarks_checkbox"
+               label="Edit Landmarks"
+               toolTip="Edit route landmarks in cue sheet."
+               enabled="false"
+               selected="false"
+               visible="false"
+               includeInLayout="{this.edit_landmarks_checkbox.visible}"
+               click="this.on_click_edit_landmarks();"/>
+         </mx:VBox>
+
+         <mx:Spacer
+            width="100%"/>
+
+         <!--
+            2013.04.04: Let's be parallel with the "Save PDF" button, which
+                        also saves a file to the user's local computer.
+                        So rather than "Export as GPX", say simply, "Save GPX".
+               label="Export as GPX"
+            2013.04.04: [lb] moved this button from Widget_Route_Footer -
+                        from always being present on the route details panel
+                        to just being on the cue sheet. I have two reasons:
+                        1. Parallelism, like the "Save PDF" and "Print Map"
+                        buttons in the map header; and 2. Usefulness, as in,
+                        not many people generate GPX files, so this button
+                        doesn't need to always be available. Oh, and 3., I
+                        guess, being on the cue sheet gives the button a
+                        little more context, like, oh, I'm downloading the
+                        guts of the route. But mostly, 4., I want to make
+                        room for the Get Link and Sharing widgets. -->
+         <mx:Button
+            id="gpx"
+            label="Save GPX"
+            click="this.on_click_as_gpx();"
+            toolTip=
+         "Download a GPX file that can be imported into most GPS devices."
+            />
+
+         <!--
+            2013.04.04: This feels a little too wordy for [lb]:
+               label="Print Step-by-Step Directions"
+             -->
+         <mx:Button
+            label="Cue Sheet"
+            click="this.on_printer_friendly();"
+            toolTip="Opens a pop-up with printable cue sheet"/>
+
+      </mx:HBox>
+
+   </mx:VBox>
+
+</views_panel_routes:Route_Widget_Base>
+

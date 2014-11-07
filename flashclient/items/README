@@ -1,0 +1,4 @@
+// SYNC_ME: If you add classes to these packages, make sure you update the fcn.
+//          flashclient.items.Item_Versioned.init_GetDefinitionByName(), also
+//          the array in items_packages.
+

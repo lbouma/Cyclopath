@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- FIXME: Update for CcpV2.
+            - Change colors and font, maybe height and placement.
+            - Add GWIS command for system alerts (i.e., when system is going
+              down (or being made read-only) for upgrades/maintenance, so
+              people can save their work).
+              - Maybe set a timeout when users can no longer make new edits
+                but must save their existing work?
+            - Add a 'dismiss' or close action.
+
+            -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="0"
+   >
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Notice_Bar');
+
+      // *** Instance functions
+
+      //
+      public function show() :void
+      {
+         this.height = this.notice_container.height;
+
+         // FIXME: without this hack, the Editing Tools palette moves on top of
+         // the buttons, obscuring them.
+         //
+         // FIXME This couples these two together; make the panel_window
+         //       listen instead
+         G.app.tool_palette.y += this.height;
+      }
+
+  ]]></mx:Script>
+
+   <mx:HBox
+      id="notice_container"
+      width="100%"
+      backgroundColor="{Conf.point_widget_bgcolor}"
+      borderColor="{Conf.region_of_the_day_color}"
+      borderStyle="solid"
+      verticalGap="0">
+      <mx:HBox
+         backgroundColor="{Conf.region_of_the_day_color}"
+         height="100%"
+         verticalAlign="middle">
+         <mx:Label
+            text="Important Note"
+            color="0xffffff"
+            fontWeight="bold"
+            paddingLeft="4"
+            paddingRight="4" />
+      </mx:HBox>
+
+      <mx:HBox
+         horizontalScrollPolicy="off"
+         horizontalGap="2"
+         horizontalAlign="center"
+         width="100%"
+         paddingTop="2"
+         paddingBottom="2"
+         paddingRight="4"
+         verticalAlign="middle">
+         <mx:Label
+            color="Black"
+            toolTip="Cyclopath Colorado is in alpha testing, so you may encounter problems. Click Known Issues to learn more and find out how you can help."
+            fontWeight="bold"
+            paddingRight="2"
+            text="Cyclopath is in testing, and you may find problems." />
+         <views_panel_util:Help_Link
+            click_url="/Colorado/Known_Issues"
+            text="Known Issues" />
+      </mx:HBox>
+   </mx:HBox>
+
+</mx:VBox>
+

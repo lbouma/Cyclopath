@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+      import flash.events.Event;
+
+      import items.feats.Byway;
+      import utils.misc.Logging;
+      import views.commands.Byway_Merge;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Merge_B');
+
+      // *** Instance methods
+
+      //
+      protected function on_click_merge_byways() :void
+      {
+         m4_ASSERT((G.item_mgr.create_allowed_get(Byway))
+                   && (this.dp.items_selected.length >= 2)
+                   && (this.dp.access_level_can_edit));
+
+         // What's selected on the map should match what's selected for the
+         // panel.
+         m4_ASSERT(this.items_selected.equals(G.map.selectedset));
+         var a:Array = Byway.mergeable_array(this.items_selected);
+
+         if (a === null) {
+            Alert.show(
+               "Cannot merge the selected blocks. Mergeable blocks form"
+                  + " an unbroken line without intersecting other blocks"
+                  + " and are not loops.",
+               "Can't merge");
+         }
+         else {
+            m4_DEBUG('on_click_merge_byways: Byway_Merge: a.len:', a.length);
+            m4_ASSERT(this.items_selected.length == a.length);
+            var cmd:Byway_Merge = new Byway_Merge(a, this.feats_ordered);
+            G.map.cm.do_(cmd);
+            // The item(s) being merged should already be hydrated.
+            // 2014.02.04: Actually, it might be possible to access
+            //             the Merge Byways button while lazy loading
+            //             the items you've selected.
+            m4_ASSERT_SOFT(cmd.is_prepared !== null);
+         }
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         var tool_tip:String = '';
+         var do_enable:Boolean = false;
+         if (!G.item_mgr.create_allowed_get(Byway)) {
+            tool_tip =
+    'This feature is disabled because you are not allowed to create roads.';
+         }
+         else if (this.dp.items_selected.length < 2) {
+            tool_tip =
+    'To use this feature, select two or more editable road segments to merge.';
+         }
+         else if (!this.dp.access_level_can_edit) {
+            tool_tip =
+    'You cannot merge the selected roads because at least one is ineditable.';
+         }
+         else {
+            // You passed the test!
+            do_enable = true;
+            tool_tip =
+      'Click this button to merge the selected road segments into one.';
+         }
+
+         this.byways_merge.toolTip = tool_tip;
+         this.byways_merge.enabled = do_enable;
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <!--
+         text="Join Road Segments"
+         -->
+      <mx:Label
+         styleName="labelmajor"
+         text="Join Segments"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <mx:VBox
+         width="100%"
+         styleName="looknfeelCleanInner"
+         >
+
+         <mx:HBox
+            width="100%"
+            paddingTop="0"
+            horizontalGap="0"
+            verticalAlign="bottom">
+            <mx:Text
+               id="label_summary"
+               mouseChildren="false"
+               mouseEnabled="false"
+               condenseWhite="true"
+               width="100%"
+               visible="true"
+               includeInLayout="{this.label_summary.visible}"
+               >
+               <mx:htmlText><![CDATA[
+                  Combine two or more roads into one segment.
+               ]]></mx:htmlText>
+            </mx:Text>
+         </mx:HBox>
+
+         <mx:HBox
+            width="100%"
+            paddingTop="1"
+            paddingBottom="1"
+            horizontalGap="0"
+            horizontalAlign="left"
+            verticalAlign="bottom">
+            <!--
+               label="Merge Blocks"
+               label="Merge Roads"
+               label="Combine Selected"
+               label="Combine Roads"
+               label="Join Roads"
+               -->
+            <mx:Button
+               id="byways_merge"
+               label="Join Roads"
+               enabled="false"
+               click="this.on_click_merge_byways();"
+               />
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

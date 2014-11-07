@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_map_legend="views.map_legend.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   horizontalAlign="center"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   width="100%"
+   height="100%"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Graphics;
+      import flash.events.Event;
+      import flash.text.TextLineMetrics;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('_Lgd_Br_Lst');
+
+      // *** Instance variables
+
+      // ***
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         m4_VERBOSE('on_initialize: this:', this);
+
+         G.item_mgr.addEventListener('branchListLoaded',
+                                     this.on_branch_list_loaded);
+         this.on_branch_list_loaded();
+      }
+
+      // ***
+
+      //
+      protected function on_branch_list_loaded(ev:Event=null) :void
+      {
+         m4_DEBUG2('on_branch_list_loaded: parentDocument',
+                   String(this.parentDocument));
+         var drawer:Map_Key_Drawer = (this.parentDocument as Map_Key_Drawer);
+
+         m4_DEBUG('on_branch_list_loaded: drawer:', drawer);
+
+         if ((G.map !== null) && (G.map.branches_list.length > 1)) {
+            //this.widget_maps.visible = true;
+            drawer.link_legend_branch_list.visible = true;
+            drawer.link_legend_branch_list.includeInLayout = true;
+         }
+         else {
+            //this.widget_maps.visible = false;
+            drawer.link_legend_branch_list.visible = false;
+            drawer.link_legend_branch_list.includeInLayout = false;
+            // FIXME: What if we're showing? We should switch screens...
+         }
+      }
+
+      // ***
+
+// See: Widget_Maps_Available
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      id="outer_container"
+      width="100%"
+      height="100%"
+      paddingLeft="8"
+      paddingRight="8"
+      paddingTop="8"
+      paddingBottom="8"
+      >
+
+      <views_panel_branch:Widget_Maps_Available
+         id="widget_maps"
+         width="100%"
+         visible="true"
+         includeInLayout="{this.widget_maps.visible}"
+         />
+
+   </mx:VBox>
+
+</mx:VBox>
+

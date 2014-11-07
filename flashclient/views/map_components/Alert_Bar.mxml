@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   borderStyle="solid"
+   backgroundColor="{Conf.alert_box_bgcolor}"
+   borderColor="{Conf.alert_box_border_color}"
+   >
+
+   <mx:Script><![CDATA[
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('__Alert_Bar');
+
+      [Bindable]
+      public var alert_text:String;
+
+      // *** Instance functions
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      paddingTop="{G.app.pad}"
+      paddingRight="{G.app.pad}"
+      paddingBottom="{G.app.pad}"
+      paddingLeft="{G.app.pad}"      
+      horizontalGap="{G.app.pad}"
+      width="100%"
+      >
+
+      <mx:Image
+         source="@Embed(source='/assets/img/icon_alert.png')"
+         />
+
+      <mx:Text
+         id="alert_text_box"
+         fontWeight="bold"
+         width="100%"
+         color="{Conf.alert_box_fgcolor}"
+         text="{this.alert_text}"
+         />
+
+   </mx:HBox>
+
+</mx:HBox>
+

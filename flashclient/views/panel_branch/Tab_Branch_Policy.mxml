@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- BUG nnnn: FIXME: Branch New Item Policy panel (this file) is not
+     implemented. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   label="Policy"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Br_Pol');
+
+      // *** Instance methods
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      //
+      protected function on_click_policy_add() :void
+      {
+         m4_ASSERT(false); // Implement
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         //this.tab_br_policy.detail_panel = this.dp;
+         this.register_widgets([this.tab_br_policy]);
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'New Item Policy';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate: this:', this);
+         super.repopulate();
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingTop="0"
+      paddingBottom="1"
+      verticalGap="2">
+
+      <mx:Grid
+         width="100%"
+         verticalGap="0">
+         <!-- Item Name -->
+         <mx:GridRow
+            width="100%">
+            <mx:GridItem
+               horizontalAlign="right"
+               verticalAlign="middle">
+               <mx:Label
+                  text="Name:"
+                  fontWeight="bold"
+                  textAlign="right"/>
+            </mx:GridItem>
+            <mx:GridItem
+               width="100%">
+               <!-- FIXME: See Tab_Geofeature_Details and reimplement this
+                           control. -->
+               <mx:Label
+                  id="item_name_control"
+                  width="100%" />
+            </mx:GridItem>
+         </mx:GridRow>
+      </mx:Grid>
+
+      <!-- Group Accesses -->
+      <mx:VBox
+         width="100%"
+         height="100%"
+         borderStyle="solid"
+         paddingLeft="2"
+         paddingTop="2"
+         paddingRight="2"
+         paddingBottom="2">
+         <mx:VBox
+            width="100%"
+            height="100%"
+            borderStyle="solid"
+            backgroundColor="{Conf.private_color}"
+            paddingLeft="4"
+            paddingRight="4"
+            paddingTop="4"
+            paddingBottom="4">
+
+            <mx:Canvas
+               width="100%"
+               minHeight="50"
+               height="100%"
+               verticalScrollPolicy="off"
+               horizontalScrollPolicy="off"
+               >
+               <views_panel_branch:Widget_Policy
+                  id="tab_br_policy"/>
+               <mx:HBox
+                  id="button_attr_new"
+                  horizontalAlign="right"
+                  width="100%"
+                  paddingLeft="0"
+                  paddingTop="3"
+                  paddingRight="3"
+                  paddingBottom="{G.app.pad}">
+                  <views_panel_util:Button_Small
+                     id="add_new_policy"
+                     label="Add New Policy"
+                     click="this.on_click_policy_add();"
+                     includeInLayout="{Conf.debug_trial_bug_2077_group_panels}"
+                     visible="{this.add_new_policy.includeInLayout}"
+                     />
+                     <!-- label="New Policy" -->
+                     <!-- label="Add Policy" -->
+                     <!-- label="Add New Policy" -->
+                  <!-- BUG 2462: Write permissions help text. -->
+                  <views_panel_util:Help_Link
+                     click_url="/User_Access#Policy"
+                     text="Learn more" />
+               </mx:HBox>
+            </mx:Canvas>
+
+            <mx:HBox
+               width="100%"
+               includeInLayout="{Conf.debug_trial_bug_2077_group_panels}"
+               visible="{Conf.debug_trial_bug_2077_group_panels}"
+               >
+               <mx:HBox>
+                  <mx:Button
+                     id="button_policy_restore_defaults"
+                     label="Restore Defaults"
+               toolTip="Restore the New Item Policy to its Default Settings"
+               click="/*this.dp.FIXME();*/"/>
+               </mx:HBox>
+               <mx:HBox
+                  width="100%"
+                  horizontalAlign="right">
+                  <mx:Button
+                     id="tab_access_changes_cancel"
+                     label="Cancel"
+                     toolTip="Cancel changes made to group access"
+                     click="/*this.dp.on_delete_click.FIXME();*/"/>
+                  <mx:Button
+                     id="tab_access_cancel_save"
+                     label="Save"
+                     toolTip="Save changes made to group access"
+                     click="/*this.dp.on_delete_click.FIXME();*/"/>
+               </mx:HBox>
+            </mx:HBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Base>
+

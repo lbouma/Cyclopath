@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      android:versionCode="28"
+      android:versionName="2.0.11"
+      android:installLocation="auto"
+      package="org.cyclopath.android">
+      
+<uses-sdk android:minSdkVersion="8"
+          android:targetSdkVersion="8" />
+
+<uses-permission android:name="android.permission.INTERNET"></uses-permission>
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"></uses-permission>
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE"></uses-permission>
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"></uses-permission>
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"></uses-permission>
+<uses-permission android:name="android.permission.VIBRATE"/>
+
+    <application android:icon="@drawable/ic_launcher"
+                 android:label="@string/app_name"
+                 android:debuggable="false"
+                 android:name="CyclopathApplication">
+        <activity android:name=".Cyclopath"
+                  android:label="@string/app_name"
+                  android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="http"
+                      android:host="cycloplan.cyclopath.org" />
+                <!-- <data android:scheme="http"
+                      android:host="dev.cs.umn.edu" />-->
+            </intent-filter>
+        </activity>
+        <activity android:name=".TrackManager"
+                  android:label="@string/saved_tracks"></activity>
+        <activity android:name=".RouteLibrary"
+                  android:label="@string/route_library"></activity>
+        <activity android:name="LoginActivity"
+                  android:theme="@android:style/Theme.Dialog"
+                  android:label="@string/login">
+        </activity>
+        <activity android:name=".UserAgreement"
+                  android:label="@string/terms_of_service">
+        </activity>
+        <activity android:name="FindRouteActivity"
+                  android:label="@string/route_finder"
+                  android:configChanges="orientation">
+        </activity>
+        <activity android:name="AddressChooseActivity"
+                  android:label="@string/address_choose"
+                  android:configChanges="orientation">
+        </activity>
+        <activity android:name="DirectionsActivity"
+                  android:label="@string/directions">
+        </activity>
+        <activity android:name="ItemDetailsActivity"
+                  android:label="@string/item_details">
+        </activity>
+        <activity android:name="NoteActivity"
+                  android:label="@string/note_details">
+        </activity>
+        <activity android:name="TrackDetailsActivity"
+                  android:label="@string/track_details">
+        </activity>
+        <activity android:name="ExperimentAgreement"
+                  android:label="New Feature Testing">
+        </activity>
+        <service android:name="TrackingService"></service>
+        <receiver android:name="org.cyclopath.android.net.NetworkListener">
+           <intent-filter>
+              <action android:name="android.net.conn.CONNECTIVITY_CHANGE"/>
+           </intent-filter>
+        </receiver>
+   </application>
+
+</manifest> 

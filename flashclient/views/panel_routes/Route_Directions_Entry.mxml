@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:Text
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   mouseMove="this.on_mouse_move(event);"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   buttonMode="true"
+   mouseEnabled="true"
+   useHandCursor="true"
+   mouseChildren="false"
+   htmlText="{this.data.directions_text_hyperlinked}"
+   link="Route_Directions.on_link_click(event);">
+   <!--
+        2014.06.27: Comment from [lb] about configuring the cursor:
+        Set mouseChildren="true" and useHandCursor="false" if you
+        want to use the link="" handler. You'll get a pointer when
+        the mouse is over the <a href> hyperlink, and the caret
+        otherwise. Otherwise, set mouseChildren="false" and
+        useHandCursor="true" if you want the hand finger pointer
+        cursor and want to use another event handler than link.
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.MouseEvent;
+      import flash.text.TextFormat;
+      import mx.controls.Alert;
+      import mx.events.FlexEvent;
+
+      import items.feats.Direction_Step;
+      import items.utils.Item_Type;
+      import items.utils.Landmark;
+      import utils.misc.Logging;
+      import views.panel_util.Landmark_Rating_Widget;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@DirLstEntry');
+
+      // ***
+
+      //
+      protected function on_mouse_move(event:MouseEvent):void
+      {
+         var i:int;
+         i = this.textField.getCharIndexAtPoint(event.localX, event.localY);
+
+         if (i >= 0) {
+
+            var text_format:TextFormat;
+            text_format = this.textField.getTextFormat(i, i+1);
+            var url:String = text_format.url;
+            var item_id:int = parseInt(url);
+
+            m4_TALKY2('on_mouse_move: i:', i, '/ item_id:', item_id,
+                      '/ url:', url);
+
+            if (url.length > 0) {
+               var l:Landmark;
+               for each (l in data.landmarks) {
+                  // MAGIC_NUMBER: Elsewhere we set href to -2 to indicate
+                  //               the "other" landmark.
+                  if ((item_id == -2)
+                      && (l.item_type_id == Item_Type.LANDMARK_OTHER)) {
+                     break;
+                  }
+                  else if (l.item_id == item_id) {
+                     break;
+                  }
+               }
+               var do_show_pointer:Boolean = true;
+               if (Landmark_Rating_Widget.widget != null) {
+                  if (Landmark_Rating_Widget.widget.landmark == l) {
+                     m4_TALKY('on_mouse_move: lmark rating wdgt already made');
+                     do_show_pointer = false;
+                  }
+                  else {
+                     m4_TALKY('on_mouse_move: lmark rating wdgt for other');
+                  }
+               }
+               else {
+                  m4_TALKY('on_mouse_move: no lmark rating wdgt');
+               }
+               if (do_show_pointer) {
+                  Landmark_Rating_Widget.widget =
+                     Landmark_Rating_Widget.show_pointer(
+                        event.stageX, event.stageY,
+                        l, data.step_number, on_rating_change);
+                  l.moused_over = true;
+                  this.htmlText = data.directions_text_hyperlinked;
+               }
+            }
+            else {
+               m4_TALKY('on_mouse_move: text at point but no url?');
+            }
+         }
+         else {
+            m4_TALKY('on_mouse_move: no text at point');
+         }
+      }
+
+      //
+      public function on_rating_change() :void
+      {
+         this.htmlText = data.directions_text_hyperlinked;
+         m4_TALKY('on_rating_change: htmlText:', this.htmlText);
+      }
+
+   ]]> </mx:Script>
+
+</mx:Text>
+

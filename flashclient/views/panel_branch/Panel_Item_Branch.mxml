@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   width="100%"
+   height="100%"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.core.Container;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+      import mx.utils.UIDUtil;
+
+      import items.feats.Branch;
+      import items.jobsq.Merge_Job;
+      import items.jobsq.Route_Analysis_Job;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import views.base.UI;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Branch');
+
+      // *** Instance variables
+
+      // See also items_selected and get/set branch().
+      protected var branch_:Branch;
+
+      // *** Event handlers
+
+      //
+      override protected function on_enter_state_base() :void
+      {
+         m4_DEBUG('on_enter_state_base');
+         super.on_enter_state_base();
+
+         m4_DEBUG('on_enter_state_base: panel_children:', this.panel_children);
+         m4_DEBUG('  .. panel_item_details:', this.panel_item_details);
+         this.panel_children.remove(this.panel_item_details);
+
+         m4_DEBUG('on_enter_state_base: items_selected:', this.items_selected);
+
+         this.register_widgets([
+            this.widget_name_header,
+            this.widget_actions_cycloplan,
+            this.widget_attributes,
+            ]);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         m4_VERBOSE('on_initialize: this:', this);
+
+         var dummy_event:Event = null;
+
+         // Not calling: this.change_state(this.panel_base_state);
+         // The Panel_Item_Versioned class set this.panel_default_state.
+
+         m4_DEBUG('on_creation_complete: addEventListener: grac_nip_event');
+         G.item_mgr.addEventListener('grac_nip_event', this.on_nip_loaded);
+         this.on_nip_loaded(dummy_event);
+      }
+
+      //
+      protected function on_nip_loaded(ev:Event) :void
+      {
+         m4_DEBUG('on_nip_loaded');
+         /*/
+         var is_branch_editor:Boolean;
+         // There are three Basemap groups. We use Basemap Editors.
+         //    Basemap Owners
+         //    Basemap Arbiters
+         //    Basemap Editors
+         // There are three MetC groups. We use the Editors group.
+         //    Metc Bikeways 2012 Owners
+         //    Metc Bikeways 2012 Arbiters
+         //    Metc Bikeways 2012 Editors
+         is_branch_editor = ((G.user !== null)
+                             && (G.user.belongs_to_group(Conf_Instance
+                                             .metrocouncil_group_name)
+                                 || G.user.belongs_to_group(
+                                          'Basemap Editors')));
+         /*/
+         var can_create_jobs:Boolean = false;
+         if ((G.item_mgr.create_allowed_get(Merge_Job))
+             || (G.item_mgr.create_allowed_get(Route_Analysis_Job))) {
+            can_create_jobs = true;
+         }
+         this.widget_actions_cycloplan.visible = can_create_jobs;
+         this.widget_actions_cycloplan.includeInLayout = can_create_jobs;
+      }
+
+      //
+      override protected function on_remove_event(ev:FlexEvent) :void
+      {
+         super.on_remove_event(ev);
+
+         m4_VERBOSE('on_remove_event');
+
+         // Attachment works thusly: m4_ASSERT(this.items_selected === null);
+         // But Geofeature's get items_selected returns an empty set...
+         m4_ASSERT(this.items_selected.length == 0);
+         this.branch.branch_panel = null;
+         m4_ASSERT(this.branch === null);
+
+         m4_DEBUG('on_remove_event: removeEventListener: grac_nip_event');
+         G.item_mgr.removeEventListener('grac_nip_event', this.on_nip_loaded);
+      }
+
+      //
+      override protected function on_vertical_scrollbar_changed(added:Boolean)
+         :void
+      {
+         var width:int;
+         if (added) {
+            // The scroll bar is being added, so it's not necessarily sized.
+            width = G.app.box_navver_rule.width - /*this.vsb_width*/16 - 23;
+         }
+         else {
+            width = G.app.box_navver_rule.width - 16;
+         }
+         this.widget_actions_cycloplan.width = width;
+         this.widget_attributes.width = width;
+      }
+
+      // *** Base class overrides
+
+      //
+      override public function is_action_actionable(
+         action:String, loosey:Boolean=false) :Boolean
+      {
+         // Branches are not currently editable via flashclient.
+         // BUG nnnn: Let clients change Branch name via flashclient?
+         var is_actionable:Boolean = false;
+         return is_actionable;
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'About the Map';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate');
+         super.repopulate();
+
+         // Change the tab button label from 'Details'.
+         this.label = 'Maps';
+      }
+
+      //
+      override public function get vertical_scrollbar_target()
+         :Container
+      {
+         return this.vscrollbar_target;
+      }
+
+      // *** Base class getters and setters
+
+      //
+      override public function get button_delete_label_() :String
+      {
+// FIXME: access must be owner to show button
+         var the_label:String = 'Delete the Map';
+         //this.on_delete_click_label = the_label;
+//this.button_delete_label = the_label;
+         return the_label;
+      }
+
+      //
+      override public function get button_delete_toolTip_() :String
+      {
+         const tip:String = 'Delete the active map.';
+         return tip;
+      }
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Branch;
+      }
+
+      // *** Getters and setters
+
+      //
+      public function get branch() :Branch
+      {
+         return this.branch_;
+      }
+
+      //
+      public function set branch(br:Branch) :void
+      {
+         this.branch_ = br;
+         if (this.branch_ !== null) {
+            m4_DEBUG('set branch: items_selected:', this.branch_);
+            this.items_selected = new Set_UUID([this.branch_,]);
+         }
+         else {
+            m4_DEBUG('set branch: items_selected: null');
+            this.items_selected = null;
+         }
+      }
+
+      // *** Instance methods
+
+      //
+      override protected function has_auto_scroll_bar_policy() :Boolean
+      {
+         return true;
+      }
+
+   ]]></mx:Script>
+
+   <views_panel_items:states>
+
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+
+         <mx:RemoveChild
+            target="{this.panel_item_details}"/>
+         <!-- If we didn't remove the whole widget but part of it,
+              those sub-widgets still get registered and then get
+              repopulated... for now, it's easier just not to let
+              the widget be created at all.
+         <mx:RemoveChild
+            target="{this.panel_item_details.details_main_box}"/>
+         <mx:AddChild
+            relativeTo="{this.panel_item_details.details_main_canvas}"
+            position="firstChild">
+         -->
+
+         <mx:AddChild
+            relativeTo="{this.panel_item_wrap}"
+            position="firstChild">
+            <mx:target>
+
+               <!-- MAGIC_NUMBER: Whatever. We're in a ViewStack, which has
+                                  height issues. [lb] tested on his laptop to
+                                  find a good height value to subtract, but we
+                                  should verify other OSes and browsers. -->
+               <!-- MAGIC_NUMBER: Without the -6, the verticalScrollBar touches
+                                  the right side of the side panel area. The -6
+                                  brings it in the panel and adds whitespace.
+                                  -->
+               <mx:VBox
+                  width="100%"
+                  paddingRight="0"
+                  horizontalScrollPolicy="off"
+                  verticalScrollPolicy="off"
+                  >
+
+                  <views_panel_items:Widget_Name_Header
+                     id="widget_name_header"
+                     width="100%"
+                     paddingLeft="0"
+                     paddingRight="0"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     />
+
+                  <mx:VBox
+                     id="vscrollbar_target"
+                     height=
+            "{G.app.side_panel.height - this.widget_name_header.height - 24}"
+                     width="100%"
+                     paddingLeft="0"
+                     paddingRight="0"
+                     paddingTop="0"
+                     paddingBottom="0"
+                     verticalGap="6"
+                     horizontalScrollPolicy="off"
+                     verticalScrollPolicy="auto"
+                     >
+
+                     <views_panel_branch:Widget_Actions_Cycloplan
+                        id="widget_actions_cycloplan"
+                        visible="false"
+                        includeInLayout=
+                           "{this.widget_actions_cycloplan.visible}"
+                        width="100%"
+                        />
+
+                     <!-- External link locations -->
+                     <mx:HBox
+                        id="external_links_box"
+                        width="100%"
+                        paddingLeft="0"
+                        paddingTop="0"
+                        paddingRight="0"
+                        paddingBottom="0"
+                        horizontalGap="0"
+                        >
+                        <views_panel_util:Help_Link
+                           text="Daily Shapefile Exports"
+                           toolTip=
+         "Publically-available Shapefile export of the map, created nightly."
+                           fontWeight="normal"
+                           textDecoration="none"
+                           fontSize="14"
+                           click="UI.url_open_exports();"/>
+                     </mx:HBox>
+
+               <!-- MAYBE: Should the attributes be on their own panel?
+                           -->
+                     <views_panel_branch:Widget_Attributes
+                        id="widget_attributes"
+                        width="100%"
+                        height="100%"
+                        />
+
+                  </mx:VBox>
+
+               </mx:VBox>
+
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_items:states>
+
+   <!-- DEVS: If this class didn't derive from Panel_Item_Geofeature (it used
+              to derive from Panel_Item_Versioned), we'd have to hack the state
+              as follows to ensure that panel_default_state follows
+              panel_base_state.
+   <views_panel_items:states>
+      <mx:State
+         name="{this.panel_base_state}"
+         enterState="this.on_enter_state_base();"
+         >
+         ...fill in here...
+      </mx:State>
+      ...this is the hack if nothing derives from us:
+      <mx:State
+         name="{this.panel_default_state}"
+         basedOn="{this.panel_base_state}"
+         enterState="this.on_enter_state_default();"
+         >
+      </mx:State>
+   </views_panel_items:states>
+   -->
+
+</views_panel_items:Panel_Item_Geofeature>
+

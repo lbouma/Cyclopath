@@ -1,0 +1,139 @@
+/* Copyright (c) 2006-2013 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE. */
+
+/* BUG nnnn: Flex 4 SDK:
+   https://www.adobe.com/devnet/flex/articles/flex3and4_differences.html
+
+[lb] thinks, for Flex 4, we have to wrap everything herein:
+
+<mx:Style>
+
+   @namespace "http://www.adobe.com/2006/mxml";
+
+and prefix each style with their namespace, i.e.,
+
+   mx|Alert {
+      ...
+   }
+
+</mx:Style>
+
+*/
+
+/* EXPLAIN:  Don't we have to use, e.g., border-color, like in main.css? */
+Panel.toolPalettePanel {
+   roundedBottomCorners: false;
+   borderThicknessTop: 0;
+   borderThicknessBottom: 1;
+   borderThicknessLeft: 1;
+   borderThicknessRight: 1;
+   borderColor: "0x000000";
+   borderStyle: "solid";
+   borderSides: "left top right bottom";
+   borderThickness: 1;
+   cornerRadius: 0;
+   titleStyleName: "stylePanelWindowTitle";
+   borderColor: "0xd2dce2";
+}
+
+.stylePanelWindowTitle {
+   fontSize: 11;
+   fontWeight: bold;
+}
+
+.styleIconArrowCursor {
+   upIcon:               Embed('../img/icon_arrow.png');
+   overIcon:             Embed('../img/icon_arrow.png');
+   downIcon:             Embed('../img/icon_arrow.png');
+   disabledIcon:         Embed('../img/icon_arrow.png');
+   selectedDisabledIcon: Embed('../img/icon_arrow_h.png');
+   selectedDownIcon:     Embed('../img/icon_arrow_h.png');
+   selectedOverIcon:     Embed('../img/icon_arrow_h.png');
+   selectedUpIcon:       Embed('../img/icon_arrow_h.png');
+}
+
+.styleIconArrowDown {
+   upSkin:        Embed('../img/icon_panelw_arrow_downdown.png');
+   overSkin:      Embed('../img/icon_panelw_arrow_downdown.png');
+   downSkin:      Embed('../img/icon_panelw_arrow_downdown.png');
+   disabledSkin:  Embed('../img/icon_panelw_arrow_downdown.png');
+}
+
+.styleIconArrowLeft {
+   upSkin:        Embed('../img/icon_panelw_arrow_left.png');
+   overSkin:      Embed('../img/icon_panelw_arrow_left.png');
+   downSkin:      Embed('../img/icon_panelw_arrow_left.png');
+   disabledSkin:  Embed('../img/icon_panelw_arrow_left.png');
+}
+
+.styleIconArrowRight {
+   upSkin:        Embed('../img/icon_panelw_arrow_right.png');
+   overSkin:      Embed('../img/icon_panelw_arrow_right.png');
+   downSkin:      Embed('../img/icon_panelw_arrow_right.png');
+   disabledSkin:  Embed('../img/icon_panelw_arrow_right.png');
+}
+
+.styleIconArrowUp {
+   upSkin:        Embed('../img/icon_panelw_arrow_upup.png');
+   overSkin:      Embed('../img/icon_panelw_arrow_upup.png');
+   downSkin:      Embed('../img/icon_panelw_arrow_upup.png');
+   disabledSkin:  Embed('../img/icon_panelw_arrow_upup.png');
+}
+
+.styleIconClose {
+   upSkin:        Embed('../img/icon_panelw_close.png');
+   overSkin:      Embed('../img/icon_panelw_close.png');
+   downSkin:      Embed('../img/icon_panelw_close.png');
+   disabledSkin:  Embed('../img/icon_panelw_close.png');
+}
+
+.styleIconDivider {
+   upSkin:        Embed('../img/icon_panelw_divider.png');
+   overSkin:      Embed('../img/icon_panelw_divider.png');
+   downSkin:      Embed('../img/icon_panelw_divider.png');
+   disabledSkin:  Embed('../img/icon_panelw_divider.png');
+}
+
+.styleIconResize {
+   upSkin:        Embed('../img/icon_panelw_resize.png');
+   overSkin:      Embed('../img/icon_panelw_resize.png');
+   downSkin:      Embed('../img/icon_panelw_resize.png');
+   disabledSkin:  Embed('../img/icon_panelw_resize.png');
+}
+
+.styleIconShadeUp {
+   upSkin:        Embed('../img/icon_panelw_shade_up.png');
+   overSkin:      Embed('../img/icon_panelw_shade_up.png');
+   downSkin:      Embed('../img/icon_panelw_shade_up.png');
+   disabledSkin:  Embed('../img/icon_panelw_shade_up.png');
+}
+
+.styleIconShadeDown {
+   upSkin:        Embed('../img/icon_panelw_shade_down.png');
+   overSkin:      Embed('../img/icon_panelw_shade_down.png');
+   downSkin:      Embed('../img/icon_panelw_shade_down.png');
+   disabledSkin:  Embed('../img/icon_panelw_shade_down.png');
+}
+
+.styleIconHand {
+   upIcon:               Embed('../img/icon_hand.png');
+   overIcon:             Embed('../img/icon_hand.png');
+   downIcon:             Embed('../img/icon_hand.png');
+   disabledIcon:         Embed('../img/icon_hand.png');
+   selectedDisabledIcon: Embed('../img/icon_hand_h.png');
+   selectedDownIcon:     Embed('../img/icon_hand_h.png');
+   selectedOverIcon:     Embed('../img/icon_hand_h.png');
+   selectedUpIcon:       Embed('../img/icon_hand_h.png');
+}
+
+.styleIconPointCreate {
+   upIcon:               Embed('../img/icon_tools_point_create.png');
+   overIcon:             Embed('../img/icon_tools_point_create.png');
+   downIcon:             Embed('../img/icon_tools_point_create.png');
+   disabledIcon:         Embed('../img/icon_tools_point_create.png');
+   selectedDisabledIcon: Embed('../img/icon_tools_point_create_h.png');
+   selectedDownIcon:     Embed('../img/icon_tools_point_create_h.png');
+   selectedOverIcon:     Embed('../img/icon_tools_point_create_h.png');
+   selectedUpIcon:       Embed('../img/icon_tools_point_create_h.png');
+}
+

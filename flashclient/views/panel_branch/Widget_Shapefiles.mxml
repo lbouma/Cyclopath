@@ -1,0 +1,965 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2014 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   label="Shapefiles"
+   activate="this.on_activate(event)"
+   deactivate="this.on_deactivate(event)"
+   verticalScrollPolicy="auto"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.IOErrorEvent;
+      import flash.events.ProgressEvent;
+      import flash.events.SecurityErrorEvent;
+      import flash.net.URLRequest;
+      import mx.controls.Alert;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+      import mx.utils.UIDUtil;
+
+      import grax.Item_Manager;
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Checkout_Count;
+      import gwis.GWIS_Checkout_Nonwiki_Items;
+      import gwis.GWIS_Commit;
+      import gwis.utils.FileReference_Wrap;
+      import gwis.utils.Query_Filters;
+      import items.gracs.Group_Item_Access;
+      import items.jobsq.Merge_Export_Job;
+      import items.jobsq.Merge_Import_Job;
+      import items.jobsq.Route_Analysis_Job;
+      import items.utils.Grpa_Change_Event;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Br_Shpf');
+
+      // ***
+
+      protected static var zipTypeFilter:FileFilter = new FileFilter(
+         "Archives (*.zip, *.tar.gz)", "*.zip;*.tar.gz");
+      protected static var shpTypeFilter:FileFilter = new FileFilter(
+         "Shapefile Files (*.shp)", "*.shp");
+
+      [Bindable] protected static var email_me_toolip:String =
+         "We'll email you when the job is finished.";
+
+      protected var file_ref:FileReference_Wrap;
+
+      // ***
+
+      //protected var paginator:Paginator = new Paginator();
+
+      // Fixme the results belong in the Paginator? Prob not...
+      public var jobs_page:Array = null;
+
+      protected var is_active:Boolean = false;
+
+      // ***
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      //
+      public function jobs_list_refresh() :void
+      {
+         var gwis_req:GWIS_Base;
+         var qfs:Query_Filters = null;
+         var callback_load:Function = null;
+         var callback_fail:Function = null;
+
+         // Get the jobs' access_styles.
+         // MAYBE: Implement this is you think users should be able to change
+         //        work_item pemissions.
+         // Skipping: 
+         //    qfs = new Query_Filters();
+         //    qfs.include_item_stack = true;
+
+         callback_load = this.widget_shapefile_list.consume_work_items;
+
+         if (this.shapeio_list_pager.records_per_page > 0) {
+            this.widget_shapefile_list.reset_list();
+            gwis_req = new GWIS_Checkout_Nonwiki_Items(
+               'merge_job', qfs, this.shapeio_list_pager,
+               callback_load, callback_fail);
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_req);
+            m4_ASSERT_SOFT(!found_duplicate);
+            // Also get a total count of records, if the value is not fresh.
+            // FIXME: Unsure about when/when not to do this.
+            //if (this.shapeio_list_pager.records_total_count == 0) {
+            if (true) {
+               if (qfs !== null) {
+                  qfs.include_item_stack = false;
+               }
+               gwis_req = new GWIS_Checkout_Count(
+                  'merge_job', this.shapeio_list_pager, qfs);
+               found_duplicate = G.map.update_supplemental(gwis_req);
+               m4_ASSERT_SOFT(!found_duplicate);
+            }
+         }
+         else {
+            m4_WARNING('jobs_list_refresh: not on_initialized!');
+         }
+      }
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching jobs page');
+         //this.widget_shapefile_list.reset_list();
+         this.jobs_list_refresh();
+      }
+
+      //
+      protected function on_activate(ev:Event) :void
+      {
+         // This is called when the user clicks on the item details tab (though
+         // not the Merge subtab).
+         m4_DEBUG('on_activate: SHAPEIO: this:', this);
+
+         this.is_active = true;
+
+         // NOTE: Cyclopath is not so much MVC as it as M and VC, i.e., we have
+         // a model class and a view/controller class. This is the
+         // view/controller class, so it's okay that we store the shapeio list
+         // herein.
+         if (this.shapeio_list_pager.current_page_number == 0) {
+            if (G.item_mgr.active_branch !== null) {
+               // First time being activated.
+               m4_DEBUG('on_activate: fetching jobs page');
+               this.shapeio_list_pager.current_page_number = 1;
+               this.jobs_list_refresh();
+            }
+            else {
+               m4_WARNING('on_activate: branch not active yet!');
+            }
+         }
+         else {
+            m4_DEBUG('on_activate: already got page');
+         }
+      }
+
+      //
+      protected function on_deactivate(ev:Event) :void
+      {
+         m4_DEBUG('on_deactivate');
+         // Is there a way to determine if the element is active or not? I can
+         // only figure out how to do this by following the events....
+         this.is_active = false;
+      }
+
+      // FIXME: Make base class: Shared by Widget_Analysis & Widget_Shapefiles.
+      //
+      protected function on_dblbw_click(ctl:Double_Borderware) :void
+      {
+         const dblbws:Array = [this.dblbw_create,
+                               this.dblbw_upload,
+                               this.dblbw_control];
+         for each (var dblbw:Double_Borderware in dblbws) {
+            if (dblbw !== ctl) {
+               dblbw.force_collapse();
+            }
+         }
+      }
+
+// FIXME: Hide/show/enable/disable controls per user's access level.
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         this.register_widgets([
+            this.widget_shapefile_list,
+            ]);
+
+         // MAYBE: Why not use this.panel_base_state?
+         this.change_state('bware_init');
+
+         this.shapeio_list_pager.type_plural = 'jobs';
+         this.shapeio_list_pager.list_control_callback =
+            this.list_control_callback;
+
+         //this.shapeio_list_pager.paginator = this.paginator;
+         // MAGIC NUMBER
+         //this.paginator.records_per_page = 4;
+         //this.paginator.current_page_number = 0;
+         this.shapeio_list_pager.records_per_page = 4;
+         //this.shapeio_list_pager.current_page_number = 0;
+
+         this.shapeio_list_pager.p_collect =
+            this.widget_shapefile_list.data_grid_content;
+
+         // Only allow one accordion at a time...
+         this.dblbw_create.click_callback = this.on_dblbw_click;
+         this.dblbw_upload.click_callback = this.on_dblbw_click;
+         this.dblbw_control.click_callback = this.on_dblbw_click;
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+
+         m4_DEBUG('on_initialize: addEventListener: revisionChange');
+         G.item_mgr.addEventListener('revisionChange',
+                                     this.on_revision_change);
+
+         m4_DEBUG('on_initialize: addEventListener: regionsLoaded');
+         G.item_mgr.addEventListener('regionsLoaded',
+                                     this.on_regions_loaded);
+
+         m4_DEBUG2('on_initialize: addEventListener:',
+                   Grpa_Change_Event.EVENT_TYPE);
+         G.item_mgr.addEventListener(Grpa_Change_Event.EVENT_TYPE,
+                                     this.on_grpa_change);
+
+         this.on_active_branch_change();
+         this.on_regions_loaded();
+         this.on_revision_change();
+         // on_grpa_change just calls on_active_branch_change and also requires
+         // a Grpa_Change_Event, so don't bother with it.
+         //   this.on_grpa_change(...);
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Import and Export';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate: SHAPEIO: this:', this);
+         super.repopulate();
+      }
+
+      // *** Instance methods
+
+      //
+      public function on_active_branch_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_active_branch_change');
+
+         // Reset the jobs list.
+         this.widget_shapefile_list.reset_list();
+
+         this.shapeio_list_pager.current_page_number = 1;
+
+         var enable_buttons:Boolean = false;
+         if (G.item_mgr.active_branch !== null) {
+            m4_DEBUG('on_active_branch_change:', G.item_mgr.active_branch);
+            // In the future, we might want to allow export but restrict import
+            // access to another role, but for either either both
+            // buttons/features are on or both are off.
+            enable_buttons = true;
+            if (this.is_active) {
+               // Refresh the list, otherwise we'll do it later (lazy-load)
+               // when the user next activates the panel.
+               this.on_activate(null);
+            }
+            var group_ids:Array = new Array();
+            var grpn:String;
+            // Add the public group.
+            grpn = 'Public (Public)';
+            group_ids.push({_name: G.grac.public_group_id, label: grpn});
+            // Skipping: session_group_id, stealth_group_id.
+            //
+            // Add the private user.
+            grpn = G.user.username + ' (Private)';
+            group_ids.push({_name: G.user.private_group_id, label: grpn});
+            // Add the shared groups.
+            for each (var gia:Group_Item_Access
+                      in G.item_mgr.active_branch.groups_access) {
+               //
+               // FIXME: if !== null condition explanation, see:
+               //   panel_items/Widget_Gia_Access_List.mxml in populate_grid()
+               //
+               if (gia.group !== null) {
+                  if ((gia.group.stack_id != G.user.private_group_id)
+                      && (gia.group.stack_id != G.grac.public_group_id)) {
+                     grpn = gia.group.name_
+                            + ' (' + gia.group.access_scope + ')';
+                     group_ids.push({_name: gia.group.stack_id, label: grpn});
+                  }
+               }
+               else {
+                  m4_WARNING('on_active_branch_change: gia.group is null.');
+               }
+            }
+            if (group_ids.length == 0) {
+               m4_WARNING('branch has no groups_access');
+            }
+            this.merge_job_export_context.dataProvider = group_ids;
+         }
+         else {
+            this.merge_job_export_context.dataProvider = null;
+            enable_buttons = false;
+            // We already reset the page number and list, so nothing left to do
+         }
+
+         this.button_shpf_schedule.enabled = enable_buttons;
+         this.button_shpf_upload.enabled = enable_buttons;
+         this.stepper_revision_id.enabled = enable_buttons;
+         if (!(enable_buttons)) {
+            this.stepper_revision_id.maximum = 1;
+            this.stepper_revision_id.value = 1;
+         }
+
+      }
+// FIXME: catch rev change and update stepper.
+
+      //
+      protected function on_grpa_change(ev:Grpa_Change_Event) :void
+      {
+         m4_DEBUG('on_grpa_change: ev:', ev, '/', ev.stack_id);
+         if ((G.item_mgr.active_branch !== null)
+             && (G.item_mgr.active_branch.stack_id == ev.stack_id)) {
+            this.on_active_branch_change();
+         }
+      }
+
+      //
+      protected function on_regions_loaded(event:Event=null) :void
+      {
+         m4_DEBUG2('on_regions_loaded: regions_list.len:',
+                   G.map.regions_list.length);
+         this.filter_by_auto_complete.dataProvider = G.map.regions_list;
+         // AutoComplete does not support variable widths. So set the width to
+         // the size of the dropdown combobox, or some minimum number of
+         // pixels, whichever is greater.
+         // NOTE: The width that the combobox reports is the width of its
+         // longest textual entry. I doesn't include the 'v' triangle icon.
+         var new_width:int = this.merge_job_export_context.width;
+         if (new_width < 120) {
+            // I don't like putting hard-coded view-values in the code, but
+            // hey, this is America, so I can do what I want.
+            new_width = 120;
+         }
+         this.filter_by_auto_complete.width = new_width;
+         m4_DEBUG('auto_complete.width:', this.filter_by_auto_complete.width);
+         // For some reason the first entry in the dp is becoming the text.
+         //this.filter_by_auto_complete.text = 'THIS IS NOT WORKING';
+         this.filter_by_auto_complete.selectedIndex = -1;
+      }
+
+      //
+      protected function on_revision_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_revision_change');
+
+         var rev_hist:utils.rev_spec.Historic
+            = (G.map.rev_viewport as utils.rev_spec.Historic);
+
+         // 2013.04.11: Ya know, even in historic mode, we can work...
+         //   if (G.map.rev_workcopy !== null) {
+
+         m4_ASSERT(G.map.rev_viewport !== null);
+         m4_ASSERT(G.map.rev_mainline !== null);
+         var rid_latest:int = G.map.rev_mainline.rid_last_update;
+
+         var rid_showing:int;
+         if (G.map.rev_workcopy !== null) {
+            rid_showing = G.map.rev_workcopy.rid_last_update;
+         }
+         else if (rev_hist !== null) {
+            rid_showing = rev_hist.rid_old;
+         }
+         // else, Diff, so disable....
+
+         if (rid_showing) {
+            // This follows this.pkg_latest_download_hlink, which says
+            // "Download"
+            this.pkg_latest_download_label.text = 'the latest map package '
+               + '(revision ' + rid_showing + ').';
+            //
+            this.pkg_latest_download.visible = true;
+            // FIXME: 2012.12.22: This button is visible even when there is no
+            //        current map package -- how to solve this? a) Show only
+            //        once user has made whole map current revision export;
+            //        b) Don't ever show, because it's confusing; c) always
+            //        export the current revision of the map (and replace the
+            //        last current version) so that a current map download is
+            //        always readily available. [lb] thinks c) is probably
+            //        best, or maybe b)...
+         this.pkg_latest_download.visible = false;
+         this.pkg_latest_download.includeInLayout = false;
+            // FIXME: Wrong: latest map package is whatever the last job
+            // created.
+            this.pkg_latest_create_label_1.visible = true;
+         this.pkg_latest_create_label_1.visible = false;
+         this.pkg_latest_create_label_1.includeInLayout = false;
+            //
+            this.stepper_revision_id.maximum = rid_showing;
+            this.stepper_revision_id.value = rid_showing;
+         }
+         else {
+            this.pkg_latest_download.visible = false;
+            this.pkg_latest_download.includeInLayout = false;
+            this.pkg_latest_create_label_1.visible = false;
+            this.pkg_latest_create_label_1.includeInLayout = false;
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_shpf_refresh() :void
+      {
+         m4_DEBUG('on_shpf_refresh');
+         this.jobs_list_refresh();
+      }
+
+      //
+      protected function on_shpf_schedule() :void
+      {
+         m4_DEBUG('on_shpf_schedule');
+         var for_group_id:int
+            = this.merge_job_export_context.selectedItem._name;
+         var for_revision:int = this.stepper_revision_id.value;
+         var watcher_requested:Boolean = checkbox_email_me_export.selected;
+         this.merge_job_create(
+            for_group_id,
+            for_revision,
+            /*filter_by_region=*/this.filter_by_auto_complete.text,
+            watcher_requested);
+      }
+
+      // ***
+
+      //
+      protected function on_shpf_browse_upload() :void
+      {
+         m4_WARNING('on_shpf_browse_upload: This feature is deprecated!');
+         if (!Conf_Instance.debug_goodies) {
+            Alert.show(
+               "We're sorry, but this feature is very complicated and has "
+               + "been disabled from the Web site. Please email "
+               + Conf.instance_info_email + " and ask a developer about "
+               + "accessing the very powerful Hausdorff import script.",
+               'Disabled Feature');
+
+            // BUG nnnn/FIXME: Re-enable user Shapefile imports.
+            //                 Or decide that's never going to happen,
+            //                 and that we should always e.g., a dev
+            //                 script, e.g., hausdorff_import.py.
+            return;
+         }
+
+         m4_DEBUG('on_shpf_browse_upload');
+         // Make the new job.
+         if (this.file_ref === null) {
+            var new_job:Merge_Import_Job = new Merge_Import_Job();
+            if (checkbox_email_me_import.selected) {
+               // FIXME: Implement.
+               //new_job.watcher_digest = true;
+               //new_job.watcher_enabled = true;
+               // FIXME: Use email_on_finish? Or replace with a watcher entry?
+               new_job.email_on_finish = true;
+            }
+            // FIXME: Do we need the group context?
+            //new_job.for_group_id = for_group_id;
+            // Skipping: new_job.for_revision (server will figure it out)
+            // Validize the new job and wrap in a request.
+            var gwis_req:GWIS_Base;
+            gwis_req = Item_Manager.make_job(new_job, 'create',
+                                             this.on_upload_finished);
+            // Wrap the request in a file ref wrapper.
+            if (gwis_req !== null) {
+               var req:URLRequest = null;
+               var upload_data_field_name:String = 'Filedata';
+               this.file_ref = new FileReference_Wrap(gwis_req,
+                                                      upload_data_field_name);
+            }
+         }
+         if (this.file_ref !== null) {
+            // Show the file browser and let the user select a file. We are
+            // forced to immediately start uploading the file once the user
+            // chooses one.
+            this.file_ref.browse_upload(
+               this.on_upload_okay,
+               this.on_upload_fail,
+               [Widget_Shapefiles.zipTypeFilter,
+                Widget_Shapefiles.shpTypeFilter]);
+         }
+      }
+
+      //
+      protected function on_upload_okay(file_ref:FileReference_Wrap) :void
+      {
+         m4_DEBUG('on_upload_okay');
+         m4_ASSERT(this.file_ref !== null);
+         m4_ASSERT(this.file_ref === file_ref);
+         this.file_ref = null;
+         m4_DEBUG('on_upload_finished: file_ref:', file_ref);
+         m4_DEBUG(' >> file_ref.upload_resp:', file_ref.upload_resp)
+         // Parse the GWIS response.
+         // <gwis_error msg="For new work items, job_act must be create."/>
+         var rset:XML = new XML(file_ref.upload_resp);
+         if (rset.name() == 'gwis_error') {
+            Alert.show(rset.@msg, 'Upload failed');
+         }
+         else if (rset.name() == 'gwis_fatal') {
+            Alert.show(rset.@msg, 'Upload really failed');
+         }
+         else {
+            Alert.show('Your files were successfully copied to the server.',
+                       'Upload complete');
+            // Switch to the jobs list.
+// FIXME: Statewide UI: This is ridiculous.
+//            var bpanel:Panel_Item_Branch = (this.dp as Panel_Item_Branch);
+//            bpanel.tab_branch_merge.jobs_list_refresh();
+            this.jobs_list_refresh();
+            this.dblbw_control.on_mouse_click(null); // cheater...
+            // FIXME: Do we need to parse the GWIS resp? Probably...
+         }
+      }
+
+      //
+      protected function on_upload_fail(file_ref:FileReference_Wrap) :void
+      {
+         m4_DEBUG('on_upload_fail');
+         m4_ASSERT(this.file_ref !== null);
+         m4_ASSERT(this.file_ref === file_ref);
+         this.file_ref = null;
+      }
+
+      //
+      protected function on_upload_finished(gwis_req:GWIS_Commit,
+                                            rset:XML, payload:*=null) :void
+      {
+         // This should never be called.
+         m4_ERROR('on_upload_finished: unexpected callback.');
+      }
+
+      // ***
+
+      //
+      protected function on_click_pkg_advanced_options() :void
+      {
+         m4_DEBUG('on_click_pkg_advanced_options');
+         if (this.create_advanced_options.visible) {
+            this.pkg_advanced_options.htmlText =
+                           'Show advanced options &#187;';
+            this.create_advanced_options.visible = false;
+         }
+         else {
+            this.pkg_advanced_options.htmlText =
+                           'Hide advanced options &#171;';
+            this.create_advanced_options.visible = true;
+         }
+      }
+
+      //
+      protected function on_click_pkg_latest_create() :void
+      {
+         m4_DEBUG('on_click_pkg_latest_create');
+         this.merge_job_create();
+      }
+
+      //
+      protected function on_click_pkg_latest_download() :void
+      {
+         m4_DEBUG('on_click_pkg_latest_download');
+G.alert_broke(true); // FIXME: Do something. See also above, re: linking
+                     //        to exports/ instead and using common export.
+      }
+
+      //
+      protected function merge_job_create(for_group_id:int=0,
+                                          for_revision:int=0,
+                                          filter_by_region:String='',
+                                          watcher_requested:Boolean=false)
+         :void
+      {
+         m4_DEBUG('merge_job_create');
+         var new_job:Merge_Export_Job = new Merge_Export_Job();
+         new_job.for_group_id = for_group_id;
+         new_job.for_revision = for_revision;
+         if (watcher_requested) {
+            m4_DEBUG('  .. setting watcher digest and enabled.');
+            // FIXME: I don't have watchers working quite yet....
+
+
+// FIXME: Statewide UI: Complete this:
+// /item/alert_email
+//            new_job.watcher_digest = true;
+//            new_job.watcher_enabled = true;
+// do something like this:
+/*/
+            var link_value:Link_Value = new Link_Value(null, null, attc, feat);
+            link_value.value_integer = true;
+/*/
+
+         }
+         // FIXME: For now, until watchers work, use email_on_finish?
+         //        Or should we just keep this and let pyserver do the magic?
+         new_job.email_on_finish = watcher_requested;
+         new_job.filter_by_region = filter_by_region;
+         Item_Manager.do_job(new_job, 'create', this.on_commit_resp);
+      }
+
+      // FIXME: What's the response? An Array of... items? Error codes?
+      //
+      protected function on_commit_resp(gwis_req:GWIS_Commit,
+                                        rset:XML, payload:*=null) :void
+      {
+         m4_DEBUG('on_commit_resp');
+         // FIXME: What do I do? Probably look for response code... or assume
+         // if we're here than GWIS_Error was not throw, so we can just refresh
+         // the work item list, mayhaps. And check that a new job is detected?
+//         var bpanel:Panel_Item_Branch = (this.dp as Panel_Item_Branch);
+//         bpanel.tab_branch_merge.jobs_list_refresh();
+////Branch.dpanel_panel_static.tab_branch_merge.jobs_list_refresh();
+         this.jobs_list_refresh();
+         // Switch to the download screen.
+         this.dblbw_control.on_mouse_click(null); // cheater...
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      verticalAlign="top"
+      styleName="optgroupMmSixes"
+      >
+      <!--
+      paddingTop="0"
+      paddingBottom="1"
+      verticalGap="2"
+      -->
+
+      <!-- CREATE DOWNLOAD PACKAGE -->
+      <views_panel_util:Double_Borderware
+         width="100%"
+         id="dblbw_create"
+         />
+
+      <!-- UPLOAD DOWNLOAD PACKAGE -->
+      <views_panel_util:Double_Borderware
+         width="100%"
+         id="dblbw_upload"
+         />
+
+      <!-- SHAPEIO JOBS LIST -->
+      <views_panel_util:Double_Borderware
+         width="100%"
+         id="dblbw_control"
+         />
+
+   </mx:VBox>
+
+   <views_panel_base:states>
+
+      <mx:State
+         name="bware_init">
+
+         <!-- CREATE DOWNLOAD PACKAGE -->
+         <mx:SetProperty
+            name="text"
+            target="{this.dblbw_create.bware_title}"
+            value="Create Map Downloads"
+            />
+         <mx:AddChild
+            relativeTo="{this.dblbw_create.collapsible_area}"
+            position="lastChild">
+            <mx:target>
+               <mx:VBox
+                  width="100%">
+                  <mx:HBox
+                     horizontalAlign="left"
+                     id="pkg_latest_download"
+                     horizontalGap="-2"
+                     includeInLayout="{this.pkg_latest_download.visible}">
+                     <views_panel_util:Hyper_Link
+                        id="pkg_latest_download_hlink"
+                        text="Download"
+                        toolTip=""
+                        enabled="true"
+                        click="this.on_click_pkg_latest_download();"/>
+                     <mx:Label
+                        id="pkg_latest_download_label"
+                        text="the latest map package."
+                        includeInLayout=
+                           "{this.pkg_latest_download_label.visible}"/>
+                  </mx:HBox>
+                  <mx:HBox
+                     horizontalAlign="left"
+                     id="pkg_latest_create"
+                     horizontalGap="-2">
+                     <mx:Label
+                        id="pkg_latest_create_label_1"
+                        text="Or,"
+                        includeInLayout=
+                           "{this.pkg_latest_create_label_1.visible}"
+                        />
+                     <views_panel_util:Hyper_Link
+                        id="pkg_latest_create_hlink"
+                        text="Create"
+                        toolTip=""
+                        enabled="true"
+                        click="this.on_click_pkg_latest_create();"/>
+                     <mx:Label
+                        id="pkg_latest_create_label_2"
+                        text="a new map package."/>
+                  </mx:HBox>
+                  <mx:HBox
+                     horizontalAlign="left"
+                     id="pkg_latest_more_blurb">
+                     <views_panel_util:Hyper_Link
+                        id="pkg_advanced_options"
+                        htmlText="Show advanced options &#187;"
+                        toolTip=""
+                        enabled="true"
+                        click="this.on_click_pkg_advanced_options();"/>
+                  </mx:HBox>
+                  <mx:VBox
+                     width="100%"
+                     id="create_advanced_options"
+                     visible="false"
+                     includeInLayout="{this.create_advanced_options.visible}"
+                     borderStyle="solid"
+                     backgroundColor="{Conf.branch_conflict_color}"
+                     paddingTop="2"
+                     paddingRight="1"
+                     paddingBottom="2"
+                     paddingLeft="1"
+                     >
+                     <mx:Text
+                        width="100%"
+                        fontStyle="italic"
+                        leading="0"
+                        text=
+"Choose the group and revision, and specify a region, if you want."
+                        />
+                     <mx:Grid
+                        width="100%"
+                        verticalGap="7"
+                        horizontalGap="2"
+                        paddingLeft="2"
+                        paddingRight="2"
+                        paddingBottom="5">
+                        <mx:GridRow
+                           width="100%">
+                           <mx:GridItem
+                              horizontalAlign="right">
+                              <mx:Label
+                                 text="Group"/>
+                           </mx:GridItem>
+                           <mx:GridItem
+                              horizontalAlign="left">
+                              <mx:ComboBox
+                                 id="merge_job_export_context"
+                                 paddingTop="-3"
+                                 paddingBottom="0"
+                                 toolTip="..."/>
+                              <!--
+                                 width="210"
+                                 rowCount="99"
+                              <    -->
+                           </mx:GridItem>
+                        </mx:GridRow>
+                        <mx:GridRow
+                           width="100%">
+                           <mx:GridItem
+                              horizontalAlign="right">
+                              <mx:Label
+                                 text="Region"/>
+                           </mx:GridItem>
+                           <mx:GridItem
+                              horizontalAlign="left">
+                              <utils_misc:AutoComplete
+                                 id="filter_by_auto_complete"
+                                 itemName="region"
+                                 labelField = "name_"
+                                 width="100%"
+                                 lookAhead="false"
+                                 openDuration="0"
+                                 />
+                           </mx:GridItem>
+                        </mx:GridRow>
+                        <mx:GridRow
+                           width="100%">
+                           <mx:GridItem
+                              horizontalAlign="right">
+                              <mx:Label
+                                 text="Revision"/>
+                           </mx:GridItem>
+                           <mx:GridItem
+                              horizontalAlign="left">
+                              <mx:NumericStepper
+                                 id="stepper_revision_id"
+                                 stepSize="1"
+                                 minimum="1"
+                                 maximum="1000000"
+                                 maxChars="5"
+                                 value="1000000"/>
+                           </mx:GridItem>
+                        </mx:GridRow>
+                        <mx:GridRow
+                           width="100%">
+                           <mx:GridItem
+                              horizontalAlign="right">
+                              <!-- On the Item Extra tab is a button the says
+                              <    E-mail me (hyphenated) and that's to the
+                              <    right of the button, not the left. =) -->
+                              <mx:Label
+                                 text="Email me"
+                                 toolTip="{Widget_Shapefiles.email_me_toolip}"
+                                 />
+                           </mx:GridItem>
+                           <mx:GridItem
+                              horizontalAlign="left">
+                              <mx:CheckBox
+                                 id="checkbox_email_me_export"
+                                 height="18"
+                                 label=""
+                                 toolTip="{Widget_Shapefiles.email_me_toolip}"
+                                 />
+                           </mx:GridItem>
+                        </mx:GridRow>
+                        <mx:GridRow
+                           width="100%">
+                           <mx:GridItem
+                              horizontalAlign="right">
+                           </mx:GridItem>
+                           <mx:GridItem
+                              horizontalAlign="left">
+                              <views_panel_util:Button_Small
+                                 id="button_shpf_schedule"
+                                 label="Schedule Operation"
+                                 toolTip=
+"Schedule the operation. The server will process it eventually and let you know when the map package is ready for download."
+                                 click="this.on_shpf_schedule();"
+                                 enabled="false"
+                                 />
+                           </mx:GridItem>
+                        </mx:GridRow>
+                     </mx:Grid>
+                  </mx:VBox>
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- UPLOAD DOWNLOAD PACKAGE -->
+         <mx:SetProperty
+            name="text"
+            target="{this.dblbw_upload.bware_title}"
+            value="Upload Edited Map Packages"
+            />
+         <mx:AddChild
+            relativeTo="{this.dblbw_upload.collapsible_area}"
+            position="lastChild">
+            <mx:target>
+               <mx:VBox
+                  width="100%">
+                  <mx:HBox
+                     width="100%"
+                     verticalAlign="middle"
+                     >
+                     <mx:Text
+                        width="100%"
+                        condenseWhite="true"
+                        mouseEnabled="false"
+                        mouseChildren="false">
+                        <mx:htmlText><![CDATA[
+                           Click 'Upload...' to find and upload shapefiles
+                           to the server to be imported into Cyclopath.
+                           Please zip your shapefiles before uploading.
+                        ]]></mx:htmlText>
+                     </mx:Text>
+                  </mx:HBox>
+                  <mx:HBox
+                     width="100%"
+                     verticalAlign="middle"
+                     >
+                     <mx:Label
+                        text="Email me"
+                        toolTip="{Widget_Shapefiles.email_me_toolip}"/>
+                     <mx:CheckBox
+                        id="checkbox_email_me_import"
+                        height="18"
+                        label=""
+                        toolTip="{Widget_Shapefiles.email_me_toolip}"/>
+                  </mx:HBox>
+                  <views_panel_util:Button_Small
+                     id="button_shpf_upload"
+                     label="Upload..."
+                     toolTip="Upload a shapefile to be merged into the branch."
+                     click="this.on_shpf_browse_upload();"
+                     enabled="false"
+                     />
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- MERGE JOBS LIST -->
+         <mx:SetProperty
+            name="text"
+            target="{this.dblbw_control.bware_title}"
+            value="Monitor Map Package Jobs"
+            />
+         <mx:AddChild
+            relativeTo="{this.dblbw_control.collapsible_area}"
+            position="lastChild">
+            <mx:target>
+               <mx:VBox
+                  width="100%">
+                  <views_panel_branch:Widget_Shapefile_List
+                     id="widget_shapefile_list"
+                     width="100%"
+                     height="100%"/>
+                  <mx:HBox
+                     width="100%"
+                     paddingBottom="3"
+                     horizontalAlign="right">
+                     <!-- BUG nnnn: Auto-update the list. -->
+                     <views_panel_util:Button_Small
+                        id="button_shpf_refresh"
+                        label="Refresh"
+                        toolTip="Refresh the package list."
+                        click="this.on_shpf_refresh();"
+                        enabled="true"
+                        />
+                     <views_panel_util:Paginator_Widget
+                        id="shapeio_list_pager"
+                        width="100%"
+                        horizontalAlign="right"
+                        paddingRight="1"
+                        paddingTop="3"
+                        paddingBottom="1"
+                        horizontalGap="0"
+            visible="true"
+            includeInLayout="{this.shapeio_list_pager.visible}"
+                        />
+                  </mx:HBox>
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_base:states>
+
+</views_panel_base:Detail_Panel_Base>
+

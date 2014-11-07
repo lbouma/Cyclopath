@@ -1,0 +1,178 @@
+This is from the original MetC Import script, 
+from landonb when I wrote it in the Fall of 2011.
+Lots of unanswered questions... and hopefully lots of answered ones, too.
+
+###############################################################
+# PROCESS: Lots of notes!
+
+# BUG nnnn: How do you make a byway group? 
+#           All connected, same name, same geofeature_layer type.
+#           Grad student brought this up.
+#           Another way to think of it: /byway/group/UUID/1234-5678-90AB-DEF
+#             is the attr defn, then link_values for each street
+#             you could name the attr defn: "byway name (layer type)"
+
+#  bug nnnn: soft-conflicts: for geom changes
+#  or is there a generic "show me changes of type x" feature?
+
+# bug nnnn -- gui cleanup per useability study (notebook)
+
+# Bug nnnn -- look for node IDs used by only one byway
+#             i.e., find things disconnected from the network
+
+# defer link_attr perms panel? just use same perms as attr?
+#       of just spec. nip in this file and forego gui panels where you can
+# what about conflicts: any way to fudge on that? maybe put the checkbox 
+# widget in search and code the multi-search results editing feature?
+#   or are they basically the same but i use different panels for the
+#     collection of geofeatures? wait, and links and attributes, cause those
+#     could be in conflict, too... but for first go, only geofeatures in
+#     conflict: those that are split, and those that are new from metc
+#   or maybe for those from metc i just tag them and then we use search to find
+#     them... maybe do the same for those that are split: tag them, and use
+#     search with checkbox widget to bulk-edit them, and then you can impl. the
+#     historic and diff features in the item panels.
+#   maybe you don't need branch_conflicts: maybe it's just a boolean
+#     attribute... and you use search to find and manipulate them...
+#   but how do you show the conflicting items? the one from the other branch
+#     and the new one?
+#   and how do you mark which one to keep and not? and keep a record?
+#   maybe panel isn't that hard to do... and maybe reusing checkbox widget will
+#     be easy to do with bcs and with search...
+
+# FIXME: How do you visualize multiple attributes simultaneously? just draw 
+#        lines of narrowing widths on top of one another, to make a striped 
+#        sandwich? what about enums: can you make value sets, so you color a 
+#        subset of the values one color? otherwise each value gets its own
+#        color, or you're forced to choose just one value to visualize. 
+#        can you combine multiple attributes into the same visualization?
+#        would this be an OR or an AND relationship? could you make a nifty
+#        user interface to build the visualization rules?
+
+# BUG nnnn: If link_value is view-only, flashclient shows label and not stepper
+
+      # BUG nnnn: Make attrs for diff btw bikeways and ccp, like one_way,
+      # shoulder width?, etc. where each source has its own attribute? Maybe
+      # this is a computational diff we can do... in flashclient? in pyserver
+      # when sending branch conflicts? Could this be a "special" link_value
+      # type, i.e., value_function. Or value_custom? value_computed?
+
+      # Bug nnnn: Keep track of the number of splits we made to a Ccp byway, so
+      #           we can look at byways that got split a lot (just curious if
+      #           they're okay, ya know =). Implement this in search: given a
+      #           byway, find all unique stack IDs that have the same
+      #           split_from_stack_id
+
+"""
+
+STACK ID 988647 has Shoulder >= 5' buy AGY_ID is 0
+   and SRCSTATE is Standalone
+
+williston rd and mtka blvd
+
+1. "invalid" conflation state
+2. some xys near middle of byway
+3. see george haun trail near excelsior/france for xy close to but not touching
+   existing end pt
+
+
+
+ccp 'sidewalk' and bikeways 'paved trail' is a good check...
+
+lyndale elem has a funny disconnected trail that exists in both data sets...
+with almost the exact same geometry...
+indian blvd s has a school with similar issue -- geom matches in bikeways and
+  ccp and is not connected to graph.
+
+you need a parking lot classification!
+or maybe Private Road (Alley) and Private Road (Parking)
+
+
+besides finding lone byways (whose nodes dont connect to other byways), 
+  find connected byways islands, e.g., 99% of byways are connected, then 
+  there are pockets of unconnected byways
+
+
+BUG nnnn: node id / xy problem
+BUG nnnn: 20% of nodes on dead-end streets?? whaddupwiththat?
+
+
+BUG nnnn: mobile crowdsourcing app for speed limit data.
+alert you for input, tell you street it thinks you are 
+on and direction of travel and tells you the guessed 
+speed limit and asks you to confirm or offers you additional 
+guesses and other/slider to enter custom. once entered, should 
+have a bug undo button in case you fudged it.
+this should be the next big feature in mobile. well, you should 
+use mobile first and see how much you like it....
+
+
+does dict[pt] really work?? --> yes, it is a set, and sets are smart
+
+
+river bottoms has unpaved trail
+bikeways data applies proposed+paved
+some bikeways data is standalone for same
+ >> question: whats the bike facility?
+    unpaved trail + paved proposed??? how will you viz this?
+
+
+Bug nnnn: maybe the endpoint problem is due to precision?
+Bug nnnn: What is the nnnn for the endpoint problem?
+
+
+
+
+1. are node IDs sacred? i.e., permissionless?
+1b. obv, you dont want to assign node-ness across branches
+1c. asserting connectivity should be marked 'a guess' and require 
+    auditing (e.g., zlevel, etc.)
+2. use py mod to create cache for branch and revision, then delete later?
+
+q: what is zlevel of incoming bikeways features?
+
+
+BUG nnnn: connectivity_audit:
+          analyze database and find node ids with dishomogeneous xys
+
+
+new attrs: matched_node_xy_confidence, 0 to 100%, based on radius (use 99% if
+                       guessed but very confident, 100% for user-verified)
+                      analyze existing node xys to calculate spread, then use 
+                      logarithmic algorithm to assign confidence
+           matched_node__z_confidence, 0 to 100%, based on classifications:
+              two motorized nodes more likely to be connect, but anyway, when 
+              there is a brige, there is not usually a node at the geometry 
+              intersection, since there are just two line segments...
+
+
+
+also: mark as unverified, since you dont know zlevel of new byway...
+speaking of zlevel, what is the zlevel of new byways?
+
+Can I add fields to the shapefile layer or file? like, branch ID, etc.
+
+BUG nnnn: send fewer decimal places to flashclient.
+
+# FIXME: Ignore 'Other'. Put into layer in target but do not import into Ccp.
+# Stack ID 1106726: "Type" = 'Other', meaning, no information, so ignore...
+
+Bug nnnn: kind of like how this conflation script combines segments, write a 
+          script to unsegmentize all byways. make an equality operator and 
+          compare pairs of byways.... or maybe make list of byway names and 
+          use all non-null names to come up with our own 'TID'.
+
+# BUG nnnn: [Statewide] When re-combining (or splitting) features from
+# conflation, need to recalculate m-values.
+
+BUG nnnn: Like conny_audit, write script to try to combine byways.
+
+
+
+2011.11.21: only thing I am missing is split byway attachments?
+
+"""
+
+#                                                           ###
+###############################################################
+

@@ -1,0 +1,154 @@
+# 2011.06.17: 
+#   This is an example VirtualHost section for an Ubuntu 9.04
+#     sites-available/ file.
+#   The Cyclopath dev dir resides at /export/scratch/ccp/dev/.
+
+<VirtualHost *:8099>
+
+    ServerName your_machine.cs.umn.edu
+
+    ServerAdmin your_name@localhost
+    
+    # Don't forget to also set PythonPath below.
+    DocumentRoot /export/scratch/ccp/dev/cp_1997/htdocs
+
+    PythonInterpreter minnesota
+
+    # By default, serve nothing
+    <Directory />
+        Options FollowSymLinks
+        AllowOverride None
+    </Directory>
+
+    # Don't serve .svn directories
+    <DirectoryMatch "\.svn/">
+        Deny from all
+    </DirectoryMatch>
+
+    # DocumentRoot / Static files
+    <Directory /export/scratch/ccp/dev/cp_1997/htdocs>
+        Options FollowSymLinks
+        AllowOverride None
+        Order allow,deny
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        # Default caching policy: caches can go 1 hour between re-validations
+        <IfModule !mpm_winnt.c>
+         Header set Cache-Control "max-age=3600, must-revalidate"
+        </IfModule>
+    </Directory>
+
+    # Home page (http://cyclopath.org/)
+    Alias /home/ /export/scratch/ccp/dev/cp_1997/mediawiki/home/
+    <Directory /export/scratch/ccp/dev/cp_1997/mediawiki/home>
+        Options FollowSymLinks
+        AllowOverride None
+        Order allow,deny
+        Allow from all
+    </Directory>
+
+    ## Mikhil's experiment "Better CP by Spring! (2011)"
+    #
+    # BUG 1998: Remove this code someday. ** begin-compliance
+    #
+    # BetterCP Assets 
+    Alias /bettercp/assets /export/scratch/ccp/dev/cp_1997/bettercp/assets
+    <Directory /export/scratch/ccp/dev/cp_1997/bettercp/assets> 
+        Options FollowSymLinks 
+        AllowOverride None 
+        Order allow,deny 
+        Allow from all 
+    </Directory>
+    # BetterCP Scripts
+    ScriptAlias /bettercp /export/scratch/ccp/dev/cp_1997/bettercp
+    <Directory /bettercp>
+        AllowOverride Options
+        Order allow,deny
+        Allow from all
+        Options +ExecCGI
+        AddHandler cgi-script .cgi
+    </Directory>
+
+    ## Cyclopath
+
+    # MapServer
+    # UBUNTU:
+    #    Alias /wms /ccp/opt/mapserver/mapserv
+    # FEDORA
+    #    Alias /wms /usr/sbin/mapserv
+    Alias /wms /export/scratch/reid/mapserver/mapserv
+    <Location /wms>
+        Order allow,deny
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        SetHandler cgi-script
+        Options +ExecCGI
+        SetEnv MS_MAPFILE /export/scratch/ccp/dev/cp_1997/mapserver/wms.map
+    </Location>
+
+    # TileCache via mod_python
+    <Location /tilec>
+        Order allow,deny
+        Allow from all
+        SetHandler mod_python
+        PythonHandler TileCache.Service
+        PythonPath "['/export/scratch/reid/tilecache'] + sys.path"
+        PythonOption TileCacheConfig /export/scratch/reid/tilecache/tilecache.cfg
+    </Location>
+
+    # Try to fix browsers re-loading stale versions of main.swf: allow only
+    # one second before re-validating.
+    <Location /main.swf>
+        Header set Cache-Control "max-age=1, must-revalidate"
+    </Location>
+
+    # WFS Pysever via mod_python
+    <Location /wfs>
+        Order allow,deny 
+        #Allow from all
+        Allow from .umn.edu
+        Allow from .cs.umn.edu
+        Allow from localhost
+        Allow from 127.0.0.1
+        # No caching directives for the pyserver
+        Header unset Cache-Control
+
+        SetOutputFilter DEFLATE
+
+        SetHandler mod_python
+        PythonDebug On
+        PythonPath "['/export/scratch/ccp/dev/cp_1997/pyserver', '/export/scratch/ccp/dev/cp_1997/pyserver/bin/winpdb', '/export/scratch/ccp/opt/usr/lib/python/', '/export/scratch/ccp/opt/usr/lib/python2.6/site-packages/'] + sys.path"
+        PythonHandler wfs_mod_python
+    </Location>
+
+    # Instance assets (logo, etc.)
+    Alias /instance /export/scratch/ccp/dev/cp_1997/htdocs/instance/minnesota
+
+    ErrorLog /var/log/apache2/error.log
+
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel warn
+
+    LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %{ptime}e" combinedplus
+    CustomLog /var/log/apache2/access.log combinedplus
+    ServerSignature On
+
+    # 2009.12.28 Winpdb debugger
+    <IfModule mpm_prefork_module>
+        StartServers            1
+        MinSpareServers         1
+        MaxSpareServers         1
+        MaxClients              1
+        MaxRequestsPerChild     1000
+    </IfModule>
+
+</VirtualHost>
+
+

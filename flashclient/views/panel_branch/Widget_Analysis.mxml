@@ -1,0 +1,799 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_commands="views.commands.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   verticalScrollPolicy="auto"
+   label="Analysis"
+   activate="this.on_activate(event)"
+   >
+   <!--
+   MAYBE: Should this panel be called Cycloplan?
+          Maybe Cycloplan also includes Import and Export...
+   label="Cycloplan"
+   -->
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.net.FileReference;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import grax.Item_Manager;
+      import gwis.GWIS_Base;
+      import gwis.GWIS_Checkout_Count;
+      import gwis.GWIS_Checkout_Nonwiki_Items;
+      import gwis.GWIS_Commit;
+      import gwis.utils.Query_Filters;
+      import items.jobsq.Route_Analysis_Job;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Tab_Br_BRts');
+
+      // SYNC_ME: services/route_analysis/rider_profiles.yml
+      //          services/route_analysis/route_analysis.py
+      //          flashclient/views/panel_branch/Widget_Analysis.mxml
+      protected static const rider_profiles:Array = [
+         'shortest distance',
+         // SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.rating_pows
+         //          services.route_analysis.rider_profiles.yml
+         //          flashclient.views.panel_branch.Widget_Analysis.mxml
+         'user ratings /   2x',
+         'user ratings /   4x',
+         'user ratings /   8x',
+         'user ratings /  16x',
+         'user ratings /  32x',
+         'user ratings /  64x',
+         'user ratings / 128x',
+         // SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.burden_vals
+         //          services.route_analysis.rider_profiles.yml
+         //          flashclient.views.panel_branch.Widget_Analysis.mxml
+         'bike facilities 10%',
+         'bike facilities 20%',
+         'bike facilities 40%',
+         'bike facilities 65%',
+         'bike facilities 90%',
+         'bike facilities 95%',
+         'bike facilities 98%',
+      ];
+
+      protected static const rider_profiles_lookup:Object = {
+         'shortest distance': 'fastest',
+         // SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.rating_pows
+         //          services.route_analysis.rider_profiles.yml
+         //          flashclient.views.panel_branch.Widget_Analysis.mxml
+         'user ratings /   2x' : 'rating_spread_02',
+         'user ratings /   4x' : 'rating_spread_04',
+         'user ratings /   8x' : 'rating_spread_08',
+         'user ratings /  16x' : 'rating_spread_16',
+         'user ratings /  32x' : 'rating_spread_32',
+         'user ratings /  64x' : 'rating_spread_64',
+         'user ratings / 128x' : 'rating_spread_128',
+         // SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.burden_vals
+         //          services.route_analysis.rider_profiles.yml
+         //          flashclient.views.panel_branch.Widget_Analysis.mxml
+         'bike facilities 10%' : 'facility_willingness_10',
+         'bike facilities 20%' : 'facility_willingness_20',
+         'bike facilities 40%' : 'facility_willingness_40',
+         'bike facilities 65%' : 'facility_willingness_65',
+         'bike facilities 90%' : 'facility_willingness_90',
+         'bike facilities 95%' : 'facility_willingness_95',
+         'bike facilities 98%' : 'facility_willingness_98'
+      };
+
+      protected static const rt_sources:Array = [
+         'User-requested',
+         'Synthetic',
+         'Past job',
+      ];
+
+      // ***
+
+      protected var jobs_page:Array = null;
+      protected var page_number:int = 0;
+      protected var is_active:Boolean = false;
+
+      // ***
+
+      //
+      override public function get closeable() :Boolean
+      {
+         return true;
+      }
+
+      // FIXME: This fcn. copied from (or very similar to) Widget_Shapefiles.
+      //        Move this to a common base class that both classes derive from.
+      //
+      public function jobs_list_refresh() :void
+      {
+         m4_INFO('jobs_list_refresh called')
+         var gwis_req:GWIS_Base;
+         var qfs:Query_Filters = null;
+
+         // Get the jobs' access_styles.
+         // MAYBE: Implement this is you think users should be able to change
+         //        work_item pemissions.
+         // Skipping: qfs.include_item_stack = true;
+
+         // FIXME: This should not be commented like this. Make pager work.
+         //if (this.broutes_list_pager.records_per_page > 0) {
+         if (true) {
+            this.widget_analysis_list.reset_list();
+            var callback_load:Function = null;
+            var callback_fail:Function = null;
+            callback_load = this.widget_analysis_list.consume_work_items;
+            gwis_req = new GWIS_Checkout_Nonwiki_Items(
+               'route_analysis_job', qfs, this.broutes_list_pager,
+               callback_load, callback_fail);
+            var found_duplicate:Boolean;
+            found_duplicate = G.map.update_supplemental(gwis_req);
+            m4_ASSERT_SOFT(!found_duplicate);
+            // Also get a total count of records, if the value is not fresh.
+            // FIXME: Unsure about when/when not to do this.
+            //if (this.broutes_list_pager.records_total_count == 0) {
+            if (true) {
+               qfs = new Query_Filters();
+               qfs.include_item_stack = false;
+               gwis_req = new GWIS_Checkout_Count(
+                  'route_analysis_job', this.broutes_list_pager, qfs);
+               found_duplicate = G.map.update_supplemental(gwis_req);
+               m4_ASSERT_SOFT(!found_duplicate);
+            }
+         }
+         else {
+            m4_WARNING('jobs_list_refresh: not on_initialized!');
+         }
+      }
+
+      //
+      public function jobs_queue_callback(resp:XML) :void
+      {
+         m4_DEBUG('jobs_queue_callback: resp:', resp.toXMLString())
+         // FIXME: Figure out the length thingy.
+         m4_ASSERT(resp.length <= 4);
+         var job_content:XML;
+
+
+// FIXME:
+         for each (job_content in resp[0].*) {
+//FIXME: first child is top-level doc
+            m4_DEBUG('jobs_queue_callback: job:', job_content.toXMLString())
+         }
+      }
+
+      //
+      protected function list_control_callback() :void
+      {
+         m4_DEBUG('list_control_callback: fetching jobs page');
+         this.jobs_list_refresh();
+      }
+
+      //
+      protected function on_activate(ev:Event) :void
+      {
+         // This is called when the user clicks on the item details tab (before
+         // the Study subtab) or on flashclient load (just once).
+         m4_DEBUG('on_activate: BROUTES: this:', this);
+
+         this.is_active = true;
+
+         // NOTE: Cyclopath is not so much MVC as it as M and VC, i.e., we have
+         // a model class and a view/controller class. This is the
+         // view/controller class, so it's okay that we store the shapeio list
+         // herein.
+         if (this.broutes_list_pager.current_page_number == 0) {
+            if (G.item_mgr.active_branch !== null) {
+               // First time being activated.
+               m4_DEBUG('on_activate: fetching jobs page');
+               this.broutes_list_pager.current_page_number = 1;
+               this.jobs_list_refresh();
+            }
+            else {
+               m4_WARNING('on_activate: branch not active yet!');
+            }
+         }
+         else {
+            m4_DEBUG('on_activate: already got page');
+         }
+
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+         this.register_widgets([this.widget_analysis_list,]);
+
+         // MAYBE: Why not use this.panel_base_state?
+         this.change_state('bware_init');
+
+         // Only allow one accordion at a time...
+         this.dblbw_create.click_callback = this.on_dblbw_click;
+         this.dblbw_control.click_callback = this.on_dblbw_click;
+
+         m4_DEBUG('on_initialize: addEventListener: branchChange');
+         G.item_mgr.addEventListener('branchChange',
+                                     this.on_active_branch_change);
+
+         m4_DEBUG('on_initialize: addEventListener: regionsLoaded');
+         G.item_mgr.addEventListener('regionsLoaded',
+                                     this.on_regions_loaded);
+
+         m4_DEBUG('on_initialize: addEventListener: revisionChange');
+         G.item_mgr.addEventListener('revisionChange',
+                                     this.on_revision_change);
+
+         this.broutes_list_pager.type_plural = 'jobs';
+         this.broutes_list_pager.list_control_callback =
+            this.list_control_callback;
+
+         //this.broutes_list_pager.paginator = this.paginator;
+         // MAGIC NUMBER
+         //this.paginator.records_per_page = 4;
+         //this.paginator.current_page_number = 0;
+         this.broutes_list_pager.records_per_page = 4;
+         //this.broutes_list_pager.current_page_number = 0;
+
+         this.broutes_list_pager.p_collect =
+            this.widget_analysis_list.data_grid_content;
+
+         this.on_active_branch_change();
+         this.on_regions_loaded();
+         this.on_revision_change();
+      }
+
+      // FIXME: Make base class: Shared by Widget_Analysis & Widget_Shapefiles.
+      //
+      protected function on_dblbw_click(ctl:Double_Borderware) :void
+      {
+         const dblbws:Array = [this.dblbw_create,
+                               this.dblbw_control];
+         for each (var dblbw:Double_Borderware in dblbws) {
+            if (dblbw !== ctl) {
+               dblbw.force_collapse();
+            }
+         }
+      }
+
+      //
+      override public function panel_title_get() :String
+      {
+         return 'Route Analysis';
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         m4_DEBUG('repopulate: BROUTES: this:', this);
+         super.repopulate();
+      }
+
+      // ***
+
+      //
+      public function on_active_branch_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_active_branch_change: BROUTES:');
+
+         // FIXME: this.stepper_value_stepsize.maximum = G.rev??;
+
+         // Reset the jobs list.
+         this.widget_analysis_list.reset_list();
+
+         this.broutes_list_pager.current_page_number = 1;
+
+         var enable_buttons:Boolean = false;
+         if (G.item_mgr.active_branch !== null) {
+            m4_DEBUG('on_active_branch_change:', G.item_mgr.active_branch);
+            enable_buttons = true;
+            this.on_activate(null);
+         }
+         else {
+            enable_buttons = false;
+// FIXME: Reset jobs list.
+         }
+
+         this.button_bros_schedule.enabled = enable_buttons;
+         this.stepper_revision_id.enabled = enable_buttons;
+         if (!(enable_buttons)) {
+            this.stepper_revision_id.maximum = 1;
+            this.stepper_revision_id.value = 1;
+         }
+      }
+
+      //
+      protected function on_bros_refresh() :void
+      {
+         m4_DEBUG('on_bros_refresh');
+         this.jobs_list_refresh();
+      }
+
+      //
+      protected function on_bros_schedule() :void
+      {
+         m4_DEBUG('on_bros_schedule');
+         m4_DEBUG('route_analysis_job_create');
+         var new_job:Route_Analysis_Job = new Route_Analysis_Job();
+         new_job.name_ = this.route_analysis_job_name.text;
+         new_job.n = int(this.route_analysis_job_n.text);
+         new_job.revision_id = int(this.stepper_revision_id.value);
+         new_job.regions_ep_name_1 = this.ra_job_regions_ep_name_1.text;
+         new_job.regions_ep_tag_1 = this.ra_job_regions_ep_tag_1.text;
+         new_job.regions_ep_name_2 = this.ra_job_regions_ep_name_2.text;
+         new_job.regions_ep_tag_2 = this.ra_job_regions_ep_tag_2.text;
+         new_job.rider_profile = Widget_Analysis.rider_profiles_lookup[
+            this.route_analysis_job_rider_profile.text];
+         switch (this.route_analysis_job_rt_source.selectedItem) {
+            case 'User-requested':
+               new_job.rt_source = 1;
+               new_job.cmp_job_name = '';
+               break;
+            case 'Synthetic':
+               new_job.rt_source = 2;
+               new_job.cmp_job_name = '';
+               break;
+            case 'Past job':
+               new_job.rt_source = 3;
+               new_job.cmp_job_name =
+                  this.route_analysis_job_cmp_job_name.text;
+               break;
+            default:
+               new_job.rt_source = 1;
+               new_job.cmp_job_name = '';
+               break;
+         }
+
+         Item_Manager.do_job(new_job, 'create', this.on_commit_resp);
+      }
+
+      // FIXME: What's the response? An Array of... items? Error codes?
+      //
+      protected function on_commit_resp(gwis_req:GWIS_Commit,
+                                        rset:XML, payload:*=null) :void
+      {
+         m4_DEBUG('on_commit_resp');
+         // FIXME: What do I do? Probably look for response code... or assume
+         // if we're here than GWIS_Error was not throw, so we can just refresh
+         // the work item list, mayhaps. And check that a new job is detected?
+         this.jobs_list_refresh();
+         // Switch to the My Studies screen.
+         this.dblbw_control.on_mouse_click(null); // cheater...
+      }
+
+      //
+      protected function on_regions_loaded(event:Event=null) :void
+      {
+         m4_DEBUG2('on_regions_loaded: regions_list.len:',
+                   G.map.regions_list.length);
+         //if (G.map.regions_list !== null) {
+            this.ra_job_regions_ep_name_1.dataProvider
+               = G.map.regions_list;
+            this.ra_job_regions_ep_name_2.dataProvider
+               = G.map.regions_list;
+         //}
+
+         //var new_width:int = this.route_analysis_job_n.width;
+         var new_width:int = this.route_analysis_job_name.width;
+         // MAGIC_NUMBER: 120 is too wide of a column for our sidepanelbarmenu.
+         if (new_width < 120) {
+            new_width = 120;
+         }
+
+         this.ra_job_regions_ep_name_1.width = new_width;
+         this.ra_job_regions_ep_name_2.width = new_width;
+
+         this.ra_job_regions_ep_name_1.selectedIndex = -1;
+         this.ra_job_regions_ep_name_2.selectedIndex = -1;
+      }
+
+      //
+      protected function on_revision_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_revision_change');
+
+         var rev_hist:utils.rev_spec.Historic
+            = (G.map.rev_viewport as utils.rev_spec.Historic);
+
+         m4_ASSERT(G.map.rev_viewport !== null);
+         m4_ASSERT(G.map.rev_mainline !== null);
+         var rid_showing:int;
+         if (G.map.rev_workcopy !== null) {
+            rid_showing = G.map.rev_workcopy.rid_last_update;
+         }
+         else if (rev_hist !== null) {
+            rid_showing = rev_hist.rid_old;
+         }
+         // else, Diff, so disable....
+         if (rid_showing) {
+            this.stepper_revision_id.maximum = rid_showing;
+            this.stepper_revision_id.value = rid_showing;
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      height="100%"
+      verticalAlign="top"
+      styleName="optgroupMmSixes"
+      >
+      <!--
+      paddingTop="0"
+      paddingBottom="1"
+      verticalGap="2"
+      -->
+
+      <!-- BROUTES JOBS LIST -->
+      <views_panel_util:Double_Borderware
+         width="100%"
+         id="dblbw_control"
+         />
+
+      <!-- START NEW TASK -->
+      <views_panel_util:Double_Borderware
+         width="100%"
+         id="dblbw_create"
+         />
+
+   </mx:VBox>
+
+   <views_panel_base:states>
+
+      <mx:State
+         name="bware_init">
+
+         <!-- MY STUDIES LIST -->
+         <mx:SetProperty
+            name="text"
+            target="{this.dblbw_control.bware_title}"
+            value="My Studies"
+            />
+         <mx:AddChild
+            relativeTo="{this.dblbw_control.collapsible_area}"
+            position="lastChild">
+            <mx:target>
+               <mx:VBox
+                  width="100%">
+                  <views_panel_branch:Widget_Analysis_List
+                     id="widget_analysis_list"
+                     width="100%"
+                     height="100%"/>
+                  <mx:HBox
+                     width="100%"
+                     paddingBottom="3"
+                     horizontalAlign="right">
+                     <!-- BUG nnnn: Auto-update the list. -->
+                     <views_panel_util:Button_Small
+                        id="button_bros_refresh"
+                        label="Refresh"
+                        toolTip="Refresh the study list."
+                        click="this.on_bros_refresh();"
+                        />
+                     <views_panel_util:Paginator_Widget
+                        id="broutes_list_pager"
+                        width="100%"
+                        horizontalAlign="right"
+                        paddingRight="1"
+                        paddingTop="3"
+                        paddingBottom="1"
+                        horizontalGap="0"
+                        visible="true"
+                        includeInLayout="{this.broutes_list_pager.visible}"
+                        />
+                  </mx:HBox>
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+
+         <!-- START NEW TASK -->
+         <mx:SetProperty
+            name="text"
+            target="{this.dblbw_create.bware_title}"
+            value="Start New Route Analysis Study"
+            />
+         <mx:AddChild
+            relativeTo="{this.dblbw_create.collapsible_area}"
+            position="lastChild">
+            <mx:target>
+               <mx:VBox
+                  width="100%">
+                  <mx:Grid
+                     width="100%"
+                     verticalGap="7"
+                     horizontalGap="2"
+                     paddingLeft="2"
+                     paddingRight="2"
+                     paddingBottom="5">
+
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <mx:Label
+                              text="Name of job:"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <mx:TextInput
+                              id="route_analysis_job_name"
+                              paddingTop="-3"
+                              paddingBottom="0"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                         width="100%">
+                       <mx:GridItem
+                           horizontalAlign="left">
+                         <mx:Label
+                             text="Revision:"/>
+                       </mx:GridItem>
+                       <mx:GridItem
+                           horizontalAlign="left">
+                         <mx:NumericStepper
+                             id="stepper_revision_id"
+                             stepSize="1"
+                             minimum="1"
+                             maximum="1000000"
+                             maxChars="5"
+                             value="1000000"/>
+                       </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <mx:Label
+                              text="Select routes:"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <mx:ComboBox
+                              id="route_analysis_job_rt_source"
+                              dataProvider="{Widget_Analysis.rt_sources}"
+                              paddingTop="-3"
+                              paddingBottom="0"/>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                        id="past_job_row"
+                        includeInLayout="
+               {this.route_analysis_job_rt_source.selectedItem == 'Past job'}"
+                        visible="{this.past_job_row.includeInLayout}"
+                        width="100%">
+                        <mx:GridItem
+                           colSpan="2"
+                           horizontalAlign="left">
+                           <mx:VBox
+                              width="100%"
+                              borderStyle="solid"
+                              backgroundColor="{Conf.branch_conflict_color}"
+                              paddingTop="3"
+                              paddingRight="1"
+                              paddingBottom="2"
+                              paddingLeft="10">
+                              <mx:HBox
+                                 width="100%">
+                                <mx:Label
+                                   text="Job name:"/>
+                                <mx:TextInput
+                                   id="route_analysis_job_cmp_job_name"
+                                   width="100%"
+                                   paddingTop="-3"
+                                   paddingBottom="0"/>
+                              </mx:HBox>
+                           </mx:VBox>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                        id="non_past_job_row"
+                        includeInLayout="
+               {this.route_analysis_job_rt_source.selectedItem != 'Past job'}"
+                        visible="{this.non_past_job_row.includeInLayout}"
+                        width="100%">
+                        <mx:GridItem
+                           colSpan="2"
+                           horizontalAlign="left">
+                           <mx:VBox
+                              width="100%"
+                              borderStyle="solid"
+                              backgroundColor="{Conf.branch_conflict_color}"
+                              paddingTop="3"
+                              paddingRight="1"
+                              paddingBottom="2"
+                              paddingLeft="10">
+                              <mx:Grid
+                                 width="100%"
+                                 verticalGap="7"
+                                 horizontalGap="2"
+                                 paddingLeft="0"
+                                 paddingRight="0"
+                                 paddingBottom="0">
+                                 <mx:GridRow>
+                                    <mx:GridItem
+                                       horizontalAlign="left">
+                                       <mx:Label
+                                          text="No. of routes:"/>
+                                    </mx:GridItem>
+                                    <mx:GridItem
+                                       horizontalAlign="left">
+                                       <mx:TextInput
+                                          width="100%"
+                                          id="route_analysis_job_n"
+                                          paddingTop="-3"
+                                          paddingBottom="0"/>
+                                    </mx:GridItem>
+                                 </mx:GridRow>
+                                 <mx:GridRow
+                                    width="100%">
+                                    <mx:GridItem
+                                       horizontalAlign="left">
+                                       <mx:Label
+                                          text="From Regions:"/>
+                                    </mx:GridItem>
+                                    <mx:GridItem
+                                       width="100%"
+                                       horizontalAlign="left">
+
+                                       <mx:Grid>
+                                          <mx:GridRow
+                                             width="100%">
+                                             <mx:GridItem
+                                                horizontalAlign="left">
+                                                <mx:Label
+                                                   text="By name:"/>
+                                             </mx:GridItem>
+                                             <mx:GridItem
+                                                width="100%"
+                                                horizontalAlign="left">
+                                                <utils_misc:AutoComplete
+                                             id="ra_job_regions_ep_name_1"
+                                                   itemName="region"
+                                                   labelField = "name_"
+                                                   width="100%"
+                                                   lookAhead="false"
+                                                   openDuration="0"/>
+                                             </mx:GridItem>
+                                          </mx:GridRow>
+
+                                          <mx:GridRow
+                                             width="100%">
+                                             <mx:GridItem
+                                                horizontalAlign="left">
+                                                <mx:Label
+                                                   text="By tag:"/>
+                                             </mx:GridItem>
+                                             <mx:GridItem
+                                                width="100%"
+                                                horizontalAlign="left">
+                                                <mx:TextInput
+                                             id="ra_job_regions_ep_tag_1"
+                                                   width="100%"/>
+                                             </mx:GridItem>
+                                          </mx:GridRow>
+                                       </mx:Grid>
+
+                                    </mx:GridItem>
+                                 </mx:GridRow>
+                                 <mx:GridRow
+                                    width="100%">
+                                    <mx:GridItem
+                                       horizontalAlign="left">
+                                       <mx:Label
+                                          text="To Regions:"/>
+                                    </mx:GridItem>
+                                    <mx:GridItem
+                                       width="100%"
+                                       horizontalAlign="left">
+                                       <mx:Grid>
+                                          <mx:GridRow
+                                             width="100%">
+                                             <mx:GridItem
+                                                horizontalAlign="left">
+                                                <mx:Label
+                                                   text="By name:"/>
+                                             </mx:GridItem>
+                                             <mx:GridItem
+                                                width="100%"
+                                                horizontalAlign="left">
+                                                <utils_misc:AutoComplete
+                                             id="ra_job_regions_ep_name_2"
+                                                   itemName="region"
+                                                   labelField = "name_"
+                                                   width="100%"
+                                                   lookAhead="false"
+                                                   openDuration="0"/>
+                                             </mx:GridItem>
+                                          </mx:GridRow>
+
+                                          <mx:GridRow
+                                             width="100%">
+                                             <mx:GridItem
+                                                horizontalAlign="left">
+                                                <mx:Label
+                                                   text="By tag:"/>
+                                             </mx:GridItem>
+                                             <mx:GridItem
+                                                width="100%"
+                                                horizontalAlign="left">
+                                             <mx:TextInput
+                                                id="ra_job_regions_ep_tag_2"
+                                                width="100%"/>
+                                             </mx:GridItem>
+                                          </mx:GridRow>
+                                       </mx:Grid>
+                                    </mx:GridItem>
+                                 </mx:GridRow>
+                              </mx:Grid>
+                           </mx:VBox>
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <mx:Label
+                              text="Route algorithm:"/>
+                        </mx:GridItem>
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <!-- MAGIC_NUMBER: rowCount matches no. elems. in
+                                              rider_profiles. -->
+                           <mx:ComboBox
+                              id="route_analysis_job_rider_profile"
+                              dataProvider="{Widget_Analysis.rider_profiles}"
+                              paddingTop="-3"
+                              paddingBottom="0"
+                              rowCount="6"
+                              />
+                        </mx:GridItem>
+                     </mx:GridRow>
+
+                     <mx:GridRow
+                        width="100%">
+                        <mx:GridItem
+                           horizontalAlign="left">
+                        </mx:GridItem>
+                        <mx:GridItem
+                           horizontalAlign="left">
+                           <views_panel_util:Button_Small
+                              id="button_bros_schedule"
+                              label="Schedule Operation"
+                              toolTip=
+               "Schedule the operation. The server will process it in the background. You can check on its progress in the list above."
+                              click="this.on_bros_schedule();"
+                              enabled="false"
+                              />
+                        </mx:GridItem>
+                     </mx:GridRow>
+                  </mx:Grid>
+               </mx:VBox>
+            </mx:target>
+         </mx:AddChild>
+
+      </mx:State>
+
+   </views_panel_base:states>
+
+</views_panel_base:Detail_Panel_Base>
+

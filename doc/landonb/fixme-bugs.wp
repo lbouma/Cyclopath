@@ -1,0 +1,506 @@
+
+2011.07.26: reenable cronjobs
+
+== Publish Branches ==
+
+Use special tags to publish branches to the branch list. ?
+  br_publish [for now]
+
+Or do all public branches go to branch list?
+Maybe put checkbox somewhere? "Publish to public branch list"?
+How does this differ from client vs. viewer access (that is, 
+sending deeplink as invite vs. using public branch list)
+
+== ==
+
+Bug nnnn: "Can't Find Route" 
+"Unable to find a route: A path to 1366072 could not be found"
+cs building to lake harriet bandshell 12:28 pm sunday 6/26
+
+== ==
+
+bug nnnn: cannot route to southdale mall bus (routed_v1)
+fairview southdale hospital to southdale mall bus: route not find (routed_v1)
+
+== Default Permissions ==
+
+// FIXME: V1 behavior is to make new regions private and to set the
+//        watcher flag. Should we still do this? Or would it be
+//        confusing if some new items default to public and others
+//        default to private? Edit rows in NIP table to achieve 
+//        desired 
+
+== ==
+
+BUG nnnn: Clicking link_rev should zoom map and make rev hist panel green bg,
+          but shouldn't change to rev hist panel (and rev hist should just 
+          be that revision? i.e., search_by_rev_id)
+BUG nnnn: 'New post in thread' revisions cause popup on Look At
+          (should be smart enough to disable Look At button for thread posts,
+           or -- better yet -- should go to the thread itself)
+BUG nnnn: Why is Revert Revisions enabled for New post in thread revisions?
+          Does it work? Should it just be disabled?
+
+V1 BUG?: Null geosummary error in discussions panel
+         can you reproduce by adding/deleting point? 
+         revision with no geometry? like revert discussion?
+
+Routes: Says Route Details when it's showing all routes, 
+        then says Routes when showing a single route's details
+        (because switches to item details panel: I DO NOT LIKE)
+        OH WAIT: It's a panel bug! Title updates when using tabs, 
+        but not when using buttons.
+        STILL: do not like that button does it like that. can you just 
+        embed route details in the route tab?
+
+From GWIS_Update:
+// FIXME When user pans, if mouse leaves Map_Canvas, either by going outside
+//       the browser window or by going over the Tool Palette, update happens 
+//       while user is still panning -- so maybe initiate Update if user pauses
+//       mouse but doesn't release it yet?
+
+From Item_Versioned, regarding the stack_id new/old bitmask
+      // NOTE I'm not sure why this scheme was chosen. I assume it's the
+      //      simplest to implement, but it puts a restriction on the number of
+      //      unique sequence IDs that the system supports. Nonethless, the
+      //      largest sequence ID is quite large; statistically, we'll never
+      //      hit it... well, unless we map the whole globe, then we should
+      //      figure something else out.
+      // FIXME Bug nnnn -- Only support 0x10000000 Ids... 268,435,456
+      //       (0x80000000 and above are interpreted as negative numbers?
+      //        or is that just a C-language thing (does Jave/Flex or Postgres 
+      //        have unsigned ints?))
+
+see comments in Item_Versioned's
+      override public function init(item_agg:Item_Aggregator) :Boolean
+about implementing via
+      this.init_update(null, item_agg);
+
+Item_Versioned.deleted is a getter/setter and only applies to working copy
+item the user has edited. That is, the server doesn't send deleted items. With
+Branch Conflicts, however, will we want the server to send deleted items, or
+can the client discern that on a Working_Copy_Update? I don't really see how...
+
+== Autosave ==
+
+Make a bug: just save as list of conflicts?
+
+Make a bunch of bugs for V2 review.
+
+== Threadwatching BUG NNNN ==
+
+wfs_PutFeature.py
+203       # Save thread watching
+204       for tw in self.threadwatching:
+205          if (tw[1]):
+206             self.req.db.insert_clobber('thread_watcher',
+207                                        { 'thread_id': tw[0],
+208                                          'username': self.req.username },
+209                                        { })
+210          else:
+211             self.req.db.sql('''DELETE FROM thread_watcher
+212                                WHERE thread_id=%d''' % tw[0])
+
+it deletes all users' thread watching?
+
+==== ====
+
+Mulitple items selected:
+label should say, in italics: (Varies)
+edit box should be label that says: (Varies -- Click here to change all)
+
+==  ==
+
+clean up chevrons (part of view mode)
+// FIXME Map chevrons are confusing! So are Editing Tools
+//       Hide them by default
+
+aerial photos dropdown on map (add to Cyclopath Lite?)
+
+search button is ridiculous
+make search button a search edit box!
+// FIXME move Find Route to route panel?
+//       click on map to start find route?
+         or maybe ctrl-click?
+
+// FIXME Add 'Get Started!' or some sort of Quickstart
+//       Search the map: [editbox]
+//         or find a route [two editboxes]
+//         or click once on the map where you want to start,
+//            click to pan and zoom to find your destination, 
+//            then ctrl-click [? or some special key combo] to 
+//            mark your destination, then automatically compute 
+//            route
+// FIXME MM --> with click-method, present bike-only route, but 
+//              also present button to calculate MM routes?
+
+== Inline docs ==
+
+/** 
+ See the help file
+*/
+
+http://livedocs.adobe.com/flex/3/html/help.html?content=asdoc_4.html
+
+== ==
+
+BUG 2447 General performance bug for Flashclient load, and other ops?
+
+see also SPEED tags in code comments
+
+do more lazy loading?
+
+== m4_WARNING ==
+
+         // FIXME Should all m4_ASSERT instead be m4_ASSERT_WARNING -- 
+         //         so we send the error to the server, not the client?
+
+m4_ASSERT_WARNING should log to the server
+m4_WARNING should log to server: really, anything > INFO
+
+== ==
+
+Update Working Copy: How can the client handle deleted items?
+it's lie a diff, but we already have the OLD, just need the NEW, 
+and so items that have _changed_, including deleted items, should 
+be sent. Fair enough.
+
+== ==
+
+FIXME: is_item_loaded just checks stack_id: do we need to worry about the diff bit mask?
+protected function is_item_loaded
+
+== ==
+
+Calculate and cache geosummary for branch?
+
+== Map_Canvas_Controller ==
+
+Keyboard shortcuts:
+// Control Panel shorts
+// FIXME: These are not discoverable
+case 99: // [c]onnectivity
+
+      // Mouse-up event handler.
+      public function on_mouseup(ev:MouseEvent) :void
+      {
+         m4_VERBOSE(this.tool_cur, 'on_mouseup', ev.stageX, ',', ev.stageY);
+         // FIXME: Clicking in GUI and then releasing mouse on Map cause 
+         //        objects to be deselected
+         this.tool_cur.mouseup(ev.stageX, ev.stageY, ev.shiftKey, ev.ctrlKey);
+      }
+
+also: panning and moving mouse outside of window causes pan to happen, without waiting for user to release mouse button
+
+      // Scroll zoom (only when ctrl is pressed)
+      // FIXME: Implement
+      public function on_mousewheel(ev:MouseEvent) :void {
+         /* Disabled for now...
+
+== Dialog Box Warnings ==
+
+Checkbox to say, "Don't show again", and Control Option option to reset all.
+And remember between sessions.
+
+
+== ==
+
+code evolution stats
+Plot line changes over _every_ release and put on grid w/ year on x-axis, line count on y-axis
+maybe a bar chart with lines changed for each checkin or each day...
+think of more...
+
+== Live Edit? ==
+
+When you impl view/edit modes, can you offer "Live Edit" mode?
+
+Ccp Lite's "View Mode":
+
+Change 
+  < > [Go To] 
+Move Edit Tools up,
+  make < > smaller arrows, touching edges
+  replace Go To with search box touching < > boxes
+  <-->[Search][Go]
+Do this when you add Fernando's stuff back
+
+Put Edit/View mode dropdown in map
+  based on Combo_Box_V2?
+    need intermediate class?
+
+Put Get Link dropdown in map
+
+== ==
+
+Auto-generate logging list
+os.walk, regex for log = ...
+
+== ==
+
+// How come it's 2011.03.24 and I just discovered that double-click a
+// block makes it vertices lock in place, so you can't drag them, just
+// the whole block?!
+
+== Mouse Bugs ==
+
+// FIXME: V1: Can only Delete vertex using backspace. 
+//        V2: Add shift- or ctrl- click to add/remove vertices
+
+== Basic Tab ==
+
+Notes/Discussions: use tabbed box widget that has both?
+
+Notes (3) | Discussions (0)
+
+== Byway Types ==
+
+Add alley
+Add parking lot byway type?
+let users specify new byway types?
+
+== ==
+
+Use BC to show all working copy dirty items?
+
+== ==
+
+if editing tools opens, pan map if it covers item?
+
+should undo/redo only apply to map items (geofeatures)?
+where would undo/redo go for other stuff?
+
+== Should be versioned? ==
+
+aadt and byway_rating seem like they should versioned
+and maybe they should be attributes...
+
+== ==
+
+Add to clean up project space:
+There's crap in /project/gl14/reid/ugly-export-scratch-reid.bak that you can delete.
+FIXME: Need to make list of files for Systems to scrub
+       (or maybe make find command that finds all files owned by Reid?)
+
+== ==
+
+Why doesn't track table have session_id like route table?
+Or why does route table have session_id, anyway?
+
+== ==
+
+FIXME: Discussions:
+         link_values not working
+           gf_name not being passed correctly
+           geometry not being read right
+           asserts when you do some things
+           test all four link_post types
+           link_revision SQL broken: don't link against geofeature table
+         not loading automatically
+         No Auto-complete in In Region
+         Mark read, and read what's marked read
+         Test saving new threads
+         Bug nnnn: Analyze network usage (is old discussions bug fixed?)
+         Bug nnnn: Add Pagination to both discussions panels
+
+== ==
+
+BUG nnnn: Type Drop-down is long, should make into multiple widths
+
+== ==
+
+BUG nnnn: V1: Does filtering search results on client (when user clicks
+radios) means pagination is wonky? wait, the command isn't even paginated!
+Bug nnnnnnnn: pagineate search results? is there a performance difference?
+
+Bug nnnn: master bug for consolidating calls with GWIS_Checkout
+
+Bug nnnn: Search and Discussions-search are practically the same
+          Make union of options, and make GUIs more similar
+
+BUG nnnn: Which is better? Discussions fetches based on filters, 
+                           Search fetches all and then filters
+                           -- latter cannot be paginated.
+
+BUG nnnn: Search has a Find button, but Discussions search does not (same for In region)
+
+BUG nnnn: Discussions search requires user to de-focus search edit box to execute search
+
+== ==
+
+Three Bugs:
+Bug nnnn: Nodes associated with one ways
+Bug nnnn: Let there be two nodes to associate with points, so one way can bring you closed?
+Bug nnnn: routed_v2: if a user gives a 0.0/avoid rating to a byway that's associated with 
+                     a point to which they are routing, that route cannot be found
+See 2286
+
+Bug: medtronic hq to seagate shakopee at 8 am monday morning 6/27 
+get on 490 DT Mpls at 8:53 and get off at 1:38 PM in Safe Haven
+  this bus isn't running!
+
+Bug: make a hill-finder settings
+
+== ==
+
+Bug: bikeability slider still applies to mm
+
+== ==
+
+cs building / wild rumpus / 12:20 AM / 6/25/2011
+
+The cue sheet says:
+
+12:44 AM Board Bus 6
+5:23 AM Get off Bus 6
+
+I wonder if this is a corner case that Graphserver doesn't handle: 12:44 must be the last bus!
+
+== ==
+
+Bug nnnn: Check cycling-only routes from both route finders.
+
+== ==
+
+Being routed on the freeway
+
+cs building / southdale mall bus / 6:43 PM 6/24
+
+== ==
+
+Route Feedback: Thumbs up/down
+(maybe just simple +1 and -1 buttons you can press, to get more feedback 
+since it's easier to click a button to indicate emotion rather than completing
+a feedback form)
+
+== From Map_Update.as ==
+
+// See e.g., http://resources.arcgis.com/de/glossary/term/2665
+//         waypoint -- location of interest
+// basemap - bg info like landforms, roads , landmarks, pol boundaries
+//            ^^^ not same as terrain!
+
+// FIXME Bug for external_link icon -- landing screen in flash's buttons take
+// you to the wiki! how bad is that??
+
+// FIXME For items_add, _discard, etc., use work queue, process up to 100
+//       ms. of work, then push function back on front of work queue; this
+//       synchronizes adds and discards, so if you queue a discard, you can
+//       queue the adds behind it
+
+// FIXME New bug -- sprite as part of FV inheritance
+
+//FIXME pts and regions not clickable, just byways
+
+// FIXME New Bug -- Downtown street names not viewable at highest vector
+
+// FIXME Add railway road type, dur!
+//       How else might you do the lightrail and northstar lines??!!
+//       Maybe also need a bus road type? Transit/Road, Transit/Lightrail,
+//       Transit/Heavyrail
+
+/*
+
+== ==
+
+BUG nnnn Click on elevator/scroll bar in Extra tab of branch on attribute 
+box, drag to map and release mouse, the panel goes to Basic tab.
+
+== ==
+
+no more using 'block'
+
+street- a public thoroughfare, usually paved, in a village, town, or city, including the sidewalk or sidewalks. 
+
+http://dictionary.reference.com/browse/street
+
+== ==
+
+C.f. 102-apb-23-aattrs-populate.sql:
+
+/* NOTE  A bunch of watch_regions have invalid geometries. This includes 79 
+         deleted watch_regions and 1 un-deleted watch_region. The deleted 
+         watch_regions we can just whack. For the un-deleted region, I'd rather
+         not just drop it, but it seems a waste of time to deal with it.
+
+         (IsValid(geometry) returns false, and trying to populate the
+         geofeature table with these rows causes the following error:
+
+             NOTICE: Self-intersection at or near point 466311 4.97372e+06
+             ERROR:  new row for relation "geofeature" 
+                     violates check constraint enforce_valid_geometry
+
+         To protect user's identify, I won't display the username here; you 
+         can find it with:
+
+            select * from watch_region 
+               where not isvalid(geometry) and not deleted;
+
+         Once you have the name, run this query:
+
+            SELECT ST_AsText(geometry) FROM watch_region 
+               WHERE username='[REDACTED]';
+
+         And you'll get:
+
+            POLYGON((465799.8 4969046.4,
+                     474766.2 4974790.4,
+                     474766.2 4971257.6,
+                     469063.8 4971257.6,
+                     465799.8 4969046.4))
+
+         You can also use ST_AsSVG instead of ST_AsText to get a string for an
+         SVG file. Then, to see the offending geometry, make a byway1.svg file
+         and write to it:
+
+         <?xml version="1.0" standalone="no"?>
+         <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" 
+           "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+         <svg width="12cm" height="12cm" 
+              viewBox="465799.0 -4974791.0 10000 10000"
+              xmlns="http://www.w3.org/2000/svg" version="1.1">
+           <title>Bad path geometry</title>
+           <desc>A path that draws a triangle</desc>
+           <rect x="465799" y="-4974791" width="9990" height="9990"
+                 fill="none" stroke="blue" stroke-width="100" />
+           <path d="M 465799.799999999988358 -4969046.400000000372529 
+                      474766.200000000011642 -4974790.400000000372529 
+                      474766.200000000011642 -4971257.599999999627471 
+                      469063.799999999988358 -4971257.599999999627471 Z"
+                 fill="red" stroke="blue" stroke-width="100" />
+         </svg>
+
+         Note that the last point overlaps the line from the first to the
+         second point. If you delete the first point, you're left with a 
+         simple triangle; this is probably the region the user intended. To 
+         see it, replace path above with:
+
+          <path d="M 474766.200000000011642 -4974790.400000000372529 
+                     474766.200000000011642 -4971257.599999999627471 
+                     469063.799999999988358 -4971257.599999999627471 Z"
+
+         I tried running a PostGIS command to replace the incorrect geometry
+         with the correct one, but I'm getting errors; in the interest of
+         moving forward (and not being held up by one person's watch region, 
+         especially by a user who hasn't logged in since we added logins to the
+         log table), we'll go the path of not copying over invalid geometries 
+         from the old watch_region table, that is, in populate_geofeature:
+
+            WHERE ST_IsValid(geometry)
+         
+         which was added to populate_geofeature() for this problem.
+   */
+
+/* FIXME Does ST_IsValid actually work? I still get errors 
+         -- do a count(*) on archive.watch_region and compare to new schema
+*/
+
+Does this need a new bug? (Bug to start using ENUM?)
+attribute:
+   /* NOTE Bug 1398 / Upgrade to PostgreSQL 8.3 */
+   /*      value_type public.value_type_enum NOT NULL, */
+
+Bug:
+route to private points
+
+=========================================
+

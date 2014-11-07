@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2010 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_routes:Address_Chooser_Base
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_routes="views.panel_routes.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   horizontalGap="0"
+   verticalGap="0"
+   width="100%"
+   horizontalAlign="center"
+   verticalAlign="middle"
+   verticalScrollPolicy="off"
+   horizontalScrollPolicy="off"
+   dataChange="this.entry_update();">
+
+   <mx:Script><![CDATA[
+
+      import flash.display.Sprite;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.filters.GlowFilter;
+      import flash.utils.Timer;
+      import mx.binding.utils.ChangeWatcher;
+      import mx.controls.DataGrid;
+      import mx.core.DragSource;
+      import mx.events.DragEvent;
+      import mx.events.FlexEvent;
+      import mx.managers.DragManager;
+
+      import grax.Dirty_Reason;
+      import items.utils.Travel_Mode;
+      import utils.misc.Logging;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import views.commands.Command_Scalar_Edit_2;
+      import views.commands.Route_Path_Edit_Command;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Rt_Stop_E');
+
+      // MAGIC_NUMBER: Height of the route stop entries when it's just the
+      // text input box and nothing else. Measured via debugging... and
+      // hopefully it looks good on all platforms (this is the easiest way
+      // to handle changing each entry's row height dynamically).
+      public static const Route_Stop_Entry_Height:int = 24;
+
+      // *** Instance variables
+
+      protected var label_drag_timer:Timer;
+      protected var label_mouse_event:MouseEvent;
+
+      protected var watcher_height:ChangeWatcher;
+      protected var watcher_width:ChangeWatcher;
+
+      // *** Instance methods
+
+      //
+      public function on_change_height(event:Event=null) :void
+      {
+         var initial_height:int = this.height;
+         m4_PPUSH('on_change_height: this.height.1:', this.height);
+         m4_PPUSH2('on_change_height: entry_enclosure.height:',
+                   this.entry_enclosure.height);
+         m4_PPUSH2('on_change_height: geocode_picker.height:',
+                   this.geocode_picker.height);
+         this.height = this.entry_enclosure.height
+                       + (this.geocode_picker.visible
+                          ? this.geocode_picker.height : 0);
+         m4_PPUSH('on_change_height: this.height.2:', this.height);
+
+         m4_DEBUG('on_change_height: resize_stop_list');
+         G.app.callLater((this.parentDocument as Route_Stop_List)
+                         .resize_stop_list);
+      }
+
+      //
+      public function on_change_width(event:Event=null) :void
+      {
+         m4_PPUSH('on_change_width: this.width:', this.width);
+         m4_PPUSH2('on_change_width: entry_enclosure.width:',
+                   this.entry_enclosure.width);
+         m4_PPUSH2('on_change_width: addr_input_label_container.width:',
+                   this.addr_input_label_container.width);
+         m4_PPUSH2('on_change_width: address_label.width:',
+                   this.address_label.width);
+         this.address_label.width = this.addr_input_label_container.width - 20;
+      }
+
+      //
+      override protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_DEBUG('on_creation_complete');
+         super.on_creation_complete(event);
+
+         this.watcher_height = ChangeWatcher.watch(
+            this.geocode_picker, 'height', this.on_change_height);
+         this.watcher_width = ChangeWatcher.watch(
+            this.addr_input_label_container, 'width', this.on_change_width);
+      }
+
+      //
+      override protected function on_initialize(ev:FlexEvent) :void
+      {
+         super.on_initialize(ev);
+
+         this.label_drag_timer =
+            new Timer(Conf.route_stop_drag_delay, /*repeatCount=*/1);
+         this.label_drag_timer.addEventListener(
+            TimerEvent.TIMER, this.on_label_drag_timer_event, false, 0, true);
+      }
+
+      // ***
+
+      //
+      public function entry_update() :void
+      {
+         // during initialization of the panel, this can happen so we just
+         // return to prevent an exception from happening.  The panel always
+         // turns out fine.
+         if (this.rstop_letter_lbl === null) {
+            m4_WARNING('entry_update: Too Early?');
+            return;
+         }
+
+         m4_PPUSH('entry_update: this.height:', this.height);
+         m4_PPUSH2('entry_update: this.paddingTop:',
+                   this.getStyle('paddingTop'));
+         m4_PPUSH2('entry_update: this.paddingBottom:',
+                   this.getStyle('paddingBottom'));
+
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         m4_DEBUG('entry_update: rt_stop:', rt_stop.toString());
+         m4_DEBUG('entry_update: rt_stop.addy_geocode:', rt_stop.addy_geocode);
+
+         var rstop_letter:String;
+         if (rt_stop !== Route_Editor_UI.new_stop) {
+            var char_index:int;
+            var rt_panel:Panel_Item_Route_Details
+               = rt_stop.route.route_panel.tab_route_details;
+            char_index = rt_panel.rstops.grid_rstops.itemRendererToIndex(this);
+            char_index %= Strutil.letters_uc.length;
+            rstop_letter = Strutil.letters_uc[char_index];
+         }
+         else {
+            rstop_letter = '+';
+         }
+         this.rstop_letter_lbl.text = rstop_letter;
+         // In lieu of Map_Label (which isn't easy to use as is -- instead of a
+         // TextField, it should derive from UITextField, otherwise we cannot
+         // easily add the label to, e.g., an HBox or Canvas; but [lb] tested
+         // Map_Label as UITextField and it kind of worked (the font was
+         // surprisingly smaller than it was normally)), use GlowFilter.
+         var halo:GlowFilter;
+         halo = new GlowFilter(0xFFFFFF, // Conf.label_halo_color,
+                               /*alpha=*/1, // default: 1.0
+                               /*blurX=*/3, // default: 6.0
+                               /*blurY=*/3, // default: 6.0
+                               /*strength=*/16, // default: 2
+                               /*quality=*/1, // default: 1
+                               /*inner=*/false, // default: false
+                               /*knockout=*/false); // default: false
+         this.rstop_letter_lbl.filters = [halo,];
+
+         if (rt_stop.name_ === null) {
+            m4_DEBUG(' .. using street_name:', rt_stop.street_name);
+            this.raw_addr_input.setStyle('color', 0x999999);
+            this.raw_addr_input.text = rt_stop.street_name;
+            this.raw_addr_input.toolTip =
+               'Click here to edit the name of the destination.';
+         }
+         else {
+            m4_DEBUG(' .. using rt_stop.name_:', rt_stop.name_);
+            this.raw_addr_input.clearStyle('color');
+            this.raw_addr_input.text = rt_stop.name_;
+            this.raw_addr_input.toolTip = '';
+         }
+         this.address_label.text = this.raw_addr_input.text;
+         this.address_label.toolTip = this.raw_addr_input.text;
+
+         this.drag_box.setStyle("backgroundColor", rt_stop.color);
+         this.drag_box2.visible = rt_stop.rstop_selected;
+         if (   (rstop_letter == 'B')
+             || (rstop_letter == 'D')) {
+            // 'B's and 'D's are too far left of center.
+            //this.drag_box3.setStyle('paddingLeft',
+            //   this.drag_box3.getStyle('paddingLeft') + 1);
+            this.drag_box3.setStyle('paddingLeft', 3);
+         }
+         else if (   (rstop_letter == 'C')
+                  || (rstop_letter == 'E')
+                  || (rstop_letter == 'K')) {
+            // 'E's and 'K's are too far right of center.
+            this.drag_box3.setStyle('paddingLeft', 1);
+         }
+         // FIXME: Check L+. [lb] hasn't played w/ a route with 12+ stops.
+
+         this.label_drag_timer.reset();
+
+         if ((rt_stop.route.can_edit)
+             && (rt_stop.route.travel_mode != Travel_Mode.transit)) {
+            m4_VERBOSE('entry_update: changing state: ""');
+            this.change_state('');
+         }
+         else {
+            m4_VERBOSE('entry_update: changing state: Locked');
+            //this.currentState = 'Locked';
+            this.change_state('Locked');
+         }
+
+         m4_VERBOSE2('entry_update: raw_addr_input.visible?:',
+                    this.raw_addr_input.visible);
+
+         if (rt_stop.gwis_geocode !== null) {
+            if ((rt_stop.gwis_geocode.addrs === null)
+                || (rt_stop.gwis_geocode.addrs.length != 1)
+                || (rt_stop.gwis_geocode.addrs[0] != rt_stop.name_)) {
+               m4_DEBUG('entry_update: canceling outstanding gwis');
+               rt_stop.gwis_geocode.cancel();
+               rt_stop.gwis_geocode = null;
+            }
+            else {
+               m4_DEBUG('entry_update: encouraging outstanding gwis');
+            }
+         }
+
+         this.show_addy_resolver(); // maybe.
+      }
+
+      //
+      protected function manage_addr_crazyclear_btn() :void
+      {
+         // See: Address_Resolver.manage_destinations_and_find_route_button().
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         // In CcpV1, user could only delete named, geocoded points, but that's
+         // fixed in CcpV2: you can delete any point so long as you don't
+         // reduce the route to a point.
+         this.addr_crazyclear_btn.enabled =
+            (rt_stop.route.edit_stops.length > 2);
+      }
+
+      //
+      protected function on_drag_box_mouse_down(event:MouseEvent) :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         if ((!rt_stop.route.can_edit) || (rt_stop.route.is_multimodal)) {
+            m4_DEBUG('on_drag_box_mouse_down: not allowed to edit; lookat');
+            rt_stop.lookat_rstop();
+         }
+         else {
+            m4_DEBUG('on_drag_box_mouse_down: event:', event);
+            this.label_drag_timer.reset();
+            this.label_drag_timer.start();
+            this.label_mouse_event = event;
+         }
+      }
+
+      //
+      protected function on_drag_box_mouse_up(event:MouseEvent) :void
+      {
+         m4_DEBUG('on_drag_box_mouse_up: event:', event);
+         this.label_drag_timer.reset();
+         if (this.label_mouse_event !== null) {
+            // The user didn't drag the entry, so lookat the route.
+            var rt_stop:Route_Stop = (this.data as Route_Stop);
+            if ((!isNaN(rt_stop.x_cv)) && (!isNaN(rt_stop.y_cv))) {
+               rt_stop.lookat_rstop();
+            }
+            this.label_mouse_event = null;
+         }
+         // else, user did a drag op., so we're done.
+      }
+
+      protected function on_label_drag_timer_event(ev:TimerEvent) :void
+      {
+         m4_DEBUG('on_label_drag_timer_event');
+         var dsource:DragSource = new DragSource();
+         dsource.addData(this.data, 'route_stop');
+         m4_ASSERT(this.label_mouse_event !== null);
+         // [lb] is uneasy about this implementation: we can hold on to the
+         // original event from the mouse down handler and then pass it along
+         // here. Maybe it's just the x,y that counts, and I'm not familiar w/
+         // DragManager, but this -- for whatever reason -- feels dirty to me:
+         DragManager.doDrag(this, dsource, this.label_mouse_event);
+         this.label_mouse_event = null;
+      }
+
+      //
+      protected function on_raw_addr_input_change() :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         m4_TALKY('on_raw_addr_input_change:', rt_stop);
+         m4_TALKY2('on_raw_addr_input_change: raw_addr_input.text:',
+                   this.raw_addr_input.text);
+
+         if ((this.raw_addr_input.text != '')
+             && (rt_stop.name_ != this.raw_addr_input.text)) {
+            // Clear any old geocoded message that might be showing:
+            // the user is typing a new address, so acknowledge that.
+            this.show_addy_resolver();
+         }
+      }
+
+      //
+      protected function on_raw_addr_input_click(event:MouseEvent) :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         m4_DEBUG('on_raw_addr_input_click:', rt_stop);
+
+         // Because on_click_panel calls this.stage.focus = null.
+         event.stopPropagation();
+      }
+
+      //
+      protected function on_raw_addr_input_enter() :void
+      {
+         m4_VERBOSE('on_raw_addr_input_enter');
+
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         // EXPLAIN: Don't we show a non-editable label for view-only routes?
+         if ((!rt_stop.route.can_edit) || (rt_stop.route.is_multimodal)) {
+            return;
+         }
+
+         this.geocode_or_name_change_maybe();
+      }
+
+      //
+      protected function on_raw_addr_input_focus_in() :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         m4_VERBOSE('on_raw_addr_input_focus_in:', rt_stop);
+
+         // EXPLAIN: Don't we show a non-editable label for view-only routes?
+         if ((!rt_stop.route.can_edit) || (rt_stop.route.is_multimodal)) {
+            return;
+         }
+
+         // auto clear the text field if it's a map point
+         if (rt_stop.name_ === null) {
+            m4_VERBOSE('on_raw_addr_input_focus_in: auto-named address');
+            // [lb] could go either way on this: if the route stop has an
+            //      automated name, like 'Point near James Ave S', we could
+            //      clear the input when the user clicks in the text edit
+            //      box... or we could let them edit the existing name.
+            //this.raw_addr_input.text = '';
+            this.raw_addr_input.clearStyle('color');
+            //this.address_label.text = this.raw_addr_input.text;
+            this.address_label.toolTip = this.raw_addr_input.text;
+         }
+      }
+
+      //
+      protected function on_raw_addr_input_focus_out() :void
+      {
+         m4_VERBOSE2('on_raw_addr_input_focus_out: raw_addr_input.text:',
+                     this.raw_addr_input.text);
+
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         if ((!rt_stop.route.can_edit) || (rt_stop.route.is_multimodal)) {
+            return;
+         }
+
+         this.geocode_or_name_change_maybe();
+
+         if (rt_stop.name_ === null) {
+            // If the stop is unnamed, use the generated stop name (e.g.,
+            // "Point near Someplace") and grey it a little so the user gets
+            // a hint.
+            m4_VERBOSE2('on_raw_addr_input_focus_out: set raw_addr_input',
+                        rt_stop.street_name);
+            this.raw_addr_input.text = rt_stop.street_name;
+            this.raw_addr_input.setStyle('color', 0x999999);
+            this.address_label.text = this.raw_addr_input.text;
+            this.address_label.toolTip = this.raw_addr_input.text;
+         }
+      }
+
+      // ***
+
+      //
+      override public function get addr_show_all_btn() :Button
+      {
+         return this.addr_show_all_btn_;
+      }
+
+      //
+      protected function on_addr_crazyclear_btn_click() :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         if (rt_stop === Route_Editor_UI.new_stop) {
+            Route_Editor_UI.cancel_destination_add();
+         }
+         else {
+            Route_Editor_UI.route_stop_remove(rt_stop);
+         }
+         (this.parentDocument as Route_Stop_List).update(rt_stop.route);
+
+         m4_DEBUG('on_addr_crazyclear_btn_click: rt_stop:', rt_stop);
+
+         var keep_results:Boolean = false;
+         if (rt_stop.addy_geocode.is_geocoded()) {
+            m4_DEBUG3('on_addr_crazyclear_btn_click: results_xml.length:',
+                      (rt_stop.addy_geocode.results_xml !== null)
+                      ? rt_stop.addy_geocode.results_xml.length : 'null');
+            keep_results = true;
+         }
+         rt_stop.geocoded_clear(keep_results);
+
+         G.map.tool_choose('tools_pan');
+         // Trigger: rt_stop.route.route_panel.repopulate();
+         // so that, e.g., "Cancel" changes back to "Add Destination".
+         rt_stop.route.mark_route_panel_dirty();
+
+         this.show_addy_resolver();
+      }
+
+      //
+      protected function on_addr_show_all_btn_click() :void
+      {
+         m4_DEBUG('on_addr_show_all_btn_click');
+
+         this.addr_show_all_btn_.visible = false;
+
+         this.geocode_picker.force_show_list = true;
+
+         this.show_addy_resolver();
+      }
+
+      // *** Geocoding.
+
+      //
+      protected function geocode_or_name_change_maybe() :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+         if (this.raw_addr_input.text !== rt_stop.name_) {
+            if (!rt_stop.is_stop_valid) {
+               if (this.raw_addr_input.text != '') {
+                  m4_TALKY('geocode_or_name_chg_mb: geocode_start:', rt_stop);
+                  rt_stop.geocoded_clear(/*keep_results=*/false);
+                  rt_stop.geocode_start(this.raw_addr_input.text);
+               }
+            }
+            else {
+               // We've already geocoded this route stop, so let the user
+               // rename it (if the user wants to geocode a new location,
+               // they can Add Destination and Remove Selected Destination).
+               m4_TALKY('geocode_or_name_chg_mb: editing:', rt_stop);
+               var cmd:Command_Scalar_Edit_2;
+               cmd = new Command_Scalar_Edit_2(
+                           /*targets=*/new Set_UUID([rt_stop.route,]),
+                           /*property_fcn=*/'edit_stop_name_fcn',
+                           /*property_key=*/rt_stop,
+                           /*value_new=*/this.raw_addr_input.text,
+                           /*reason=*/Dirty_Reason.item_revisionless);
+               m4_TALKY('geocode_or_name_chg_mb: cmd:', cmd);
+               rt_stop.route.route_panel.cmd_mgr.do_(cmd);
+               // The item(s) whose gias are being edited should be hydrated.
+               m4_ASSERT_SOFT(cmd.is_prepared);
+               m4_TALKY2('geocode_or_name_chg_mb: rt_stop.name_:',
+                         rt_stop.name_);
+            }
+         }
+         else {
+            m4_TALKY('geocode_or_name_chg_mb: nothing to do:', rt_stop);
+         }
+      }
+
+      // *** Inline address resolver.
+
+      //
+      public function show_addy_resolver() :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         m4_DEBUG('show_addy_resolver: addy_geocode:', rt_stop.addy_geocode);
+         //m4_DEBUG3('show_addy_resolver:',
+         //       (rt_stop.addy_geocode.results_xml !== null)
+         //         ? rt_stop.addy_geocode.results_xml.toXMLString() : 'null');
+
+         var initial_height:int = this.height;
+
+         this.geocode_picker.show_addy_resolver(rt_stop.addy_geocode);
+         if (!this.geocode_picker.addy_picker_box.visible) {
+            m4_PPUSH('show_addy_resolver: this.height.1:', this.height);
+            m4_PPUSH2('show_addy_resolver: entry_enclosure.height:',
+                      this.entry_enclosure.height);
+            m4_PPUSH2('show_addy_resolver: geocode_picker.height:',
+                      this.geocode_picker.height);
+            m4_PPUSH2('show_addy_resolver: this.paddingTop:',
+                      this.getStyle('paddingTop'));
+            m4_PPUSH2('show_addy_resolver: this.paddingBottom:',
+                      this.getStyle('paddingBottom'));
+            if (this.entry_enclosure.height > 0) {
+               // Here's a nice hack:
+               if (this.entry_enclosure.height == 20) {
+                  this.entry_enclosure.height = 24;
+               }
+               m4_ASSERT_SOFT(24 == this.entry_enclosure.height);
+               this.height = this.entry_enclosure.height
+                             + (this.geocode_picker.visible
+                                ? this.geocode_picker.height : 0);
+               m4_PPUSH('show_addy_resolver: this.height.2:', this.height);
+            }
+         }
+
+         this.manage_addr_crazyclear_btn();
+
+         m4_DEBUG('show_addy_resolver: resize_stop_list: h:', this.height);
+         G.app.callLater((this.parentDocument as Route_Stop_List)
+                         .resize_stop_list);
+      }
+
+      //
+      public function picked_callback(rstop_object:Object) :void
+      {
+         var rt_stop:Route_Stop = (this.data as Route_Stop);
+
+         m4_DEBUG2('picked_callback: rstop_object:',
+                   rstop_object.toXMLString());
+
+         rt_stop.name_ = rstop_object.@text;
+         rt_stop.x_map = Number(rstop_object.@x);
+         rt_stop.y_map = Number(rstop_object.@y);
+         //rt_stop.geocoded_w = rstop_object.@width;
+         //rt_stop.geocoded_h = rstop_object.@height;
+         //rt_stop.gc_fulfiller = rstop_object.@gc_id;
+         //rt_stop.gc_confidence = rstop_object.@gc_ego;
+
+         this.raw_addr_input.text = rstop_object.@text;
+
+         rt_stop.addy_geocode.choose_addy(rstop_object.@results_index);
+
+         this.geocode_picker.force_show_list = false;
+         this.show_addy_resolver();
+
+         Route_Editor_UI.route_update(rt_stop.route);
+      }
+
+   ]]></mx:Script>
+
+   <views_panel_routes:states>
+
+      <mx:State
+         name="Locked">
+
+         <!-- Tell the DataGrid not to be selectable, since the user cannot
+              drag the rows around. The selectable behavior is... annoying.
+              Note that we want the Route_Stop_List control, which is named
+              rstops in Panel_Item_Route_Details. It's also this.parent.parent.
+              -->
+         <!-- Is this not working:
+         <mx:SetStyle
+            target=
+   "{(this.data as Route_Stop).route.route_panel.tab_route_details.rstops}"
+            name="selectable"
+            value="false"/>
+         try this.parent.parent hack instead: -->
+         <!--
+            NOTE: Using this.parent_proxy, which is really just this.parent, so
+            we avoid Flex complaint, "warning: unable to bind to property
+            'parent' on class 'views.panel_routes::Route_Stop_Entry'".
+            Similar to: target="{this.parent.parent}"
+         -->
+         <!-- 2013.05.30: Why is [lb] only now having an issue with this?
+                         Or, "How does this possibly work in CcpV1?"
+         <mx:BadStyle
+            target="{this.parent_proxy.parent}"
+            -->
+         <mx:SetStyle
+            target="{this.parentDocument}"
+            name="selectable"
+            value="false"/>
+
+         <mx:SetProperty
+            target="{this.raw_addr_input}"
+            name="visible"
+            value="false"
+            />
+
+         <!-- -->
+         <mx:SetProperty
+            target="{this.address_label}"
+            name="visible"
+            value="true"/>
+
+         <!-- -->
+         <mx:SetProperty
+            target="{this.addr_crazyclear_btn}"
+            name="visible"
+            value="false"/>
+
+         <!-- -->
+         <mx:SetProperty
+            target="{this.validator}"
+            name="enabled"
+            value="false"/>
+         <mx:SetProperty
+            target="{this.validator}"
+            name="required"
+            value="false"/>
+
+      </mx:State>
+
+   </views_panel_routes:states>
+
+   <!-- Never spaghet: Use an enclosing container.
+               CAVEAT: Some Flex item renderers only render their first child.
+                       [lb] thinks there's another comment explaining this
+                       better elsewhere, but for now just accept the
+                       circumstances without necessarily understanding 'why'.
+         -->
+
+   <mx:VBox
+      id="entry_enclosure_outer"
+      width="100%"
+      verticalGap="0"
+      >
+
+      <mx:HBox
+         id="entry_enclosure"
+         width="100%"
+         horizontalGap="5"
+         verticalAlign="middle"
+         >
+
+         <mx:Canvas
+            height="20"
+            width="20"
+            horizontalScrollPolicy="off"
+            verticalScrollPolicy="off"
+            buttonMode="true"
+            mouseChildren="false"
+            mouseDown="this.on_drag_box_mouse_down(event);"
+            mouseUp="this.on_drag_box_mouse_up(event);"
+            >
+            <mx:HBox
+               id="drag_box"
+               x="0"
+               y="0"
+               height="20"
+               width="20"
+               cornerRadius="10"
+               paddingTop="2"
+               paddingLeft="3"
+               paddingRight="2"
+               verticalAlign="middle"
+               horizontalAlign="center"
+               textAlign="center"
+               borderStyle="solid"
+               borderThickness="2"
+               borderColor="0x000000"
+               >
+               <!--
+               borderColor="0x333333"
+               -->
+            </mx:HBox>
+            <mx:HBox
+               id="drag_box2"
+               x="2"
+               y="2"
+               height="16"
+               width="16"
+               cornerRadius="10"
+               paddingTop="2"
+               paddingBottom="2"
+               paddingLeft="3"
+               paddingRight="2"
+               verticalAlign="middle"
+               horizontalAlign="center"
+               textAlign="center"
+               backgroundColor="{Conf.route_stop_highlight_color}"
+               borderStyle="solid"
+               borderThickness="3"
+               borderColor="{Conf.route_stop_highlight_color}"
+               visible="false"
+               includeInLayout="{this.drag_box2.visible}">
+            </mx:HBox>
+            <mx:HBox
+               id="drag_box3"
+               height="20"
+               width="20"
+               x="0"
+               y="0"
+               cornerRadius="10"
+               paddingTop="2"
+               paddingLeft="1"
+               paddingRight="0"
+               buttonMode="true"
+               mouseChildren="false"
+               verticalAlign="middle"
+               horizontalAlign="center"
+               textAlign="center"
+               >
+               <mx:Label
+                  id="rstop_letter_lbl"
+                  fontWeight="bold"
+                  fontSize="11"
+                  textAlign="center"
+                  />
+            </mx:HBox>
+         </mx:Canvas>
+
+         <mx:HBox
+            id="addr_input_label_container"
+            width="100%"
+            height="100%"
+            horizontalAlign="center"
+            verticalAlign="middle"
+            >
+            <mx:TextInput
+               id="raw_addr_input"
+               width="100%"
+               visible="true"
+               includeInLayout="{this.raw_addr_input.visible}"
+               change="this.on_raw_addr_input_change();"
+               click="this.on_raw_addr_input_click(event);"
+               focusIn="this.on_raw_addr_input_focus_in();"
+               focusOut="this.on_raw_addr_input_focus_out();"
+               enter="this.on_raw_addr_input_enter();"
+               />
+            <mx:Label
+               id="address_label"
+               width="{this.addr_input_label_container.width}"
+               textAlign="left"
+               selectable="true"
+               truncateToFit="true"
+               visible="false"
+               includeInLayout="{this.address_label.visible}"
+               />
+         </mx:HBox>
+
+         <mx:HBox
+            height="100%"
+            verticalAlign="middle"
+            width="41"
+            paddingLeft="2"
+            paddingRight="3"
+            horizontalGap="4"
+            >
+            <mx:Button
+               id="addr_crazyclear_btn"
+               label="x"
+               height="16"
+               width="16"
+               labelPlacement="top"
+               paddingBottom="1"
+               paddingRight="1"
+               styleName="small"
+               enabled="false"
+               visible="true"
+               includeInLayout="{this.addr_crazyclear_btn.visible}"
+               click="this.on_addr_crazyclear_btn_click();"/>
+            <mx:Button
+               id="addr_show_all_btn_"
+               label="..."
+               toolTip="Show all destinations that matched the query."
+               height="16"
+               width="16"
+               labelPlacement="top"
+               paddingBottom="1"
+               paddingRight="1"
+               styleName="small"
+               enabled="true"
+               visible="false"
+               includeInLayout="true"
+               click="this.on_addr_show_all_btn_click();"/>
+         </mx:HBox>
+
+      </mx:HBox> <!-- end: entry_enclosure -->
+
+      <!-- Ambiguity cleanser. -->
+      <views_panel_routes:Address_Picker
+         id="geocode_picker"
+         picked_handler="{this.picked_callback}"
+         width="100%"
+         paddingTop="6"
+         visible="false"
+         includeInLayout="{this.geocode_picker.visible}"
+         />
+
+   </mx:VBox> <!-- end: entry_enclosure_outer -->
+
+   <views_panel_routes:Route_Stop_Validator
+      id="validator"
+      enabled="true"
+      source="{this}"
+      property="data"
+      listener="{this.raw_addr_input}"
+      required="false"/>
+
+</views_panel_routes:Address_Chooser_Base>
+

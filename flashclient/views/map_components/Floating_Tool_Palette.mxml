@@ -1,0 +1,941 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- SIMILAR_TO: Widget_Conflict_Select.mxml -->
+
+<views_panel_base:Floating_Panel_Base
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   xmlns:cp="*"
+   layout="absolute"
+   enable_left_right="false"
+   enable_up_down="false"
+   enable_close="false"
+   enable_resize="false"
+   creationComplete="this.handle_on_creation_complete();"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import flash.events.TimerEvent;
+      import flash.utils.Timer;
+      import mx.effects.Fade;
+      import mx.events.DropdownEvent;
+      import mx.events.EffectEvent;
+      import mx.events.ListEvent;
+
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+      import views.base.App_Mode_Edit;
+      import views.base.UI;
+      import views.panel_util.Alert_Dialog;
+
+      // NOTE: This class is rather kludgy. It'd be nice to separate the
+      //       presentation details from the implementation at some point,
+      //       so that we can reuse this package as a generic buttons-and-
+      //       combobox control. But for now, this package is tightly coupled
+      //       to the buttons it displays.
+
+      // This class uses a "basic tools" collection and an "advanced tools"
+      // collection. Basic tools are lined up horizontally, and the advanced
+      // tools are collated into a ComboBox as the right-most button.
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('Floating_TP_');
+
+      // *** Instance variables
+
+      // The class keeps track of the current tool by a special index value
+      // which represents the combination of the basic and advanced collections
+      // I.e., for basic tools, the tool index is the index into the basic
+      // tools collection; for advanced tools, the tool index is the index
+      // into the advanced tools collection plus the size of the basic
+      // collection.
+
+      private var tool_by_index_:int = -1;
+
+      // Map Editing tool icons -- Each tool has two icons, one for when
+      // it's selected (when it's the current tool) and one for when it's not
+
+      // Basic tools
+
+      [Embed(source="/assets/img/icon_arrow.png")]
+      public const icon_tools_pan:Class;
+      [Embed(source="/assets/img/icon_arrow_h.png")]
+      public const icon_tools_pan_h:Class;
+
+      [Embed(source="/assets/img/icon_tools_point_create.png")]
+      public const icon_tools_point_create:Class;
+      [Embed(source="/assets/img/icon_tools_point_create_h.png")]
+      public const icon_tools_point_create_h:Class;
+
+      // Advanced tools
+
+      [Embed(source="/assets/img/icon_tools_byway_create.png")]
+      public const icon_tools_byway_create:Class;
+      [Embed(source="/assets/img/icon_tools_byway_create_h.png")]
+      public const icon_tools_byway_create_h:Class;
+
+      [Embed(source="/assets/img/icon_tools_region_create.png")]
+      public const icon_tools_region_create:Class;
+      [Embed(source="/assets/img/icon_tools_region_create_h.png")]
+      public const icon_tools_region_create_h:Class;
+
+      [Embed(source="/assets/img/icon_tools_vertex_create.png")]
+      public const icon_tools_vertex_create:Class;
+      [Embed(source="/assets/img/icon_tools_vertex_create_h.png")]
+      public const icon_tools_vertex_create_h:Class;
+
+      [Embed(source="/assets/img/icon_tools_byway_split_1.png")]
+      public const icon_tools_byway_split:Class;
+      [Embed(source="/assets/img/icon_tools_byway_split_1_h.png")]
+      public const icon_tools_byway_split_h:Class;
+
+      [Embed(source="/assets/img/icon_tools_intersection_create.png")]
+      public const icon_tools_intersection_create:Class;
+      [Embed(source="/assets/img/icon_tools_intersection_create_h.png")]
+      public const icon_tools_intersection_create_h:Class;
+
+      // XML Tool Lookups
+
+      // Three support classes, Combo_Box_V2, List_Disableable, and
+      // List_Item_Renderer_Disableable, expect dataProvider to be XML and for
+      // each item to contain certain XML elements, like icon, enabled, etc.
+
+      // NOTE The 'id's below need to match the keys in G.map.tool_dict
+
+      // Basic tool lookup
+
+      //
+      private var tools_basic:XML = new XML(
+         <items>
+            <item id="tools_pan"
+                  label="Pan map, select/edit map features (S)"
+                  icon="icon_tools_pan"
+                  icon_selected="icon_tools_pan_h"
+                  enabled="true" />
+            <item id="tools_point_create"
+                  label="Add point (A)"
+                  icon="icon_tools_point_create"
+                  icon_selected="icon_tools_point_create_h"
+                  enabled="false" />
+         </items>
+      );
+
+      // Advanced tool lookup
+
+      //
+      private var tools_advanced:XML = new XML(
+         <items>
+            <item id="tools_byway_create"
+                  //label="Add block (B)"
+                  label="Add road (B)"
+                  icon="icon_tools_byway_create"
+                  icon_selected="icon_tools_byway_create_h"
+                  enabled="false" />
+            <item id="tools_region_create"
+                  label="Add region (R)"
+                  icon="icon_tools_region_create"
+                  icon_selected="icon_tools_region_create_h"
+                  enabled="true" />
+            <item id="tools_vertex_add"
+                  label="Add vertex (V)"
+                  icon="icon_tools_vertex_create"
+                  icon_selected="icon_tools_vertex_create_h"
+                  enabled="false" />
+            <item id="tools_byway_split"
+                  //label="Split block (Z)"
+                  label="Split road (Z)"
+                  icon="icon_tools_byway_split"
+                  icon_selected="icon_tools_byway_split_h"
+                  enabled="false" />
+            <item id="tools_node_endpoint_build"
+                  //label="Create intersection (X)"
+                  label="Intersect roads (X)"
+                  icon="icon_tools_intersection_create"
+                  icon_selected="icon_tools_intersection_create_h"
+                  enabled="false" />
+         </items>
+      );
+
+      // The tools_count is simply the combined size of both tools lookups
+
+      protected var tools_count:int = 0;
+
+      // When the tool palette first loads, it shows the save box momentarily
+      // and then hides it with a fancy animation. This is so users know
+      // there's something special lurking beneath and are tempted to double-
+      // click the title bar to reveal that special something.
+
+      protected var timer_save_box_fade_out:Timer;
+      protected static const SAVE_BOX_FADE_OUT_TIMEOUT:Number = 2500.0;
+
+      // When the user makes an edit on a clean (!dirty) map, if the save box
+      // is not showing, we show it. The user can double-click the title bar to
+      // hide it and we won't show it automatically again, but this way the
+      // user will be alerted when they edit the map.
+      protected var effect_save_box_revealed:Boolean = false;
+
+      // The animations that hide/reveal the save box
+
+      protected var effect_save_box_fade_in:Fade = new Fade();
+      protected var effect_save_box_fade_out:Fade = new Fade();
+
+      // Determine the height of the shaded window by subtracting the height
+      // of the save box and also subtracting the VBox padding-top
+
+      protected var tool_palette_vbox_padding:int = 3;
+
+      // It's tricky to determine when the tool is changing and when the
+      // ComboBox is just getting initialized, etc. So we use a boolean that
+      // gets set when the user clicks a basic button or interacts with the
+      // dropdown.
+
+      protected var tool_changing:Boolean = false;
+
+      protected var was_tool:String = null;
+
+      public var played_effect_once:Boolean = false;
+
+      // *** Event handles
+
+      // When the user double-clicks the title bar, show/hide the save box
+      override public function handle_mouse_double_click_title_bar(
+         event:MouseEvent) :void
+      {
+         this.title_bar.removeEventListener(
+            MouseEvent.MOUSE_MOVE, handle_mouse_move_title_bar);
+         this.save_box_toggle();
+      }
+
+      // Once the tool palette is created, setup the animations and dropdown
+      // listeners. Also set a timeout to fade out the save box.
+      protected function handle_on_creation_complete() :void
+      {
+         // NOTE: A Mouse click on the icon opens the dropdown -- [lb] used to
+         //       think for some reason we should really only open the dropdown
+         //       if the user clicks the arrow, but in practice that feels bad.
+         //this.tools_edit_advanced.addEventListener(
+         //   MouseEvent.CLICK, this.handle_on_dropdown_click);
+         this.tools_edit_advanced.addEventListener(
+            DropdownEvent.CLOSE, this.handle_on_dropdown_close);
+         this.tools_edit_advanced.addEventListener(
+            DropdownEvent.OPEN, this.handle_on_dropdown_open);
+
+         // G.item_mgr isn't ready yet... so just use what it uses when it
+         // startsup, Conf.map_default_mode.
+         var show_self:Boolean =
+            ((Conf.map_default_mode is App_Mode_Edit)
+             && (G.map.rev_viewport is utils.rev_spec.Current));
+         if (show_self) {
+            if (!this.visible) {
+               this.visible = true;
+            }
+            this.play_effect();
+         }
+         else {
+            if (this.visible) {
+               this.visible = false;
+            }
+         }
+
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         if ((G.app !== null) && (G.app.mode !== null)) {
+            this.on_mode_change();
+         }
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         // MAYBE: The map_editing_enabled function probable belongs in this
+         //        module.
+         // MAYBE: Note that this.play_effect() is not the one you want.
+         //        Nor is this.save_box_toggle(). Though they both sound good.
+         // For now, telling the map what the editing mode is, and letting it
+         // transition our visibility with a fancy alpha transition.
+         //G.map.map_editing_enabled = (G.app.mode.uses_editing_tool_palette);
+         G.map.map_editing_enabled = (G.app.mode === G.edit_mode);
+      }
+
+      //
+      public function play_effect(dont_delay:Boolean=false,
+                                  skip_effect:Boolean=false) :void
+      {
+         // Fade out the save box and all the buttons inside it
+         var targets:Array = [
+            this.save_box,
+            this.save_box_grid,
+            this.undo,
+            this.redo,
+            this.save,
+            this.discard,
+            // FIXME/BUG nnnn: Redo the editing help.
+            //this.link_editing_how_to,
+            ];
+         // The shade animation hides the save box and the VBox padding
+         this.title_bar_height = this.unscaledHeight -
+            this.save_box.height - tool_palette_vbox_padding;
+         // Setup the window shade animations
+         this.effect_save_box_fade_in.targets = targets;
+         this.effect_save_box_fade_in.duration = 300;
+         this.effect_save_box_fade_in.alphaFrom = 0.0;
+         this.effect_save_box_fade_in.alphaTo = 1.0;
+         this.effect_save_box_fade_out.targets = targets;
+         this.effect_save_box_fade_out.duration = 300;
+         this.effect_save_box_fade_out.alphaFrom = 1.0;
+         this.effect_save_box_fade_out.alphaTo = 0.0;
+
+         if (!dont_delay) {
+            // Show the save box for a split sec, then fade it out
+            this.timer_save_box_fade_out
+               = new Timer(SAVE_BOX_FADE_OUT_TIMEOUT, 1);
+            this.timer_save_box_fade_out.addEventListener(
+               TimerEvent.TIMER, this.save_box_fade_out, false, 0, true);
+            this.timer_save_box_fade_out.start();
+         }
+         else if (!skip_effect) {
+            this.save_box_toggle();
+         }
+
+         this.played_effect_once = true;
+      }
+
+      // Intercept key down and jump to the next enabled list item (otherwise
+      // the basic behavior advances to the next list item, which could be
+      // disabled)
+      public function handle_on_dropdown_key_down(event:KeyboardEvent) :Boolean
+      {
+         m4_TALKY('handle_on_dropdown_key_down: keyCode:', event.keyCode);
+
+         var handled:Boolean = false;
+         if (event.keyCode == Keyboard.SPACE) {
+            G.map.tool_choose(this.tools_advanced.children()
+                              [event.target.selectedIndex].@id);
+            handled = true;
+         }
+         else if ((event.keyCode == Keyboard.DOWN)
+             || (event.keyCode == Keyboard.UP)) {
+            m4_TALKY('handle_on_dropdown_key_down: setting tool_changing');
+            this.tool_changing = true;
+            var forward:Boolean = (event.keyCode == Keyboard.DOWN);
+            this.tools_edit_advanced.select_next_enabled(forward);
+            if (G.map.tool_cur.tool_is_advanced) {
+               G.map.tool_choose(this.tools_advanced.children()
+                                 [event.target.selectedIndex].@id);
+            }
+            handled = true;
+         }
+         else {
+            // So that the keyboard shortcuts work, have the map process the
+            // keypress, rather than List_Disableable, which calls Combo_Box_V2
+            // handle_on_dropdown_key_down. (We were given the keypress instead
+            // of the map being given the keypress because we have focus.)
+            G.map.on_keydown(event);
+            handled = true;
+         }
+         return handled;
+      }
+
+      // Listens for dropdown close and updates the current tool.
+      protected function handle_on_dropdown_close(event:DropdownEvent) :void
+      {
+         m4_TALKY('handle_on_dropdown_close');
+
+         // Reverse the effects of handle_on_dropdown_open.
+         if (this.tool_changing) {
+            G.map.tool_cur.cursor_set();
+            var short_circuit:Boolean = true;
+            G.map.tool_choose(this.was_tool, short_circuit);
+            this.was_tool = null;
+            this.tool_changing = false;
+         }
+      }
+
+      // Listens for dropdown open and set the tool_changing flag so that we
+      // return the correct selected icon.
+      protected function handle_on_dropdown_open(event:DropdownEvent) :void
+      {
+         m4_TALKY('handle_on_dropdown_open: setting tool_changing');
+
+         this.tool_changing = true;
+
+         // If dropdown is active, the next mouse button closes the dropdown
+         // but should not cause a tool action. E.g., if I have the new region
+         // tool active and click on the dropdown, if my next mouse click is on
+         // the map, only the dropdown should close, and a new region should
+         // not be created.
+         this.was_tool = G.map.tool_cur.tool_name;
+         var short_circuit:Boolean = true;
+         G.map.tool_choose('tools_pan', short_circuit);
+      }
+
+      // Callback for advanced tool combobox changes
+      public function on_tool_change(event:ListEvent) :void
+      {
+         var selected_xml:XML = this.tools_advanced.children()
+                                 [event.target.selectedIndex];
+         //m4_TALKY('on_tool_change: selected_xml:', selected_xml.toString());
+         m4_TALKY('on_tool_change: .@id:', selected_xml.@id);
+         //m4_TALKY('on_tool_change: .@label:', selected_xml.@label);
+         //m4_TALKY('on_tool_change: .@enabled:', selected_xml.@enabled);
+         if (this.tools_advanced.children()
+             [event.target.selectedIndex].@enabled) {
+            G.map.tool_choose(this.tools_advanced.children()
+                              [event.target.selectedIndex].@id);
+         }
+      }
+
+      // Callback for basic tool button clicks
+      public function on_tool_click(event:MouseEvent) :void
+      {
+         m4_TALKY('on_tool_click');
+
+         G.map.tool_choose(event.target.id);
+      }
+
+      // *** Getters and setters
+
+      // Returns the number of tools, both basic and advanced
+      public function get length() :int
+      {
+         if (this.tools_count == 0) {
+            this.tools_count =
+               this.tools_basic.children().length() +
+               this.tools_advanced.children().length();
+         }
+         m4_ASSERT(this.tools_count == 7);
+         return this.tools_count;
+      }
+
+      // Called when the map is dirtied. Enables the Save and Discard buttons,
+      // and makes sure the save box is visible if this is the user's first
+      // edit.
+      // Save/Discard buttons are not shown if the map is in feedback mode.
+      public function set save_enabled(set_enabled:Boolean) :void
+      {
+         Floating_Tool_Palette.set_save_btn_enabled(
+               set_enabled, this.save, this.discard);
+         if (!set_enabled) {
+            // Let the user shade the window once they've started editing, but
+            // always show them the save box when they first start editing
+            this.effect_save_box_revealed = false;
+         }
+         else {
+            if (!this.effect_save_box_revealed) {
+               this.save_box_toggle(true, false);
+               this.effect_save_box_revealed = true;
+            }
+         }
+      }
+
+      //
+      public static function set_save_btn_enabled(
+         set_enabled:Boolean, save_btn:Button, discard_btn:Button) :void
+      {
+         if (!set_enabled) {
+            save_btn.enabled = false;
+            save_btn.setStyle('fillColors', [Conf.button_fill_light,
+                                             Conf.button_fill_dark,]);
+            discard_btn.enabled = false;
+         }
+         else {
+            // FIXME: Statewide UI: Edit/View Mode: Revisit G.map.rmode usage.
+            if (G.map.rmode == Conf.map_mode_feedback) {
+               save_btn.enabled = false;
+               save_btn.setStyle('fillColors', [Conf.button_fill_light,
+                                                Conf.button_fill_dark,]);
+               discard_btn.enabled = false;
+            }
+            else {
+               save_btn.enabled = true;
+               save_btn.setStyle('fillColors', [Conf.save_button_fill_light,
+                                                Conf.save_button_fill_dark,]);
+               discard_btn.enabled = true;
+            }
+         }
+      }
+
+      // Returns the tool index of the currently selected tool;
+      // similar to G.map.tool_cur, which is the tool's string id
+      public function get tool_by_index() :int
+      {
+         return this.tool_by_index_;
+      }
+
+      // Sets the current tools using the tool index. Manually deselects the
+      // old tool and highlights the new tool.
+      public function set tool_by_index(idx:int) :void
+      {
+         var old_index:int = this.tool_by_index_;
+         this.tool_by_index_ = idx;
+         // Clear the old tool selected highlight
+         if (old_index >= 0) {
+            if (this.is_advanced_tool(old_index)) {
+               // FIXME Magic number -- this is the default Button border color
+               this.tools_edit_advanced.setStyle("borderColor", "0xAAB3B3");
+               this.tools_edit_advanced.setStyle(
+                  "fillColors",
+                  [Conf.button_fill_light, Conf.button_fill_dark]);
+            }
+            else {
+               (this.tools_palette_basic_buttons.getChildAt(old_index)
+                  as Button).selected = false;
+            }
+         }
+         // Set the new tool selected highlight
+         if (this.is_advanced_tool(idx)) {
+            // Set the advanced tool selected highlight
+            this.tools_edit_advanced.selectedIndex =
+               idx - this.tools_basic.children().length();
+            this.tools_edit_advanced.setStyle("borderColor",
+               Conf.button_highlight);
+            // NOTE This is a kludge -- I can't where in the code that this is
+            //      how the basic buttons behave, but they turn flat 0xCCCCCC
+            //      when selected
+            this.tools_edit_advanced.setStyle(
+               "fillColors",
+               [Conf.button_fill_dark,
+                Conf.button_fill_dark,]);
+         }
+         else {
+            // Set the basic tool selected
+            (this.tools_palette_basic_buttons.getChildAt(idx)
+               as Button).selected = true;
+         }
+         // Reset the combobox highlight
+         if (old_index >= 0) {
+            if (this.is_advanced_tool(old_index)) {
+               this.tools_edit_advanced.selectedIndex =
+                 this.tools_edit_advanced.selectedIndex;
+            }
+         }
+      }
+
+      // Returns the string tool id based on the tool index
+      public function get_tool_id(idx:int) :String
+      {
+         var tool_id:String;
+         if (!this.is_advanced_tool(idx)) {
+            tool_id = this.tools_basic.children()[idx].@id;
+         }
+         else {
+            var adv_idx:int = idx - this.tools_basic.children().length();
+            tool_id = this.tools_advanced.children()[adv_idx].@id;
+         }
+         return tool_id;
+      }
+
+      // Returns true if the tool index indicates this is an advanced tool
+      protected function is_advanced_tool(idx:int) :Boolean
+      {
+         m4_ASSERT(idx < this.length);
+         return (idx >= this.tools_basic.children().length());
+      }
+
+      // Called by the ComboBox to get the list item icon. Returns either the
+      // selected or unselected icon.
+      protected function tools_advanced_get_icon(
+         item:Object, selected:Boolean = false) :Class
+      {
+         var icon_class:Class = null;
+         if ((selected && this.tool_changing)
+             || (this.get_tool_id(this.tool_by_index) == item.@id)) {
+            icon_class = this[item.@icon_selected];
+            if (selected) {
+               m4_TALKY('tools_advanced_get_icon: resetting tool_changing');
+               this.tool_changing = false;
+            }
+         }
+         else {
+            icon_class = this[item.@icon];
+         }
+         m4_VERBOSE('tools_advanced_get_icon: icon_class:', icon_class);
+         return icon_class;
+      }
+
+      // *** Other methods
+
+      //
+      public function adjust_enabledness(going_vector:Boolean) :void
+      {
+         m4_DEBUG('adjust_enabledness: going_vector', going_vector);
+         //this.tools_point_create.enabled = going_vector;
+         //this.tools_edit_advanced.enabled = going_vector;
+      }
+
+      // After the window is heightened (unshaded), fades in the save box
+      public function next_effect_fade_in_save_box(event:EffectEvent) :void
+      {
+         this.save_box.visible = true;
+         this.save_box_grid.visible = true;
+         this.effect_save_box_fade_in.end();
+         this.effect_save_box_fade_in.play();
+      }
+
+      // After the save box is faded out, shortens (shades) the window
+      public function next_effect_window_shorten(event:EffectEvent) :void
+      {
+         this.effect_save_box_fade_out.removeEventListener(
+            EffectEvent.EFFECT_END, next_effect_window_shorten);
+         this.save_box.visible = false;
+         this.save_box_grid.visible = false;
+         this.shade_window(null, null);
+      }
+
+      // Timer handler to fade out the save box
+      protected function save_box_fade_out(ev:TimerEvent) :void
+      {
+         this.save_box_toggle();
+      }
+
+      // Reacts to a window shade request and either hides or shows the save
+      // box. It can be forced to show or hide, if toggling is not desired.
+      public function save_box_toggle(forceShow:Boolean = false,
+                                      forceHide:Boolean = false) :void
+      {
+         if (!((forceShow && this.save_box.visible)
+               || (forceHide && !this.save_box.visible)))
+         {
+            if (this.save_box.visible) {
+               // Fade out the save box and then shorten window
+               this.effect_save_box_fade_out.addEventListener(
+                  EffectEvent.EFFECT_END, next_effect_window_shorten);
+               this.effect_save_box_fade_out.end();
+               this.effect_save_box_fade_out.play();
+            }
+            else {
+               // Heighten window and then fade in save box
+               this.effect_save_box_fade_in.end();
+               this.shade_window(null, next_effect_fade_in_save_box);
+            }
+         }
+      }
+
+      // Called by the client to tell us which basic buttons and advanced list
+      // items are enabled or not. This way, we can update toolTips to reflect
+      // a tool's status, we can disable basic buttons, and we can grey-out
+      // and ignore disabled list items
+      public function update_by_index(idx:int, useable:Boolean) :void
+      {
+         m4_VERBOSE('update_by_index: idx:', idx, '/ useable:', useable);
+         if (!this.is_advanced_tool(idx)) {
+            var b:Button;
+            b = this.tools_palette_basic_buttons.getChildAt(idx) as Button;
+            // Set this is you want the finger cursor rather than the arrow
+            //b.mouseEnabled = useable;
+            b.enabled = useable;
+            // FIXME For the point tool, make the tool tip say "Zoom in to use
+            // this tool" or something, if at a low zoom level
+            //b.toolTip =
+         }
+         else {
+            var adv_idx:int = idx - this.tools_basic.children().length();
+            var cur_tool_idx:int = this.tools_edit_advanced.selectedIndex;
+            m4_ASSERT(adv_idx < this.tools_advanced.children().length());
+            this.tools_advanced.children()[adv_idx].@enabled = useable;
+            this.tools_edit_advanced.dataProvider = this.tools_advanced..item;
+            this.tools_edit_advanced.selectedIndex = cur_tool_idx;
+            if (this.tools_edit_advanced.dataProvider.length
+                  && (this.tools_edit_advanced.selectedIndex >= 0)
+                  && (this.tools_edit_advanced.index_is_disabled(
+                        this.tools_edit_advanced.dataProvider[
+                           this.tools_edit_advanced.selectedIndex])) ) {
+               var forward:Boolean = false;
+               this.tools_edit_advanced.select_next_enabled(forward);
+               // FIXME I don't think this handles the case when all list items
+               // are disabled -- but the region create tool is always
+               // available, so this won't be known unless that's ever not the
+               // case.
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_click_tools_edit_advanced(ev:MouseEvent) :void
+      {
+         m4_TALKY('on_click_tools_edit_advanced');
+         // Stop panel from stealing focus.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_item_click_handler(item:*) :void
+      {
+         m4_TALKY2('on_item_click_handler: item:',
+                   Introspect.get_constructor(item));
+
+         var tool_id:String = (item as XML).@id;
+         m4_TALKY('on_item_click_handler: tool_id:', tool_id);
+         G.map.tool_choose(tool_id);
+      }
+
+      // ***
+
+      //
+      protected function on_click_button_undo() :void
+      {
+         m4_TALKY2('on_click_button_undo: tool_changing:',
+                   this.tool_changing);
+         if (!this.tool_changing) {
+            G.map.cm.undo();
+         }
+      }
+
+      //
+      protected function on_click_button_redo() :void
+      {
+         m4_TALKY2('on_click_button_redo: tool_changing:',
+                   this.tool_changing);
+         if (!this.tool_changing) {
+            G.map.cm.redo();
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_click_button_save_map() :void
+      {
+         m4_TALKY2('on_click_button_save_map: tool_changing:',
+                   this.tool_changing);
+         if (!this.tool_changing) {
+            G.map.items_save_start();
+         }
+      }
+
+      //
+      protected function on_click_button_start_over() :void
+      {
+         m4_TALKY2('on_click_button_start_over: tool_changing:',
+                   this.tool_changing);
+
+         // MAYBE: Instead of reloading the map, try unwinding the
+         //        undo stack... this will be quicker.
+// BUG nnnn/FUTURE: Updating to latest revision when another user saves.
+
+         if (!this.tool_changing) {
+            Alert_Dialog.show(
+               'Discard unsaved changes?',
+               'All your unsaved changes will be lost.',
+               /*html?=*/false,
+               /*on_ok?=*/G.app.discard_alert_handler,
+               /*ok_label?=*/'Discard',
+               /*on_cancel?=*/null,
+               /*cancel_label=*/'Cancel');
+         }
+      }
+
+      // ***
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="3"
+      paddingTop="6"
+      paddingRight="3"
+      paddingBottom="2"
+      verticalGap="{tool_palette_vbox_padding}"
+      horizontalAlign="center">
+
+      <mx:HBox
+         id="tools_palette_button_box"
+         width="100%"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="1"
+         paddingBottom="0"
+         horizontalGap="3"
+         horizontalAlign="center">
+
+         <mx:HBox
+            id="tools_palette_basic_buttons"
+            width="100%"
+            paddingLeft="0"
+            paddingTop="0"
+            paddingRight="-1"
+            paddingBottom="0"
+            horizontalGap="2">
+
+            <!-- SYNC_ME: Map_Canvas_Tool.tool_dict -->
+
+            <!-- Pan Map Tool -->
+            <mx:Button
+               id="tools_pan"
+               toolTip="{tools_basic..@label[0]}"
+               styleName="styleIconArrowCursor"
+               height="27"
+               width="27"
+               click="this.on_tool_click(event);"/>
+
+            <!-- Create Point Map Tool -->
+            <mx:Button
+               id="tools_point_create"
+               toolTip="{tools_basic..@label[1]}"
+               styleName="styleIconPointCreate"
+               height="27"
+               width="27"
+               click="this.on_tool_click(event);"/>
+
+         </mx:HBox>
+
+         <!-- Advanced Editing Tools -->
+         <utils_misc:Combo_Box_V2
+            id="tools_edit_advanced"
+            padding_icon_left="4"
+            padding_icon_right="2"
+            paddingTop="0"
+            paddingBottom="0"
+            height="27"
+            enable_text_field_label="false"
+            x="10"
+            y="10"
+            styleName="comboBoxV2"
+            dropdownStyleName="comboDropdown"
+            dataProvider="{tools_advanced..item}"
+            iconFunction="tools_advanced_get_icon"
+            labelField="@label"
+            change="this.on_tool_change(event);"
+            dropDownKeyDown="handle_on_dropdown_key_down"
+            click="this.on_click_tools_edit_advanced(event);"
+            item_click_handler="on_item_click_handler"
+            >
+            <!-- FIXME: The basic buttons have a grey gradient background.
+                        The advanced dropdown has a flat white background.
+                        Would themeColor help? themeColor="haloSilver" -->
+            <!-- NOTE: Original tool bar used: filters="{[UI.mapglow]}" -->
+         </utils_misc:Combo_Box_V2>
+
+      </mx:HBox>
+
+      <!-- Below the icons are the File menu-type and Edit menu-type icons,
+           i.e., Undo/Redo/Save/Discard -->
+
+      <mx:VBox
+         id="save_box"
+         visible="true"
+         width="100%"
+         verticalGap="0"
+         paddingLeft="0"
+         paddingTop="0"
+         paddingRight="0"
+         paddingBottom="0"
+         >
+
+         <mx:Grid
+            id="save_box_grid"
+            width="100%"
+            paddingTop="0"
+            paddingBottom="0"
+            verticalGap="3"
+            horizontalGap="3"
+            visible="true">
+            <mx:GridRow
+               width="100%">
+               <mx:GridItem
+                  width="100%">
+                  <mx:Button
+                     id="undo"
+                     enabled="false"
+                     label="Undo"
+                     width="100%"
+                     styleName="smallEditCtls"
+                     click="this.on_click_button_undo();"/>
+               </mx:GridItem>
+               <mx:GridItem
+                  width="100%">
+                  <mx:Button
+                     id="redo"
+                     enabled="false"
+                     label="Redo"
+                     width="100%"
+                     styleName="smallEditCtls"
+                     click="this.on_click_button_redo();"/>
+               </mx:GridItem>
+            </mx:GridRow>
+            <mx:GridRow
+               width="100%">
+               <mx:GridItem
+                  colSpan="2"
+                  width="100%"
+                  paddingTop="0"
+                  >
+                  <!--
+                     label="Save Changes"
+                     label="Save Map"
+                     label="Save Edits"
+                  -->
+                  <mx:Button
+                     id="save"
+                     enabled="false"
+                     label="Save Map"
+                     toolTip=
+                        "Save changes you've made to items on the map."
+                     width="100%"
+                     styleName="smallEditCtls"
+                     click="this.on_click_button_save_map();"
+                     />
+               </mx:GridItem>
+            </mx:GridRow>
+            <mx:GridRow
+               width="100%">
+               <mx:GridItem
+                  colSpan="2"
+                  width="100%"
+                  paddingTop="0"
+                  >
+                  <!--
+                     label="Discard Changes"
+                  -->
+                  <mx:Button
+                     id="discard"
+                     enabled="false"
+                     label="Start Over"
+                     toolTip=
+                        "Discard changes you've made to items on the map."
+                     width="100%"
+                     styleName="smallEditCtls"
+                     click="this.on_click_button_start_over();"
+                     />
+               </mx:GridItem>
+            </mx:GridRow>
+         </mx:Grid>
+
+         <!-- FIXME/BUG nnnn: Redo the editing help.
+         <mx:HBox
+            width="100%"
+            textAlign="right"
+            paddingLeft="0"
+            paddingTop="2"
+            paddingRight="0"
+            paddingBottom="-1"
+            horizontalGap="0"
+            horizontalAlign="right"
+            verticalGap="0" >
+            <views_panel_util:Help_Link
+               id="link_editing_how_to"
+               click_url="/Editing_How-To"
+               text="Editing How-To" />
+         </mx:HBox>
+         -->
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Floating_Panel_Base>
+

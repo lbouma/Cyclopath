@@ -1,0 +1,324 @@
+#!/usr/bin/python
+
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# This script is a wrapper for fcsh to give it a better user interface and to
+# make it compatible with make. It runs as a daemon process which manages a
+# fcsh process.
+
+import glob
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+
+# FIXME: Rename to fcsh-wrap.py so VIM recognizes the file type.
+
+# If true, supress the Recompile: and Reason: notes printed by fcsh.
+# WARNING: Heuristic is weak. May suppress overzealously.
+#LESS_CHATTER = True
+# 2013.06.27: [lb] enabling recompile&reason messages because our code
+#             is way too inter-dependent, which is what I think is causing
+#             make to fail the first few times it runs on a clean project.
+#             E.g., touching just one file sometimes causes dozens of files
+#             to be rebuilt, even though not all of the rebuilt modules are
+#             really dependent on the one file that was touched.
+LESS_CHATTER = False
+
+# If non-None, refuse to run unless the Flex version string matches.
+# The latest Flex 3 compiler is 3.6, and there's 4.6, but we still use 3.4.
+#FCSH_VERSION = '3.6.0 build 16995'
+# 2011.02.03: The download is 3.4.0 build 9271A, but it does not identify the A
+#FCSH_VERSION = '3.4.0 build 9271'
+# 2013.06.27: Finally moving on up!
+FCSH_VERSION = '3.6.0 build 16995'
+
+# BUG nnnn: Flex 4 SDK:
+#   https://www.adobe.com/devnet/flex/articles/flex3and4_differences.html
+#   To Makefile, add the switch
+#     -compatibility-version=3.0.0.
+
+timeout = 43200 # seconds
+got_sighup = False
+
+def unlink_nice(filepath):
+   try:
+      os.unlink(filepath)
+   except OSError, e:
+      # MAGIC_NUMBER: [Errno 2] No such file or directory
+      if e.errno != 2:
+         # Unexpected.
+         raise
+
+def main():
+
+   global got_sighup
+
+   print '========================================'
+   print '*** fcsh-wrap: main()'
+   print '========================================'
+
+   # Bug 2502: When run from cronjob, this script hangs. If you kill the
+   #           script, your output isn't sent to the cron email. However,
+   #           if you can exit before the hang, you'll see your output. So
+   #           something below makes it so you can't automate building
+   #           flashclient from daily.sh Maybe test -- by trial and error -- to
+   #           figure out what is causing the hang. Or maybe you can write to a
+   #           log file, eh?
+   # 2011.08.15: Have I tested since I changed from popen4 to Popen? Nope!
+   #             Test again, and put log msgs around Popen: it's probable
+   #             because we're PIPEing that we're hanging
+   #print '*** fcsh-wrap: test giving up!'
+   #sys.exit(1)
+
+   # Cleanup command
+   if (sys.argv[1] == 'killall'):
+      for pidfile in glob.glob('FW.*.pid'):
+         pid = pid_from_file(pidfile)
+         print '========================================'
+         print '*** killing process %d' % (pid)
+         print '========================================'
+         try:
+            os.kill(pid, signal.SIGTERM)
+         except OSError, e:
+            # Check for "No such process".
+            if e.errno != 3:
+               raise
+            else:
+               unlink_nice(pidfile)
+      # The Makefile uses killall (i.e., "./make clean"); exit when done.
+      sys.exit(0)
+
+   # Main logic
+   target = sys.argv[-1] # e.g., build/main.mxml
+   # NOTE: If you kill fcsh yourself, these files remain and then 'make' fails
+   # because os.kill fails...
+   tickled_fcsh = False
+   pidfile = 'FW.%s.pid' % (target.replace('/', '_'),)
+   donefile = 'FW.%s.done' % (target.replace('/', '_'),)
+   if os.access(pidfile, os.F_OK):
+      print '========================================'
+      print '*** fcsh-wrap: process exists, hupping it'
+      print '========================================'
+      pid = pid_from_file(pidfile)
+      try:
+         os.kill(pid, signal.SIGHUP)
+         print '========================================'
+         print '*** fcsh-wrap: waiting for os.access...'
+         print '========================================'
+         sleep_started = time.time()
+         while (not os.access(donefile, os.F_OK)):
+            time.sleep(0.2)
+         print '========================================'
+         print '*** fcsh-wrap: ... got it!'
+         print '========================================'
+         unlink_nice(donefile)
+         tickled_fcsh = True
+      except OSError, e:
+         #import pdb; pdb.set_trace() # silly, this works from Makefile
+         # MAGIC_NUMBER: [Errno 3] No such process
+         if e.errno != 3:
+            # Not sure what this is, so stop the make.
+            raise
+         else:
+            # Make sure it's really dead. If you're working on more than one
+            # branch, you'll have more than one PID file, so it's easy for them
+            # to become stale.
+            #
+            # First cleanup the incorrect PID files.
+            unlink_nice(pidfile)
+            unlink_nice(donefile)
+            #
+            # Now do a system-wide kill of any instances of this script.
+            the_cmd = (
+               """
+               ps aux \
+               | grep -e bin/fcsh$ -e lib/fcsh.jar$ -e "python ./fcsh-wrap" \
+               | awk '{print $2}' \
+               | xargs sudo kill -s 9
+               """)
+            p = subprocess.Popen([the_cmd,],
+                                 shell=True,
+                                 # bufsize=bufsize,
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT,
+                                 close_fds=True)
+            (sin, sout_err) = (p.stdin, p.stdout)
+            while True:
+               line = sout_err.readline()
+               if not line:
+                  break
+               else:
+                  line = line.strip()
+                  # Print to stdout. Don't say(), which *** prefixes output.
+                  print line
+            sin.close()
+            sout_err.close()
+            p.wait()
+
+   if not tickled_fcsh:
+
+      print '========================================'
+      print '*** fcsh-wrap: starting fcsh child'
+      print '========================================'
+
+      # NOTE: The old way is deprecated:
+      #          (fcsh_in, fcsh_out_and_err) = os.popen4('fcsh', 1)
+      #       ./fcsh-wrap:53: DeprecationWarning: os.popen4 is deprecated.
+      #                                           Use the subprocess module.
+      #       And popen2.popen4 is not the same thing:
+      #          (fcsh_in, fcsh_out_and_err) = popen2.popen4('fcsh', 1)
+      #          (and popen2 is also deprecated).
+      #       Raises the failure, IOError: File not open for reading.
+      #       Fortunately, lib.pdf explains how to use to the subprocess module
+      # NOTE: Devs must add the location of the flex bin directory to their
+      #       path, e.g., export PATH=$PATH:/export/scratch/ccp/opt/flex/bin/
+      # NOTE: Historically, we've just called 'fcsh' and put the burden on the
+      #       developer to make sure $PATH included the appropriate path. But
+      #       now we've got the auto_install scripts, and a nice symbolic link
+      #       at a Well Known Location, so just call it out.
+      p = subprocess.Popen('/ccp/opt/flex/bin/fcsh',
+                           shell=True,
+                           # bufsize=bufsize,
+                           stdin=subprocess.PIPE,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.STDOUT,
+                           close_fds=True)
+      (fcsh_in, fcsh_out_and_err) = (p.stdin, p.stdout)
+      outp = dump(fcsh_out_and_err)
+
+      # Check Free Flex SDK version.
+      if ((FCSH_VERSION is not None)
+          and (outp.find('Version %s' % (FCSH_VERSION)) == -1)):
+         print '========================================'
+         print '*** ERROR: Wrong Flex version; %s needed.' % (FCSH_VERSION)
+         fcsh_in.write('quit\n')
+         sys.exit(1)
+      # Since we're writing a pipe whose working directory is the same
+      # directory as the application we want to call, use a relative file path.
+      # NO: flex_mxmlc = '/export/scratch/ccp/opt/flex/bin/mxmlc'
+      fcsh_in.write(' '.join(['mxmlc',] + sys.argv[1:]) + '\n')
+      fcsh_in.flush()
+
+      # 2012.07.10:
+      #  On runic, mxmlc hanging after "Initial setup":
+      #     Adobe Flex Compiler SHell (fcsh)
+      #     Version 3.4.0 build 9271
+      #     ...
+      #     Initial setup: 293ms
+      #     Loaded 8 SWCs:
+      #  In Python, we hang at read(), meaning no EOF is coming from process. A
+      #  'top' shows Java spinning madly... I've waited an hour an then hungup.
+      #  I [lb] consulted [ml] and rebooted and it worked: this was probably a
+      #  bug in Java that was caused by the June 30, 2012, leap second!
+
+      outp = dump(fcsh_out_and_err)
+
+      # Create an error file for the build. This is used by the Cyclopath Vim
+      # IDE -- after the build, you can load the makefile output into the
+      # quickfix window to quickly jump to compilation problems in the source.
+      # Note that we have to strip the 'build/' directory string from the
+      # error file, lest quickfix open the build/ file file and not the real
+      # source file (see below; re.sub()).
+      #outp = re.sub('/flashclient/build/', '/flashclient/', outp)
+      # NOTE: There are two build directories: build/ and build-print/.
+      outp = re.sub(r'flashclient\/build(-print)?', 'flashclient', outp)
+      open('/tmp/flashclient_make', 'w').write(outp)
+
+      print '========================================'
+      print '*** fcsh-wrap: backgrounding'
+      print '========================================'
+
+      if (os.fork() != 0):
+         os._exit(0) # parent exits
+      open(pidfile, 'w').write('%d\n' % (os.getpid()))
+
+      print '========================================'
+      print '*** fcsh-wrap: setting up signal handlers'
+      print '========================================'
+      signal.signal(signal.SIGTERM, sigterm)
+      signal.signal(signal.SIGHUP, sighup)
+
+      print '========================================'
+      print '*** fcsh-wrap: waiting for signals'
+      print '========================================'
+
+      while True:
+
+         time.sleep(timeout)
+
+         if not got_sighup:
+            # got either SIGTERM or sleep ended (we timed out); exit
+            break
+         print '========================================'
+         print '*** fcsh-wrap: recompiling %s' % (target)
+         print '========================================'
+         got_sighup = False
+         fcsh_in.write('compile 1\n')
+         fcsh_in.flush()
+
+         outp = dump(fcsh_out_and_err)
+         # Strip the 'build/' dir and save the output to the user's error file.
+         # NOTE: There are two build directories: build/ and build-print/.
+         outp = re.sub(r'flashclient\/build(-print)?', 'flashclient', outp)
+         open('/tmp/flashclient_make', 'w').write(outp)
+         open(donefile, 'w').close()
+
+      # FIXME: Can we wait for fcsh to exit?
+      fcsh_in.close()
+      fcsh_out_and_err.close()
+      try:
+         p.wait()
+      except OSError, e:
+         # MAGIC_NUMBER: [Errno 10] No child processes
+         # This happens after a make, when you do make clean: this is the
+         # background process grumbling as it's being killed.
+         if e.errno != 10:
+            # Unexpected.
+            raise
+      # Remove the PID file
+      unlink_nice(pidfile)
+      #
+      print '========================================'
+      print '*** fcsh-wrap: exiting'
+
+def dump(fp):
+   ignore_till_newline = False
+   dumped = ''
+   chars = list()
+   while ''.join(chars) != '(fcsh) ':
+      if len(chars) == 7:
+         if LESS_CHATTER and (''.join(chars) in ('Reason:', 'Recompi',)):
+            ignore_till_newline = True
+         c = chars.pop(0)
+         if not ignore_till_newline:
+            sys.stdout.write(c)
+            dumped += c
+         if c == '\n':
+            ignore_till_newline = False
+      next_ch = fp.read(1)
+      assert(next_ch)
+      chars.append(next_ch)
+      sys.stdout.flush()
+      assert(len(chars) <= 7)
+   sys.stdout.flush()
+   return dumped
+
+def pid_from_file(filename):
+   return int(open(filename).read())
+
+def sighup(signum, frame):
+   global got_sighup
+   got_sighup = True
+
+def sigterm(signum, frame):
+   'Do nothing, but sleep() is ended.'
+   pass
+
+if (__name__ == '__main__'):
+   main()
+

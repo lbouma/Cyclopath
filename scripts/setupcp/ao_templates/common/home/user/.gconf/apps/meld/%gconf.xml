@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<gconf>
+	<entry name="filters" mtime="1314312832" type="string">
+		<stringvalue>Backups	1	#*# .#* ~* *~ *.{orig,bak,swp}
+Version Control	1	_darcs CVS .svn .git RCS .hg MT _MTN .svn .bzr .cdv [{]arch[}] .arch-ids .arch-inventory
+Binaries	1	*.{pyc,a,obj,o,so,la,lib,dll}
+Media	0	*.{jpg,gif,png,wav,mp3,ogg,xcf,xpm}
+Cyclopath	0	CONFIG Conf_Instance.as FW.build_main.mxml.pid macros.m4 main-devl main-prod tags main.swf database.map tilecache.cfg VERSION.py checkin.txt .vimprojects nip.sql fixme-*.wp</stringvalue>
+	</entry>
+	<entry name="tab_size" mtime="1308623425" type="int" value="3"/>
+	<entry name="spaces_instead_of_tabs" mtime="1308623424" type="bool" value="true"/>
+	<entry name="regexes" mtime="1308624555" type="string">
+		<stringvalue>CVS keywords	0	\$\w+(:[^\n$]+)?\$
+C++ comment	0	//.*
+C comment	0	/\*.*?\*/
+All whitespace	0	[ \t\r\f\v]*
+Leading whitespace	0	^[ \t\r\f\v]*
+Script comment	0	#.*</stringvalue>
+	</entry>
+	<entry name="edit_wrap_lines" mtime="1302623137" type="int" value="0"/>
+	<entry name="custom_font" mtime="1302623110" type="string">
+		<stringvalue>Monospace 9</stringvalue>
+	</entry>
+	<entry name="use_custom_font" mtime="1296077826" type="bool" value="true"/>
+	<entry name="show_line_numbers" mtime="1302623139" type="bool" value="true"/>
+	<entry name="window_size_y" mtime="1334168759" type="int" value="1099"/>
+	<entry name="window_size_x" mtime="1334168759" type="int" value="1600"/>
+</gconf>

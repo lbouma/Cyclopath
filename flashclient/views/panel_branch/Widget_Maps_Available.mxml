@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- NOTE: "My Maps" is trademarked - and not by Google, but by AWhere
+<          Inc. In case anyone was thinking it might be a good label. -->
+
+<mx:VBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_branch="views.panel_branch.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   initialize="this.on_initialize(event);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.core.Container;
+      import mx.events.CloseEvent;
+      import mx.events.FlexEvent;
+      import mx.states.*;
+
+      import grax.User;
+      import items.feats.Branch;
+      import utils.misc.Logging;
+      import utils.rev_spec.*;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_MapsAvl');
+
+      // ***
+
+      //
+      protected function on_initialize(ev:FlexEvent) :void
+      {
+         this.branch_list_pager.type_plural = 'maps';
+      }
+
+      // *** Event handlers
+
+      //
+      public function on_branch_checkout() :void
+      {
+         m4_ASSERT(this.widget_branch_list.branch_list.selectedItems.length
+                   == 1);
+         var branch:Branch = (this.widget_branch_list.branch_list.selectedItem
+                              as Branch);
+         m4_DEBUG('on_branch_checkout:', branch);
+         if ((branch !== null)
+             && ((G.item_mgr.active_branch === null)
+                 || (G.item_mgr.active_branch.stack_id != branch.stack_id))) {
+            // Popup an alert if the user has unsaved changes.
+            if (G.item_mgr.contains_dirty_any) {
+               var action_desc:String = 'change maps';
+               var alert_handler:Function = this.discard_alert_approved;
+               User.alert_unsaved(action_desc, alert_handler);
+            }
+            else {
+               this.discard_alert_approved();
+            }
+         }
+      }
+
+      //
+      protected function discard_alert_approved(event:CloseEvent=null) :void
+      {
+         m4_ASSERT(this.widget_branch_list.branch_list.selectedItems.length
+                   == 1);
+         var branch:Branch = (this.widget_branch_list.branch_list.selectedItem
+                              as Branch);
+         m4_DEBUG('discard_alert_approved:', branch);
+         if ((branch !== null)
+             && ((G.item_mgr.active_branch === null)
+                 || (G.item_mgr.active_branch.stack_id != branch.stack_id))) {
+
+            // Begin the process of changing branches. Remember the stack ID of
+            // the branch we're about to load and invalid the active branch.
+            G.item_mgr.active_branch = null;
+            G.item_mgr.branch_id_to_load = branch.stack_id;
+
+            // Since revision IDs are shared among branches, we don't need to
+            // check the latest revision ID to fiddle with G.map.rev_workcopy.
+            //  m4_ASSERT(G.map.rev_workcopy is utils.rev_spec.Working);
+            // On the other hand, G.map.rev_viewport might be Pinned, so make
+            // sure it's set to working.
+            // FIXME: Don't you think we should just use Current?
+            //        Or preserver the pinned revision?
+
+            G.map.rev_loadnext = new utils.rev_spec.Current();
+            var user_loggingin:Boolean = false;
+            var user_loggedout:Boolean = false;
+            var branch_changed:Boolean = true;
+            G.map.discard_and_update(user_loggingin, user_loggedout,
+                                     branch_changed);
+
+            G.panel_mgr.update_panel_title();
+         }
+         else {
+            m4_ASSERT_SOFT(false);
+         }
+      }
+
+      // MAYBE: Implement branch search and filter options.
+      //        Until there are a lot of publically-available
+      //        branches... this shouldn't be a big problem.
+
+      /* BUG nnnn: Display branch permissions, maybe using
+                   access_infer_id.
+
+                     You are viewing: Minnesota
+
+                     This branch can be edited by users
+                     in the Metc Bikeways 2012 Editors
+                     group.
+      */
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      paddingLeft="0"
+      paddingTop="2"
+      paddingRight="0"
+      paddingBottom="0"
+      verticalGap="3"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         paddingTop="0"
+         text="Change Branches"/>
+
+      <mx:VBox
+         width="100%"
+         paddingTop="0"
+         paddingBottom="1"
+         verticalGap="2">
+
+         <mx:VBox
+            width="100%"
+            borderStyle="solid"
+            paddingLeft="2"
+            paddingTop="2"
+            paddingRight="2"
+            paddingBottom="2"
+            verticalGap="4">
+
+            <mx:VBox
+               width="100%"
+               borderStyle="solid"
+               backgroundColor="{Conf.branch_conflict_color}"
+               paddingLeft="4"
+               paddingRight="4"
+               paddingTop="2"
+               paddingBottom="4"
+               verticalGap="0">
+
+               <mx:HBox
+                  width="100%"
+                  verticalAlign="middle"
+                  horizontalAlign="right"
+                  paddingLeft="4"
+                  paddingRight="4"
+                  paddingTop="2"
+                  paddingBottom="4">
+
+                  <mx:HBox
+                     width="100%"
+                     horizontalAlign="left">
+                     <mx:Text
+                        width="100%"
+                        text="Available Maps"
+                        fontWeight="bold"
+                        />
+                        <!-- Other text we've tried:
+                              text="Manage Maps"
+                              text="Cyclopath Maps"
+                              -->
+                  </mx:HBox>
+
+                  <mx:HBox
+                     horizontalAlign="right"
+                     paddingBottom="1"
+                     >
+
+   <!-- FIXME: This button is silly, or maybe just silly looking. -->
+                     <!-- MAYBE: Leave enabled and display message like,
+                     <           "No items selected." -->
+                     <views_panel_util:Button_Small
+                        id="button_activate"
+                        label="Activate"
+                        toolTip="Switch maps to the selected map."
+                        click="this.on_branch_checkout();"
+                        enabled="false"
+                        />
+
+                  </mx:HBox>
+
+               </mx:HBox>
+
+               <views_panel_branch:Widget_Maps_Branch_List
+                  id="widget_branch_list"
+                  width="100%"
+                  />
+
+      <!-- FIXME: Add Paginator (but it's a low priority, since the maps
+                                 list is (currently) a short list). -->
+               <views_panel_util:Paginator_Widget
+                  id="branch_list_pager"
+                  width="100%"
+                  horizontalAlign="right"
+                  paddingRight="1"
+                  paddingTop="3"
+                  paddingBottom="1"
+                  horizontalGap="0"
+      visible="false"
+      includeInLayout="{this.branch_list_pager.visible}"
+                  />
+
+               <mx:HBox
+                  width="100%"
+                  paddingBottom="3"
+                  horizontalAlign="right">
+                  <mx:Text
+                     width="100%"
+                     fontStyle="italic"
+                     leading="0"
+                     text=
+                        "Hint: Select a map and click 'Activate' to change maps."
+                     />
+               </mx:HBox>
+
+               <!-- BUG 2460: Write the Wiki help page. -->
+               <!-- MAYBE: Delete this. There's a help link in the title area of
+                           the panel.
+               <mx:HBox
+                  width="100%"
+                  horizontalAlign="right">
+                  <mx:Spacer
+                     width="100%" />
+                  <views_panel_util:Help_Link
+                     textAlign="right"
+                     click_url="/Working_with_Branches"
+                     text="Learn more" />
+               </mx:HBox>
+               -->
+
+            </mx:VBox>
+
+         </mx:VBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</mx:VBox>
+

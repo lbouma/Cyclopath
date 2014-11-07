@@ -1,0 +1,751 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:utils_misc="utils.misc.*"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_items="views.panel_items.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   paddingTop="0"
+   paddingLeft="0"
+   paddingRight="0"
+   paddingBottom="0"
+   verticalGap="0"
+   horizontalScrollPolicy="off"
+   verticalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.controls.Alert;
+      import mx.controls.Label;
+      import mx.events.FlexEvent;
+
+      import items.Geofeature;
+      import items.Item_Base;
+      import items.Link_Value;
+      import items.attcs.Tag;
+      import utils.misc.AutoComplete;
+      import utils.misc.Logging;
+      import utils.misc.Objutil;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+      import utils.misc.Strutil;
+      import utils.rev_spec.*;
+      import views.base.App_Action;
+      import views.commands.Geofeatures_Tag_Add;
+      import views.panel_base.Detail_Panel_Base;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Tag_Lst');
+
+      // MAGIC_NUMBER: The AutoComplete widget has to be told its width...
+      //               sorry!
+      protected static const auto_complete_width:int = 160;
+
+      // *** Instance variables
+
+      protected var feat_class:Class;
+      protected var valid:Boolean;
+      public var newtag:AutoComplete;
+
+      public var force_repopulate:Boolean = false;
+
+      // *** Initialization
+
+      //
+      override protected function on_creation_complete(ev:FlexEvent) :void
+      {
+         super.on_creation_complete(ev);
+
+         m4_TALKY('on_creation_complete: hooking tagsLoaded and linksLoaded');
+         G.item_mgr.addEventListener('tagsLoaded', this.on_tags_loaded,
+                                     false, 0, true);
+         G.item_mgr.addEventListener('linksLoaded', this.on_links_loaded,
+                                     false, 0, true);
+
+         m4_TALKY('on_initialize: addEventListener: selectedsetChanged');
+         G.map.addEventListener('selectedsetChanged',
+                                this.on_selectedset_change);
+         G.app.addEventListener('modeChange', this.on_mode_change);
+
+         m4_TALKY('on_initialize: this.dp:', this.dp);
+         // this.dp isn't set, so this would do nothing.
+         //  this.on_selectedset_change();
+
+         this.reset_auto_complete();
+      }
+
+      // *** Instance methods
+
+      //
+      override public function set detail_panel(dp:Detail_Panel_Base) :void
+      {
+         super.detail_panel = dp;
+         m4_TALKY('set detail_panel: setting force_repopulate');
+         this.force_repopulate = true;
+      }
+
+      //
+      protected function on_ac_drop_down_select(event:Event) :void
+      {
+         this.tag_add();
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         m4_TALKY('on_mode_change: setting force_repopulate');
+         this.force_repopulate = true;
+         //this.mark_dirty_and_show_maybe();
+         this.repopulate();
+      }
+
+      //
+      protected function on_more_click() :void
+      {
+         if (this.tag_list.expanded == true) {
+            this.more_link.label = 'more';
+            this.tag_list.expanded = false;
+            this.tag_list.invalidateDisplayList();
+         }
+         else {
+            this.more_link.label = 'less';
+            this.tag_list.expanded = true;
+            this.tag_list.invalidateDisplayList();
+         }
+      }
+
+      //
+      protected function on_selectedset_change(event:Event=null) :void
+      {
+         m4_TALKY('on_selectedset_change: setting force_repopulate');
+         this.force_repopulate = true;
+      }
+
+      // ***
+
+      //
+      protected function on_click_newtag(ev:MouseEvent) :void
+      {
+         // 2013.08.07: This fcn. is never called; the event is never added to
+         //             this.newtag.
+         m4_ASSERT(false);
+
+         m4_TALKY2('on_click_newtag:',
+                   Strutil.class_name_tail(String(ev.target)));
+
+         // Because on_click_panel calls this.stage.focus = null.
+         ev.stopPropagation();
+      }
+
+      // This event fires when the app loads link_value-tags for the selected
+      // items.
+      protected function on_links_loaded(event:Event) :void
+      {
+         m4_TALKY('on_links_loaded');
+         if (this.items_selected !== null) {
+            // m4_TALKY2('on_links_loaded/linksLoaded: selected:',
+            //           this.items_selected.toString());
+         }
+         else {
+            // We listen on the global linksLoaded event, and not on events
+            // pertaining specifically to this.items_selected, so this is
+            // nothing to worry about. But we always repopulate, since we don't
+            // set listeners on items_selected... which we totally could.
+            // m4_WARNING('on_links_loaded/linksLoaded: nothing selected');
+         }
+
+         m4_TALKY('on_links_loaded: setting force_repopulate');
+         this.force_repopulate = true;
+
+         this.mark_dirty_and_show_maybe();
+      }
+
+      // This event fires when the app loads all Tag names.
+      protected function on_tags_loaded(event:Event) :void
+      {
+         m4_TALKY('on_tags_loaded/tagsLoaded');
+         this.reset_auto_complete();
+      }
+
+      // ***
+
+      //
+      protected function reset_auto_complete() :void
+      {
+         if (this.newtag !== null) {
+            this.newtag.removeEventListener(
+               'itemSelected', this.on_ac_drop_down_select);
+            this.newtag.removeEventListener(
+               MouseEvent.CLICK, this.on_click_newtag);
+         }
+         this.auto_complete_space.removeAllChildren();
+         this.newtag = null;
+         if ((G.map.rev_workcopy !== null)
+             && (G.app.mode.is_allowed(App_Action.item_tag))
+             && (G.item_mgr.create_allowed_get(Tag))) {
+            m4_TALKY('reset_auto_complete: user is allowed to create tags');
+            this.newtag = new AutoComplete();
+            this.newtag.itemName = 'tag';
+            this.newtag.labelField = 'text_';
+            this.newtag.lookAhead = false;
+            // NOTE: This is annoying -- no way to specify 100%? Not even
+            //       this.auto_complete_space.maxWidth or .measuredWidth work,
+            //       nor percentWidth, the widget is just blank.
+            this.newtag.width = Widget_Tag_List.auto_complete_width;
+            //
+            if (this.feat_class !== null) {
+               //
+               // Listen on AutoComplete's itemSelected event, which happens
+               // when the user selects an item from the autocomplete drop
+               // down.
+               this.newtag.addEventListener(
+                  'itemSelected', this.on_ac_drop_down_select, false, 0, true);
+               //
+               var all_tags:Array = Tag.all_applied(this.feat_class);
+               m4_TALKY2('reset_auto_complete: found no. tags:',
+                         all_tags.length);
+               this.newtag.dataProvider = all_tags;
+            }
+            else {
+               m4_WARNING('reset_auto_complete: no feat_class?:', this);
+            }
+            this.newtag.text = '';
+            this.newtag.setStyle('openDuration', 0);
+            this.auto_complete_space.addChild(this.newtag);
+            //
+            // This probably doesn't need to exist; see also: repopulate_vrai.
+            this.widget_tag_add_tag_controls.visible = true;
+            this.usage_hint_add.visible = true;
+         }
+         else {
+            m4_DEBUG('reset_auto_complete: user not allowed to create tags');
+            //
+            // This probably doesn't need to exist; see also: repopulate_vrai.
+            this.widget_tag_add_tag_controls.visible = false;
+            this.usage_hint_add.visible = false;
+         }
+      }
+
+      // ***
+
+      //
+      override protected function depopulate() :void
+      {
+         // No: super.depopulate();
+         m4_TALKY('depopulate: this.dp:', this.dp.class_name_tail);
+         this.tag_list.removeAllChildren();
+         this.tag_list.visible = false;
+         //this.feat_class = null;
+         //this.reset_auto_complete();
+         this.widget_tag_add_tag_controls.visible = false;
+         this.label_tags_empty.visible = true;
+         this.usage_hint_click.visible = false;
+         this.usage_hint_many.visible = false;
+         this.usage_hints_adddel.visible = false;
+         this.usage_hint_del.visible = false;
+         this.usage_hint_add.visible = false;
+      }
+
+      //
+      override protected function repopulate() :void
+      {
+         super.repopulate();
+
+         m4_TALKY('repopulate: dirty_reasons:', this.dirty_reasons);
+
+         var do_reset_tag_list_and_autocomplete:Boolean = false;
+
+         if (this.items_selected.length > 0) {
+            var feat_class:Class;
+            var ac_type:String;
+            var an_item:Geofeature = (this.items_selected.item_get_random()
+                                      as Geofeature);
+            m4_ASSERT(an_item !== null);
+            feat_class = Item_Base.item_get_class(an_item);
+            if (feat_class != this.feat_class) {
+               m4_TALKY('repopulate: different cls:', feat_class);
+               this.feat_class = feat_class;
+               do_reset_tag_list_and_autocomplete = true;
+            }
+            else {
+               m4_TALKY('repopulate: same class:', feat_class);
+            }
+            this.label_tags_empty.visible = false;
+         }
+         else {
+            // This happens on mode change.
+            m4_TALKY('repopulate: nothing selected: cls:', this.feat_class);
+            //do_reset_tag_list_and_autocomplete = true;
+            m4_ASSERT_SOFT(this.force_repopulate);
+         }
+
+         // Don't blindly reset the auto complete widget, which causes
+         // flicker. (Until Detail_Panel_Base.repopulate_self_and_children
+         // is smart enough -- or panels have enough dirty reasons -- that
+         // we can tell when repopulate pertains to our data, we always just
+         // blindly update... but we can try to be smart about it.)
+         // Avoid flicker, so, no: this.reset_auto_complete();
+         if ((this.newtag === null)
+             || (do_reset_tag_list_and_autocomplete)
+             || (this.force_repopulate)) {
+            this.repopulate_vrai();
+         }
+
+         this.force_repopulate = false;
+      }
+
+      //
+      protected function repopulate_vrai() :void
+      {
+         m4_TALKY('repopulate_vrai: emptying tag_list');
+
+         this.tag_list.removeAllChildren();
+
+         m4_TALKY2('repopulate_vrai: no. selected:',
+                   this.items_selected.length);
+
+         var tags_sorted:Array = new Array();
+         tags_sorted = this.update_get_sorted_tags(this.items_selected);
+
+         var can_edit_tags:Boolean = (
+            (G.map.rev_workcopy !== null)
+            && (G.app.mode.is_allowed(App_Action.item_tag))
+            && (G.item_mgr.create_allowed_get(Tag)));
+
+         m4_TALKY2('repopulate_vrai: tags_sorted.length:',
+                   tags_sorted.length, '/ can_edit_tags:', can_edit_tags);
+
+         if (tags_sorted.length > 0) {
+            var can_edit_at_least_one:Boolean = false;
+            //this.tag_list.setStyle('height', '100%');
+            for each (var t:String in tags_sorted) {
+               m4_ASSERT(t in Tag.all_named);
+               var tg:Tag = Tag.all_named[t];
+               // Get link-values.
+               var tags_links:Set_UUID;
+               // Check user's permissions.
+               var can_edit_lvals:Boolean = false;
+               if ((can_edit_tags)
+                   || (G.map.rev_viewport is utils.rev_spec.Diff)) {
+                  var tag_set:Set_UUID = new Set_UUID();
+                  tag_set.add(tg);
+                  // NOTE: Ignoring this.tags. We need actual lvals.
+                  tags_links = Link_Value.items_get_link_values(
+                                    tag_set, this.items_selected);
+                  m4_DEBUG2('repopulate_vrai: tag name:', t,
+                            '/ no. links:', tags_links.length);
+               }
+               if (can_edit_tags) {
+                  can_edit_lvals =
+                     Objutil.consensus_b(tags_links, 'can_edit', false);
+                  can_edit_at_least_one ||= can_edit_lvals;
+               }
+               else {
+                  can_edit_lvals = false;
+                  can_edit_at_least_one = false;
+               }
+
+               // Check diff status.
+               var is_diffing:Boolean = false;
+               var diff_status:int = 0;
+               var bg_color:Number;
+               if (G.map.rev_viewport is utils.rev_spec.Diff) {
+                  for each (var lv:Link_Value in tags_links) {
+                     m4_DEBUG4('repopulate_vrai: tag:', tg.name_,
+                               'link:', lv, 
+                               '/ new:', lv.is_vgroup_new, 
+                               '/ old:', lv.is_vgroup_old);
+                     if (lv.is_vgroup_old || lv.is_vgroup_new) {
+                        is_diffing = true;
+                        if (lv.is_vgroup_new) {
+                           diff_status += 1;
+                        }
+                        else if (lv.is_vgroup_old) {
+                           diff_status -= 1;
+                        }
+                     }
+                  }
+                  if (is_diffing) {
+                     if (diff_status > 0) {
+                        bg_color = Conf.vgroup_move_new_color;
+                     }
+                     else if (diff_status < 0) {
+                        bg_color = Conf.vgroup_move_old_color;
+                     }
+                     else {
+                        bg_color = Conf.vgroup_move_both_color;
+                     }
+                  }
+               }
+
+               // Create the widget.
+               var tag_widget:Widget_Tag_Widget;
+               tag_widget = new Widget_Tag_Widget();
+               this.tag_list.addChild(tag_widget);
+               tag_widget.init_tag_widget(tg, this.feat_class, can_edit_lvals);
+               for each (var feat:Geofeature in this.items_selected) {
+                  if (!feat.has_tag(t)) {
+                     // Paint the bg white if not all of the selected items
+                     // share this tag.
+                     // FIXME: Maybe gray it out instead (we should choose a
+                     //        common color, and shading gray is often used,
+                     //        like maybe shade the font, too...).
+                     tag_widget.setStyle('backgroundColor', '0xFFFFFF');
+                     break;
+                  }
+               }
+
+               if (is_diffing) {
+                  tag_widget.setStyle('backgroundColor', bg_color);
+               }
+            }
+            // Show or hide hints. But don't show 'em all at once.
+            this.usage_hint_click.visible = (this.items_selected.length == 1);
+            this.usage_hint_many.visible = (this.items_selected.length > 1);
+            this.usage_hint_del.visible = can_edit_at_least_one;
+         }
+         else {
+            // NOTE: Not testing if link_value can be created, just tags.
+            // NOTE: This means, if user cannot create tags, user also cannot
+            // apply existing tags to any items. This seems like a very
+            // particular we shouldn't have to worry about now.
+            // Hide the hint on how to delete tags.
+            this.label_tags_empty.visible = true;
+            this.usage_hint_click.visible = false;
+            this.usage_hint_many.visible = false;
+            this.usage_hint_del.visible = false;
+         }
+
+         this.widget_tag_add_tag_controls.visible = can_edit_tags;
+         this.usage_hint_add.visible = can_edit_tags;
+         m4_DEBUG('repopulate_vrai: this.newtag:', this.newtag);
+         if (this.newtag === null) {
+            this.reset_auto_complete();
+         }
+
+         this.usage_hints_adddel.visible = (this.items_selected.length < 2);
+
+         this.tag_list.visible = (this.tag_list.numChildren > 0);
+
+         // Update the AutoComplete widget.
+         // MAYBE: Can we delete this? I think tagsLoaded manages this now.
+         // NO?: this.reset_auto_complete();
+      }
+
+      //
+      protected function update_get_sorted_tags(feats:Set_UUID) :Array
+      {
+         var feat:Geofeature;
+         var tg:Tag;
+         var all_tags:Dictionary = new Dictionary();
+         var tags_found:Array;
+         var tags_sorted:Array = new Array();
+
+         for each (feat in feats) {
+            if ((feat.is_vgroup_old) && (feat.counterpart_untyped !== null)) {
+               // This is a diff. Let the new version add the link_value.
+               continue;
+            }
+            tags_found = Link_Value.attachments_for_item(feat, Tag);
+            //m4_DEBUG('_get_sorted_tags: tags_found:', tags_found);
+            for each (tg in tags_found) {
+               if (!(tg.base_id in all_tags)) {
+                  all_tags[tg.base_id] = tg;
+               }
+            }
+         }
+
+         //m4_DEBUG('_get_sorted_tags: all_tags:', all_tags);
+         for each (tg in all_tags) {
+            tags_sorted.push(tg.text_);
+         }
+         tags_sorted.sort();
+
+         m4_TALKY('_get_sorted_tags: tags_sorted:', tags_sorted);
+
+         return tags_sorted;
+      }
+
+      // ***
+
+      //
+      protected function tag_add() :void
+      {
+         if (this.newtag !== null) {
+            this.tag_add_();
+         }
+         else {
+            m4_WARNING('tag_add: newtag is null');
+         }
+      }
+
+      //
+      protected function tag_add_() :void
+      {
+         var done:Boolean = false;
+         var a:Tag;
+         var c:views.commands.Geofeatures_Tag_Add;
+         var gf:Geofeature;
+         var p:Object;
+         var repeated:Boolean;
+
+         var text:String = this.newtag.text;
+
+         m4_TALKY('tag_add_: text', text);
+
+         // Convert to lowercase and remove extra spaces.
+         text = text.toLowerCase();
+         text = text.replace(/\s+/g, ' ');
+         text = text.replace(/^ /g, '');
+         text = text.replace(/ $/g, '');
+
+         if (text.length > 0) {
+            a = new Tag();
+            a.text_ = text;
+            repeated = true;
+            // Find out if the tag to be added is already in all of the
+            // selected geofeatures.
+            for each (gf in this.items_selected) {
+               if (!gf.has_tag(text)) {
+                  repeated = false;
+                  break;
+               }
+            }
+            if (repeated) {
+               // If the tag already exists in all of the selected geofeatures,
+               // highlight it in the tag list.
+               for each (p in this.tag_list.getChildren()) {
+                  if ((p as Widget_Tag_Widget).tg.text_ == text) {
+                     (p as Widget_Tag_Widget).setStyle('borderColor',
+                                                Conf.button_highlight);
+                  }
+               }
+            }
+            else {
+               var cmd:Geofeatures_Tag_Add;
+               cmd = new Geofeatures_Tag_Add(this.items_selected.clone(), a);
+               G.map.cm.do_(cmd);
+               // The item(s) being tagged should already be hydrated.
+               m4_ASSERT_SOFT(cmd.is_prepared !== null);
+               if (cmd.is_prepared) {
+                  m4_TALKY('tag_add_: success');
+                  this.more_link.label = 'less';
+                  this.tag_list.expanded = true;
+                  this.reset_auto_complete();
+                  this.newtag.setFocus();
+               }
+               else {
+                  m4_WARNING('tag_add_: failed');
+               }
+               // Make sure we redraw on repopulate (since our repopulate is
+               // too smart for its own pants and ignores this.dirty_reasons,
+               // which doesn't matter anyway because this.dirty_reasons is not
+               // set the next time repopulate is called.
+               this.force_repopulate = true;
+            }
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:VBox
+      width="100%"
+      styleName="looknfeelCleanOuter"
+      >
+
+      <mx:Label
+         styleName="labelmajor"
+         text="Tags"
+         paddingTop="0"
+         paddingBottom="0"
+         />
+
+      <!-- Not using the style that similar widgets use:
+            styleName="looknfeelCleanInner"
+           -->
+      <mx:VBox
+         paddingLeft="{G.app.pad}"
+         paddingTop="4"
+         paddingRight="{G.app.pad}"
+         paddingBottom="0"
+         width="100%"
+         verticalGap="0"
+         >
+
+         <mx:VBox
+            width="100%"
+            verticalScrollPolicy="off"
+            horizontalScrollPolicy="off"
+            paddingTop="1"
+            paddingBottom="0"
+            verticalGap="0"
+            >
+
+            <mx:VBox
+               width="100%"
+               paddingLeft="0"
+               paddingTop="0"
+               paddingRight="0"
+               paddingBottom="0"
+               verticalGap="0"
+               >
+
+               <utils_misc:FlowBar
+                  id="tag_list"
+                  width="100%"
+                  paddingTop="1"
+                  paddingBottom="3"
+                  horizontalGap="4"
+                  verticalGap="5"
+                  verticalScrollPolicy="off"
+                  horizontalScrollPolicy="off"
+                  visible="false"
+                  includeInLayout="{this.tag_list.visible}"
+                  >
+               </utils_misc:FlowBar>
+               <mx:Label
+                  id="label_tags_empty"
+                  text="No tags."
+                  visible="true"
+                  includeInLayout="{this.label_tags_empty.visible}"
+                  />
+            </mx:VBox>
+
+            <mx:Label
+               id="usage_hint_click"
+               text="Hint: Click tags above to see where they apply."
+               fontStyle="italic"
+               visible="false"
+               includeInLayout="{this.usage_hint_click.visible}"
+               paddingTop="4"
+               />
+
+            <mx:VBox
+               id="usage_hint_many"
+               width="100%"
+               horizontalGap="0"
+               verticalGap="0"
+               paddingTop="3"
+               paddingBottom="0"
+               paddingRight="0"
+               paddingLeft="0"
+               visible="false"
+               includeInLayout="{this.usage_hint_many.visible}"
+               >
+               <!--
+                  text="Gray tags apply to all items, white tags just to some."
+                  text="A shaded tag is shared by all selected items."
+                  text="Shaded tags are shared by all selected items."
+                  text="Shaded tags are shared by all selected items."
+                  text="Hint: A gray color tag is shared by all items,"
+                  text="and a white color tag by only some items."
+                  -->
+               <mx:Label
+                  text="Hint: A tag shaded gray is shared by all items,"
+                  toolTip=
+"In the tag list above, if a tag is applied to all of the selected items on the map, the background of the tag is shaded gray. But if the tag background is white, it means the tag applies to one or more of the selected items but not to all of them."
+                  fontStyle="italic"
+                  />
+               <mx:Label
+                  text="but a tag not shaded is shared by only some."
+                  toolTip=
+"In the tag list above, if a tag is applied to all of the selected items on the map, the background of the tag is shaded gray. But if the tag background is white, it means the tag applies to one or more of the selected items but not to all of them."
+                  fontStyle="italic"
+                  />
+            </mx:VBox>
+
+            <mx:HBox
+               id="usage_hints_adddel"
+               width="100%"
+               horizontalGap="0"
+               paddingTop="1"
+               paddingBottom="0"
+               paddingRight="0"
+               paddingLeft="0"
+               visible="true"
+               includeInLayout="{this.usage_hints_adddel.visible}"
+               >
+               <!--
+                  text="To delete tags, click 'X'."
+                  -->
+               <mx:Label
+                  id="usage_hint_del"
+                  text="Click 'X' to delete tags."
+                  fontStyle="italic"
+                  visible="false"
+                  includeInLayout="{this.usage_hint_del.visible}"
+                  />
+               <!--
+                  text="To add tags, use the box above."
+                  text="Add tags using the box above."
+                  -->
+               <mx:Label
+                  id="usage_hint_add"
+                  text="Enter new tags below."
+                  fontStyle="italic"
+                  visible="false"
+                  includeInLayout="{this.usage_hint_add.visible}"
+                  />
+            </mx:HBox>
+
+         </mx:VBox>
+
+         <mx:HBox
+            width="100%"
+            horizontalAlign="left"
+            paddingLeft="0"
+            paddingTop="6"
+            paddingRight="0"
+            paddingBottom="6"
+            visible="{this.tag_list.over_row_limit}"
+            includeInLayout="{this.tag_list.over_row_limit}"
+            >
+            <views_panel_util:Button_Small
+               id="more_link"
+               label="more"
+               height="16"
+               click="this.on_more_click();"/>
+         </mx:HBox>
+
+         <mx:HBox
+            id="widget_tag_add_tag_controls"
+            width="100%"
+            verticalAlign="middle"
+            paddingLeft="0"
+            paddingTop="6"
+            paddingRight="0"
+            paddingBottom="6"
+            visible="false"
+            includeInLayout="{this.widget_tag_add_tag_controls.visible}"
+            >
+            <mx:HBox
+               width="100%"
+               verticalAlign="middle">
+               <mx:VBox
+                  id="auto_complete_space"
+                  width="{Widget_Tag_List.auto_complete_width}"/>
+               <views_panel_util:Button_Small
+                  id="plus"
+                  label="+"
+                  height="16"
+                  width="16"
+                  click="this.tag_add();"/>
+            </mx:HBox>
+         </mx:HBox>
+
+      </mx:VBox>
+
+   </mx:VBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

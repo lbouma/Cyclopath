@@ -1,0 +1,96 @@
+$Id: executive-summary.txt 424 2007-01-03 00:54:14Z reid $
+
+
+
+               GROUPLENS BIKE MAP PROJECT EXECUTIVE SUMMARY
+               ============================================
+
+                      Reid Priedhorsky / reid@umn.edu
+                  Dr. Loren Terveen / terveen@cs.umn.edu
+
+
+Goal
+----
+
+We intend for our system to become the central clearinghouse for Twin Cities
+bicyclists' route planning and navigation needs. Its key advantage over other
+systems is that it is user-maintained --- this enables it to not only capture
+where cyclists really go and what they really use better than centralized
+systems, but also to respond more quickly to an ever-changing landscape.
+
+
+Vision
+------
+
+Our vision for the system includes the following key features:
+
+1. A database of place-based information important to bicyclists, created and
+   maintained collaboratively.
+
+   Where can one find water? Restrooms? Bike shops? Road construction?
+   Currently, this critical information is only available piecemeal from
+   hundreds of different sources, and it changes constantly.
+
+   However, bicyclists are bursting to share what they know, and working
+   together, with little effort necessary on the part of any one person, they
+   can build a central, up-to-date, repository of great value.
+
+2. A cyclist-oriented map of the city's transportation network, maintained
+   collaboratively.
+
+   Paper maps become quickly outdated, and centrally maintained maps suffer
+   from information overload and narrowness of perspective.
+
+   However, bicyclists are intimately familiar with the places they go
+   frequently; our system can collect this distributed knowledge and present
+   it in a coherent way. Members of the community will edit the map and
+   monitor the edits of others, producing an accurate, up-to-date map matching
+   precisely where cyclists want to go.
+
+3. Personalized bikeability ratings for every significant road and trail in
+   the metro area.
+
+   Currently, high-quality bicycle maps exist for the Twin Cities. However,
+   these maps have two significant failings: their bikeability ratings are by
+   necessity generic, not personalized, and they carry ratings for only a
+   small subset of the city's bikeable surfaces.
+
+   A cyclist will enter ratings for roads and trails that he or she knows; the
+   system will then, using sophisticated information processing techniques,
+   combine these ratings with ratings entered by others. It will then be able
+   to predict, with high accuracy, the ratings the cyclist would give to other
+   roads and trails -- producing for each user a fully personalized bicycle
+   map of the entire city.
+
+4. Sophisticated, bicycle-centric route planning.
+
+   A bicyclist will be able to quickly obtain a personalized point-to-point
+   route considering many factors: shortest route, fewest hills, prettiest,
+   least traffic, and others. He or she will be able to weigh these factors to
+   obtain a route through unfamiliar areas that precisely matches his or her
+   immediate mood and needs.
+
+   Route planning can use either the personalized bikeability ratings
+   discussed above, or, for users who prefer it or do not wish to log in,
+   standardized ratings based on Clark's Roadway Suitability Index or some
+   other generic measure.
+
+
+How We're Getting There
+-----------------------
+
+The project is led by Reid Priedhorsky, and work proceeds under an empirical,
+user-centered methodology. Reid is an enthusiastic cyclist and a 4th-year
+Ph.D. student specializing in human-computer interaction. He is trained in the
+relevant techniques and methods: spatial databases, GIS, user-centered design,
+and requirements analysis.
+
+The project is supervised by Dr. Loren Terveen. Loren has extensive research
+experience in computer-mediated communication and computer-supported
+cooperative work; his current work is in online communities and location-based
+services.
+
+We're not pushing a technology solution onto users. Rather, we're
+investigating user needs -- using surveys, interviews, and other tools -- and
+evolving our initial design ideas, which were themselves informed by Reid's
+knowledge and experience of cycling.

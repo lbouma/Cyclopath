@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- From: https://github.com/baonhan/DisabledOptionComboBox -->
+
+<!-- NOTE: Added 2014.04.12, but this is basically a simpler version
+           of Combo_Box_V2.as. -->
+
+<mx:ComboBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   >
+
+   <mx:Script><![CDATA[
+
+      import mx.collections.ArrayCollection;
+      import mx.events.ListEvent;
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('DisComboBox');
+
+      // ***
+
+      override public function set dataProvider(value:Object) :void
+      {
+         super.dataProvider = value;
+         this.refresh();
+      }
+
+      public function refresh() :void
+      {
+         // Select the first enabled option.
+         var options:ArrayCollection = this.dataProvider as ArrayCollection;
+         for (var ii:uint = 0; ii < options.length; ii++) {
+            if ((options.getItemAt(ii) as Object).enabled !== false) {
+               this.selectedIndex = ii;
+               this.dispatchEvent(new ListEvent(ListEvent.CHANGE));
+               break;
+            }
+         }
+      }
+
+   ]]></mx:Script>
+
+   <mx:itemRenderer>
+      <mx:Component>
+         <views_panel_util:DisabledListItemRenderer/>
+      </mx:Component>
+   </mx:itemRenderer>
+   <mx:dropdownFactory>
+      <mx:Component>
+         <views_panel_util:DisabledList/>
+      </mx:Component>
+   </mx:dropdownFactory>
+
+</mx:ComboBox>
+

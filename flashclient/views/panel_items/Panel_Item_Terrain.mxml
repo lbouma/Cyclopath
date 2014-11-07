@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_items:Panel_Item_Geofeature
+   xmlns="*"
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   width="100%"
+   height="100%">
+
+   <mx:Script><![CDATA[
+
+      // BUG 0694: Implement this class. Make Terrain editable like Regions.
+      //           (Including: User has to enable editability via Ctrl Panel.)
+
+      import utils.misc.Logging;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Pnl_Terrain');
+
+      // *** Simple base class overrides
+
+      //
+      override public function get shows_type() :Class
+      {
+         return Terrain;
+      }
+
+   ]]></mx:Script>
+
+</views_panel_items:Panel_Item_Geofeature>
+

@@ -1,0 +1,30 @@
+Cyclopath, an online bicycle map and trip planner, is now available for the State of Minnesota.
+
+Cyclopath (http://cyclopath.org) has been a cycling resource for Twin Cities cyclists since 2008.
+
+Cyclopath includes a lot of features that make it unique:
+
+* Cyclopath plans bicycle routes using information from those who know best -- cyclists! Cyclopath users (like you!) keep the map up to date by rating roads and trails for bikeability. This helps Cyclopath generate the best routes for bicycling. You can also add and edit roads and trails on the map. Our users can share their routes with own another, and everyone can participate in discussions about trails, roads, and other items on the map.
+
+* Cyclopath helps find the route that's perfect for you! Cyclists can find the shortest route between two locations, or Cyclopath can find you a more bike-friendly route that favors bike trails, bike lanes, and roads that users have rated as being more bikeable. You can easily find the best route that fits your riding style by adjusting the search options.
+
+* Cyclopath is a map especially for cyclists. There are many other great maps and trip planning tools online, but Cyclopath is dedicated to finding the best routes for cyclists and encouraging the community to interact by sharing routes, editing the map, and joining in discussions.
+
+Launched by the University of Minnesota in 2008, Cyclopath has continued to grow and evolve.
+
+* Metropolitan Council sponsored the Cycloplan project to add tools for transportation professionals. Cycloplan is an analysis tool that simulates how cyclists travel throughout the road network, and it can be used by traffic engineers to analyze how changes to the road network will influence what roads and trails cyclists are likely to travel.
+
+* Working with the Minnesota Department of Transportation, Cyclopath added the complete MnDOT road network to the map. Cyclopath was retooled to handle the massive amounts of new data, including rewriting the route planner to be more efficient and to return even better bicycle routes. The Cyclopath Web site was redesigned to be simpler and more user-friendly, and the map was updated to emphasize bicycle facilities, making it easier for cyclists to see the different types of bike-friendly roads and trails on the map.
+
+The Cyclopath map is available for desktop computers at http://cycloplan.cyclopath.org.
+
+(A simpler version of Cyclopath is available for Android devices, but users should be aware that Cyclopath for Android is still "in beta" and may not work as well as the desktop app. You can find the Android app in the Android Marketplace, at https://market.android.com/details?id=org.cyclopath.android, or by searching for it on your phone.)
+
+What's next for Cyclopath?
+
+* Cyclopath for Minnesota is new and fresh. While the data for the Twin Cities is very complete and includes most bike trails and bike facilities, the data for the rest of the state is not as complete. Cyclopath encourages all cyclists to help bring the rest of the state up to date by adding trails where they're missing and editing roads to indicate bike lanes and other bike facilities.
+
+* Cyclopath continues to work with regional transportation agencies to help them use Cyclopath as a data store and as an analysis tool for maintaining the state's bicycle inventory. The Cyclopath team is excited about this on-going relationship.
+
+* Cyclopath is a great tool, but it's only available for cyclists in Minnesota, and it's not available across all platforms. The Cyclopath team would love to continue developing the software by optimizing the code, creating apps for all devices, and expanding the map to include other states and countries. The team continues to explore possibilities to make Cyclopath even better.
+

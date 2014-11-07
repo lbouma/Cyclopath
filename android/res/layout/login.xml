@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2006-2011 Regents of the University of Minnesota.
+   For licensing terms, see the file LICENSE.-->
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical">
+  <View
+    android:layout_width="fill_parent"
+    android:layout_height="2dip"
+    android:background="#696969" />
+  <TableLayout
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="2dip"
+    android:paddingBottom="2dip">
+    <TableRow>
+      <TextView 
+        android:id="@+id/dont_have_account"
+        android:text="@string/dont_have_account"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+      <TextView 
+        android:id="@+id/new_user_link"
+        android:textSize="14dip"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content" />
+      <ImageView
+       android:layout_width="12dip"
+       android:layout_height="11dip"
+       android:src="@drawable/ic_external_link"
+       android:layout_gravity="center_vertical" />
+    </TableRow>
+  </TableLayout>
+  <View
+    android:layout_width="fill_parent"
+    android:layout_height="2dip"
+    android:paddingBottom="10dip"
+    android:background="#696969" />
+  <TextView 
+    android:id="@+id/login_username_lbl"
+    android:text="@string/login_username"
+    android:paddingTop="10dip"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content" />
+  <EditText 
+    android:id="@+id/login_username_txt"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content" />
+  <TextView 
+    android:id="@+id/login_password_lbl"
+    android:text="@string/login_password"
+    android:layout_height="wrap_content"
+    android:layout_width="wrap_content" />
+  <EditText 
+    android:id="@+id/login_password_txt"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:password="true" />
+  <LinearLayout 
+    android:id="@+id/login_buttons"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_marginBottom="10dip">
+    <CheckBox 
+      android:id="@+id/login_remember"
+      android:text="@string/login_remember_lbl"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginRight="20dip" />
+    <Button 
+      android:id="@+id/login_btn"
+      android:text="@string/login_btn"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content" />
+  </LinearLayout>
+  <LinearLayout
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:paddingBottom="10dip">
+     <TextView 
+       android:id="@+id/forgot_password_link"
+       android:textSize="14dip"
+       android:layout_height="wrap_content"
+       android:layout_width="wrap_content"
+       android:layout_gravity="center_vertical" />
+     <ImageView
+       android:layout_width="12dip"
+       android:layout_height="11dip"
+       android:src="@drawable/ic_external_link"
+       android:layout_gravity="center_vertical" />
+  </LinearLayout>
+</LinearLayout>

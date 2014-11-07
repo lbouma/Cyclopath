@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<views_panel_base:Detail_Panel_Widget
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns:views_panel_base="views.panel_base.*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns="*"
+   width="100%"
+   height="100%"
+   horizontalScrollPolicy="off"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import flash.events.MouseEvent;
+      import mx.events.FlexEvent;
+
+      import grax.Item_Manager;
+      import gwis.GWIS_Checkout_Nonwiki_Download;
+      import gwis.GWIS_Commit;
+      import items.jobsq.Job_Status;
+      import items.jobsq.Route_Analysis_Job;
+      import utils.misc.Logging;
+      import utils.misc.Set;
+      import utils.misc.Set_UUID;
+
+// FIXME: See Widget_Shapefile_Cell__Action.mxml
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@Wgt_Anal_CA');
+
+      // ***
+
+      protected var job:Route_Analysis_Job;
+
+      // ***
+
+      // Regarding custom item renderers, this.owner is
+      //     ...Widget_Analysis_List1605.branch_list
+      // and this.parent is
+      //     ...Widget_Analysis_List1605.branch_list.ListBaseContentHolder1609
+
+      // *** Instance methods
+
+      //
+      protected function toggle_entry() :void
+      {
+         m4_DEBUG('toggle_entry');
+      }
+
+      // *** Event handlers
+
+      //
+      protected function on_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_click');
+      }
+
+      //
+      protected function on_double_click(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_double_click: ev:', ev);
+      }
+
+      // This is how the parent control interacts with our custom renderer.
+
+      ////
+      //override public function get data() :Object
+      //{
+      //   //m4_DEBUG('get data!');
+      //   return this.work_item;
+      //}
+
+      //
+      override public function set data(value:Object) :void
+      {
+         m4_DEBUG('set data!:', value);
+         super.data = value;
+         this.job = (value as Route_Analysis_Job);
+         m4_DEBUG('this.job:', this.job);
+         var job_status:int = this.job.status_code;
+         m4_DEBUG2('action cell: lookup_key[', job_status, ']:',
+                   Job_Status.lookup_key[job_status]);
+         //
+         var action_e_val:String = Job_Status.lookup_key[job_status];
+         m4_INFO('data: job_status:', action_e_val);
+         this.action_cancel.enabled = false;
+         this.action_suspend.enabled = false;
+         this.action_download.enabled = false;
+         this.action_remove.enabled = false;
+         if (!(this.job.job_finished)) {
+            const suspendable:Set_UUID = new Set_UUID(['started', 'working',]);
+            if (action_e_val == 'queued') {
+               this.action_cancel.enabled = true;
+            }
+            else if (suspendable.is_member(action_e_val)) {
+               if (this.job.suspendable) {
+                  this.action_suspend.enabled = true;
+               }
+               else if (this.job.cancellable) {
+                  this.action_cancel.enabled = true;
+               }
+            }
+            else {
+               m4_WARNING('Uknown state! action_e_val:', action_e_val);
+               m4_ASSERT_SOFT(false);
+            }
+         }
+         else {
+            this.action_remove.enabled = true;
+            if (action_e_val == 'complete') {
+               this.action_download.enabled = true;
+            }
+            else if (action_e_val == 'canceled') {
+               // FIXME: The [x] looks lonely... maybe use a
+               // text hyperlink, "Delist"
+            }
+            else {
+               m4_DEBUG('set data: action_e_val:', action_e_val);
+               //m4_ASSERT(action_e_val == 'failed');
+            }
+         }
+      }
+
+      //
+      protected function on_action_cancel(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_action_cancel');
+         Item_Manager.do_job(this.job, 'cancel', this.on_resp_cancel);
+      }
+
+      //
+      protected function on_action_suspend(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_action_suspend');
+         Item_Manager.do_job(this.job, 'suspend', this.on_resp_cancel);
+      }
+
+      //
+      protected function on_action_download(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_action_download');
+         var req:GWIS_Checkout_Nonwiki_Download;
+         req = new GWIS_Checkout_Nonwiki_Download(
+                     'route_analysis_job_download',
+                     this.job.stack_id);
+         req.download_file('cyclopath_routes.zip');
+      }
+
+      //
+      protected function on_action_remove(ev:MouseEvent) :void
+      {
+         m4_DEBUG('on_action_remove');
+// FIXME: This is new/untested/unimplemented.
+// mark the item_versioned deleted, that's it! probably in nonwiki_item.py?
+         Item_Manager.do_job(this.job, 'delist', this.on_resp_delist);
+      }
+
+      //
+      protected function on_resp_cancel(gwis_req:GWIS_Commit,
+                                        rset:XML, payload:*=null) :void
+      {
+         m4_DEBUG('on_resp_cancel');
+         // FIXME: What do I do? Probably look for response code... or assume
+         // if we're here than GWIS_Error was not throw, so we can just refresh
+         // the work item list, mayhaps. And check that a new job is detected?
+         this.on_resp_jobs_list_refresh();
+      }
+
+      //
+      protected function on_resp_delist(gwis_req:GWIS_Commit,
+                                        rset:XML, payload:*=null) :void
+      {
+         //m4_DEBUG('on_resp_delist');
+         // Would it make sense to have a handle to a parent? E.g.,
+         //    this.dp.widget_analysis.jobs_list_refresh();
+         // For now, we go through the silly static class member!
+         this.on_resp_jobs_list_refresh();
+      }
+
+      //
+      protected function on_resp_jobs_list_refresh() :void
+      {
+         //m4_DEBUG('on_resp_jobs_list_refresh:', this.dp.class_name_tail);
+         (this.dp as Widget_Analysis).jobs_list_refresh();
+      }
+
+   ]]></mx:Script>
+
+   <mx:HBox
+      width="100%"
+      height="100%"
+      verticalAlign="middle"
+      paddingLeft="4"
+      paddingRight="4"
+      horizontalGap="0"
+      horizontalScrollPolicy="off"
+   click="this.on_click(event);"
+   doubleClickEnabled="true"
+   doubleClick="this.on_double_click(event);"
+      >
+
+      <!-- One button for each action. Toggled dis/enabled as appropriate. -->
+
+      <views_panel_util:Hyper_Link
+         id="action_cancel"
+         text="Cancel"
+         toolTip="Cancel the queued task."
+         enabled="false"
+         visible="{this.action_cancel.enabled}"
+         includeInLayout="{this.action_cancel.enabled}"
+         click="this.on_action_cancel(event);"/>
+
+      <views_panel_util:Hyper_Link
+         id="action_suspend"
+         text="Suspend"
+         toolTip="Suspend the running task."
+         enabled="false"
+         visible="{this.action_suspend.enabled}"
+         includeInLayout="{this.action_suspend.enabled}"
+         click="this.on_action_suspend(event);"/>
+
+      <!-- We don't support resume. And we don't support restart. The user has
+      <    to create a new job. -->
+
+      <views_panel_util:Hyper_Link
+         id="action_download"
+         text="Download"
+         toolTip="Download the shapefile package to your computer."
+         enabled="false"
+         visible="{this.action_download.enabled}"
+         includeInLayout="{this.action_download.enabled}"
+         click="this.on_action_download(event);"/>
+
+      <mx:HBox
+         width="100%"
+         height="100%"
+         paddingRight="3"
+         horizontalAlign="right"
+         verticalAlign="middle"
+         visible="{this.action_remove.enabled}"
+         includeInLayout="{this.action_remove.enabled}"
+         >
+         <views_panel_util:Button_Small
+            id="action_remove"
+            toolTip="Remove the task from this list."
+            label="x"
+            height="16"
+            width="16"
+            enabled="false"
+            visible="{this.action_remove.enabled}"
+            includeInLayout="{this.action_remove.enabled}"
+            click="this.on_action_remove(event);" />
+      </mx:HBox>
+
+   </mx:HBox>
+
+</views_panel_base:Detail_Panel_Widget>
+

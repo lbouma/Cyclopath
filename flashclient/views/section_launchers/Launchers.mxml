@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<!-- NOTE: Hooking dataChange does nothing on this control...
+           maybe because we set dataProvider when this control
+           is declared and never afterwards?
+           Or do you want CollectionEvent instead, dur... -->
+
+<mx:ToggleButtonBar
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   focusEnabled="false"
+   direction="vertical"
+   verticalGap="{G.app.pad}"
+   verticalAlign="top"
+   buttonStyleName="launcher"
+   firstButtonStyleName="launcher"
+   lastButtonStyleName="launcher"
+   selectedButtonTextStyleName="launcherselected"
+   itemClick="this.on_item_click();"
+   initialize="this.on_initialize();"
+   creationComplete="this.on_creation_complete(null);"
+   >
+
+   <mx:Script><![CDATA[
+
+      import flash.display.DisplayObject;
+      import flash.events.Event;
+
+      import mx.containers.VBox;
+      import mx.controls.Alert;
+      import mx.controls.Button;
+      import mx.controls.buttonBarClasses.ButtonBarButton;
+      import mx.core.IFlexDisplayObject;
+      import mx.core.mx_internal;
+      import mx.events.CollectionEvent;
+      import mx.events.FlexEvent;
+      import mx.events.ResizeEvent;
+
+      import utils.misc.Introspect;
+      import utils.misc.Logging;
+      import views.panel_base.Detail_Panel_Base;
+      import views.panel_routes.Panel_Item_Route;
+      import views.panel_discussions.Panel_Item_Thread;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@__Launchers');
+
+      // *** Instance attributes
+
+      protected var compact_mode:int = 0; // 0: Normal; 1: Compact; 2: Super.
+
+      protected var last_selected_index:int = -1;
+
+      // *** Base class overrides.
+
+      // Override mx/controls/ButtonBar.as and mx/controls/NavBar.as so we can
+      // add an icon to the selected button.
+      // Code inspired by Ged Nickson, from
+// gednickson.wordpress.com/2010/01/23/placing-icons-inside-a-togglebuttonbar/
+      override protected function createNavItem(
+         label:String, icon:Class=null) :IFlexDisplayObject
+      {
+         var our_index:int = this.numChildren;
+         // m4_DEBUG('createNavItem: this.numChildren:', this.numChildren);
+         var dpanel:Detail_Panel_Base = this.dataProvider.getChildAt(
+                                        our_index) as Detail_Panel_Base;
+         // m4_DEBUG('createNavItem: for dpanel:', dpanel);
+         var btn:Button_With_Close_Button = super.createNavItem(label, icon)
+                                             as Button_With_Close_Button;
+         m4_ASSERT(btn !== null);
+         btn.labelPlacement = 'bottom';
+         // m4_DEBUG('createNavItem: this.numChildren:', this.numChildren);
+         // m4_DEBUG2('createNavItem: this.dataProvider.numChildren:',
+         //           this.dataProvider.numChildren);
+         // Statewide UI: Snazzy new tab buttons: cute little close buttons!
+         // If the panel is a Detail_Panel_Base, it's got a closeable()
+         // attribute that indicates if it's a permanent panel or not.
+         // HACK: In reality, the panels defined in main.mxml in the ViewStack
+         //       are the only permanent panels. So, really if we're
+         //       calling ViewStack.addChild, those are the panels that are
+         //       closeable. But that's not as obvious to [lb] how to code;
+         //       using closeable seems as fine as any solution, even it
+         //       implies that some dynamically-added panels might not be
+         //       closeable.
+         if (dpanel !== null) {
+            btn.closeable = dpanel.closeable;
+         }
+         // Wire the button to our close callback routine.
+         btn.close_callback = this.on_close_button_clicked;
+
+         // Actually, start without the icon -- otherwise, the navbar fixes
+         // itself a moment after it's created. This solution still isn't
+         // perfect, but at least it's more pleasing to the eye: instead of a
+         // bunch of larger, white square icons being sized down to the wide
+         // and short text-only buttons, the smaller buttons get resized to
+         // something larger...
+         m4_DEBUG2('createNavItem: compact_mode:', this.compact_mode,
+                   '/ our_index:', our_index);
+         if ((this.compact_mode == 2)
+             || ((this.compact_mode == 1) && (our_index != 0))) {
+            btn.setStyle('icon', null);
+         }
+         // else, compact_mode is 0, so always show icons, or compact_mode is 1
+         // and this is the first button (which gets the default selection).
+
+         return btn;
+      }
+
+      // *** Startup methods.
+
+      //
+      protected function on_initialize() :void
+      {
+         // Override the (undocumented) button class generator, so we can use
+         // our own. [lb] tried adding the close button via this control,
+         // ToggleButtonBar, and also via Launcher_Skin (ProgrammaticSkin),
+         // but the close button always ended up below the ButtonBarButton.
+         // And when you can't fight 'em, ya join 'em... if we override the
+         // button class, we can always ensure the close button is the last in
+         // its display list, so that it appears on top of the button (and
+         // skin, for that matter -- the close button always looks the same,
+         // regardless of mouse over, up, or down).
+         this.mx_internal::navItemFactory =
+            new ClassFactory(Button_With_Close_Button);
+
+         // NOTE: We're hooking the resize event of G.app. So we're not hooking
+         //       ourself, i.e., using MXML, resize="this.on_resize(null);".
+         G.app.addEventListener(ResizeEvent.RESIZE, this.on_resize);
+
+         // Initialize this.compact_mode.
+         this.calculate_compact_mode();
+      }
+
+      // *** Event handlers.
+
+      //
+      public function on_close_button_clicked(btn:Button_With_Close_Button)
+         :void
+      {
+         var idx:int = this.getChildIndex(btn);
+         m4_DEBUG('on_close_button_clicked: idx:', idx, '/ btn:', btn);
+         this.close_panel_at_index(idx);
+      }
+
+      //
+      public function close_panel_at_index(idx:int) :void
+      {
+         var dpanel:Detail_Panel_Base = this.dataProvider.getChildAt(idx)
+                                          as Detail_Panel_Base;
+
+         if (dpanel.can_close) {
+            this.close_panel_at_index_(idx, dpanel);
+         }
+         else {
+            // This happens for routes: if the route has been edited, since the
+            // reset/undo/redo/save buttons are on the route panel, we ask if
+            // the user really wants to close the panel.
+            // This also happens for Threads.
+            if (!((dpanel is Panel_Item_Route)
+                  || (dpanel is Panel_Item_Thread))) {
+               m4_WARNING('EXPLAIN: cannot close_panel_at_index: idx:', idx);
+               m4_WARNING(Introspect.stack_trace());
+            }
+            // else, a route panel, so user said not to close the panel.
+         }
+      }
+
+      //
+      public function close_panel_at_index_(idx:int, dpanel:Detail_Panel_Base)
+         :void
+      {
+         var was_active:Boolean = false;
+
+         dpanel.panel_selection_clear(/*force_reset=*/true);
+         dpanel.panel_close_pending = true;
+
+         // We can remove the tab if it's not active.
+         if (idx != this.selectedIndex) {
+            m4_DEBUG('close_panel_at_index: not selectedIndex:', idx);
+            this.remove_child(idx);
+         }
+         else {
+            // ... but if it's the active tab, we have to activate another tab
+            // first before removing this one, otherwise future Flex operations
+            // will fail on a null error or RangeError.
+            var next_panel:Detail_Panel_Base = null;
+            if (dpanel !== null) {
+
+               // Does this always mean we're the effectively panel, too?
+               m4_DEBUG('close_panel_at_index: dpanel:', dpanel);
+               m4_DEBUG2('close_panel_at_index: effectively:',
+                         G.panel_mgr.effectively_active_panel);
+
+               was_active = true;
+
+               // BEHAVIOUR: [mm]'s first implementation of closeable panels
+               // had the close button in the panel, so the panel being closed
+               // was always the active panel. [lb] made special tab bar
+               // buttons where the close button is on the tab button, so the
+               // panel being closed is not necessarily active. When the active
+               // panel is the panel being closed, how do we decide what panel
+               // to display next? [mm] used a history stack: just go to the
+               // last panel the user looked at. But [lb] doesn't like this in
+               // practice, so he's trying just going to the next panel in the
+               // ViewStack (or to the previous panel, if it's the last panel
+               // that's being closed).
+
+               // 2013.07.24: There's a new panel_stack_* doubly-linked list.
+               next_panel = dpanel.panel_stack_prev;
+               m4_DEBUG2('close_panel_at_index: closing: idx:', idx,
+                         '/ next_panel:', next_panel);
+
+               if (next_panel === null) {
+                  // This probably doesn't ever run.
+                  var next_idx:int;
+                  if (idx < (this.dataProvider.numChildren - 1)) {
+                     next_idx = idx + 1;
+                  }
+                  else {
+                     next_idx = idx - 1;
+                  }
+                  next_panel = this.dataProvider.getChildAt(next_idx)
+                                 as Detail_Panel_Base;
+                  m4_WARNING2('close_panel_at_index: closing: idx:', idx,
+                     '/ next_idx:', next_idx, '/ next_panel:', next_panel);
+               }
+            }
+            // If we didn't find a Detail_Panel_Base, we might be at the fake
+            // HRule tab, or it's because the panel we selected is a VBox and
+            // not a dpanel.
+            // FIXME: Statewide UI: For now, going back to route panel.
+            if (next_panel === null) {
+               //next_panel = G.app.routes_panel;
+               next_panel = G.app.routes_panel.routes_new;
+            }
+
+            // When panel_activate's panel_activate_impl fires, it'll call
+            // panel_show, which calls our remove_child to finish cleaning up.
+            G.panel_mgr.panel_activate(next_panel);
+         }
+
+         if (dpanel !== null) {
+            // Panel_Item_Attachment hooks this to disable attaching mode.
+            dpanel.close_cleanup(was_active);
+         }
+      }
+
+      //
+      protected function on_collection_change(evt:CollectionEvent) :void
+      {
+         // 2013.03.05: [lb] notes that he's never seen this fcn. get called.
+         m4_DEBUG('on_collection_change: event trace: target:', evt.target);
+         m4_DEBUG2('on_collection_change: event trace: len:',
+                   evt.target.length);
+      }
+
+      //
+      protected function on_creation_complete(event:FlexEvent) :void
+      {
+         m4_ASSERT(this.dataProvider !== null);
+
+         // 2013.03.05: See comments in on_collection_change; [lb] has not seen
+         //             this event fire. Ever.
+         // This doesn't seem to do anything, like, when we addChild to the
+         // ViewStack, which is our dataProvider. Hrmpf.
+         this.dataProvider.addEventListener(CollectionEvent.COLLECTION_CHANGE,
+                                            this.on_collection_change);
+
+         // Go through the ViewStack and markup the tab buttons accordingly.
+         this.reset_tab_buttons();
+
+         // Listen for when the selected tab changes, so we can update icons.
+         this.addEventListener(FlexEvent.VALUE_COMMIT,
+                               this.on_value_commit, false, 0, true);
+
+         // NOTE: We call on_resize here so we can hide all the tabs' icons.
+         //       We leave it up to main.mxml to tell us which ViewStack panels
+         //       should get buttons.
+         // FIXME: The new method is to add to and remove from the ViewStack
+         //        dynamically, so we probably no longer need to start with an
+         //        empty button bar that forces the caller to explicitly turn
+         //        on buttons.
+         this.on_resize(null);
+      }
+
+      //
+      protected function on_item_click() :void
+      {
+         m4_DEBUG('on_item_click: selectedIndex:', this.selectedIndex);
+         // m4_DEBUG(' .. show-hide-click selectedIndex:', this.selectedIndex);
+         // m4_DEBUG2(' .. show-hide-click side_panel.selectedIndex:',
+         //           G.app.side_panel.selectedIndex);
+         // m4_DEBUG2(' .. show-hide-click side_panel.selectedChild:',
+         //           G.app.side_panel.selectedChild);
+         // Expand the left panel, if collapsed.
+         if (!G.app.left_panel.visible) {
+            // This triggers on_content_panels_show, because main.mxml, i.e.,
+            //    <mx:VBox
+            //       id="left_panel"
+            //       show="this.side_panel_tabs.on_content_panels_show();"
+            // So make sure we don't restore the last panel shown but instead
+            // stick with the one that was just clicked.
+            this.last_selected_index = -1;
+            G.app.left_panel.visible = true;
+         }
+         // else, the user clicked another tab bar button and we'll change
+         //       side_panel panels.
+
+         // The map doesn't know about this event yet. But it's up to the
+         // caller to tell it to fix its selectedset per the new panel's item
+         // selection set.
+         //   See: reactivate_selection_set
+
+         // Finally, redraw our buttons. This might add/remove icons and move
+         // the little white triangle pointer.
+         // m4_VERBOSE('on_item_click: calling redraw');
+         this.redraw();
+      }
+
+      //
+      protected function on_resize(event:ResizeEvent=null) :void
+      {
+         m4_DEBUG('on_resize: this.numChildren:', this.numChildren);
+         this.calculate_mode_heights();
+         // m4_VERBOSE('on_item_click: calling redraw');
+         this.redraw();
+      }
+
+      //
+      protected function on_value_commit(event:FlexEvent) :void
+      {
+         // This is called when the users changes tab indexes by clicking one
+         // of the side panel tabs. This happens right before Detail_Panel_Base
+         // gets on_show_event and sets effectively_active_panel to itself.
+         m4_DEBUG('on_value_commit: selectedIndex:', this.selectedIndex);
+         // We want to hide the icon of the previously selected tab button, if
+         // compact_mode == 1. The easiest way is to just redraw everything.
+         // m4_VERBOSE('on_item_click: calling redraw');
+         this.redraw();
+      }
+
+      // *** Utility fcns.
+
+      //
+      public function calculate_compact_mode() :void
+      {
+         this.calculate_mode_heights();
+
+         // MAGIC_NUMBERS: This is a hacky way to deal with height-limited
+         // browser windows: we don't draw icons if there's not that much room.
+         // Ideally, compact_mode would be an Enum, but its magic numberness is
+         // fine since it's confined to this file:
+         //    0 means no height restriction -- all buttons have icons
+         //    1 means only the selected button has an icon
+         //    2 means none of the buttons have icons.
+         // FIXME: Statewide UI: [lb] kind of likes only using 1 icon and not
+         //        having all buttons have icons.
+         // FIXME: Statewide UI: Do the non-permanent buttons get icons? What
+         //        about if you have a bunch of route or item details buttons?
+         //        Should we maybe measure the height of the left_panel and
+         //        make the compact_mode decision based on that?
+         if (G.app.height < 400) {
+            this.compact_mode = 2;
+         }
+         else if (G.app.height < 640) {
+            this.compact_mode = 1;
+         }
+         else {
+            this.compact_mode = 0;
+         }
+
+         m4_DEBUG2('calculate_compact_mode: mode:', this.compact_mode,
+                   '/ height:', G.app.height);
+      }
+
+      //
+      protected function calculate_mode_heights() :void
+      {
+         var our_height:int = 0;
+         if (this.numChildren > 0) {
+            our_height = (this.numChildren - 1) * this.getStyle('verticalGap');
+            m4_DEBUG('calculate_compact_mode: 1st our height:', our_height);
+            for (var idx:int = 0; idx < this.numChildren; idx++) {
+               var btn:Button_With_Close_Button =
+                  this.getChildAt(idx) as Button_With_Close_Button;
+               m4_DEBUG(' .. at btn idx:', idx, '/ height:', btn.height);
+               our_height += btn.height;
+            }
+         }
+         m4_DEBUG(' .. final our height:', our_height);
+      }
+
+      //
+      protected function get_selected_button(idx:int=-1) :Button
+      {
+         var selectedButton:Button = null;
+         if (idx == -1) {
+            idx = this.selectedIndex;
+         }
+         else {
+            // [lb] wanted to double-check that this.selectedIndex=-1, since
+            // that's how our code runs, but Flex doesn't really set
+            // this.selectedIndex=-1 after you call this.selectedIndex=-1.
+            // That's right: setting selectedIndex to -1 clears the selected
+            // button but it's doesn't change the value of selectedIndex. Ha!
+            // [lb] wishes we could: m4_ASSERT(this.selectedIndex == -1);
+         }
+         if (idx != -1) {
+            selectedButton = this.getChildAt(idx) as Button;
+         }
+         return selectedButton;
+      }
+
+      //
+      public function redraw() :void
+      {
+         var btn:Button;
+         var icon:Class;
+         var dpanel:Detail_Panel_Base;
+         m4_VERBOSE('redraw: redrawing launcher buttons');
+         // NOTE: Iterating backwards so we can remove things from the list.
+         for (var idx:int = this.numChildren - 1; idx >= 0; idx--) {
+            dpanel = this.dataProvider.getChildAt(idx) as Detail_Panel_Base;
+            if (dpanel !== null) {
+               m4_VERBOSE2('redraw: idx:', idx,
+                           '/ closing:', dpanel.panel_close_pending);
+            }
+            else {
+               // This is the fake button that looks like a line.
+               // m4_DEBUG('redraw: not a dpanel');
+               m4_ASSERT(this.dataProvider.getChildAt(idx)
+                         === G.app.viewstack_tab_hrule);
+            }
+            // [lb] used to remove a closing panel tab here, from dataProvider,
+            // but this fcn. is sometimes called when Flex is in the middle of
+            // removing the side_panel panel, so let's not touch the tabs.
+            // E.g., if you close the active panel and the active panel is not
+            // the last tab, Flex fails on a callLater right after this fcn.
+            // because selectedIndex is out of bounds.
+            // if ((dpanel === null) || (!dpanel.panel_close_pending)) { ... }
+            btn = this.getChildAt(idx) as Button;
+            m4_TALKY('redraw: btn.height:', btn.height);
+            if (this.compact_mode == 2) {
+               btn.setStyle('icon', null);
+               m4_TALKY('redraw: mode 2: btn.height:', btn.height);
+            }
+            else if ((this.compact_mode == 1)
+                     // We have to check both !selected and !=
+                     // selectedIndex. The latter happens on bootstrap: for
+                     // whatever reason, the button is indicated selected,
+                     // but selectedIndex is set to its position.
+                     && (!btn.selected)
+                     && (idx != this.selectedIndex)) {
+               btn.setStyle('icon', null);
+// FIXME_2013_06_11 -- Bug nnnn: If a lot of panels, do not use icon, and
+//                               maybe we need a scroll bar? otherwise we
+//                               have to limit # of tabs to open. boo on that.
+// 2013.06.06: 21 and 58 pixels. Divider is 0? its border?
+               m4_TALKY('redraw: mode 1+: btn.height:', btn.height);
+            }
+            else {
+               // this.compact_mode == 0 or == 1.
+               icon = (this.dataProvider.getChildAt(idx) as VBox).icon;
+               if (icon !== null) {
+                  btn.setStyle('icon', icon);
+                  m4_TALKY('redraw: mode 0 or 1: btn.height:', btn.height);
+               }
+            }
+            // NOTE: This doesn't work until after the user's first time
+            //       clicking the button, meaning, until then, you see the
+            //       hand-finger cursor and not the normal mouse pointer.
+            //       Weird. Anyway, setting this in Button_With_Close_Button
+            //       instead works. Maybe it has something to do with the icon
+            //       and setStyle so the style change undoes what we try to do
+            //       here?
+            // btn.useHandCursor = false;
+         }
+         m4_TALKY('redraw: all done');
+      }
+
+      //
+      public function remove_child(dpanel_or_index:*) :void
+      {
+         var dpanel:Detail_Panel_Base;
+         dpanel = (dpanel_or_index as Detail_Panel_Base);
+
+// FIXME: Statewide UI: Tell panel it's being closed, or have them hook the
+//        remove event. E.g., If closing Discussions panel, alert user if 
+//        they have unsaved (unposted) changes.
+//        (Or at least test this and see what happens...
+         if (dpanel !== null) {
+            m4_DEBUG('remove_child: dpanel:', dpanel);
+            this.dataProvider.removeChild(dpanel);
+         }
+         else {
+            m4_ASSERT(dpanel_or_index is int);
+            var idx:int = (dpanel_or_index as int);
+            dpanel = this.dataProvider.getChildAt(idx) as Detail_Panel_Base;
+            m4_DEBUG('remove_child: idx:', idx, '/ dpanel:', dpanel);
+            m4_ASSERT(dpanel !== null);
+            // This is same as G.map.side_panel.removeChildAt(idx), or even
+            // G.map.side_panel_tabs.dataProvider.removeChildAt(idx).
+            this.dataProvider.removeChildAt(idx);
+         }
+         dpanel.panel_stack_removed_child();
+      }
+
+      //
+      protected function reset_tab_buttons() :void
+      {
+         m4_DEBUG('reset_tab_buttons');
+         // We need index numbers (they're easier to deal with), we loop over
+         // the number of children, rather than using for each.
+         for (var idx:int = 0; idx < this.dataProvider.numChildren; idx++) {
+            var panel:VBox = this.dataProvider.getChildAt(idx);
+            if ((!panel.label) && (panel.icon === null)) {
+               // This is the fake line that's really a flat button.
+               m4_DEBUG2('reset_tab_buttons: disabling tab at idx:', idx,
+                         '/ panel:', panel);
+               // Find our tab button.
+               var btn:Button_With_Close_Button =
+                  this.getChildAt(idx) as Button_With_Close_Button;
+               // Disable the button so that clicking on it does nothing.
+               btn.enabled = false;
+               // Also disable the mouse, so the cursor doesn't indicate
+               // clickability. NOTE: Probably only one of these is needed.
+               btn.mouseChildren = false;
+               btn.mouseEnabled = false;
+               // Apparently, these are not needed:
+               //  btn.buttonMode = false;
+               //  btn.useHandCursor = false;
+
+               // If we don't fix the disabledSkin, the line is two pixels
+               // tall, and not white.
+               btn.setStyle('disabledSkin', Launcher_Up_Skin);
+            }
+         }
+      }
+
+      // *** Left panel hide/show.
+
+      //
+      public function on_content_panels_hide() :void
+      {
+         var selected_button:Button = this.get_selected_button();
+         if (selected_button !== null) {
+            // Remove the icon.
+            if (this.compact_mode != 0) {
+               selected_button.setStyle('icon', null);
+            }
+            // This is the hard way: modify the selected button -- but leave it
+            // selected:
+            // // SYNC_ME: These match Button.launcher in assets/css/main.css.
+            // selected_button.setStyle('selectedUpSkin', Launcher_Up_Skin);
+            // selected_button.setStyle('selectedDownSkin',Launcher_Down_Skin);
+            // selected_button.setStyle('selectedOverSkin',Launcher_Over_Skin);
+         }
+         // This is the easy way: just remember the selected button:
+         this.last_selected_index = this.selectedIndex;
+         // We can also set the button not selected, but [lb] doesn't think
+         // this doesn anything productive:
+         this.get_selected_button().selected = false;
+         // And this is suppose to clear the selected button but [lb] thinks
+         // Flex has a bug: if you close the left panel (which calls this fcn.)
+         // and then click a button _other_than_ what was just selected, the
+         // on_content_panels_show fcn. reveals that this.selectedIndex is
+         // still set to the index of the previously selected panel...
+         this.selectedIndex = -1;
+         m4_DEBUG2('on_content_panels_hide: was:', this.last_selected_index,
+                   '/ this.selectedIndex:', this.selectedIndex);
+      }
+
+      //
+      public function on_content_panels_show() :void
+      {
+         m4_DEBUG('on_content_panels_show: was:', this.last_selected_index);
+         // The Flex 3 docs say you can set selectedIndex to -1 to clear the
+         // selection, but it doesn't mention setting it anything else. The Web
+         // suggests setting selectedIndex to not -1 works in Flex 4 but not 3.
+         // Nope: this.selectedIndex = this.last_selected_index;
+         if (this.last_selected_index != -1) {
+            m4_DEBUG2('on_content_panels_show: setting selectedIndex:',
+                      this.last_selected_index);
+            this.selectedIndex = this.last_selected_index;
+            // CAVEAT: this.selectedIndex is still -1! Flex won't update it
+            //         until the change is actually made, which happens after
+            //         this frame. But we can still make some adjustments...
+            // NOTE: [lb] is not sure this is necessary but it doesn't hurt:
+            (this.getChildAt(this.last_selected_index)
+             as Button).selected = true;
+            //
+            var selected_btn:Button;
+            selected_btn = this.get_selected_button(this.last_selected_index);
+            if (selected_btn !== null) {
+               m4_DEBUG('on_content_panels_show:', selected_btn);
+               // See comments above (on_content_panels_hide). We can nix this:
+               // // SYNC_ME: These match Button.launcher in main.css.
+               // selected_btn.setStyle('selectedUpSkin',
+               //                       Launcher_Selected_Skin);
+               // selected_btn.setStyle('selectedDownSkin',
+               //                       Launcher_Selected_Skin);
+               // selected_btn.setStyle('selectedOverSkin',
+               //                       Launcher_Selected_Skin);
+               var icon:Class;
+               icon = (this.dataProvider.getChildAt(this.last_selected_index)
+                       as VBox).icon;
+               if (((this.compact_mode == 0)
+                    || (this.compact_mode == 1))
+                   && (icon !== null)) {
+                  selected_btn.setStyle('icon', icon);
+               }
+            }
+            this.last_selected_index = -1;
+         }
+         else {
+            m4_DEBUG('_panels_show: nothing was selected or button clicked');
+         }
+      }
+
+   ]]></mx:Script>
+
+</mx:ToggleButtonBar>
+

@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Copyright (c) 2006-2013 Regents of the University of Minnesota.
+     For licensing terms, see the file LICENSE. -->
+
+<mx:HBox
+   xmlns:mx="http://www.adobe.com/2006/mxml"
+   xmlns="*"
+   xmlns:views_panel_util="views.panel_util.*"
+   xmlns:views_section_toolbar="views.section_toolbar.*"
+   backgroundColor="0xDDDDDD"
+   borderStyle="none"
+   paddingTop="{G.app.pad}"
+   paddingBottom="{G.app.pad}"
+   paddingLeft="{G.app.pad}"
+   paddingRight="{G.app.pad}"
+   initialize="this.on_initialize()"
+   creationComplete="this.on_creation_complete()"
+   width="100%">
+
+   <mx:Script><![CDATA[
+
+      import flash.events.Event;
+      import mx.controls.Button;
+      import mx.events.ItemClickEvent;
+
+      import gwis.GWIS_Landmark_Exp_Active_Get;
+      import utils.geom.Dual_Rect;
+      import utils.misc.Logging;
+      import views.base.App_Action;
+      import views.base.UI;
+      import views.panel_util.Alert_Dialog;
+      import views.panel_routes.Landmark_Experiment_Popup;
+
+      // *** Class attributes
+
+      protected static var log:Logging = Logging.get_logger('@SctT_MainTb');
+
+      // If you want just the 'Viewing' button that changes to 'Editing' when
+      // it's clicked, use a button count of 1.
+      //protected static var mode_btns_cnt:int = 1;
+      // But if you want something more obvious, so users won't be confused
+      // ([lb] was surprised to hear how long it took one particular
+      // advanced user to find editing mode), we suggest using two buttons,
+      // 'view' and 'edit'.
+      protected static const mode_btns_cnt:int = 2;
+
+      protected static var landmarks_checked:Boolean = false;
+
+      // *** Instance attributes
+
+      //protected var mode_data_view_only:Array = ["Viewing",];
+      //protected var mode_data_editing:Array = ["Editing",];
+
+      protected var last_editing_index:int = -1;
+
+      // *** Instance methods
+
+      //
+      protected function on_initialize() :void
+      {
+         G.app.addEventListener('modeChange', this.on_mode_change);
+         if ((G.app !== null) && (G.app.mode !== null)) {
+            this.on_mode_change();
+         }
+
+         m4_DEBUG('on_initialize: addEventListener: user_event_change');
+         G.app.addEventListener('user_event_change', this.on_user_change);
+      }
+
+      //
+      protected function on_creation_complete() :void
+      {
+         this.edit_mode_tbbutton.enabled = !G.app.edit_restriction;
+         this.view_or_edit_tbbutton.enabled = !G.app.edit_restriction;
+
+         // Hide the button toolTips. For whatever reason, even when
+         // this.edit_mode_tbbutton is disabled and
+         // this.view_or_edit_tbbutton is active, [lb] sees the text
+         // 'Viewing' when he presses the 'View' button...
+         var btn:Button;
+         var cdx:int
+         for (cdx = 0; cdx < this.edit_mode_tbbutton.numChildren; cdx++) {
+            btn = (this.edit_mode_tbbutton.getChildAt(cdx) as Button);
+            btn.toolTip = null;
+         }
+         for (cdx = 0; cdx < this.view_or_edit_tbbutton.numChildren; cdx++) {
+            btn = (this.view_or_edit_tbbutton.getChildAt(cdx) as Button);
+            btn.toolTip = null;
+         }
+
+         // This works, but you can see the transition when we resize the
+         // controls. Unfortunately, we can't move this code to preinitialize
+         // or initialize, since the buttons don't exist back then.
+         // MAYBE: The best we could do is to hide the controls, but include
+         // them in the layout, resize them, and then set them visible... or,
+         // we could just hard-code the widths here in the code.
+
+         // Make the button widths the same. I.e., so the Road and Aerial
+         // buttons are the same widths, and the View and Edit buttons are
+         // the same widths. For Road and Aerial it's not a big deal, but
+         // the four-lettered words, View and Edit, have much different text
+         // widths, so the button width difference is very apparent.
+         //  this.debug_print_button_widths('on_creation_complete');
+         //
+         this.road_or_aerial_tbbutton.setStyle('buttonWidth',
+            this.road_or_aerial_tbbutton.getChildAt(1).width);
+         this.view_or_edit_tbbutton.setStyle('buttonWidth',
+            this.view_or_edit_tbbutton.getChildAt(0).width);
+      }
+
+      // ***
+
+      //
+      protected function debug_print_button_widths(caller_name:String) :void
+      {
+         m4_DEBUG('debug_print_button_widths:', caller_name);
+         if (this.road_or_aerial_tbbutton !== null) {
+            m4_DEBUG2('dbgp_btn_widths: road_or_aerial_tbbutton: numCh:',
+                      this.road_or_aerial_tbbutton.numChildren);     // 2
+            m4_DEBUG2('dbgp_btn_widths: view_or_edit_tbbutton: numCh:',
+                      this.view_or_edit_tbbutton.numChildren);       // 2
+            if (this.road_or_aerial_tbbutton.numChildren > 0) {
+               m4_DEBUG2(' .. road_or_aerial_tbbutton: child 0 width:',
+                  this.road_or_aerial_tbbutton.getChildAt(0).width); // 54
+               m4_DEBUG2(' .. road_or_aerial_tbbutton: child 1 width:',
+                  this.road_or_aerial_tbbutton.getChildAt(1).width); // 59
+               m4_DEBUG2(' .. view_or_edit_tbbutton: child 0 width:',
+                  this.view_or_edit_tbbutton.getChildAt(0).width);   // 54
+               m4_DEBUG2(' .. view_or_edit_tbbutton: child 1 width:',
+                  this.view_or_edit_tbbutton.getChildAt(1).width);   // 47
+            }
+         }
+      }
+
+      // ***
+
+      //
+      protected function on_edit_mode_discard_okay() :void
+      {
+         m4_DEBUG('on_edit_mode_discard_okay');
+
+         G.view_mode.activate();
+         this.last_editing_index = -1;
+         this.edit_mode_tbbutton.selectedIndex = -1;
+         this.view_or_edit_tbbutton.selectedIndex = 0;
+
+         // MAYBE: [mm] asks, Do we really have to reload the whole map?
+         //        Can't we just undo everything? I think [lb] has made this
+         //        comment elsewhere, too ([lb] says, I have!)... but not many
+         //        people edit, so this is low priority.
+
+         G.app.discard_alert_handler();
+      }
+
+      // 2013.05.07: Some of [lb]'s thoughts before [mm] implemented App_Mode*:
+      // FIXME: The Save button is on the tool palette, and makes more sense
+      //        for map editing. If we, e.g., decide that addings notes is
+      //        allowed in non-map-editing mode, should the user still be able
+      //        to create a bunch of notes before finally saving? Or should the
+      //        note itself have a save button on it?? Then we could even
+      //        auto-populate the changelog with something like, "Updated note
+      //        on byway named 'Blah' (currently, if someone wants to write a
+      //        note, they have to write the note, and then they have to write
+      //        the changelog note!)."
+      //
+      protected function on_edit_mode_tbbutton_click(ev:ItemClickEvent) :void
+      {
+         m4_DEBUG('edit_mode click: lbl:', ev.label, '/ idx:', ev.index);
+         m4_DEBUG(' ... last_editing_idx:', this.last_editing_index);
+         m4_DEBUG(' ... selIndex:', this.edit_mode_tbbutton.selectedIndex);
+         if (this.last_editing_index == -1) {
+            m4_ASSERT_SOFT(!G.app.mode.is_allowed(App_Action.item_edit));
+            m4_ASSERT_SOFT(!G.app.mode.uses_editing_tool_palette);
+            m4_ASSERT_SOFT(ev.index == 0);
+            G.edit_mode.activate();
+            this.last_editing_index = 0;
+            this.view_or_edit_tbbutton.selectedIndex = 1;
+
+      // BUG nnnn/MAYBE: Toggling the button causes it to disappear
+      //           briefly before reappearing with the changed text...
+      // BUG nnnn: When Editing, if you click twice quickly on the button,
+      //           the editing tools do not show...
+            ////this.edit_mode_tbbutton.dataProvider = mode_data_editing;
+            //this.edit_mode_tbbutton.dataProvider[0] = 'Editing';
+            //this.edit_mode_tbbutton.selectedIndex = 0;
+         }
+         else {
+            m4_ASSERT_SOFT(G.app.mode.is_allowed(App_Action.item_edit));
+            m4_ASSERT_SOFT(G.app.mode.uses_editing_tool_palette);
+            m4_ASSERT_SOFT(this.last_editing_index == 0);
+            m4_ASSERT_SOFT(ev.index == 0);
+            m4_ASSERT_SOFT(this.edit_mode_tbbutton.selectedIndex == 0);
+            // FIXME: This check may be wrong, [lb] thinks, since it includes
+            //        Posts and ratings and stuff. But the Save button
+            //        currently lives in the tool palette... maybe it belongs
+            //        elsewhere, so one can still "Save" some things but not
+            //        actually be in map editing mode?
+
+            this.edit_mode_finish_helper();
+
+            //this.edit_mode_tbbutton.dataProvider = mode_data_view_only;
+            // [lt] suggested, rather than showing 'Editing' in both modes,
+            // show the current mode, such as 'View-only' or 'Editing'.
+            // [lb] doesn't like the negativity of "only" (or of negatives
+            // combined with contractions, like "doesn't"). I also like to
+            // use parallelism, so let's use two gerunds
+            //
+            ////this.edit_mode_tbbutton.dataProvider[0] = 'View-only';
+            //this.edit_mode_tbbutton.dataProvider[0] = 'Viewing';
+         }
+         // Prevent losing focus via Panel_Geofeature listener.
+         ev.stopPropagation();
+      }
+
+      //
+      protected function on_mode_change(event:Event=null) :void
+      {
+         m4_DEBUG('on_mode_change: G.app.mode:', G.app.mode);
+
+         //if (G.app.mode.uses_editing_tool_palette) { }
+         //if (G.app.mode.is_allowed(App_Action.item_edit)) { }
+         if (G.app.mode === G.edit_mode) {
+            if (Main_Toolbar.mode_btns_cnt == 1) {
+               this.edit_mode_tbbutton.dataProvider[0] = 'Editing';
+               // Show the button as depressed.
+               this.last_editing_index = 0;
+               this.edit_mode_tbbutton.selectedIndex = 0;
+               this.edit_mode_tbbutton.visible = true;
+            }
+            else {
+               m4_ASSERT(Main_Toolbar.mode_btns_cnt == 2);
+               this.view_or_edit_tbbutton.selectedIndex = 1;
+               this.view_or_edit_tbbutton.visible = true;
+            }
+         }
+         else {
+            if (Main_Toolbar.mode_btns_cnt == 1) {
+               this.edit_mode_tbbutton.dataProvider[0] = 'Viewing';
+               this.last_editing_index = -1;
+               this.edit_mode_tbbutton.selectedIndex = -1;
+               this.edit_mode_tbbutton.visible =
+                  (G.app.mode === G.view_mode);
+                  // else, historic mode.
+            }
+            else {
+               m4_ASSERT(Main_Toolbar.mode_btns_cnt == 2);
+               this.view_or_edit_tbbutton.selectedIndex = 0;
+               this.view_or_edit_tbbutton.visible =
+                  (G.app.mode === G.view_mode);
+                  // else, historic mode.
+            }
+         }
+
+         if (!Main_Toolbar.landmarks_checked) {
+            this.on_user_change();
+         }
+      }
+
+      //
+      protected function on_road_aerial_click(event:ItemClickEvent) :void
+      {
+         // See also: event.label.
+         if (event.index == 0) { // Road
+            G.map.aerial_enabled = false;
+         }
+         else {                  // Aerial
+            m4_ASSERT(event.index == 1);
+            G.map.aerial_enabled = true;
+         }
+      }
+
+      //
+      protected function on_user_change(event:Event=null) :void
+      {
+         // *** Landmarks Experiment Begin
+         if (Conf_Instance.landmark_experiment_on) {
+            if (!G.user.anonymous) {
+               if (G.initialized) {
+                  var gwis_cmd:GWIS_Landmark_Exp_Active_Get =
+                     new GWIS_Landmark_Exp_Active_Get(
+                        /*part=*/1,
+                        /*callback_load=*/this.on_landmark_exp_active_get);
+                  m4_DEBUG('on_user_change: sending landmark_exp_active_get');
+                  G.map.update_supplemental(gwis_cmd);
+               }
+               else {
+                  m4_DEBUG('on_user_change: too early to send landmark gwis');
+                  Main_Toolbar.landmarks_checked = false;
+               }
+            }
+            else {
+               m4_DEBUG('on_user_change: anonymous-user button-message');
+               Main_Toolbar.landmarks_checked = true;
+            }
+         }
+         else {
+            m4_DEBUG('on_user_change: landmarks experiment part 2 part 1 off');
+            Main_Toolbar.landmarks_checked = true;
+         }
+      }
+
+      //
+      protected function on_landmark_exp_active_get(
+         gwis_req:GWIS_Landmark_Exp_Active_Get,
+         xml:XML) :void
+      {
+         //m4_DEBUG2('on_landmark_exp_active_get: resp:',
+         //          xml.toString());
+
+         var active:Boolean = xml..lmrk_exp.@active;
+         var routes_togo:int = int(xml..route.@routes_togo);
+         var routes_done:int = int(xml..route.@routes_done);
+         var user_done:Boolean = Boolean(int(xml..route.@user_done));
+
+         m4_DEBUG4('on_landmark_exp_active_get: active:', active,
+                   '/ routes_togo:', routes_togo,
+                   '/ routes_done:', routes_done,
+                   '/ user_done:', user_done);
+
+         Conf_Instance.landmark_experiment_on = xml..lmrk_exp.@active;
+
+         Main_Toolbar.landmarks_checked = true;
+      }
+
+      //
+      protected function on_view_or_edit_tbbutton_click(ev:ItemClickEvent)
+         :void
+      {
+         m4_DEBUG('on_view_or_edit_tbbutton_click');
+
+         // The label is, e.g., "View" or "Edit". Index is 0 or 1. Selected
+         // index reflects new index.
+         //m4_DEBUG('view_or_edit click: lbl:', ev.label, '/ idx:', ev.index);
+         //m4_DEBUG(' selIndex:', this.view_or_edit_tbbutton.selectedIndex);
+         if (this.view_or_edit_tbbutton.selectedIndex == 1) {
+            G.edit_mode.activate();
+            this.last_editing_index = 0;
+            this.edit_mode_tbbutton.selectedIndex = 0;
+         }
+         else {
+            m4_ASSERT(this.view_or_edit_tbbutton.selectedIndex == 0);
+            // Check for unsaved changes before changing modes and btn indices.
+            this.edit_mode_finish_helper();
+         }
+         // Prevent taking focus from live widget, e.g., if user has cursor
+         // in the 'From' box of the Route panel, clicking View or Edit should
+         // not disable the text edit widget.
+         ev.stopPropagation();
+      }
+
+      // ***
+
+      // EXPLAIN: The views.base.App_Mode_*.as classes call this fcn., but what
+      // about the previous fcn., on_mode_change? Don't we also listen for
+      // changes? Maybe this fcn. is more about enabling/disabling and
+      // showing/hiding buttons that it is about changing modes...
+      //
+      public function setup_viewing_or_editing(
+         editing_okay:*=null, hide_options:*=null) :void
+      {
+         if (editing_okay !== null) {
+            this.edit_mode_tbbutton.enabled =
+               (editing_okay && (Main_Toolbar.mode_btns_cnt == 1));
+            this.view_or_edit_tbbutton.enabled =
+               (editing_okay && (Main_Toolbar.mode_btns_cnt == 2));
+         }
+         if (hide_options !== null) {
+            if (!hide_options) {
+               this.edit_mode_tbbutton.visible =
+                  (Main_Toolbar.mode_btns_cnt == 1);
+               this.view_or_edit_tbbutton.visible =
+                  (Main_Toolbar.mode_btns_cnt == 2);
+            }
+            else {
+               this.edit_mode_tbbutton.enabled = false;
+               this.view_or_edit_tbbutton.enabled = false;
+               this.edit_mode_tbbutton.visible = false;
+               this.view_or_edit_tbbutton.visible = false;
+            }
+         }
+      }
+
+      // *** Landmarks Experiment Begin
+
+      //
+      private function landmark_expt2_show() :void
+      {
+         // Show Experiment Dialog
+         UI.popup(new Landmark_Experiment_Popup());
+      }
+
+      // *** Landmarks Experiment End
+
+      //
+      protected function edit_mode_finish_helper() :void
+      {
+         // Don't include routes in the consideration of what's dirty.
+         ////if (G.item_mgr.contains_dirty_any) { }
+         //if (G.item_mgr.contains_dirty_revisioned) { }
+         if (G.map.cm.unsaved_change_ct > 0) {
+            Alert_Dialog.show(
+               //'Discard unsaved changes?',
+               //'All your unsaved changes will be lost.',
+               'You have unsaved changes',
+               "If you disable editing, you'll lose your unsaved changes. "
+               + "Proceed anyway and discard your unsaved changes?",
+               /*html?=*/false,
+               /*on_ok?=*/this.on_edit_mode_discard_okay,
+               /*ok_label?=*/'Discard',
+               /*on_cancel?=*/null,
+               /*cancel_label=*/'Cancel');
+         }
+         else {
+            G.view_mode.activate();
+            this.last_editing_index = -1;
+            this.edit_mode_tbbutton.selectedIndex = -1;
+            this.view_or_edit_tbbutton.selectedIndex = 0;
+         }
+      }
+
+   ]]></mx:Script>
+
+<!-- BUG nnnn/FIXME: Use State zoom if not in metro -->
+
+   <mx:HBox
+      width="100%"
+      horizontalAlign="center"
+      verticalAlign="middle"
+      paddingTop="0"
+      paddingLeft="0"
+      paddingRight="0"
+      paddingBottom="0"
+      horizontalGap="0"
+      verticalGap="0"
+      >
+
+
+      <!-- Aerial/Road Switcher -->
+<!-- FIXME: APRIL2014: Sync with the checkbox that's on the Display Settings
+                       panel. -->
+      <mx:ToggleButtonBar
+         id="road_or_aerial_tbbutton"
+         selectedIndex="{G.map.aerial_enabled ? 1 : 0}"
+         selectedButtonTextStyleName="selectedButton"
+         itemClick="this.on_road_aerial_click(event);">
+         <mx:dataProvider>
+            <mx:Array>
+               <mx:String>Road</mx:String>
+               <mx:String>Aerial</mx:String>
+<!--
+BUG nnnn: Make tiles for zooms 16 and 17 and add a "Tiles" button at those
+zooms? I.e., for view mode, except then we need an image map so users can
+select items...
+-->
+            </mx:Array>
+         </mx:dataProvider>
+      </mx:ToggleButtonBar>
+
+      <mx:HBox
+         width="100%"
+         horizontalAlign="center"
+         verticalAlign="middle"
+         paddingTop="0"
+         paddingLeft="0"
+         paddingRight="0"
+         paddingBottom="0"
+         horizontalGap="0"
+         verticalGap="0"
+         >
+
+         <!-- Editing Tools (only in edit mode) -->
+         <mx:ToggleButtonBar
+            id="edit_mode_tbbutton"
+            toggleOnClick="true"
+            itemClick="this.on_edit_mode_tbbutton_click(event);"
+            selectedIndex="-1"
+            selectedButtonTextStyleName="selectedButton"
+            visible="{Main_Toolbar.mode_btns_cnt == 1}"
+            includeInLayout="{Main_Toolbar.mode_btns_cnt == 1}">
+            <!--
+                  <mx:String>Edit Map</mx:String>
+                  <mx:String>Editing</mx:String>
+            -->
+            <mx:dataProvider>
+               <mx:Array>
+                  <mx:String>Viewing</mx:String>
+               </mx:Array>
+            </mx:dataProvider>
+         </mx:ToggleButtonBar>
+         <!-- Or, Edit|View buttons (to make more obvious!) -->
+         <mx:ToggleButtonBar
+            id="view_or_edit_tbbutton"
+            selectedIndex="0"
+            selectedButtonTextStyleName="selectedButton"
+            itemClick="this.on_view_or_edit_tbbutton_click(event);"
+            visible="{Main_Toolbar.mode_btns_cnt == 2}"
+            includeInLayout="{Main_Toolbar.mode_btns_cnt == 2}">
+            <mx:dataProvider>
+               <mx:Array>
+                  <mx:String>View</mx:String>
+                  <mx:String>Edit</mx:String>
+               </mx:Array>
+            </mx:dataProvider>
+         </mx:ToggleButtonBar>
+
+      </mx:HBox>
+
+      <!-- Map Layers -->
+      <views_section_toolbar:Map_Layer_Toggler
+         id="map_layers"
+         />
+
+   </mx:HBox>
+
+</mx:HBox>
+

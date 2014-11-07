@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<gconf>
+	<entry name="filters" mtime="1391034359" type="string">
+		<stringvalue>Backups	1	#*# .#* ~* *~ *.{orig,bak,swp}
+OS-specific metadata	0	.DS_Store ._* .Spotlight-V100 .Trashes Thumbs.db Desktop.ini
+Version Control	1	.fslckout _FOSSIL_ .fos .svn _darcs _MTN .git .svn .bzr CVS .svn .hg
+Binaries	1	*.{pyc,a,obj,o,so,la,lib,dll,exe}
+Media	0	*.{jpg,gif,png,bmp,wav,mp3,ogg,flac,avi,mpg,xcf,xpm}
+Cyclopath	0	CONFIG Conf_Instance.as FW.build_main.mxml.pid macros.m4 main-devl main-prod tags main.swf database.map tilecache.cfg VERSION.py checkin.txt .vimprojects nip.sql fixme-*.wp
+Ccp II	0	CONFIG Conf_Instance.as Config_Logging.as database.map tilecache.cfg macros.m4 FW.build_main.mxml.pid externs.xml report.xml main.swf VERSION.py tags .vimprojects .vimprojects-bak commit.txt log.txt mip.sql n2p.sql n3p.sql n4p.sql n5p.sql n6p.sql nip.sql croc_diff.dat croc_diff.png croc_solo.dat croc_solo.png email-example.txt Main.swf TheMiner_en.swf
+Ccp III	0	tilecache.cfg macros.m4 FW.build_main.mxml.pid externs.xml report.xml main.swf VERSION.py tags .vimprojects .vimprojects-bak commit.txt log.txt mip.sql n2p.sql n3p.sql n4p.sql n5p.sql n6p.sql nip.sql croc_diff.dat croc_diff.png croc_solo.dat croc_solo.png email-example.txt Main.swf TheMiner_en.swf</stringvalue>
+	</entry>
+	<entry name="custom_font" mtime="1391034164" type="string">
+		<stringvalue>Monospace 9</stringvalue>
+	</entry>
+	<entry name="use_custom_font" mtime="1391034160" type="bool" value="true"/>
+	<entry name="show_line_numbers" mtime="1390931115" type="bool" value="true"/>
+	<entry name="use_syntax_highlighting" mtime="1391034179" type="bool" value="true"/>
+	<entry name="edit_wrap_lines" mtime="1390931106" type="int" value="2"/>
+	<entry name="tab_size" mtime="1390931100" type="int" value="3"/>
+	<entry name="spaces_instead_of_tabs" mtime="1390931099" type="bool" value="true"/>
+	<entry name="window_size_y" mtime="1391034155" type="int" value="952"/>
+	<entry name="window_size_x" mtime="1390928744" type="int" value="1680"/>
+</gconf>
+

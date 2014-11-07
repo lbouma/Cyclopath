@@ -1,0 +1,194 @@
+# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# For licensing terms, see the file LICENSE.
+
+# SYNC_ME: Makefile and Makefile-pdf
+
+# Directory name of build output
+#   e.g., ccp/flashclient/build/
+OUT = build
+
+# 2013.05.13: Even though this is set in my environment, [lb] still gets
+# complaints on Ubuntu about '[[' being a syntax error. On Fedora, it's fine.
+# This ensures bash is always used to run shell commands.
+SHELL = /bin/bash
+
+# Make runs fcsh-wrap, which in turns starts mxmlc.
+#
+#   ./fcsh-wrap \
+#      -load-config+=mxmlc-config.xml \
+#      -use-network \
+#      -link-report=report.xml \
+#      build/main.mxml
+#
+# You can run mxmlc yourself and interact directly with the flex compiler,
+# but fcsh-wrap abstracts that for us, since we generally need to preprocess
+# our source files with m4.
+#
+# However, [lb] has problems with compilation generally failing the first
+# time after make clean, and sometimes endlessly failing after lots of
+# successful intermittent make.
+#
+# DEVS: You might want to consider using Makefile-new:
+#       See the Bash command, `remake`, in .bashrc-cyclopath;
+#       if you have make fails, run remake, which will eventually
+#       produce a SWF.
+
+# Fcsh Wrapper and Flex build config
+MXMLC = ./fcsh-wrap
+MXMLC_CONFIG = mxmlc-config.xml
+# DEVS: Specify -debug=true to use fdb.
+# DEVS: Specify -benchmark=true to ... um?
+# EXPLAIN: What's -benchmark=true do? Says: "output performance benchmark".
+# DEVS: If you develop cross-domain, you might have to use use-network:
+#        mxmlx --help advanced use-network
+#        "toggle whether the SWF is flagged for access to network resources"
+MXMLC_ARGS = \
+	-load-config+=$(MXMLC_CONFIG) \
+	-use-network \
+	-link-report=report.xml
+#	-debug=true
+#	-benchmark=true
+# MAYBE: Do we want -debug=true?
+
+# m4 Preprocessor config
+M4_ARGS = \
+	--prefix-builtins \
+	macros.m4 # filename for macro definitions
+
+# Extensions that are run through m4; all other files are copied directly
+M4_EXT = .as .mxml
+
+# Ctags config
+
+# The machine must support exuberant ctags. I'm not sure that version 5 is an
+# absolute, but it's what [lb]'s been using.
+ctags_version := $(shell ctags --version | grep "Exuberant Ctags 5")
+
+# Ctags config
+CTAGLANGS = \
+--langdef=actionscript \
+--langmap=actionscript:.as \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1/f, function, functions/ \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*function[ \t]+[(set|get)]*[ \t]+([A-Za-z0-9_]+)[ \t]*\(/\1 \2/p,property, properties/ \
+--regex-actionscript=/^[ \t]*[(private|protected|public) ( \t)]*[(static) ( \t)]*var[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/v,variable, variables/ \
+--regex-actionscript=/.*\.prototype \.([A-Za-z0-9 ]+)=([ \t]?)function( [ \t]?)*\(/\1/ f,function, functions/ \
+--regex-actionscript=/^[ \t]*class[ \t]+([A-Za-z0-9_]+)[ \t]*/\1/c,class, classes/ \
+
+# All files within cwd and subdirectories, excluding any files that match one
+# of the space-delimited regexes in X. Note that regexes must match _all_ of
+# the path and filename in question (e.g., "*b" doesn't match "abc").
+X = \./build/.* \./build-print/.* .*\.svn.* .*\.pid .*\.m4 .*~ .*\.swf
+SRC = $(shell find . \( $(foreach i, $(X), ! -regex '$(i)') \) -xtype f -print)
+
+# all files in SRC prepended with OUT
+OUT_SRC = $(foreach src, $(SRC), $(OUT)/$(src))
+
+# we need this target to prevent make from deleting intermediate files
+# for some reason, it considers build/main.mxml an intermediate file and
+# deletes it after every make, which is not what we want
+#.SECONDARY:
+.SECONDARY: $(OUT)/main.mxml
+
+all: ctags macros $(OUT)/main.swf
+# DEVS: The Flex debugger, fdb, doesn't work well under Linux, but
+#       the m4 preprocessor is tricky to get working under Windows.
+#       If you want to use fdb (live debugging! =) and if you develop
+#       on Linux in VirtualBox on Windows, use wincopy to copy compiled
+#       files from within VirtualBox to your Windows dev folder.
+#all: ctags macros $(OUT)/main.swf wincopy
+# 2013.08.21: The 'again' target is used with fcsh-wrap-new, which works
+#             around a problem with mxmlc oftentimes failing to finish
+#             compilation. You'll have to recomment the swf target, below.
+one: ctags macros $(OUT)/main.swf again
+
+$(OUT)/main.swf: $(OUT)/BUILD_ID.mxml $(OUT_SRC)
+$(OUT)/r_tree.swf: $(OUT)/r_tree.mxml $(OUT)/R_Tree.as $(OUT)/R_Tree_App.as
+$(OUT)/diffdemo.swf: $(OUT)/diffdemo.mxml $(OUT)/difflib/*.as
+
+# EXPLAIN: What's .PHONY for?
+# DEVS: See comments above. Recomment if you want to debug on Windows host.
+.PHONY: clean ctags macros
+#.PHONY: clean ctags macros wincopy
+
+clean:
+	$(MXMLC) killall || true
+	rm -rf FW.*.pid
+	rm -rf $(OUT)
+	rm -rf build-print
+
+ctags:
+	@if [[ -n "$(ctags_version)" ]]; then                    \
+	   echo "========================================";      \
+	   echo "*** Generating ctags";                          \
+	   echo "========================================";      \
+	   echo "$(ctags_version)";                              \
+	   ctags -R -f ../pyserver/tags ../pyserver/;            \
+	   ctags -R -f ../services/tags ../services/;            \
+	   ctags -R -f ../scripts/tags  ../scripts/;             \
+	   ctags -R --exclude=build --exclude=build-print;       \
+	else                                                     \
+	   echo "*** Skipping ctags: exuberant ctags not found"; \
+	fi
+
+# Move the m4 macros file into place if not already there
+# 2011.08.15: I [lb] think this is going to confuse developers
+#             if we default to production. Let's try the other.
+macros:
+	@if [[ ! -f "macros.m4" ]]; then             \
+	   echo "*** Using development m4 macros";   \
+	   cp -f macros_development.m4 macros.m4;    \
+	fi
+
+# Copy the build/ files to Windows space if this is that kind of machine.
+# This is so DEVS can use fdb, which is buggy under Linux.
+# SYNTAX: Don't forget the semi-colons after each line or you'll get:
+#         /bin/sh: -c: line 4: syntax error: unexpected end of file
+# FIXME: The hard-coded path to /win.... for checkin, make ccpv2_trunk...
+# NOTE: [lb] is unable to build pdf_printer.swf on Windows... so copying.
+wincopy:
+	@if [[ -e "/win/ccp/dev/cp/" ]]; then                          \
+	   echo "*** Copying build files to Windows";                  \
+	   rsync -t -a -z $(OUT)/ /win/ccp/dev/cp/;                    \
+	   if [[ -e "build-print/pdf_printer.swf" ]]; then             \
+	      echo "*** Copying pdf_printer.swf";                      \
+	      cp build-print/pdf_printer.swf /win/ccp/dev/cp/;         \
+	   fi                                                          \
+	fi
+
+# HACK: build the BUILD_ID files
+$(OUT)/BUILD_ID.mxml: $(SRC)
+	mkdir -m 2775 -p $(OUT)
+	../scripts/util/build_id.pl --mxml > $(OUT)/BUILD_ID.mxml
+	../scripts/util/build_id.pl --date > $(OUT)/BUILD_DATE.mxml
+	../scripts/util/build_id.pl --info > $(OUT)/BUILD_INFO.as
+	../scripts/util/build_id.pl --python > ../pyserver/VERSION.py
+	chmod 664 ../pyserver/VERSION.py
+
+#%.swf: %.mxml
+#	rm -f $@
+#	$(MXMLC) $(MXMLC_ARGS) $<
+#	chmod 664 $@
+#
+# DEVS: Use this target instead if you're using fsch-wrap-new:
+%.swf: %.mxml
+	$(MXMLC) $(MXMLC_ARGS) $<
+
+again:
+	$(MXMLC) $(MXMLC_ARGS) $(OUT)/main.mxml
+
+# Checks if the suffix of the target is in M4_EXT; if it is, then the file is
+# run through m4, otherwise it is copied.
+$(OUT)/%: %
+	@mkdir -m 2775 -p $(@D)
+	@if [ -n '$(findstring $(suffix $(@F)), .swf)' ]; then        \
+	   echo "*** Found rogue .swf file ($<) - please remove it!"; \
+	   false;                                                     \
+	fi
+	@if [ -n '$(findstring $(suffix $(@F)), $(M4_EXT))' ]; then   \
+	   echo "@m4 -> $@";                                          \
+	   m4 $(M4_ARGS) $< > $@;                                     \
+	else                                                          \
+	   echo "@cp -> $@";                                          \
+	   cp -p $< $@;                                               \
+	fi
+

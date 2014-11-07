@@ -1,0 +1,39 @@
+Note: Many of the scripts in this directory are stale and have not been tested
+in a long time. Use caution.
+
+2011.08.08: I [lb] cleaned up the directory a bit, moving files into
+subdirectories. This makes it easier to identify scripts that are actively used
+and maintained, and to identify scripts that were one-offs used long ago.
+
+In general:
+
+* scripts/analyze : infrequently used scripts to analyze the database and other
+                    types of data and not guaranteed to be up-to-date;
+
+* scripts/daily   : scripts that are run daily by a nightly cronjob, and should
+                    (must?) all be up-to-date;
+
+* scripts/dev     : scripts used infrequently by developers for certain tasks 
+                    and not likely to work or be up-to-date;
+
+* scripts/routing_analysis : FIXME: Not sure, yet, but probably live, 
+                                    so probably belongs somewhere other than in
+                                    scripts/;
+
+* scripts/setupcp : mostly one-off scripts used at one time to import data or
+                    to calculate values for various tables, so some scripts
+                    will no longer work (like the CcpV1 scripts under magic/);
+                    but also some scripts to manage users and group
+                    memberships;
+
+* scripts/util    : scripts used by other scripts in scripts/; also includes 
+                    scripts used by multiple other components, e.g.,
+                    util/build_id.pl is used by pyserver and flashclient;
+
+* scripts/        : scripts that are used frequently and interactively by
+                    developers are kept in the top-level scripts/ directory.
+
+SYNC_ME: Search: name of the scripts directory.
+         The name of the parent directory ('scripts') is used by some of the
+         scripts.
+

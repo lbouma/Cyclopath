@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- SYNC_ME: See mxmlc-config.xml. -->
+<!-- See flex-config.xml of the docs for the meaning of options. -->
+
+<flex-config>
+
+  <compiler>
+
+    <!-- Save callstack information to the SWF for debugging. -->
+    <!-- FIXME: Make mxmlc-config.dev and mxmlc-config.prod and set this false
+                for the production file; also add to Makefile. -->
+    <verbose-stacktraces>true</verbose-stacktraces>
+
+    <warn-class-is-sealed>true</warn-class-is-sealed>
+    <show-binding-warnings>false</show-binding-warnings>
+
+    <library-path
+      append="true">
+      <!--
+      <path-element>
+        /ccp/opt/flex_util/SWFExplorer-0.7.1/bin/SWFExplorer.swc
+      </path-element>
+      -->
+      <!-- Keep the original location in the libpath for
+           backwards-compatibility. -->
+      <!--
+      <path-element>
+        /ccp/opt/flex_util/as3corelib/as3corelib.swc
+      </path-element>
+      -->
+      <path-element>
+        /ccp/opt/flex_util/purePDF/purePDF.swc
+      </path-element>
+      <path-element>
+        /ccp/opt/flex_util/purePDF/purePDFont.swc
+      </path-element>
+    </library-path>
+   <!--
+    <include-libraries
+      append="true">
+      <!- - Keep the original location in the libpath for
+           backwards-compatibility. - ->
+      <!- -
+      <library>
+        /ccp/opt/flex_util/as3corelib/as3corelib.swc
+      </library>
+      <library>
+        /ccp/opt/flex_util/purePDF/purePDF.swc
+      </library>
+      <library>
+        /ccp/opt/flex_util/purePDF/purePDFont.swc
+      </library>
+      - ->
+    </include-libraries>
+    -->
+
+  </compiler>
+
+  <target-player>10.0.0</target-player>
+
+</flex-config>
+
