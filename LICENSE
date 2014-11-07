@@ -1,13 +1,6 @@
-
-                                   (Modified)
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
-
-   ======================================================================
-   NOTE This license is modified from the original Apache License to add
-        Clause #10. It is otherwise unchanged.
-   ======================================================================
 
    TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
@@ -180,19 +173,12 @@
       incurred by, or claims asserted against, such Contributor by reason
       of your accepting any such warranty or additional liability.
 
-   10. This Work and Derivative Works may not be used in any system with more
-       than 100 users, except by permission of an authorized representative of
-       the Cyclopath team at GroupLens Research.
-
-       This clause shall be null and void after June 30, 2011, or earlier if
-       so announced by an authorized representative of the Cyclopath team.
-
    END OF TERMS AND CONDITIONS
 
    APPENDIX: How to apply the Apache License to your work.
 
       To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
+      boilerplate notice, with the fields enclosed by brackets "{}"
       replaced with your own identifying information. (Don't include
       the brackets!)  The text should be enclosed in the appropriate
       comment syntax for the file format. We also recommend that a
@@ -200,7 +186,7 @@
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+   Copyright {yyyy} {name of copyright owner}
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
