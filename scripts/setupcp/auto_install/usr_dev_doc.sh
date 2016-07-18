@@ -197,9 +197,21 @@ cd /ccp/doc/git
 wget -N https://github.s3.amazonaws.com/media/progit.en.pdf
 #wget -N https://github.s3.amazonaws.com/media/pro-git.en.mobi
 #wget -N https://github.s3.amazonaws.com/media/progit.epub
+set +e
 wget -N \
  https://na1.salesforce.com/help/doc/en/salesforce_git_developer_cheatsheet.pdf
+if [[ $? -ne 0 ]]; then
+  echo
+  echo "WHATEVER: Not found: MediaWikiRefCard.png"
+  echo
+fi
 wget -E -H -k -K -p http://ndpsoftware.com/git-cheatsheet.html
+if [[ $? -ne 0 ]]; then
+  echo
+  echo "WHATEVER: Not found: MediaWikiRefCard.png"
+  echo
+fi
+set -e
 
 # Fix perms
 sudo chown -R $targetuser /ccp/doc 
