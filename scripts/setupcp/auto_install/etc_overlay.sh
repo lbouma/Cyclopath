@@ -489,6 +489,7 @@ function setup_psql_config_files () {
     # bit of tenacious coding, we can just call createuser.  First, try to create
     # the user. This fails if the user is already created or for other reasons.
     set +e
+# FIXME: 2016-07-18: It seemed like it took a while for postgres to start...
     createuser -U postgres -SDR cycling 2> /dev/null
     if [[ $? -ne 0 ]]; then
       # Run the command a second time and see if the problem is just that the

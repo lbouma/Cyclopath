@@ -183,6 +183,10 @@ if [[ $? -eq 0 ]]; then
     | grep psql \
     | /bin/sed -r 's/psql \(PostgreSQL\) [0-9]+\.([0-9]+)\.[0-9]+/\1/')
 else
+  # 2016-07-18: This is obviously wrong but I'm setting up Cyclopath and
+  # somehow /etc/postgresql/9.5/main/postgresql.conf got truncated (or was
+  # just 0 length), so running `psql` would die on "Error: Invalid data directory"
+  # Properly, we'd check the distro version and guess, like, Ubuntu 16.04 xavier, er, xenial is 9.5.
   POSTGRESABBR='9.5'
   POSTGRES_MAJOR='9'
   POSTGRES_MINOR='5'

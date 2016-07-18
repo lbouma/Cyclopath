@@ -40,6 +40,7 @@ system_file_diff_n_replace () {
   if [[ -z "$1" || -z "$2" ]]; then
     echo
     echo "Error: Silly programmer. You forgot the path and/or filename!"
+    return
     exit 1
   fi
   file_path=$1
@@ -51,6 +52,7 @@ system_file_diff_n_replace () {
     if [[ -z "$3" || -z "$4" ]]; then
       echo
       echo "Error: Missing the base path and/or target path."
+      return
       exit 1
     fi
     base_path=$3 # e.g., sites-available/cyclopath or ../maintenance
