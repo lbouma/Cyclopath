@@ -1,9 +1,9 @@
 Remember: Users should update their login scripts to include:
 
   if [ -n "`python --version | grep "^Python 2.7"`" ]; then
-    PYTHONVERS=python2.7
+    PYTHONVERS2=python2.7
   elif [ -n "`python --version | grep "^Python 2.6"`" ]; then
-    PYTHONVERS=python2.6
+    PYTHONVERS2=python2.6
   else
     echo "Warning: Unexpected python version: `python --version`."
   fi
@@ -13,14 +13,14 @@ Remember: Users should update their login scripts to include:
   #  export PATH=/project/Grouplens/bin:/ccp/opt/usr/bin:/ccp/opt/flex/bin:$PATH
   # ALl other devs:
   export PATH=/ccp/opt/usr/bin:/ccp/opt/flex/bin:$PATH
-  export PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/$PYTHONVERS/site-packages:/ccp/opt/gdal/lib/$PYTHONVERS/site-packages:$PYTHONPATH
+  export PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/$PYTHONVERS2/site-packages:/ccp/opt/gdal/lib/$PYTHONVERS2/site-packages:$PYTHONPATH
 
   # For .cshrc
   # Onsite devs:
   #  setenv PATH "/project/Grouplens/bin:/ccp/opt/usr/bin:/ccp/opt/flex/bin:$PATH"
   # ALl other devs:
   setenv PATH "/ccp/opt/usr/bin:/ccp/opt/flex/bin:$PATH"
-  setenv PYTHONPATH "/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/$PYTHONVERS/site-packages:/ccp/opt/gdal/lib/$PYTHONVERS/site-packages:$PYTHONPATH"
+  setenv PYTHONPATH "/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/$PYTHONVERS2/site-packages:/ccp/opt/gdal/lib/$PYTHONVERS2/site-packages:$PYTHONPATH"
 
 Also: Check your /ccp/dev/cp/pyserver/CONFIG file and maybe add keys for:
 

@@ -99,8 +99,10 @@ sudo -v
 # *** GEOS
 
 #GEOS_VERS='3.3.2'
+# Never tried: GEOS_VERS='3.3.9'
 #GEOS_VERS='3.4.2'
 # 2016-07-18: There's a 3.5.0 from 16-Aug-2015. Should we try it?
+# I'm going to try it. It's just a minor bump. I'd never try a major bump, though.
 GEOS_VERS='3.5.0'
 
 function setup_install_geos () {
@@ -111,11 +113,14 @@ function setup_install_geos () {
   # http://trac.osgeo.org/geos/
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   wget -N http://download.osgeo.org/geos/geos-${GEOS_VERS}.tar.bz2
-  /bin/rm -rf /ccp/opt/.downloads/geos-${GEOS_VERS}
-  # 2013.10.13: Upgrading from 3.3.2, so make sure that's scrubbed.
+
   /bin/rm -rf /ccp/opt/.downloads/geos-3.3.2
+  /bin/rm -rf /ccp/opt/.downloads/geos-3.3.9
   /bin/rm -rf /ccp/opt/.downloads/geos-3.4.2
+  /bin/rm -rf /ccp/opt/.downloads/geos-3.5.0
+  /bin/rm -rf /ccp/opt/.downloads/geos-${GEOS_VERS}
 
   tar xvf geos-${GEOS_VERS}.tar.bz2 \
     > /dev/null
@@ -161,7 +166,7 @@ function setup_install_geos () {
 # *** ODBC
 
 #ODBC_VERS="2.3.2"
-# 2016-07-18
+# 2016-07-18: Should be safe to try latest build with same minor.
 ODBC_VERS="2.3.4"
 #ODBC_VERS="2.3.5-pre"
 
@@ -194,11 +199,10 @@ function setup_install_odbc () {
     wget -N ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-${ODBC_VERS}.tar.gz
   fi
 
-  /bin/rm -rf /ccp/opt/.downloads/unixODBC-${ODBC_VERS}
-  # 2013.10.13: Upgrading from 2.3.1, so make sure that's scrubbed.
   /bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.1
-  # 2016-07-18: Installing on a fresh system so this is a no-op.
   /bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.2
+  /bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.4
+  /bin/rm -rf /ccp/opt/.downloads/unixODBC-${ODBC_VERS}
 
   tar xvf unixODBC-${ODBC_VERS}.tar.gz \
     > /dev/null
@@ -232,9 +236,10 @@ function setup_install_odbc () {
 #          confs' references to it (search /ccp/bin/ccpdev/private)
 #          and update the /scripts/daily code that references its
 #          /bin/ folder.
-# 2016-07-18: FIXME: Upgrade to 2.x series. Latest: 2.1.1.
-# 2016-07-18: Trying the last(est) 1.x release.
+# 2016-07-18: Trying the last(est) 1.x release. Fingers crossed!
 GDAL_VERS='1.11.5'
+# 2016-07-18: FIXME: Upgrade to 2.x series. Latest: 2.1.1.
+#GDAL_VERS='2.1.1'
 
 function setup_install_gdal () {
 
@@ -246,15 +251,19 @@ function setup_install_gdal () {
   pushd /ccp/opt/.downloads &> /dev/null
 
   wget -N http://download.osgeo.org/gdal/${GDAL_VERS}/gdal-${GDAL_VERS}.tar.gz
+
   # Remove old versions.
-  #/bin/rm -rf /ccp/opt/.downloads/gdal-1.11.5
-  /bin/rm -rf /ccp/opt/.downloads/gdal-1.11.0
-  /bin/rm -rf /ccp/opt/.downloads/gdal-1.10.1
-  /bin/rm -rf /ccp/opt/.downloads/gdal-1.9.0
-  /bin/rm -rf /ccp/opt/.downloads/gdal-1.7.3
   /bin/rm -rf /ccp/opt/.downloads/gdal-1.5.1
+  /bin/rm -rf /ccp/opt/.downloads/gdal-1.7.3
+  /bin/rm -rf /ccp/opt/.downloads/gdal-1.9.0
+  /bin/rm -rf /ccp/opt/.downloads/gdal-1.10.1
+  /bin/rm -rf /ccp/opt/.downloads/gdal-1.11.0
+  /bin/rm -rf /ccp/opt/.downloads/gdal-1.11.5
+  /bin/rm -rf /ccp/opt/.downloads/gdal-${GDAL_VERS}
+
   tar xvf gdal-${GDAL_VERS}.tar.gz \
     > /dev/null
+
   pushd gdal-${GDAL_VERS} &> /dev/null
 
   # Use --with-python so we get "from osgeo import osr"
@@ -264,17 +273,22 @@ function setup_install_gdal () {
     --with-odbc=/ccp/opt/unixODBC-${ODBC_VERS} \
     --with-pg=/usr/bin/pg_config \
     --with-python
+
   # I [lb] couldn't find a configure option for the python library, so edit the
   # cfg directly.
   echo "[easy_install]
-  install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
-  " >> /ccp/opt/.downloads/gdal-${GDAL_VERS}/swig/python/setup.cfg
+install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
+" >> /ccp/opt/.downloads/gdal-${GDAL_VERS}/swig/python/setup.cfg
+
   # Make sure the directory exists.
   # FIXME: Should this be lib64? Or doesn't it matter?
   mkdir -p /ccp/opt/usr/lib/$PYTHONVERS/site-packages
 
-  # NOTE: The make takes minutes to complete.
+  # NOTE: The make takes lots of minutes to complete.
   make
+
+  export PYTHONPATH=$ccp/opt/usr/lib/python2.7
+
   make install
 
   #sudo chmod 2755 /ccp/opt/gdal-${GDAL_VERS}
@@ -286,7 +300,7 @@ function setup_install_gdal () {
   ln -s /ccp/opt/gdal-${GDAL_VERS} /ccp/opt/gdal
 
   ${SCRIPT_DIR}/../../util/fixperms.pl --public \
-   /ccp/opt/usr/lib/$PYTHONVERS/site-packages/GDAL-${GDAL_VERS}-${PYVERSABBR}-linux-x86_64.egg/
+   /ccp/opt/usr/lib/$PYTHONVERS/site-packages/GDAL-${GDAL_VERS}-${PYVERSABBR2}-linux-x86_64.egg/
 
   # See if we have to edit ld.so.conf or not. This permanently sets
   # LD_LIBRARY_PATH, so if we run python from the command line or if Apache runs
@@ -319,6 +333,8 @@ function setup_install_gdal () {
 # *** libxml2
 
 LIBXML2_VERS='2.9.1'
+# 2016-07-18: 2.9.4.
+LIBXML2_VERS='2.9.4'
 
 function setup_install_libxml2 () {
 
@@ -328,13 +344,18 @@ function setup_install_libxml2 () {
   # http://xmlsoft.org/
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   wget -N ftp://xmlsoft.org/libxml2/libxml2-${LIBXML2_VERS}.tar.gz
+
   # Remove versions we've used in the past.
   /bin/rm -rf /ccp/opt/.downloads/libxml2-2.7.8
+  /bin/rm -rf /ccp/opt/.downloads/libxml2-2.9.1
+  /bin/rm -rf /ccp/opt/.downloads/libxml2-2.9.4
   /bin/rm -rf /ccp/opt/.downloads/libxml2-${LIBXML2_VERS}
-  #
+
   tar -xvzf libxml2-${LIBXML2_VERS}.tar.gz \
     > /dev/null
+
   pushd libxml2-${LIBXML2_VERS} &> /dev/null
 
   # 2013.11.04: FIXME: We need to not install Python bindings,
@@ -390,6 +411,10 @@ function setup_install_libxml2 () {
 
 # *** PROJ.4 - Cartographic Projections Library
 
+#PROJ4_VERS='4.8.0'
+# 2016-07-18: Trying new minor.
+PROJ4_VERS='4.9.2'
+
 function setup_install_proj_4 () {
 
   echo
@@ -403,20 +428,26 @@ function setup_install_proj_4 () {
   #   and NZGD49 datum conversion. 
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://download.osgeo.org/proj/proj-4.8.0.tar.gz
+  wget -N http://download.osgeo.org/proj/proj-${PROJ4_VERS}.tar.gz
+
   /bin/rm -rf /ccp/opt/.downloads/proj-4.8.0
-  tar -xvzf proj-4.8.0.tar.gz \
+  /bin/rm -rf /ccp/opt/.downloads/proj-4.9.2
+  /bin/rm -rf /ccp/opt/.downloads/proj-${PROJ4_VERS}
+
+  tar -xvzf proj-${PROJ4_VERS}.tar.gz \
     > /dev/null
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   wget -N http://download.osgeo.org/proj/proj-datumgrid-1.5.zip
-  unzip proj-datumgrid-1.5.zip -d /ccp/opt/.downloads/proj-4.8.0/nad
+
+  unzip proj-datumgrid-1.5.zip -d /ccp/opt/.downloads/proj-${PROJ4_VERS}/nad
 
   # This is for MapServer.
   #
   # Edit Proj's epsg definitions and add an obscure Mercator projection.
   #
-  # In /ccp/opt/proj-4.8.0/share/proj/epsg, you'll find similar defn's
+  # In /ccp/opt/proj-${PROJ4_VERS}/share/proj/epsg, you'll find similar defn's
   # (they just jave an extra +wktext)
   #
   #   WGS 84 / Pseudo-Mercator
@@ -426,10 +457,11 @@ function setup_install_proj_4 () {
   #
   echo "# [Cyclopath] Mercator projection (for MapServer)
   <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>" \
-    >> /ccp/opt/.downloads/proj-4.8.0/nad/epsg
+    >> /ccp/opt/.downloads/proj-${PROJ4_VERS}/nad/epsg
 
-  pushd /ccp/opt/.downloads/proj-4.8.0 &> /dev/null
-  ./configure --prefix=/ccp/opt/proj-4.8.0
+  pushd /ccp/opt/.downloads/proj-${PROJ4_VERS} &> /dev/null
+
+  ./configure --prefix=/ccp/opt/proj-${PROJ4_VERS}
 
   # 2013.12.13: [lb] compiled proj4 just 4ine on runic and good, but ika
   # is complaining,
@@ -451,21 +483,21 @@ function setup_install_proj_4 () {
   make
   make install
 
-  #sudo chmod 2755 /ccp/opt/proj-4.8.0
-  chmod 2755 /ccp/opt/proj-4.8.0
+  #sudo chmod 2755 /ccp/opt/proj-${PROJ4_VERS}
+  chmod 2755 /ccp/opt/proj-${PROJ4_VERS}
   #${SCRIPT_DIR}/../../util/fixperms.pl --public \
-  #  /ccp/opt/proj-4.8.0/
+  #  /ccp/opt/proj-${PROJ4_VERS}/
 
   # Make sure everyone uses the new binary and library, and not the system ones.
   if [[ "`cat /etc/ld.so.conf \
-          | grep '/ccp/opt/proj-4.8.0/lib'`" ]]; then
+          | grep '/ccp/opt/proj-${PROJ4_VERS}/lib'`" ]]; then
     # No-op. Entry already exists.
     echo "Skipping ld.so.conf"
   else
     RANDOM_NAME=/tmp/ccp_setup_lsadfas09sd0f9sdflj234b4
     mkdir $RANDOM_NAME
     cp /etc/ld.so.conf $RANDOM_NAME/
-    echo "/ccp/opt/proj-4.8.0/lib" >> $RANDOM_NAME/ld.so.conf
+    echo "/ccp/opt/proj-${PROJ4_VERS}/lib" >> $RANDOM_NAME/ld.so.conf
     sudo cp $RANDOM_NAME/ld.so.conf /etc/ld.so.conf
     # The tmp file is owned by the script runner but the sudo cp preserves
     # the original 664 root root perms.
@@ -496,6 +528,12 @@ function setup_install_proj_4 () {
 
 # *** json-c
 
+# Never tried: JSONC_VERS='json-c-0.10-20120530'
+#JSONC_VERS='json-c-0.11-20130402'
+# Never tried: JSONC_VERS='json-c-0.12-20140410'
+# 2016-07-18: Trying something new:
+JSONC_VERS='json-c-0.12.1-20160607'
+
 function setup_install_json_c () {
 
   # FIXME: Replace with
@@ -507,29 +545,34 @@ function setup_install_json_c () {
   # https://github.com/json-c/json-c
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N https://github.com/json-c/json-c/archive/json-c-0.11-20130402.tar.gz
+
+  wget -N https://github.com/json-c/json-c/archive/${JSONC_VERS}.tar.gz
 
   # 2014.01.17: I guess the json-c peeps fixed the name problem
-  #mv json-c-0.11-20130402 json-c-0.11-20130402.tar.gz
-  if [[ -e json-c-0.11-20130402 ]]; then
-    mv json-c-0.11-20130402 json-c-0.11-20130402.tar.gz
+  #mv ${JSONC_VERS} ${JSONC_VERS}.tar.gz
+  if [[ -e ${JSONC_VERS} ]]; then
+    mv ${JSONC_VERS} ${JSONC_VERS}.tar.gz
   fi
 
   # Remove old archives.
-  /bin/rm -rf /ccp/opt/.downloads/json-c-json-c-0.11-20130402
-  #
-  tar -xvzf json-c-0.11-20130402.tar.gz \
+  /bin/rm -rf /ccp/opt/.downloads/json-c-0.10-20120530
+  /bin/rm -rf /ccp/opt/.downloads/json-c-0.11-20130402
+  /bin/rm -rf /ccp/opt/.downloads/json-c-0.12-20140410
+  /bin/rm -rf /ccp/opt/.downloads/json-c-0.12.1-20160607
+  /bin/rm -rf /ccp/opt/.downloads/json-c-${JSONC_VERS}
+
+  tar -xvzf ${JSONC_VERS}.tar.gz \
     > /dev/null
-  pushd json-c-json-c-0.11-20130402 &> /dev/null
-  #
-  ./configure --prefix=/ccp/opt/json-c-json-c-0.11-20130402
+  pushd json-c-${JSONC_VERS} &> /dev/null
+
+  ./configure --prefix=/ccp/opt/json-c-${JSONC_VERS}
   make
   make install
 
-  #sudo chmod 2755 /ccp/opt/json-c-json-c-0.11-20130402
-  chmod 2755 /ccp/opt/json-c-json-c-0.11-20130402
+  #sudo chmod 2755 /ccp/opt/json-c-${JSONC_VERS}
+  chmod 2755 /ccp/opt/json-c-${JSONC_VERS}
   #${SCRIPT_DIR}/../../util/fixperms.pl --public \
-  #  /ccp/opt/json-c-0.11-20130402/
+  #  /ccp/opt/${JSONC_VERS}/
 
   popd &> /dev/null
   popd &> /dev/null
@@ -538,34 +581,48 @@ function setup_install_json_c () {
 
 # *** PostGIS
 
+#POSTGIS_VERS='1.5.4'
+#POSTGIS_VERS='2.0.0'
+#POSTGIS_VERS='2.0.4'
+#POSTGIS_VERS='2.1.0'
+#POSTGIS_VERS='2.1.8'
+# 2016-07-18: Hello new minor version.
+POSTGIS_VERS='2.2.2'
+
 function setup_install_postgis () {
 
   echo
   echo "Installing PostGIS"
 
-  #PGIS_VERS=postgis-1.5.4
-  # FIXME: Test postgis-2.0.0...
-  #PGIS_VERS=postgis-2.0.0
-  # NOTE: PostGIS 2.0 is the last major version to support psql 8.4.
-  PGIS_VERS=postgis-2.0.4
-  # BUG nnnn: Upgrade to PostgresSQL 9.x and install PostGIS 2.1.0.
-  #  configure: error: PostGIS requires PostgreSQL >= 9.0
-  # PGIS_VERS=postgis-2.1.0
+  ##PGIS_VERS=postgis-1.5.4
+  ## FIXME: Test postgis-2.0.0...
+  ##PGIS_VERS=postgis-2.0.0
+  ## NOTE: PostGIS 2.0 is the last major version to support psql 8.4.
+  #PGIS_VERS=postgis-2.0.4
+  ## BUG nnnn: Upgrade to PostgresSQL 9.x and install PostGIS 2.1.0.
+  ##  configure: error: PostGIS requires PostgreSQL >= 9.0
+  ## PGIS_VERS=postgis-2.1.0
+
+  PGIS_VERS=postgis-${POSTGIS_VERS}
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   #wget -N http://postgis.refractions.net/download/$PGIS_VERS.tar.gz
   wget -N http://download.osgeo.org/postgis/source/$PGIS_VERS.tar.gz
-  /bin/rm -rf /ccp/opt/.downloads/$PGIS_VERS
-  # Remove old versions that may have been installed on this machine.
+
   /bin/rm -rf /ccp/opt/.downloads/postgis-1.5.4
   /bin/rm -rf /ccp/opt/.downloads/postgis-2.0.0
   /bin/rm -rf /ccp/opt/.downloads/postgis-2.0.4
   /bin/rm -rf /ccp/opt/.downloads/postgis-2.1.0
-  #
+  /bin/rm -rf /ccp/opt/.downloads/postgis-2.1.8
+  /bin/rm -rf /ccp/opt/.downloads/postgis-2.2.2
+  /bin/rm -rf /ccp/opt/.downloads/postgis-${POSTGIS_VERS}
+
   tar xvf $PGIS_VERS.tar.gz \
     > /dev/null
+
   pushd $PGIS_VERS &> /dev/null
-  #
+
   # 2013.10.31: [lb] added --with-projdir and --with-gdalconfig.
   # FIXME: What about json-c? Or whatever: it's optional, anyway
   #        (it's only used if you call PostGIS's ST_GeomFromGeoJson).
@@ -574,11 +631,11 @@ function setup_install_postgis () {
     --with-geosconfig=/ccp/opt/geos-${GEOS_VERS}/bin/geos-config \
     --with-pgconfig=/usr/bin/pg_config \
     --with-xml2config=/ccp/opt/libxml2-${LIBXML2_VERS}/bin/xml2-config \
-    --with-projdir=/ccp/opt/proj-4.8.0 \
+    --with-projdir=/ccp/opt/proj-${PROJ4_VERS} \
     --with-gdalconfig=/ccp/opt/gdal/bin/gdal-config
-  #
+
   make
-  #
+
   sudo make install
 
   # FIXME: Why is prefix being ignored?
@@ -601,6 +658,9 @@ function setup_install_postgis () {
 
 # *** Xerces
 
+#XERCES_VERS='xerces-c-src_2_8_0'
+XERCES_VERS='xerces-c-3.1.4'
+
 function setup_install_xerces () {
 
   # 2014.01.17: This is not installed on Debian.
@@ -609,13 +669,22 @@ function setup_install_xerces () {
   if [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
 
     pushd /ccp/opt/.downloads &> /dev/null
-    wget -N http://www.motorlogy.com/apache//xerces/c/2/sources/xerces-c-src_2_8_0.tar.gz
-    /bin/rm -rf /ccp/opt/.downloads/xerces-c-src_2_8_0
-    tar xvf xerces-c-src_2_8_0.tar.gz \
-      > /dev/null
-    pushd xerces-c-src_2_8_0 &> /dev/null
 
-    export XERCESCROOT=/ccp/opt/.downloads/xerces-c-src_2_8_0
+    # Huh? motorlogy.com: "The Automotive News Site"
+    #  Must be an old mirror. And yes, the double-slash is how it ends up in the browser location.
+    #wget -N http://www.motorlogy.com/apache//xerces/c/2/sources/${XERCES_VERS}.tar.gz
+    wget -N http://apache.claz.org//xerces/c/3/sources/${XERCES_VERS}.tar.gz
+
+    /bin/rm -rf /ccp/opt/.downloads/xerces-c-src_2_8_0
+    /bin/rm -rf /ccp/opt/.downloads/xerces-c-3.1.4
+    /bin/rm -rf /ccp/opt/.downloads/${XERCES_VERS}
+
+    tar xvf ${XERCES_VERS}.tar.gz \
+      > /dev/null
+
+    pushd ${XERCES_VERS} &> /dev/null
+
+    export XERCESCROOT=/ccp/opt/.downloads/${XERCES_VERS}
     pushd src/xercesc &> /dev/null
     ./runConfigure -plinux -cgcc -xg++ -minmem -nsocket -tnative -rpthread
     make
@@ -630,7 +699,15 @@ function setup_install_xerces () {
 
 # *** MapServer
 
+#MAPSERVER_VERS='5.6.6'
+#MAPSERVER_VERS='5.6.8'
 MAPSERVER_VERS='5.6.9'
+# LATER/MEH/TOO_MUCH_WORK: Update MapServer to 6.x.
+# See all the gory details (it actually doesn't seem like too much work):
+#  http://mapserver.org/MIGRATION_GUIDE.html#migration
+#MAPSERVER_VERS='6.4.3'
+# 2016-07-18: Whoa! I thought 6.x was a leap (major rewrite) and now 7!
+#MAPSERVER_VERS='7.0.1'
 
 function setup_install_mapserver () {
 
@@ -695,13 +772,16 @@ function setup_install_mapserver () {
     pushd /ccp/opt/.downloads &> /dev/null
     # DEVS: If you upgrade to MapServer 6.x, you can probably remove the
     #       mappostgis.c fix. At least check the new source file.
-    #wget -N http://download.osgeo.org/mapserver/mapserver-5.6.6.tar.gz
-    #wget -N http://download.osgeo.org/mapserver/mapserver-5.6.8.tar.gz
     wget -N http://download.osgeo.org/mapserver/mapserver-${MAPSERVER_VERS}.tar.gz
 
+    /bin/rm -rf /ccp/opt/.downloads/mapserver-5.6.6
+    /bin/rm -rf /ccp/opt/.downloads/mapserver-5.6.8
+    /bin/rm -rf /ccp/opt/.downloads/mapserver-5.6.9
     /bin/rm -rf /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS}
+
     tar xvf mapserver-${MAPSERVER_VERS}.tar.gz \
       > /dev/null
+
     pushd mapserver-${MAPSERVER_VERS} &> /dev/null
 
     # Fix the source file we mentioned earlier.
@@ -753,7 +833,7 @@ function setup_install_mapserver () {
 
     # FIXME: Fedora needs the lib path setup, even though we edited ldconfig...
     # sudo yum install hdf5-devel
-    #LD_LIBRARY_PATH=/ccp/opt/gdal-${GDAL_VERS}/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib:/ccp/opt/.downloads/xerces-c-src_2_8_0/lib ../../mapserver/mapserv
+    #LD_LIBRARY_PATH=/ccp/opt/gdal-${GDAL_VERS}/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib:/ccp/opt/.downloads/${XERCES_VERS}/lib ../../mapserver/mapserv
 
     # Make a link for httpd.conf.
     /bin/rm -f /ccp/opt/mapserver
@@ -767,36 +847,39 @@ function setup_install_mapserver () {
 
   fi
 
+  # NOTE: This is for MapServer.
+  #
+  # Update /usr/share/proj/epsg so it supports Mercator.
+  #
+  # Doing sudo -s kinda works but leaves us at a root prompt. Weird.
+  # sudo -s "echo '# [Cyclopath] Mercator projection (for MapServer)
+  #   <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>
+  #   ' >> /usr/share/proj/epsg"
+  #
+  # DEPRECATED: See above, where we install PROJ.4. It's no longer necessary to
+  #             edit /usr/share/proj/epsg since we've updated ld.so.conf to use
+  #             the new library...
+  #  if [[ "`cat /usr/share/proj/epsg \
+  #          | grep '\[Cyclopath\] Mercator projection'`" ]]; then
+  #    # The file is already updated.
+  #    echo "Skipping /usr/share/proj/epsg"
+  #  else
+  #    /bin/cp -f /usr/share/proj/epsg /tmp/proj_epsg
+  #    echo "# [Cyclopath] Mercator projection (for MapServer)
+  #  <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>" \
+  #      >> /tmp/proj_epsg
+  #    sudo mv -f /tmp/proj_epsg /usr/share/proj/epsg
+  #    sudo chown root /usr/share/proj/epsg
+  #    sudo chgrp root /usr/share/proj/epsg
+  #    sudo chmod 644 /usr/share/proj/epsg
+  #  fi
+
 } # end: setup_install_mapserver
 
-# NOTE: This is for MapServer.
-#
-# Update /usr/share/proj/epsg so it supports Mercator.
-#
-# Doing sudo -s kinda works but leaves us at a root prompt. Weird.
-# sudo -s "echo '# [Cyclopath] Mercator projection (for MapServer)
-#   <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>
-#   ' >> /usr/share/proj/epsg"
-#
-# DEPRECATED: See above, where we install PROJ.4. It's no longer necessary to
-#             edit /usr/share/proj/epsg since we've updated ld.so.conf to use
-#             the new library...
-#  if [[ "`cat /usr/share/proj/epsg \
-#          | grep '\[Cyclopath\] Mercator projection'`" ]]; then
-#    # The file is already updated.
-#    echo "Skipping /usr/share/proj/epsg"
-#  else
-#    /bin/cp -f /usr/share/proj/epsg /tmp/proj_epsg
-#    echo "# [Cyclopath] Mercator projection (for MapServer)
-#  <900913> +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +no_defs <>" \
-#      >> /tmp/proj_epsg
-#    sudo mv -f /tmp/proj_epsg /usr/share/proj/epsg
-#    sudo chown root /usr/share/proj/epsg
-#    sudo chgrp root /usr/share/proj/epsg
-#    sudo chmod 644 /usr/share/proj/epsg
-#  fi
-
 # *** TileCache
+
+TILECACHE_VERS='2.11'
+# 2016-07-18: Hahaha, tilecache is still same old version. Good on it.
 
 function setup_install_tilecache () {
 
@@ -804,36 +887,41 @@ function setup_install_tilecache () {
   echo "Installing TileCache"
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://tilecache.org/tilecache-2.11.tar.gz
+
+  wget -N http://tilecache.org/tilecache-${TILECACHE_VERS}.tar.gz
+
   /bin/rm -rf /ccp/opt/.downloads/tilecache-2.11
-  tar xvf tilecache-2.11.tar.gz \
+  /bin/rm -rf /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}
+
+  tar xvf tilecache-${TILECACHE_VERS}.tar.gz \
     > /dev/null
-  pushd tilecache-2.11 &> /dev/null
-  #
-  #sudo chmod 2775 /ccp/opt/.downloads/tilecache-2.11
-  chmod 2775 /ccp/opt/.downloads/tilecache-2.11
+
+  pushd tilecache-${TILECACHE_VERS} &> /dev/null
+
+  #sudo chmod 2775 /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}
+  chmod 2775 /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}
   #${SCRIPT_DIR}/../../util/fixperms.pl --public \
-  #  /ccp/opt/.downloads/tilecache-2.11/
-  #
+  #  /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/
+
   # Make a link for httpd.conf.
   /bin/rm -f /ccp/opt/tilecache
-  ln -s /ccp/opt/.downloads/tilecache-2.11 \
+  ln -s /ccp/opt/.downloads/tilecache-${TILECACHE_VERS} \
     /ccp/opt/tilecache
-  #
+
   # 2013.01.14: The TileCache config got moved to /ccp/var/ when the
   # check_cache_now, gen_tilecache_cfg, and make_mapfile scripts were writ.
-  mv /ccp/opt/.downloads/tilecache-2.11/tilecache.cfg \
-     /ccp/opt/.downloads/tilecache-2.11/tilecache.cfg-ORIG
-  #
+  mv /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg \
+     /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg-ORIG
+
   # ln -s /ccp/dev/cp/mapserver/tilecache.cfg \
-  #       /ccp/opt/.downloads/tilecache-2.11/tilecache.cfg
+  #       /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
   # NOTE: The target might not exist. See check_cache_now cron job.
   # NOTE: To allow multiple instances with difference tilecache.cfg files,
   #       use --config= when you call tilecache_seed.py.
   # 2013.04.21: See mapserver/check_cache_now.sh and related. We'll deal
   #             with tilecache on an installation-by-installation basis.
   # ln -s /ccp/var/tilecache-cache/tilecache.cfg \
-  #       /ccp/opt/.downloads/tilecache-2.11/tilecache.cfg
+  #       /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
 
   popd &> /dev/null
   popd &> /dev/null
@@ -842,19 +930,27 @@ function setup_install_tilecache () {
 
 # *** spatialindex
 
+#SPATIALINDEX_VERS='1.6.1'
+SPATIALINDEX_VERS='1.8.1'
+
 function setup_install_spatialindex () {
 
   echo
   echo "Installing spatialindex"
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://download.osgeo.org/libspatialindex/spatialindex-src-1.8.1.tar.gz
+
+  wget -N http://download.osgeo.org/libspatialindex/spatialindex-src-${SPATIALINDEX_VERS}.tar.gz
+
   # Remove old downloads.
   /bin/rm -rf /ccp/opt/.downloads/spatialindex-src-1.6.1
   /bin/rm -rf /ccp/opt/.downloads/spatialindex-src-1.8.1
-  #
-  tar -xvzf spatialindex-src-1.8.1.tar.gz
-  pushd spatialindex-src-1.8.1 &> /dev/null
+  /bin/rm -rf /ccp/opt/.downloads/spatialindex-src-${SPATIALINDEX_VERS}
+
+  tar -xvzf spatialindex-src-${SPATIALINDEX_VERS}.tar.gz
+
+  pushd spatialindex-src-${SPATIALINDEX_VERS} &> /dev/null
+
   ./configure --prefix=/ccp/opt/usr
   make
   make install
@@ -863,6 +959,10 @@ function setup_install_spatialindex () {
   popd &> /dev/null
 
 } # end: setup_install_spatialindex
+
+# *** rtree
+
+RTREE_VERS='0.7.0'
 
 function setup_install_rtree () {
 
@@ -874,7 +974,7 @@ function setup_install_rtree () {
   #mkdir -p /ccp/opt/usr/lib/python2.7/site-packages
 
   # FIXME:
-  #landonb@huffy:spatialindex-src-1.8.1$ easy_install --prefix=/ccp/opt/usr RTree
+  #landonb@huffy:spatialindex-src-${SPATIALINDEX_VERS}$ easy_install --prefix=/ccp/opt/usr RTree
   #Searching for RTree
   #Reading http://pypi.python.org/simple/RTree/
   #Reading http://trac.gispython.org/projects/PCL/wiki/ArrTree
@@ -892,13 +992,19 @@ function setup_install_rtree () {
 
   # I think this works:
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://pypi.python.org/packages/source/R/Rtree/Rtree-0.7.0.tar.gz#md5=84e75e5a9fdf7bd092435588be9084ac
+
+  wget -N http://pypi.python.org/packages/source/R/Rtree/Rtree-${RTREE_VERS}.tar.gz#md5=84e75e5a9fdf7bd092435588be9084ac
+
   /bin/rm -rf /ccp/opt/.downloads/Rtree-0.7.0
-  tar xvf Rtree-0.7.0.tar.gz
-  pushd Rtree-0.7.0 &> /dev/null
+  /bin/rm -rf /ccp/opt/.downloads/Rtree-${RTREE_VERS}
+
+  tar xvf Rtree-${RTREE_VERS}.tar.gz
+
+  pushd Rtree-${RTREE_VERS} &> /dev/null
+
   echo "[easy_install]
   install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
-  " >> /ccp/opt/.downloads/Rtree-0.7.0/setup.cfg
+  " >> /ccp/opt/.downloads/Rtree-${RTREE_VERS}/setup.cfg
   LD_LIBRARY_PATH=/ccp/opt/usr/lib python setup.py build
   LD_LIBRARY_PATH=/ccp/opt/usr/lib python setup.py install
 
@@ -909,27 +1015,36 @@ function setup_install_rtree () {
 
 # *** Simplejson
 
+#SIMPLEJSON_VERS='2.1.6'
+# Never tried: SIMPLEJSON_VERS='2.2.1'
+# Never tried: SIMPLEJSON_VERS='2.3.3'
+SIMPLEJSON_VERS='3.3.1'
+
 function setup_install_simplejson () {
 
   echo
   echo "Installing simplejson"
 
-  # FIXME: There's a 2.2.1 and 2.3.3 of simplejson
   pushd /ccp/opt/.downloads &> /dev/null
+
   # wget -N http://pypi.python.org/packages/source/s/simplejson/simplejson-2.1.6.tar.gz#md5=2f8351f6e6fe7ef25744805dfa56c0d5
   # Hmm, certificate problems.
   # wget -N https://pypi.python.org/packages/source/s/simplejson/simplejson-3.3.1.tar.gz
   #   ERROR: certificate common name “*.a.ssl.fastly.net” doesn't match requested host name “pypi.python.org”.
   #   To connect to pypi.python.org insecurely, use '--no-check-certificate'.
   # Is this safe?:
-  wget --no-check-certificate -N https://pypi.python.org/packages/source/s/simplejson/simplejson-3.3.1.tar.gz
+  wget --no-check-certificate -N \
+    https://pypi.python.org/packages/source/s/simplejson/simplejson-${SIMPLEJSON_VERS}.tar.gz
 
   # Remove old downloads.
   /bin/rm -rf /ccp/opt/.downloads/simplejson-2.1.6
+  /bin/rm -rf /ccp/opt/.downloads/simplejson-2.2.1
+  /bin/rm -rf /ccp/opt/.downloads/simplejson-2.3.3
   /bin/rm -rf /ccp/opt/.downloads/simplejson-3.3.1
-  #
-  tar xvzf simplejson-3.3.1.tar.gz
-  pushd simplejson-3.3.1 &> /dev/null
+  /bin/rm -rf /ccp/opt/.downloads/simplejson-${SIMPLEJSON_VERS}
+
+  tar xvzf simplejson-${SIMPLEJSON_VERS}.tar.gz
+  pushd simplejson-${SIMPLEJSON_VERS} &> /dev/null
 
   # 2012.08.22: NOTE: [ln] tried installing on itamae, but itamae is an old
   #                   Ubuntu machine with earlier versions of software, so
@@ -967,6 +1082,8 @@ function setup_install_simplejson () {
 
 # *** servable
 
+#SERVABLE_VERS='trunk'
+
 function setup_install_servable () {
 
   echo
@@ -998,6 +1115,8 @@ function setup_install_servable () {
 } # end: setup_install_servable
 
 # *** pytz
+
+#PYTZ_VERS=''
 
 function setup_install_pytz () {
 
@@ -1066,20 +1185,24 @@ function setup_install_pytz () {
 
 # *** Graphserver
 
+# 2016-07-18: v1.0.0 Feb 25, 2011 still the most recentest.
+GRAPHSERVER_VERS='1.0.0'
+
 function setup_install_graphserver () {
 
   echo
   echo "Installing Graphserver"
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   # FIXME: Use 'git clone'? What's the update command? Or just stick to static
   # version? But what about recent bugfixes? Or maybe there are none...
   #git https://github.com/graphserver/graphserver.git
-  if ! [[ -e graphserver_1.0.0.tar.gz ]]; then
-    wget -Ographserver_1.0.0.tar.gz \
+  if ! [[ -e graphserver_${GRAPHSERVER_VERS}.tar.gz ]]; then
+    wget -Ographserver_${GRAPHSERVER_VERS}.tar.gz \
       http://github.com/graphserver/graphserver/tarball/14102010
     # 2012.08.22: On itamae, had to run:
-    # wget --no-check-certificate -Ographserver_1.0.0.tar.gz \
+    # wget --no-check-certificate -Ographserver_${GRAPHSERVER_VERS}.tar.gz \
     #   http://github.com/graphserver/graphserver/tarball/14102010
   fi
 
@@ -1089,26 +1212,32 @@ function setup_install_graphserver () {
   #
   #Run this command instead:
   #
-  # wget --no-check-certificate -O graphserver_1.0.0.tar.gz http://github.com/graphserver/graphserver/tarball/14102010
+  # wget --no-check-certificate -O graphserver_${GRAPHSERVER_VERS}.tar.gz http://github.com/graphserver/graphserver/tarball/14102010
 
   /bin/rm -rf graphserver_1.0.0
-  tar xvzf graphserver_1.0.0.tar.gz
-  mv graphserver-graphserver-e999ef5 graphserver_1.0.0
+  /bin/rm -rf graphserver_${GRAPHSERVER_VERS}
+
+  tar xvzf graphserver_${GRAPHSERVER_VERS}.tar.gz
+
+  mv graphserver-graphserver-e999ef5 graphserver_${GRAPHSERVER_VERS}
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   DATE_EXT=`date +%Y.%m.%d`
+
   if ! [[ -d graphserver_$DATE_EXT ]]; then
     git clone git://github.com/graphserver/graphserver.git graphserver_$DATE_EXT
   fi
 
   #Compare the two.
   #
-  # #meld graphserver_1.0.0 graphserver_`date +%Y.%m.%d` &
-  # meld graphserver_1.0.0 graphserver_$DATE_EXT &
+  # #meld graphserver_${GRAPHSERVER_VERS} graphserver_`date +%Y.%m.%d` &
+  # meld graphserver_${GRAPHSERVER_VERS} graphserver_$DATE_EXT &
   #
   #If the trunk looks good, make it The One.
 
   /bin/rm -f /ccp/opt/graphserver
+
   # FIXME: Do we need to link?
   #ln -s /ccp/opt/.downloads/graphserver_$DATE_EXT \
   #  /ccp/opt/graphserver
@@ -1117,6 +1246,7 @@ function setup_install_graphserver () {
 
   #pushd /ccp/opt/graphserver/pygs &> /dev/null
   pushd /ccp/opt/.downloads/graphserver_$DATE_EXT/pygs &> /dev/null
+
   python setup.py install --home=/ccp/opt/usr
 
   popd &> /dev/null
@@ -1129,18 +1259,31 @@ function setup_install_graphserver () {
 
 # NOTE: Yaml is accessible from user Python sessions, but not from www-data.
 
+#LIBYAML_VERS='0.1.4'
+#PYYAML_VERS='3.10'
+# 2016-07-18: 0.1.4 from 30 May 2011, 0.1.6 from 26 Mar 2014
+# 2016-07-18: 3.10 from 30 May 2011, 3.11 from 26 Mar 2014
+LIBYAML_VERS='0.1.6'
+PYYAML_VERS='3.11'
+
 function setup_install_libyaml () {
 
   echo
   echo "Installing libyaml"
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://pyyaml.org/download/libyaml/yaml-0.1.4.tar.gz
-  /bin/rm -rf /ccp/opt/.downloads/yaml-0.1.4
-  tar -xvzf yaml-0.1.4.tar.gz
-  pushd yaml-0.1.4 &> /dev/null
 
-  ./configure --prefix=/ccp/opt/yaml-0.1.4
+  wget -N http://pyyaml.org/download/libyaml/yaml-${LIBYAML_VERS}.tar.gz
+
+  /bin/rm -rf /ccp/opt/.downloads/yaml-0.1.4
+  /bin/rm -rf /ccp/opt/.downloads/yaml-0.1.6
+  /bin/rm -rf /ccp/opt/.downloads/yaml-${LIBYAML_VERS}
+
+  tar -xvzf yaml-${LIBYAML_VERS}.tar.gz
+
+  pushd yaml-${LIBYAML_VERS} &> /dev/null
+
+  ./configure --prefix=/ccp/opt/yaml-${LIBYAML_VERS}
   make
   make install
 
@@ -1148,14 +1291,21 @@ function setup_install_libyaml () {
   echo "Installing yaml"
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N http://pyyaml.org/download/pyyaml/PyYAML-3.10.tar.gz
+
+  wget -N http://pyyaml.org/download/pyyaml/PyYAML-${PYYAML_VERS}.tar.gz
+
   /bin/rm -rf /ccp/opt/.downloads/PyYAML-3.10
-  tar -xvzf PyYAML-3.10.tar.gz
-  pushd PyYAML-3.10 &> /dev/null
+  /bin/rm -rf /ccp/opt/.downloads/PyYAML-3.11
+  /bin/rm -rf /ccp/opt/.downloads/PyYAML-${PYYAML_VERS}
+
+  tar -xvzf PyYAML-${PYYAML_VERS}.tar.gz
+
+  pushd PyYAML-${PYYAML_VERS} &> /dev/null
 
   python setup.py install --home=/ccp/opt/usr
+
   # NOTE: test fails on Fedora but the module appears to be installed.
-  #   pee@pluto:PyYAML-3.10$ python setup.py test
+  #   pee@pluto:PyYAML-${PYYAML_VERS}$ python setup.py test
   #   running test
   #   running build_py
   #   running build_ext
@@ -1186,6 +1336,8 @@ function setup_install_libyaml () {
 } # end: setup_install_libyaml
 
 # *** OAuth library
+
+#OATH_VERS='master'
 
 function setup_install_oath () {
 
@@ -1234,6 +1386,8 @@ function setup_install_oath () {
 
 # *** Python-Twitter library
 
+#PYTHONTWITTER_VERS='master'
+
 function setup_install_python_twitter () {
 
   echo
@@ -1270,57 +1424,68 @@ function setup_install_python_twitter () {
 
 # *** NetworkX
 
+#NETWORKX_VERS='1.7'
+#NETWORKX_VERS='1.8.1'
+# 2016-07-18: 1.11...
+# SYNC_ME: Update the PYDOWNLOAD, too, below.
+NETWORKX_VERS='1.11'
+
 function setup_install_networkx () {
 
-# Needed by alleyoop for simple TSP homebrew (travelling salesperson problem).
+  # Needed by alleyoop for simple TSP homebrew (travelling salesperson problem).
 
-# http://networkx.lanl.gov
+  # http://networkx.lanl.gov
 
-if [[ -n "`python --version |& grep 'Python 2.7'`" ]]; then
-  PYTHONNUMB=2.7
-  #PYDOWNLOAD=https://pypi.python.org/packages/2.7/n/networkx/networkx-1.7-py2.7.egg#md5=1d4c59f1e894f39f8928be8718905969
-  PYDOWNLOAD=https://pypi.python.org/packages/2.7/n/networkx/networkx-1.8.1-py2.7.egg#md5=ba29a8e2528114367b4fd9c4badb138b
-elif [[ -n "`python --version |& grep 'Python 2.6'`" ]]; then
-  PYTHONNUMB=2.6
-  #PYDOWNLOAD=https://pypi.python.org/packages/2.6/n/networkx/networkx-1.7-py2.6.egg#md5=3305b39272b5b62e6f7be0022d85f14a
-  PYDOWNLOAD=https://pypi.python.org/packages/2.6/n/networkx/networkx-1.8.1-py2.6.egg#md5=1399cc1cf4509201453ca12ddaef8be8
-else
-  echo
-  echo "Unexpected Python version."
-  exit 1
-fi
+  if [[ -n "`python --version |& grep 'Python 2.7'`" ]]; then
+    PYTHONNUMB=2.7
+    #PYDOWNLOAD=https://pypi.python.org/packages/2.7/n/networkx/networkx-1.7-py2.7.egg#md5=1d4c59f1e894f39f8928be8718905969
+    #PYDOWNLOAD=https://pypi.python.org/packages/2.7/n/networkx/networkx-1.8.1-py2.7.egg#md5=ba29a8e2528114367b4fd9c4badb138b
+    PYDOWNLOAD=https://pypi.python.org/packages/a8/1e/293736e7e6e27af6f2a3768fe1bd527dddb67bfb134a4ee282a48214a1b0/networkx-1.11-py2.7.egg#md5=314fde21a33ad8f6753d7a06315722cc
+  elif [[ -n "`python --version |& grep 'Python 2.6'`" ]]; then
+    PYTHONNUMB=2.6
+    #PYDOWNLOAD=https://pypi.python.org/packages/2.6/n/networkx/networkx-1.7-py2.6.egg#md5=3305b39272b5b62e6f7be0022d85f14a
+    PYDOWNLOAD=https://pypi.python.org/packages/2.6/n/networkx/networkx-1.8.1-py2.6.egg#md5=1399cc1cf4509201453ca12ddaef8be8
+  else
+    echo
+    echo "Unexpected Python version."
+    exit 1
+  fi
 
-pushd /ccp/opt/.downloads &> /dev/null
-# 2013.06.25: FIXME: What's this all about?:
-#    pee@pluto:.downloads$ wget -N https://pypi.python.org/packages/2.7/n
-#                                   /networkx/networkx-1.7-py2.7.egg
-#    --2013-06-25 22:12:26--  https://pypi.python.org/packages/2.7/n
-#                                   /networkx/networkx-1.7-py2.7.egg
-#    Resolving pypi.python.org... 199.27.73.129, 199.27.73.192
-#    Connecting to pypi.python.org|199.27.73.129|:443... connected.
-#    ERROR: certificate common name “*.a.ssl.fastly.net” doesn't match
-#       requested host name “pypi.python.org”.
-#    To connect to pypi.python.org insecurely, use '--no-check-certificate'.
-#wget -N $PYDOWNLOAD
-wget --no-check-certificate -N $PYDOWNLOAD
-#easy_install-${PYTHONNUMB} --prefix=/ccp/opt/usr \
-#  networkx-1.7-py${PYTHONNUMB}.egg
-easy_install-${PYTHONNUMB} --prefix=/ccp/opt/usr \
-  networkx-1.8.1-py${PYTHONNUMB}.egg
+  pushd /ccp/opt/.downloads &> /dev/null
+  # 2013.06.25: FIXME: What's this all about?:
+  #    pee@pluto:.downloads$ wget -N https://pypi.python.org/packages/2.7/n
+  #                                   /networkx/networkx-1.7-py2.7.egg
+  #    --2013-06-25 22:12:26--  https://pypi.python.org/packages/2.7/n
+  #                                   /networkx/networkx-1.7-py2.7.egg
+  #    Resolving pypi.python.org... 199.27.73.129, 199.27.73.192
+  #    Connecting to pypi.python.org|199.27.73.129|:443... connected.
+  #    ERROR: certificate common name “*.a.ssl.fastly.net” doesn't match
+  #       requested host name “pypi.python.org”.
+  #    To connect to pypi.python.org insecurely, use '--no-check-certificate'.
+  #wget -N $PYDOWNLOAD
+  wget --no-check-certificate -N $PYDOWNLOAD
 
-# Apply the patch for the Cyclopath p3 planner:
-# change astar to be able to call edge weight fcn.
-patch \
-  /ccp/opt/usr/lib/$PYTHONVERS/site-packages/networkx-1.8.1-py${PYTHONNUMB}.egg/networkx/algorithms/shortest_paths/astar.py \
-  < /ccp/dev/cp/scripts/setupcp/ao_templates/common/other/astar.patch
+  easy_install-${PYTHONNUMB} --prefix=/ccp/opt/usr \
+    networkx-${NETWORKX_VERS}-py${PYTHONNUMB}.egg
 
-# To test: $ py / import networkx
+  # Apply the patch for the Cyclopath p3 planner:
+  # change astar to be able to call edge weight fcn.
+  patch \
+    /ccp/opt/usr/lib/$PYTHONVERS/site-packages/networkx-${NETWORKX_VERS}-py${PYTHONNUMB}.egg/networkx/algorithms/shortest_paths/astar.py \
+    < /ccp/dev/cp/scripts/setupcp/ao_templates/common/other/astar.patch
 
-popd &> /dev/null
+  # To test: $ py / import networkx
+
+  popd &> /dev/null
 
 } # end: setup_install_networkx
 
 # *** NumPy
+
+#NUMPY_VERS='1.8.0'
+# 2016-07-18: New minor. And, seriously, it's hosted on sourceforge? Yeeks.
+# SYNC_ME: Update download link below.
+NUMPY_VERS='1.11.1'
 
 function setup_install_numpy () {
 
@@ -1341,16 +1506,25 @@ function setup_install_numpy () {
     # Note that numpy is part of the distro but it's probably aged.
 
     pushd /ccp/opt/.downloads &> /dev/null
+
     # wget \
     #  -N http://sourceforge.net/projects/numpy/files/NumPy/1.7.0/numpy-1.7.0.tar.gz/download \
     #  -O numpy-1.7.0.tar.gz
+    #wget \
+    #  -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.8.0/numpy-1.8.0.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2FNumPy%2F1.7.2%2F&ts=1394309689&use_mirror=iweb" \
+    #  -O numpy-1.8.0.tar.gz
     wget \
-      -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.8.0/numpy-1.8.0.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2FNumPy%2F1.7.2%2F&ts=1394309689&use_mirror=iweb" \
-      -O numpy-1.8.0.tar.gz
+      -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.11.1/numpy-1.11.1.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2F&ts=1468875011&use_mirror=jaist" \
+      -O numpy-1.11.1.tar.gz
+
     /bin/rm -rf /ccp/opt/.downloads/numpy-1.8.0
-    tar -xvzf numpy-1.8.0.tar.gz \
+    /bin/rm -rf /ccp/opt/.downloads/numpy-1.11.1
+    /bin/rm -rf /ccp/opt/.downloads/numpy-${NUMPY_VERS}
+
+    tar -xvzf numpy-${NUMPY_VERS}.tar.gz \
       > /dev/null
-    pushd /ccp/opt/.downloads/numpy-1.8.0 &> /dev/null
+
+    pushd /ccp/opt/.downloads/numpy-${NUMPY_VERS} &> /dev/null
 
     python setup.py build --fcompiler=gnu95
 
@@ -1366,12 +1540,10 @@ function setup_install_numpy () {
     #   > numpy.__version__
 
     popd &> /dev/null
-    popd &> /dev/null
-
+    popd &> /dev/null\
   }
 
   __dev_stall_scipy_etc__ () {
-
     sudo apt-get install \
       python-numpy \
       python-scipy \
@@ -1381,7 +1553,6 @@ function setup_install_numpy () {
       python-pandas \
       python-sympy \
       python-nose
-
   }
 
 } # end: setup_install_numpy
@@ -1390,6 +1561,9 @@ function setup_install_numpy () {
 
 # 2014.03.09: The Fiona library has been around for years.
 #             Why have we been punishing ourselves with OGR?
+
+#FIONA_VERS='1.1.4'
+FIONA_VERS='1.7.0.post2'
 
 function setup_install_fiona () {
 
@@ -1414,16 +1588,20 @@ function setup_install_fiona () {
     # manual install.
 
     pushd /ccp/opt/.downloads &> /dev/null
+
     # NOTE: From a dev. machine, --no-check-certificate doesn't seem to be
     #       necessary. Only on the CS machines.
     wget --no-check-certificate -N \
-      https://pypi.python.org/packages/source/F/Fiona/Fiona-1.1.4.tar.gz
+      https://pypi.python.org/packages/source/F/Fiona/Fiona-${FIONA_VERS}.tar.gz
 
     /bin/rm -rf /ccp/opt/.downloads/Fiona-1.1.4
+    /bin/rm -rf /ccp/opt/.downloads/Fiona-1.7.0.post2
+    /bin/rm -rf /ccp/opt/.downloads/Fiona-${FIONA_VERS}
 
-    tar xvf Fiona-1.1.4.tar.gz \
+    tar xvf Fiona-${FIONA_VERS}.tar.gz \
       > /dev/null
-    pushd Fiona-1.1.4 &> /dev/null
+
+    pushd Fiona-${FIONA_VERS} &> /dev/null
 
     # Install for everyone:
     #  sudo \
@@ -1442,6 +1620,7 @@ function setup_install_fiona () {
       -I/ccp/opt/gdal/include \
       -L/ccp/opt/gdal/lib \
       -lgdal
+
     python setup.py install --prefix=/ccp/opt/usr
 
     popd &> /dev/null
@@ -1455,6 +1634,10 @@ function setup_install_fiona () {
 
 # *** Levenshtein Distance library
 
+LEVENSHTEIN_VERS='0.11.2'
+# 2016-07-18: Bump.
+LEVENSHTEIN_VERS='0.12.0'
+
 function setup_install_levenshtein () {
 
   __install_levenshtein__ () {
@@ -1467,14 +1650,19 @@ function setup_install_levenshtein () {
     #      http://en.wikipedia.org/wiki/Levenshtein_distance
 
     pushd /ccp/opt/.downloads &> /dev/null
+
     # To connect to pypi.python.org insecurely, use '--no-check-certificate'.
     wget --no-check-certificate -N \
-      https://pypi.python.org/packages/source/p/python-Levenshtein/python-Levenshtein-0.11.2.tar.gz
+      https://pypi.python.org/packages/source/p/python-Levenshtein/python-Levenshtein-${LEVENSHTEIN_VERS}.tar.gz
+    
     /bin/rm -rf /ccp/opt/.downloads/python-Levenshtein-0.11.2
+    /bin/rm -rf /ccp/opt/.downloads/python-Levenshtein-0.12.0
+    /bin/rm -rf /ccp/opt/.downloads/python-Levenshtein-${LEVENSHTEIN_VERS}
 
-    tar xvf python-Levenshtein-0.11.2.tar.gz \
+    tar xvf python-Levenshtein-${LEVENSHTEIN_VERS}.tar.gz \
       > /dev/null
-    pushd python-Levenshtein-0.11.2 &> /dev/null
+
+    pushd python-Levenshtein-${LEVENSHTEIN_VERS} &> /dev/null
 
     python setup.py build
     python setup.py install --prefix=/ccp/opt/usr
@@ -1482,7 +1670,9 @@ function setup_install_levenshtein () {
     # https://github.com/joncasdam/python-Levenshtein/blob/master/genextdoc.py
     wget --no-check-certificate \
       https://raw.github.com/joncasdam/python-Levenshtein/master/genextdoc.py
+
     ./gendoc.sh --selfcontained
+
     # In your Web browser:
     #  file:///ccp/opt/.downloads/python-Levenshtein-0.11.2/
     #  file:///ccp/opt/.downloads/python-Levenshtein-0.11.2/Levenshtein.html
@@ -1490,7 +1680,6 @@ function setup_install_levenshtein () {
 
     popd &> /dev/null
     popd &> /dev/null
-
   }    
 
   # Not necessary unless you want the latestgreatest:
@@ -1502,23 +1691,38 @@ function setup_install_levenshtein () {
 
 # *** swfobject
 
+#SWFOBJECT_VERS='2_2'
+# 2016-07-18: It was 2_2 on googlecode, now 2.2 on github.
+SWFOBJECT_VERS='2.2'
+
 function setup_install_swfobject () {
 
   # 2014.05.02: "Error" page for ipad and phones.
 
-  # https://code.google.com/p/swfobject/
+  # https://github.com/swfobject/swfobject
+  # OLD: https://code.google.com/p/swfobject/
   # https://stackoverflow.com/questions/9493952/
   #  redirect-to-a-html-page-when-site-opens-in-non-flash-browser
   # https://code.google.com/p/swfobject/wiki/documentation
 
   pushd /ccp/opt/.downloads &> /dev/null
-  wget -N https://swfobject.googlecode.com/files/swfobject_2_2.zip
-  unzip swfobject_2_2.zip -d /ccp/opt/.downloads/swfobject_2_2
+
+  #wget -N https://swfobject.googlecode.com/files/swfobject_${SWFOBJECT_VERS}.zip
+  wget -N https://github.com/swfobject/swfobject/archive/${SWFOBJECT_VERS}.tar.gz
+
+  /bin/rm -rf /ccp/opt/.downloads/swfobject_2_2
+  /bin/rm -rf /ccp/opt/.downloads/swfobject_2.2
+  /bin/rm -rf /ccp/opt/.downloads/swfobject_${SWFOBJECT_VERS}
+
+  unzip swfobject_${SWFOBJECT_VERS}.zip -d /ccp/opt/.downloads/swfobject_${SWFOBJECT_VERS}
+
   popd &> /dev/null
 
 } # end: setup_install_swfobject
 
 # *** QSopt Linear Programming Solver
+
+#QSOPT_VERS=''
 
 function setup_install_QSopt () {
 
@@ -1543,21 +1747,26 @@ function setup_install_QSopt () {
   # http://www2.isye.gatech.edu/~wcook/qsopt/beta/index.html
 
   pushd /ccp/opt/.downloads &> /dev/null
+
   /bin/rm -rf /ccp/opt/.downloads/QSopt_LPS
+
   /bin/mkdir /ccp/opt/.downloads/QSopt_LPS
+
   pushd /ccp/opt/.downloads/QSopt_LPS &> /dev/null
+
   # Function library.
   wget -N http://www2.isye.gatech.edu/~wcook/qsopt/beta/codes/linux64/qsopt.a
+
   # C include file.
   wget -N http://www2.isye.gatech.edu/~wcook/qsopt/beta/codes/linux64/qsopt.h
+
   # Solver executable.
   # EXPLAIN: Can we run this?
   wget -N http://www2.isye.gatech.edu/~wcook/qsopt/beta/codes/linux64/qsopt
-  popd &> /dev/null
-  popd &> /dev/null
 
   # Get QSopt documentation.
   pushd /ccp/doc/ &> /dev/null
+
   wget -N http://www2.isye.gatech.edu/~wcook/qsopt/downloads/users.pdf \
     -O QSopt-users.pdf
 
@@ -1566,10 +1775,14 @@ function setup_install_QSopt () {
     -O TSPLIB_DOC.PS
 
   popd &> /dev/null
+  popd &> /dev/null
+  popd &> /dev/null
 
 } # end: setup_install_QSopt
 
 # *** CPLEX (IBM ILOG CPLEX Optimization Studio)
+
+#CPLEX_VERS=''
 
 function setup_install_CPLEX () {
 
@@ -1583,6 +1796,8 @@ function setup_install_CPLEX () {
 
 # *** Concorde TSP
 
+CONCORDERTSP_VERS='co031219'
+
 function setup_install_concorde_tsp () {
 
   # In Python, [lb]'s simple TSP algorithm can solve 11 nodes quickly, 12 nodes
@@ -1592,8 +1807,15 @@ function setup_install_concorde_tsp () {
   # Note that Concorde must be pretty mature- The last push was 19 Dec 2003.
 
   pushd /ccp/opt/.downloads &> /dev/null
+
+# 2016-07-18: Argh: OFFLINE: https://www.math.uwaterloo.ca/tsp/concorde.html
+#
+# FIXME: See google's TSP solver
+#        https://developers.google.com/optimization/routing/tsp
+
   wget -N http://www.tsp.gatech.edu/concorde/downloads/codes/src/co031219.tgz \
     -O concorde-tsp-co031219.tgz
+
   popd &> /dev/null
 
   # Note that SQopt is 32-bit. [lb] wants to try both 23- and 64-bit Concordes.
@@ -1623,10 +1845,15 @@ function setup_install_concorde_tsp () {
   # 32-bit, with QSoft
 
   pushd /ccp/opt/.downloads &> /dev/null
+  
   /bin/rm -rf /ccp/opt/.downloads/concorde-tsp-co031219
+  /bin/rm -rf /ccp/opt/.downloads/concorde-tsp-co031219
+
   tar -xvzf concorde-tsp-co031219.tgz \
     > /dev/null
+
   /bin/mv concorde concorde-tsp-co031219
+
   pushd /ccp/opt/.downloads/concorde-tsp-co031219 &> /dev/null
 
   # Note: Without gcc flags,
@@ -1677,12 +1904,18 @@ function setup_install_concorde_tsp () {
   # for Sequential ordering problem (SOP).
 
   pushd /ccp/opt/.downloads/concorde-tsp-co031219 &> /dev/null
+
   /bin/rm -rf /ccp/opt/.downloads/concorde-tsp-co031219/ccp_tests
+
   mkdir /ccp/opt/.downloads/concorde-tsp-co031219/ALL_tsp
+
   pushd /ccp/opt/.downloads/concorde-tsp-co031219/ALL_tsp &> /dev/null
+
   wget -N http://www.iwr.uni-heidelberg.de/groups/comopt/software/TSPLIB95/tsp/ALL_tsp.tar.gz
+
   tar -xvzf ALL_tsp.tar.gz \
     > /dev/null
+
   # Skipping SOP tests. Alleyoop is a SOP solver, but Concorde doesn't recognize
   # the input. Also, SOP is a constrained version of TSP, so we should be able
   # to force the issue using edge costs?
@@ -1693,9 +1926,13 @@ function setup_install_concorde_tsp () {
   # CCutil_gettsplib failed
   # 
   # Also, what's a TOUR file? gunzip a280.opt.tour.gz
+
   pushd /ccp/opt/.downloads/concorde-tsp-co031219 &> /dev/null
+
   /bin/rm -rf /ccp/opt/.downloads/concorde-tsp-co031219/ccp_tests
+
   mkdir /ccp/opt/.downloads/concorde-tsp-co031219/ccp_tests
+
   pushd /ccp/opt/.downloads/concorde-tsp-co031219/ccp_tests &> /dev/null
 
   # /bin/cp ../ALL_tsp/dantzig42.tsp.gz .
@@ -1719,6 +1956,8 @@ function setup_install_concorde_tsp () {
 
 # *** Using R with Concorde
 
+#RWITHCONCORDE_VERS=''
+
 function setup_install_r_with_concorde () {
 
   # FIXME: Oh, no! It looks like you can use R with Concorde to solve SOP
@@ -1736,16 +1975,21 @@ function setup_install_r_with_concorde () {
 
   # http://www.jstatsoft.org/v23/i02
   pushd /ccp/doc/ &> /dev/null
+
   # Paper- TSP -- Infrastructure for the Traveling Salesperson Problem 
   wget -N http://www.jstatsoft.org/v23/i02/paper \
     -O tsp_paper.pdf
 
   /bin/rm -rf /ccp/opt/.downloads/cyclopath_tsp
+
   /bin/mkdir /ccp/opt/.downloads/cyclopath_tsp
+
   pushd /ccp/opt/.downloads/cyclopath_tsp &> /dev/null
+
   # R source package
   wget -N http://www.jstatsoft.org/v23/i02/supp/1 \
     -O TSP_0.2-1.tar.gz
+
   # R example code from the paper
   wget -N http://www.jstatsoft.org/v23/i02/supp/2 \
     -O v23i02.R
@@ -1835,9 +2079,11 @@ function gis_compile_main () {
 
   setup_install_CPLEX
 
-  setup_install_concorde_tsp
-
-  setup_install_r_with_concorde
+  # FIXME: Concorder web site offline.
+  #        Also google has a solver now.
+  #        https://developers.google.com/optimization/routing/tsp
+  #setup_install_concorde_tsp
+  #setup_install_r_with_concorde
 
   setup_fix_permissions
 

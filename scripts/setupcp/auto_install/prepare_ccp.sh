@@ -270,8 +270,8 @@ ccp_setup_branch () {
   #     --define=TARGETHOST=$HOSTNAME
   #     --define=TARGETDOMAIN=$targetdom
   #     --define=SERVERMACHINE=$servermach
-  #     --define=PYTHONVERS=$PYTHONVERS
-  #     --define=PYVERSABBR=$PYVERSABBR
+  #     --define=PYTHONVERS2=$PYTHONVERS2
+  #     --define=PYVERSABBR2=$PYVERSABBR2
   #     --define=PGSQL_SHBU=$PGSQL_SHBU
   #     --define=MACHINE_IP=$MACHINE_IP
   #     --define=HTTPD_USER=$httpd_user

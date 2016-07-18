@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2012 Regents of the University of Minnesota.
+# Copyright (c) 2006-2012, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # This script copies one database to another.
@@ -90,6 +90,8 @@ if [[ $0 == "-bash" || $0 == "-tcsh" ]]; then
   # Assume we're already in the scripts/ directory.
   script_relbase=$PWD
   #script_absbase=`pwd -P`
+  # 2016-07-18: readlink is preferred method nowadays...
+  #SCRIPT_DIR=$(dirname $(readlink -f $0))
 else
   # Otherwise, $0 is the path to db_lite.sh. Trim the filename to get the dir.
   script_relbase=$(dirname $0)

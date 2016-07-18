@@ -167,7 +167,7 @@ else
 fi
 #echo "Using svnroot: $svnroot"
 
-# Setup PYTHONVERS, PYVERSABBR, httpd_user, httpd_etc_dir.
+# Setup PYTHONVERS, PYVERSABBR2, httpd_user, httpd_etc_dir.
 
 PYSERVER_HOME=/dev/null
 CCP_WORKING=${SCRIPT_DIR}/../../../
@@ -241,8 +241,8 @@ ccp_m4_defines="
   --define=TARGETHOST=$HOSTNAME
   --define=TARGETDOMAIN=$targetdom
   --define=SERVERMACHINE=$servermach
-  --define=PYTHONVERS=$PYTHONVERS
-  --define=PYVERSABBR=$PYVERSABBR
+  --define=PYTHONVERS2=$PYTHONVERS2
+  --define=PYVERSABBR2=$PYVERSABBR2
   --define=PGSQL_SHBU=$PGSQL_SHBU
   --define=MACHINE_IP=$MACHINE_IP
   --define=HTTPD_USER=$httpd_user

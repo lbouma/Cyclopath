@@ -112,14 +112,14 @@ ccp_apache_reload () {
 ## FIXME: Is this flexible enough? Probably...
 ## 2012.08.21: Ubuntu 8.04 does not support the |& redirection syntax?
 #if [[ -n "`cat /etc/issue | grep '^Ubuntu 8.04'`" ]]; then
-#  PYTHONVERS=python2.5
-#  PYVERSABBR=py2.5
+#  PYTHONVERS2=python2.5
+#  PYVERSABBR2=py2.5
 #elif [[ -n "`python --version |& grep 'Python 2.7'`" ]]; then
-#  PYTHONVERS=python2.7
-#  PYVERSABBR=py2.7
+#  PYTHONVERS2=python2.7
+#  PYVERSABBR2=py2.7
 #elif [[ -n "`python --version |& grep 'Python 2.6'`" ]]; then
-#  PYTHONVERS=python2.6
-#  PYVERSABBR=py2.6
+#  PYTHONVERS2=python2.6
+#  PYVERSABBR2=py2.6
 #else
 #  echo 
 #  echo "Unexpected Python version."
@@ -129,36 +129,38 @@ ccp_apache_reload () {
 # Here's another way:
 #if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
 #  if [[ -n "`cat /etc/issue | grep '^Ubuntu 11.04'`" ]]; then
-#    PYTHONVERS=python2.7
-#    PYVERSABBR=py2.7
+#    PYTHONVERS2=python2.7
+#    PYVERSABBR2=py2.7
 #  elif [[ -n "`cat /etc/issue | grep '^Ubuntu 10.04'`" ]]; then
-#    PYTHONVERS=python2.6
-#    PYVERSABBR=py2.6
+#    PYTHONVERS2=python2.6
+#    PYVERSABBR2=py2.6
 #  else
 #    echo "Warning: Unexpected host OS: Cannot set PYTHONPATH."
 #  fi
 #elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
-#  PYTHONVERS=python2.7
+#  PYTHONVERS2=python2.7
 #fi
 
 # Convert, e.g., 'Python 2.7.6' to '2.7'.
-PYVERS_RAW=`python --version \
+# 2016-07-18: NOTE: Default on Mint 17: Python 2.7.6
+#              Default on Ubuntu 16.04: Python 2.7.12
+PYVERS_RAW2=`python2 --version \
 	|& /usr/bin/awk '{print $2}' \
 	| /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/g'`
-PYVERS_DOTLESS=`python --version \
+PYVERS_DOTLESS2=`python2 --version \
 	|& /usr/bin/awk '{print $2}' \
 	| /bin/sed -r 's/^([0-9]+)\.([0-9]+)\.[0-9]+/\1\2/g'`
-if [[ -z $PYVERS_RAW ]]; then
+if [[ -z $PYVERS_RAW2 ]]; then
 	echo "Unexpected: Could not parse Python version."
 	exit 1
 fi
-PYVERS_RAW=${PYVERS_RAW}
-PYVERS_RAW_m=${PYVERS_RAW}m
-PYTHONVERS_m=python${PYVERS_RAW_m}
-PYVERS_CYTHON=${PYVERS_DOTLESS}m
+PYVERS_RAW2=${PYVERS_RAW2}
+PYVERS_RAW2_m=${PYVERS_RAW2}m
+PYTHONVERS2_m=python${PYVERS_RAW2_m}
+PYVERS_CYTHON2=${PYVERS_DOTLESS2}m
 #
-PYTHONVERS=python${PYVERS_RAW}
-PYVERSABBR=py${PYVERS_RAW}
+PYTHONVERS2=python${PYVERS_RAW2}
+PYVERSABBR2=py${PYVERS_RAW2}
 
 # ============================================================================
 # *** Postgres-related

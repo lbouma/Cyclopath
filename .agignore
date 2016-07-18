@@ -18,3 +18,6 @@ externs.xml
 report.xml
 winpdb
 
+mapserver/bash_base.sh
+mapserver/ccp_base.sh
+

@@ -8,8 +8,9 @@ echo "- Installs Cyclopath Development Environment"
 echo "- Configures Cinnamon to a Particular Liking"
 echo
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # *** DEVs: Configure these values for your environment.
 #
@@ -128,10 +129,10 @@ reset_errexit () {
 reset_errexit
 
 # Determine Python version.
-PYVERS_RAW=`python3 --version \
+PYVERS_RAW3=`python3 --version \
 	|& /usr/bin/awk '{print $2}' \
 	| /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/g'`
-if [[ -z $PYVERS_RAW ]]; then
+if [[ -z $PYVERS_RAW3 ]]; then
 	echo "Unexpected: Could not parse Python version."
 	exit 1
 fi
@@ -981,8 +982,8 @@ if [[ ! -e /ccp/dev/cp/flashclient/build/main.swf ]]; then
 
     # *** Common environment variables.
 
-    #source ${script_absbase}/../../../util/ccp_base.sh
-    source ${script_absbase}/../../../util/bash_base.sh
+    #source ${SCRIPT_DIR}/../../../util/ccp_base.sh
+    source ${SCRIPT_DIR}/../../../util/bash_base.sh
 
     # *** Miscellaneous Cinnamon and Application Configuration
 
@@ -1911,10 +1912,10 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       sudo chmod 644 /etc/xdg/autostart/quicktile.desktop
       sudo chmod 755 /usr/local/bin/quicktile.py
       #sudo /bin/ln -s \
-      #  /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.0.0-py${PYVERS_RAW}.egg \
-      #  /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW}.egg
+      #  /usr/local/lib/python${PYVERS_RAW3}/dist-packages/QuickTile-0.0.0-py${PYVERS_RAW3}.egg \
+      #  /usr/local/lib/python${PYVERS_RAW3}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW3}.egg
       sudo $USE_CCPDFILES/scripts/util/fixperms.pl --public \
-        /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW}.egg
+        /usr/local/lib/python${PYVERS_RAW3}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW3}.egg
       # Hrm. I reinstalled but then had to make my own startup file, since 
       # /etc/xdg/autostart/quicktile.desktop no longer seemed to work (it
       # doesn't appear to be registered; probably a dconf problem). SO
@@ -2467,7 +2468,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       echo "Using params: $*"
 
       # We called dir_prepare already:
-      #  $script_absbase/dir_prepare.sh $*
+      #  ${SCRIPT_DIR}/dir_prepare.sh $*
 
       # Setup third-party dev docs locally.
       cd $AUTO_INSTALL
@@ -2552,7 +2553,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
 
     echo
     #cat startup_eg.txt
-    cat ${script_absbase}/reminders.txt
+    cat ${SCRIPT_DIR}/reminders.txt
     echo
 
     print_install_time
