@@ -1510,73 +1510,75 @@ function setup_install_networkx () {
 # SYNC_ME: Update download link below.
 NUMPY_VERS='1.11.1'
 
+# - Has some interesting math functions.
+# Originally, just used for testing TSP code.
+# But since 2013 some Cyclopath devs use NumPy and SciPy for research.
+#
+
+# Don't do this: It conflicts with apt-get's scipy:
+
+__install_numpy__ () {
+
+  echo
+  echo "Installing NumPy"
+
+  # http://scipy.org/NumPy
+
+  # Note that numpy is part of the distro but it's probably aged.
+
+  pushd /ccp/opt/.downloads &> /dev/null
+
+  # wget \
+  #  -N http://sourceforge.net/projects/numpy/files/NumPy/1.7.0/numpy-1.7.0.tar.gz/download \
+  #  -O numpy-1.7.0.tar.gz
+  #wget \
+  #  -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.8.0/numpy-1.8.0.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2FNumPy%2F1.7.2%2F&ts=1394309689&use_mirror=iweb" \
+  #  -O numpy-1.8.0.tar.gz
+  wget \
+    -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.11.1/numpy-1.11.1.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2F&ts=1468875011&use_mirror=jaist" \
+    -O numpy-1.11.1.tar.gz
+
+  /bin/rm -rf /ccp/opt/.downloads/numpy-1.8.0
+  /bin/rm -rf /ccp/opt/.downloads/numpy-1.11.1
+  /bin/rm -rf /ccp/opt/.downloads/numpy-${NUMPY_VERS}
+
+  tar -xvzf numpy-${NUMPY_VERS}.tar.gz \
+    > /dev/null
+
+  pushd /ccp/opt/.downloads/numpy-${NUMPY_VERS} &> /dev/null
+
+  python setup.py build --fcompiler=gnu95
+
+  python setup.py install \
+    --prefix=/ccp/opt/usr
+
+  # To test:
+  #
+  #   $ python
+  #
+  #   > import numpy
+  #   > numpy.test()
+  #   > numpy.__version__
+
+  popd &> /dev/null
+  popd &> /dev/null\
+}
+
+__dev_stall_scipy_etc__ () {
+  sudo apt-get install \
+    python-numpy \
+    python-scipy \
+    python-matplotlib \
+    ipython \
+    ipython-notebook \
+    python-pandas \
+    python-sympy \
+    python-nose
+}
+
 function setup_install_numpy () {
 
-  # - Has some interesting math functions.
-  # Originally, just used for testing TSP code.
-  # But since 2013 some Cyclopath devs use NumPy and SciPy for research.
-  #
-
-  # Don't do this: It conflicts with apt-get's scipy:
-
-  __install_numpy__ () {
-
-    echo
-    echo "Installing NumPy"
-
-    # http://scipy.org/NumPy
-
-    # Note that numpy is part of the distro but it's probably aged.
-
-    pushd /ccp/opt/.downloads &> /dev/null
-
-    # wget \
-    #  -N http://sourceforge.net/projects/numpy/files/NumPy/1.7.0/numpy-1.7.0.tar.gz/download \
-    #  -O numpy-1.7.0.tar.gz
-    #wget \
-    #  -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.8.0/numpy-1.8.0.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2FNumPy%2F1.7.2%2F&ts=1394309689&use_mirror=iweb" \
-    #  -O numpy-1.8.0.tar.gz
-    wget \
-      -N "http://downloads.sourceforge.net/project/numpy/NumPy/1.11.1/numpy-1.11.1.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2F&ts=1468875011&use_mirror=jaist" \
-      -O numpy-1.11.1.tar.gz
-
-    /bin/rm -rf /ccp/opt/.downloads/numpy-1.8.0
-    /bin/rm -rf /ccp/opt/.downloads/numpy-1.11.1
-    /bin/rm -rf /ccp/opt/.downloads/numpy-${NUMPY_VERS}
-
-    tar -xvzf numpy-${NUMPY_VERS}.tar.gz \
-      > /dev/null
-
-    pushd /ccp/opt/.downloads/numpy-${NUMPY_VERS} &> /dev/null
-
-    python setup.py build --fcompiler=gnu95
-
-    python setup.py install \
-      --prefix=/ccp/opt/usr
-
-    # To test:
-    #
-    #   $ python
-    #
-    #   > import numpy
-    #   > numpy.test()
-    #   > numpy.__version__
-
-    popd &> /dev/null
-    popd &> /dev/null\
-  }
-
-  __dev_stall_scipy_etc__ () {
-    sudo apt-get install \
-      python-numpy \
-      python-scipy \
-      python-matplotlib \
-      ipython \
-      ipython-notebook \
-      python-pandas \
-      python-sympy \
-      python-nose
-  }
+  :
 
 } # end: setup_install_numpy
 
@@ -2159,5 +2161,7 @@ function gis_compile_main () {
   echo "GIS software compiled!"
 }
 
-gis_compile_main
+#gis_compile_main
+
+echo "HI!"
 
