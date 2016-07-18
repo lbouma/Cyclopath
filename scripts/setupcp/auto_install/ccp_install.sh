@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: ./ccp_install.sh
@@ -74,7 +74,8 @@ fi
 
 # See if the target's ccp/ dir already exists.
 
-svn_update_sources=1
+svn_update_sources=0
+git_update_sources=1
 reprepare_dirs=1
 reoverlay_etc=1
 reinstall_flash=1
@@ -92,14 +93,22 @@ if [[ -e /ccp ]]; then
     if [[ "$sure" != "y" && "$sure" != "Y" ]]; then
       echo 
       echo "User opted not to install anyway. Exiting."
-      exit 0;
+      exit 0
     fi
+    #if [[ -d /ccp/dev ]]; then
+    #  echo 
+    #  echo -n "Would you like to 'svn update' Cyclopath sources? (y/[N]) "
+    #  read sure
+    #  if [[ "$sure" != "y" && "$sure" != "Y" ]]; then
+    #    svn_update_sources=0
+    #  fi
+    #fi
     if [[ -d /ccp/dev ]]; then
       echo 
-      echo -n "Would you like to 'svn update' Cyclopath sources? (y/[N]) "
+      echo -n "Would you like to 'git pull -a' Cyclopath sources? (y/[N]) "
       read sure
       if [[ "$sure" != "y" && "$sure" != "Y" ]]; then
-        svn_update_sources=0
+        git_update_sources=0
       fi
     fi
     #if [[ -d /ccp/dev ]]; then
@@ -319,7 +328,7 @@ echo "Installing Cyclopath..."
 
 # Reset the positional parameters
 set -- $masterhost $targetuser $isbranchmgr $isprodserver \
-       $reload_databases $svn_update_sources
+       $reload_databases $svn_update_sources $git_update_sources
 
 echo
 echo "Using params: $*"

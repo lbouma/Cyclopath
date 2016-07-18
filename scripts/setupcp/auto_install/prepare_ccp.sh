@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: ./prepare_ccp.sh
@@ -232,6 +232,11 @@ ccp_setup_branch () {
       cd /ccp/dev/${checkout_path}
       echo -n " .. updating ${checkout_from}... "
       svn update > /dev/null
+      echo "ok"
+    elif [[ $git_update_sources -ne 0 ]]; then
+      cd /ccp/dev/${checkout_path}
+      echo -n " .. updating ${checkout_from}... "
+      git pull -a > /dev/null
       echo "ok"
     else
       echo " .. checkout exists; told to skip updates."

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: ./dir_prepare.sh
@@ -43,7 +43,9 @@ sudo -v
 # *** Setup ccp/
 
 # Make the ccp/ directory.
-if [[ -d /export/scratch ]]; then
+#if [[ -d /export/scratch ]]; then
+# 2016-07-17: On a managed host; server doesn't need to use scratch.
+if [[ -d /export/scratch/${HOSTNAME} ]]; then
   ccp_mkdir /export/scratch/ccp
   # Make a convenience link. (-h checks that /ccp is a link.)
   #

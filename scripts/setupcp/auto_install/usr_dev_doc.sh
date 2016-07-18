@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: ./dir_prepare.sh
@@ -168,9 +168,21 @@ ccp_mkdir /ccp/doc/mediawiki
 cd /ccp/doc/mediawiki
 # CAVEAT: This reference is pretty good, but it's missing some syntax,
 #         such as how to set variables on a page.
+set +e
 wget -N https://upload.wikimedia.org/wikipedia/meta/e/e7/MediaWikiRefCard.png
+if [[ $? -ne 0 ]]; then
+  echo
+  echo "WHATEVER: Not found: MediaWikiRefCard.png"
+  echo
+fi
 # To view, try: eog MediaWikiRefCard.png &
 wget -N https://upload.wikimedia.org/wikipedia/meta/6/66/MediaWikiRefCard.pdf
+if [[ $? -ne 0 ]]; then
+  echo
+  echo "WHATEVER: Not found: MediaWikiRefCard.png"
+  echo
+fi
+set -e
 
 # Daring Fireball Markdown Syntax Documentation, for BitBucket README.md.
 ccp_mkdir /ccp/doc/markdown

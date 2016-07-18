@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: call this script from another script.
@@ -18,6 +18,7 @@ isbranchmgr=$3
 isprodserver=$4
 reload_databases=$5
 svn_update_sources=$6
+git_update_sources=$7
 
 # Check that the name of the master host is supplied.
 if [[ -z "$masterhost" ]]; then
@@ -133,7 +134,9 @@ fi
 
 # Set the targetgroup according to the domain (if on the CS network or not).
 if [[ "$MACHINE_DOMAIN" == "cs.umn.edu" ]]; then
-  targetgroup=grplens
+  # 2016-07-17: On a managed host now, so no grplens, and doesn't matter.
+  #targetgroup=grplens
+  targetgroup=staff
   if [[ -z "$svnroot" ]]; then
     echo
     #echo "Error: Please specify \$svnroot or \$SVNROOT."
