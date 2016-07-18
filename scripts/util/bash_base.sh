@@ -152,8 +152,9 @@ if [[ -z $PYVERS_RAW ]]; then
 	echo "Unexpected: Could not parse Python version."
 	exit 1
 fi
-PYVERS_RAW=python${PYVERS_RAW}
-PYVERS_RAW_m=python${PYVERS_RAW}m
+PYVERS_RAW=${PYVERS_RAW}
+PYVERS_RAW_m=${PYVERS_RAW}m
+PYTHONVERS_m=python${PYVERS_RAW_m}
 PYVERS_CYTHON=${PYVERS_DOTLESS}m
 #
 PYTHONVERS=python${PYVERS_RAW}
