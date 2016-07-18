@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: Call this script from another script.
@@ -80,13 +80,18 @@ fi
 # so we could make symbolic links there, but then what other places use
 # CCP_INSTANCE?
 
-test_opts=`echo $SHELLOPTS | grep errexit` >/dev/null 2>&1
-errexit_was_set=$?
+test_opts=$(echo $SHELLOPTS)
 set +e
+`echo $test_opts | grep errexit` >/dev/null 2>&1
+if [[ $? -eq 0 ]]; then
+  USING_ERREXIT=true
+else
+  USING_ERREXIT=false
+fi
 #
 hard_path=`readlink $CCP_WORKING`
 #
-if [[ $errexit_was_set == 0 ]]; then
+if $USING_ERREXIT; then
   set -e
 fi
 
