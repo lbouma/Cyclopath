@@ -15,13 +15,14 @@
 # Exit on error.
 set -e
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
 #    NOTE: Don't just execute the check_parms script but source it so its 
 #          variables become ours.
-. $script_absbase/check_parms.sh $*
+. ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
 #            reload_databases, PYTHONVERS, and httpd_user.
 
@@ -30,7 +31,7 @@ script_absbase=`pwd $script_relbase`
 # Load the helpers, i.e., ccp_mkdir.
 
 # FIXME: del me if works from check_parms
-#. $script_absbase/helpers_lib.sh
+#. ${SCRIPT_DIR}/helpers_lib.sh
 
 # *** Begin.
 
@@ -156,7 +157,7 @@ remake () {
   fi
   # Get the ccp working directory, i.e., ../..
   working_dir=$(basename `dirname $PWD`)
-  ${script_absbase}/../../util/fixperms.pl --public ../../${working_dir}/
+  ${SCRIPT_DIR}/../../util/fixperms.pl --public ../../${working_dir}/
   # FIXME: Add wincopy behavior (from flashclient/Makefile)
   return $success
 }
@@ -182,7 +183,7 @@ remake-pdf () {
   fi
   # Get the ccp working directory, i.e., ../..
   working_dir=$(basename `dirname $PWD`)
-  ${script_absbase}/../../util/fixperms.pl --public ../../${working_dir}/
+  ${SCRIPT_DIR}/../../util/fixperms.pl --public ../../${working_dir}/
   # FIXME: Add wincopy behavior (from flashclient/Makefile)
   return $success
 }
@@ -305,7 +306,7 @@ ccp_setup_branch () {
   fi
   m4 \
     $ext_m4_defines \
-    ${script_absbase}/../ao_templates/common/ccp/dev/cp/pyserver/CONFIG \
+    ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/pyserver/CONFIG \
     > /ccp/dev/${checkout_path}/pyserver/CONFIG
 
   # ... flashclient/
@@ -319,13 +320,13 @@ ccp_setup_branch () {
     m4 \
       $ext_m4_defines \
       --define=HTTPD_PORT_NUM=$httpd_port_num \
-      ${script_absbase}/../ao_templates/common/ccp/dev/cp/flashclient/Conf_Instance-dev.as \
+      ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/flashclient/Conf_Instance-dev.as \
           > /ccp/dev/${checkout_path}/flashclient/Conf_Instance.as
   else
     m4 \
       $ext_m4_defines \
       --define=HTTPD_PORT_NUM=$httpd_port_num \
-      ${script_absbase}/../ao_templates/common/ccp/dev/cp/flashclient/Conf_Instance-srv.as \
+      ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/flashclient/Conf_Instance-srv.as \
           > /ccp/dev/${checkout_path}/flashclient/Conf_Instance.as
   fi
 
@@ -340,7 +341,7 @@ ccp_setup_branch () {
   fi
 
   /bin/cp -rf \
-    ${script_absbase}/../ao_templates/common/ccp/dev/cp/flashclient/Makefile \
+    ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/flashclient/Makefile \
     /ccp/dev/${checkout_path}/flashclient/Makefile
 
   # ... mapserver/
@@ -354,7 +355,7 @@ ccp_setup_branch () {
   m4 \
    $ext_m4_defines \
    --define=CCP_DB_NAME=$checkout_path \
-   ${script_absbase}/../ao_templates/common/ccp/dev/cp/mapserver/database.map \
+   ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/mapserver/database.map \
     > /ccp/dev/${checkout_path}/mapserver/database.map
 
   #
@@ -366,7 +367,7 @@ ccp_setup_branch () {
   m4 \
    $ext_m4_defines \
    --define=CCP_DB_NAME=$checkout_path \
-   ${script_absbase}/../ao_templates/common/ccp/dev/cp/mapserver/check_cache_now.sh \
+   ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/mapserver/check_cache_now.sh \
     > /ccp/dev/${checkout_path}/mapserver/check_cache_now.sh
 
   #
@@ -378,7 +379,7 @@ ccp_setup_branch () {
   m4 \
    $ext_m4_defines \
    --define=CCP_DB_NAME=$checkout_path \
-   ${script_absbase}/../ao_templates/common/ccp/dev/cp/mapserver/kill_cache_check.sh \
+   ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/mapserver/kill_cache_check.sh \
     > /ccp/dev/${checkout_path}/mapserver/kill_cache_check.sh
 
   # Note that the mapserver directory needs to be writeable by apache user.
@@ -454,7 +455,7 @@ ccp_setup_branch () {
   #        scheduled? crontab?
   #
  # /bin/cp -rf \
- # ${script_absbase}/../ao_templates/common/ccp/dev/cp/mapserver/tilecache.cfg\
+ # ${SCRIPT_DIR}/../ao_templates/common/ccp/dev/cp/mapserver/tilecache.cfg\
  #   /ccp/dev/${checkout_path}/mapserver/tilecache.cfg
 
   # This is just temporary. The user should make sure to do this in their
@@ -577,7 +578,7 @@ ccp_setup_branch () {
   echo -n "Fixing perms on /ccp/dev/${checkout_path}... "
 
   # FIXME: Make sudo optional, so students can run this script.
-  sudo ${script_absbase}/../../util/fixperms.pl --public \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public \
     /ccp/dev/${checkout_path}/ \
     > /dev/null 2>&1
 
@@ -1097,7 +1098,7 @@ if [[ $MACHINE_DOMAIN == "cs.umn.edu" ]]; then
   # the logcheck group. But we change ownership so the user can edit these (and
   # maybe so logcheck can run with the user's permissions?).
 
-  sudo ${script_absbase}/../../util/fixperms.pl --public \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public \
     /etc/logcheck/ \
     > /dev/null 2>&1
   sudo chown -R $targetuser /etc/logcheck
@@ -1140,7 +1141,7 @@ if [[ $MACHINE_DOMAIN == "cs.umn.edu" ]]; then
 
   fi
 
-  sudo ${script_absbase}/../../util/fixperms.pl --public \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public \
     /etc/logcheck/ \
     > /dev/null 2>&1
   sudo chown -R $targetuser /etc/logcheck

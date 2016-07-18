@@ -14,13 +14,14 @@
 # Exit on error.
 set -e
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
 #    NOTE: Don't just execute the check_parms script but source it so its 
 #          variables become ours.
-. $script_absbase/check_parms.sh $*
+. ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
 #            reload_databases, PYTHONVERS, and httpd_user.
 
@@ -403,14 +404,14 @@ echo "Fixing perms on ccp/"
 # 2013.06.10: MAYBE: Can we not do tilecache-cache, in the interest of time?
 #             [lb] implement some for loops to do everything under /ccp except
 #                  for /ccp/var/*tilecache*
-#sudo ${script_absbase}/../../util/fixperms.pl --public /ccp/ \
+#sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/ \
 #  2> /dev/null
 cd /ccp
 echo "in /ccp"
 for ccp_dir in `ls | grep -v var`; do
   #echo $ccp_dir
   echo -n " on ${ccp_dir}... "
-  sudo ${script_absbase}/../../util/fixperms.pl \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl \
     --public /ccp/${ccp_dir}/ 
   #\
   #  2> /dev/null
@@ -421,7 +422,7 @@ cd /ccp/var
 for var_dir in `ls | grep -v tilecache`; do
   #echo $var_dir
   echo -n " on ${var_dir}... "
-  sudo ${script_absbase}/../../util/fixperms.pl \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl \
     --public /ccp/${var_dir}/ \
     2> /dev/null
   echo "ok"

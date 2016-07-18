@@ -25,8 +25,9 @@
 # Exit on error.
 set -e
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 HOST=$(hostname)
 
@@ -42,7 +43,7 @@ ccp_time_0=$(date +%s.%N)
 echo -n "Checking input options..."
 
 # SYNC_ME: This block of code is shared.
-$script_absbase/check_parms.sh $*
+${SCRIPT_DIR}/check_parms.sh $*
 if [[ $? -ne 0 ]]; then
   exit
 fi
@@ -196,7 +197,7 @@ cleanup()
   # Kill the background process
   echo "Killing sudo_keeali"
   # FIXME: Even with the /dev/null 2>&1 I'm still seeing output:
-  # ./ccp_install.sh: line 157: 13428 Killed     $script_absbase/sudo_keeali.sh
+  # ./ccp_install.sh: line 157: 13428 Killed     ${SCRIPT_DIR}/sudo_keeali.sh
   ps aux \
     | grep -e "/bin/bash ./sudo_keeali.sh" \
     | awk '{print $2}' \
@@ -230,8 +231,8 @@ read sure
 if [[ "$sure" == "y" || "$sure" == "Y" ]]; then
   # Keep sudo alive
   # FIXME: What this is killed, I think it prints to stdout/err:
-  # ./ccp_install.sh: line 157: 13428 Killed     $script_absbase/sudo_keeali.sh
-  $script_absbase/sudo_keeali.sh &
+  # ./ccp_install.sh: line 157: 13428 Killed     ${SCRIPT_DIR}/sudo_keeali.sh
+  ${SCRIPT_DIR}/sudo_keeali.sh &
   # Let the script run and output a line
   #sleep 1
 fi
@@ -245,7 +246,7 @@ if [[ "$sure" == "y" || "$sure" == "Y" ]]; then
   echo -n "Checking packages... "
   if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
     # echo Ubuntu!
-    if [[ "`$script_absbase/ok_packages.sh`" ]]; then
+    if [[ "`${SCRIPT_DIR}/ok_packages.sh`" ]]; then
       echo "flagged"
       echo
       echo "Warning: Packages not configured as expected"
@@ -253,7 +254,7 @@ if [[ "$sure" == "y" || "$sure" == "Y" ]]; then
       echo "Showing discrepencies:"
       echo 
       # Show the list of packages.
-      $script_absbase/show_pkg_es.sh
+      ${SCRIPT_DIR}/show_pkg_es.sh
       # Ask for confirmation.
       echo 
       read -p "Would you like to install anyway? (y/[N]) " sure
@@ -314,7 +315,7 @@ if [[ -d /ccp ]]; then
       #  echo "WARNING: Could not fixperms /ccp"
       #  echo
       #fi
-      sudo ${script_absbase}/../../util/fixperms.pl --public /ccp/ \
+      sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/ \
           > /dev/null 2>&1
       echo "ok"
     fi
@@ -337,27 +338,27 @@ echo "Using params: $*"
 # (another Cyclopath machine that's already setup).
 
 if [[ $reprepare_dirs -ne 0 ]]; then
-  $script_absbase/dir_prepare.sh $*
-  $script_absbase/usr_dev_doc.sh $*
+  ${SCRIPT_DIR}/dir_prepare.sh $*
+  ${SCRIPT_DIR}/usr_dev_doc.sh $*
 fi
 
 # Setup Apache and Postgresql.
 
 if [[ $reoverlay_etc -ne 0 ]]; then
-  $script_absbase/etc_overlay.sh $*
+  ${SCRIPT_DIR}/etc_overlay.sh $*
 fi
 
 # Setup the debug flash player.
 
 if [[ $reinstall_flash -ne 0 \
       && $isprodserver -eq 0 ]]; then
-  $script_absbase/flash_debug.sh $*
+  ${SCRIPT_DIR}/flash_debug.sh $*
 fi
 
 # Compile the GIS suite.
 
 if [[ $reinstall_software -ne 0 ]]; then
-  $script_absbase/gis_compile.sh $*
+  ${SCRIPT_DIR}/gis_compile.sh $*
 fi
 
 # Prepare Cyclopath so user can hit http://localhost:8081.
@@ -366,7 +367,7 @@ fi
 # updating to CcpV2, but not once we're updated.
 
 if [[ $reinstall_cyclopath -ne 0 ]]; then
-  $script_absbase/prepare_ccp.sh $*
+  ${SCRIPT_DIR}/prepare_ccp.sh $*
 fi
 
 # *** Print a reminder(s)

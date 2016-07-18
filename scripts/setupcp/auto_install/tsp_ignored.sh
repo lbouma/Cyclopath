@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # NOTE: This file is not used. It exists for documentary purposes.
@@ -20,13 +20,14 @@ echo "Installing TSP software"
 
 set -e
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
 #    NOTE: Don't just execute the check_parms script but source it so its
 #          variables become ours.
-. $script_absbase/check_parms.sh $*
+. ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
 #            reload_databases, PYTHONVERS, and httpd_user.
 
@@ -561,7 +562,7 @@ exit 1
   # FIXME/WHATEVER: The cvxopt-1.1.6/setup.py is not stored anywhere. You'll
   #                 have to recreate it, if you care.
   /bin/cp \
-    ${script_absbase}/../ao_templates/ubuntu10.04-target/ccp/opt/.downloads/cvxopt-1.1.6/setup.py \
+    ${SCRIPT_DIR}/../ao_templates/ubuntu10.04-target/ccp/opt/.downloads/cvxopt-1.1.6/setup.py \
     /ccp/opt/.downloads/cvxopt-1.1.6
 
   python setup.py install \
@@ -580,7 +581,7 @@ exit 1
 echo
 echo "Fixing permissions on /ccp/opt/"
 
-sudo ${script_absbase}/../../util/fixperms.pl --public /ccp/opt/ \
+sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/ \
   > /dev/null 2>&1
 sudo chown -R $targetuser /ccp/opt
 sudo chgrp -R $targetgroup /ccp/opt

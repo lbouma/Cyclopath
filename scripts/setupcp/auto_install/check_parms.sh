@@ -6,8 +6,9 @@
 # Usage: call this script from another script.
 #
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 USAGE="Usage: $0 MASTER_HOSTNAME|- TARGET_USERNAME|-"
 # Skipping: $3, $4, and $5, which is used internally.
@@ -160,8 +161,8 @@ fi
 # Setup PYTHONVERS, PYVERSABBR, httpd_user, httpd_etc_dir.
 
 PYSERVER_HOME=/dev/null
-CCP_WORKING=${script_absbase}/../../../
-source ${script_absbase}/../../util/ccp_base.sh
+CCP_WORKING=${SCRIPT_DIR}/../../../
+source ${SCRIPT_DIR}/../../util/ccp_base.sh
 
 # Setup common paths.
 
@@ -171,7 +172,7 @@ source ${script_absbase}/../../util/ccp_base.sh
 # Reference the right setup files, e.g., at
 #  /ccp/bin/ccpdev/setup/ubuntu12.04-target
 #AO_TEMPLATE_BASE="/ccp/bin/ccpdev/setup"
-AO_TEMPLATE_BASE="${script_absbase}/../ao_templates"
+AO_TEMPLATE_BASE="${SCRIPT_DIR}/../ao_templates"
 if [[ -n "${FEDORAVERSABBR}" ]]; then
   # FIXME/BUG nnnn: Support Fedora.
 # FIXME: The Ccpdev source and target for Fedora have not been created  yet.
@@ -245,7 +246,7 @@ ccp_m4_defines="
 
 # Load helper libs.
 
-source ${script_absbase}/helpers_lib.sh
+source ${SCRIPT_DIR}/helpers_lib.sh
 
 # NOTE: Do not call exit. The calling script sourced us, so if we exit, we'll
 # take the caller with us.

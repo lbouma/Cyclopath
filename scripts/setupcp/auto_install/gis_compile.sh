@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # This script is derived from a Wiki page. The Wiki page is more
@@ -22,13 +22,14 @@ echo "Compiling GIS software!"
 
 set -e
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
 #    NOTE: Don't just execute the check_parms script but source it so its
 #          variables become ours.
-. $script_absbase/check_parms.sh $*
+. ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
 #            reload_databases, PYTHONVERS, and httpd_user.
 
@@ -115,7 +116,7 @@ make install
 #
 #sudo chmod 2755 /ccp/opt/geos-3.4.2
 chmod 2755 /ccp/opt/geos-3.4.2
-${script_absbase}/../../util/fixperms.pl --public /ccp/opt/geos-3.4.2/
+${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/geos-3.4.2/
 #
 /bin/rm -f /ccp/opt/geos
 ln -s /ccp/opt/geos-3.4.2 /ccp/opt/geos
@@ -226,12 +227,12 @@ make install
 #sudo chmod 2755 /ccp/opt/gdal-1.10.1
 chmod 2755 /ccp/opt/gdal-1.10.1
 # Set public for Apache.
-${script_absbase}/../../util/fixperms.pl --public /ccp/opt/gdal-1.10.1/
+${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/gdal-1.10.1/
 #
 /bin/rm -f /ccp/opt/gdal
 ln -s /ccp/opt/gdal-1.10.1 /ccp/opt/gdal
 #
-${script_absbase}/../../util/fixperms.pl --public \
+${SCRIPT_DIR}/../../util/fixperms.pl --public \
  /ccp/opt/usr/lib/$PYTHONVERS/site-packages/GDAL-1.10.1-${PYVERSABBR}-linux-x86_64.egg/
 #
 # See if we have to edit ld.so.conf or not. This permanently sets
@@ -319,7 +320,7 @@ make install
 #
 #sudo chmod 2755 /ccp/opt/libxml2-2.9.1
 chmod 2755 /ccp/opt/libxml2-2.9.1
-#${script_absbase}/../../util/fixperms.pl --public \
+#${SCRIPT_DIR}/../../util/fixperms.pl --public \
 #  /ccp/opt/libxml2-2.9.1/
 
 sudo -v # keep sudo alive
@@ -387,7 +388,7 @@ make install
 
 #sudo chmod 2755 /ccp/opt/proj-4.8.0
 chmod 2755 /ccp/opt/proj-4.8.0
-#${script_absbase}/../../util/fixperms.pl --public \
+#${SCRIPT_DIR}/../../util/fixperms.pl --public \
 #  /ccp/opt/proj-4.8.0/
 
 # Make sure everyone uses the new binary and library, and not the system ones.
@@ -453,7 +454,7 @@ make install
 
 #sudo chmod 2755 /ccp/opt/json-c-json-c-0.11-20130402
 chmod 2755 /ccp/opt/json-c-json-c-0.11-20130402
-#${script_absbase}/../../util/fixperms.pl --public \
+#${SCRIPT_DIR}/../../util/fixperms.pl --public \
 #  /ccp/opt/json-c-0.11-20130402/
 
 sudo -v # keep sudo alive
@@ -503,9 +504,9 @@ sudo make install
 
 # FIXME: Why is prefix being ignored?
 #sudo chmod 2775 /ccp/opt/$PGIS_VERS
-##${script_absbase}/../../util/fixperms.pl --public \
+##${SCRIPT_DIR}/../../util/fixperms.pl --public \
 ##  /ccp/opt/$PGIS_VERS/
-#${script_absbase}/../../util/fixperms.pl --public \
+#${SCRIPT_DIR}/../../util/fixperms.pl --public \
 #  /ccp/opt/.downloads/$PGIS_VERS
 
 # This is db_load. So we want the source code and not the library-containing
@@ -553,9 +554,9 @@ echo "Installing MapServer"
 #
 #  gvim /ccp/opt/.downloads/mapserver-5.6.9/mappostgis.c
 #  # Edit the file.
-#  mkdir -p ${script_absbase}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9
+#  mkdir -p ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9
 #  cp /ccp/opt/.downloads/mapserver-5.6.9/mappostgis.c \
-#   ${script_absbase}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9
+#   ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9
 
 # FIXME: Compiling MapServer on Fedora is tricky enough, but trying to run it
 # and seeing it complain about a bunch of missing old-versioned libraries is
@@ -609,7 +610,7 @@ if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
 
   # Fix the source file we mentioned earlier.
   /bin/cp -f \
-    ${script_absbase}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9/mappostgis.c \
+    ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/.downloads/mapserver-5.6.9/mappostgis.c \
     /ccp/opt/.downloads/mapserver-5.6.9
 
   # Avoid this error:
@@ -708,7 +709,7 @@ cd tilecache-2.11
 #
 #sudo chmod 2775 /ccp/opt/.downloads/tilecache-2.11
 chmod 2775 /ccp/opt/.downloads/tilecache-2.11
-#${script_absbase}/../../util/fixperms.pl --public \
+#${SCRIPT_DIR}/../../util/fixperms.pl --public \
 #  /ccp/opt/.downloads/tilecache-2.11/
 #
 # Make a link for httpd.conf.
@@ -1520,7 +1521,7 @@ wget -N http://www.jstatsoft.org/v23/i02/supp/2 \
 echo
 echo "Fixing permissions on /ccp/opt/"
 
-sudo ${script_absbase}/../../util/fixperms.pl --public /ccp/opt/ \
+sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/ \
   > /dev/null 2>&1
 sudo chown -R $targetuser /ccp/opt
 sudo chgrp -R $targetgroup /ccp/opt

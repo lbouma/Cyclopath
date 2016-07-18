@@ -22,13 +22,14 @@
 
 # NOTE: If this was just /bin/sh and not bash, then $HOSTNAME is not set.
 
-script_relbase=$(dirname $0)
-script_absbase=`pwd $script_relbase`
+#script_relbase=$(dirname $0)
+#script_absbase=`pwd $script_relbase`
+SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
 #    NOTE: Don't just execute the check_parms script but source it so its
 #          variables become ours.
-. $script_absbase/check_parms.sh $*
+. ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
 #            reload_databases, PYTHONVERS, and httpd_user.
 
@@ -239,7 +240,7 @@ setup_ccp_var_pgdata
 
 function setup_shmmax_and_shmall () {
 
-  . $script_absbase/shmmax_calc.sh $*
+  . ${SCRIPT_DIR}/shmmax_calc.sh $*
 
   # See if we have to edit sysctl.conf or not.
 
@@ -540,7 +541,7 @@ function setup_install_psycopg2 () {
 
   # Fix the permissions on the psycopg2 folder so apache can load it.
 
-  sudo ${script_absbase}/../../util/fixperms.pl --public /ccp/opt/usr/ \
+  sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/usr/ \
     > /dev/null 2>&1
 
 } # end: setup_install_psycopg2
@@ -631,12 +632,12 @@ function setup_pgbouncer () {
 
     #system_file_diff_n_replace "etc/logrotate.d" "apache2"
     /bin/cp -f \
-      ${script_absbase}/../ao_templates/common/ccp/opt/pgbouncer/pgbouncer.ini \
+      ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/pgbouncer/pgbouncer.ini \
       /ccp/opt/pgbouncer
     /bin/chmod 664 /ccp/opt/pgbouncer/pgbouncer.ini
 
     /bin/cp -f \
-      ${script_absbase}/../ao_templates/common/ccp/opt/pgbouncer/userlist.txt \
+      ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/pgbouncer/userlist.txt \
       /ccp/opt/pgbouncer
     /bin/chmod 664 /ccp/opt/pgbouncer/userlist.txt
 
@@ -778,7 +779,7 @@ function setup_mod_python () {
   # make dso
   # sudo make install
   #
-  #sudo ${script_absbase}/../../util/fixperms.pl --public blah blah blah
+  #sudo ${SCRIPT_DIR}/../../util/fixperms.pl --public blah blah blah
 
 } # end: setup_mod_python
 setup_mod_python
