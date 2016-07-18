@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=Working:Trunk Meld Diff
+Exec=meld /ccp/dev/ccp_trunk /ccp/dev/ccp_working
+Type=Application
+Icon=meld

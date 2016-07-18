@@ -2456,8 +2456,9 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       isprodserver=0
       reload_databases=0
       svn_update_sources=0
+      git_update_sources=0
       set -- $masterhost $targetuser $isbranchmgr $isprodserver \
-             $reload_databases $svn_update_sources
+             $reload_databases $svn_update_sources $git_update_sources
       # This script is meant for user-managed machines, i.e., not those on the CS
       # net, where [[ "$MACHINE_DOMAIN" == "cs.umn.edu" ]], targetgroup=grplens.
       targetgroup=$USE_CYCLOP_GROUP

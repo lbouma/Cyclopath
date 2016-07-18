@@ -1,0 +1,14 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Name=GVim
+GenericName=Text Editor
+GenericName[de]=Texteditor
+TryExec=gvim
+Exec=/bin/bash --login -c "gvim --servername SAMPI --remote-silent /home/cyclopath/Documents/notes.txt"
+Terminal=false
+Type=Application
+Icon=vim
+Categories=Utility;TextEditor;
+MimeType=text/plain;
+Name[en_US]=Dubsacks gVim
+Icon[en_US]=vim

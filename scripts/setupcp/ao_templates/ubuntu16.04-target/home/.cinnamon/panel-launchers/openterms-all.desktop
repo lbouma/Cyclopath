@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=Opens a dozen or so terminals specially tailored for Cyclopath development.
+Terminal=false
+Name=Rapid Fire Terminal Opener
+Exec=/ccp/dev/cp/scripts/util/openterms.sh &
+Type=Application
+Icon=terminator

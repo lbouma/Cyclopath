@@ -1,0 +1,45 @@
+<VirtualHost *:80>
+
+  ServerName bugzilla.MACH_DOMAIN():80
+
+  ServerAlias bugzilla bugzilla.MACH_DOMAIN()
+
+  DocumentRoot /ccp/var/cms/MWIKI_BASENAME()
+
+  ServerAdmin webmaster@localhost
+
+  ErrorLog ${APACHE_LOG_DIR}/error.log
+  CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+  <FilesMatch \.php$>
+    SetHandler application/x-httpd-php
+  </FilesMatch>
+
+  <Directory /ccp/var/cms/MWIKI_BASENAME()>
+    # relax Apache security settings
+    AllowOverride all
+    #Allow from all
+    # MultiViews must be turned off
+    #Options -MultiViews
+    # New directive needed in Apache 2.4.3: 
+    Require all granted
+  </Directory>
+
+#  # Assets directory (for images we don't upload).
+#  Alias /assets/ /ccp/var/cms/MWIKI_BASENAME()/assets/
+#  <Directory /ccp/var/cms/MWIKI_BASENAME()/assets>
+#    Options Indexes FollowSymLinks
+#  </Directory>
+#
+#  <Directory "/ccp/var/cms/MWIKI_BASENAME()/images">
+#    # Ignore .htaccess files
+#    AllowOverride None
+#    # Serve HTML as plaintext, don't execute SHTML
+#    AddType text/plain .html .htm .shtml .php
+#    # Don't run arbitrary PHP code.
+#    php_admin_flag engine off
+#    # If you've other scripting languages, disable them too.
+#  </Directory>
+
+</VirtualHost>
+

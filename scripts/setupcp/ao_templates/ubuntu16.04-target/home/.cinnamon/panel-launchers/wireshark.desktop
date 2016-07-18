@@ -1,0 +1,7 @@
+[Desktop Entry]
+Comment=Wireshark traffic and network analyzer
+Terminal=false
+Name=Wireshark Network Analyzer
+Exec=wireshark
+Type=Application
+Icon=wireshark

@@ -1,0 +1,29 @@
+# [Cyclopath] to test: 
+#   logrotate --force --verbose --debug /etc/logrotate.d/apache2
+# See also /etc/cron.daily/logrotate   
+/ccp/var/log/apache2/*.log {
+	weekly
+	missingok
+	rotate 52
+	compress
+	delaycompress
+	notifempty
+	create 640 root USE_PEERGROUP()
+	sharedscripts
+	postrotate
+	# NOTE: m4 is very particular about backticks and singlequotes. The easiest
+	#       way to p0wn it is by using changequote. If we don't, we can't quote
+	#       (or, if we do, bah! ``ERROR: end of file in string''.)
+	changequote(<!,!>)
+	if [ -f "`. /etc/apache2/envvars ; \
+			echo ${APACHE_PID_FILE:-/var/run/apache2.pid}`" ]; then
+		/etc/init.d/apache2 reload > /dev/null
+	fi
+	# Make a backup of the log for Cyclopath.
+	if [ -f "/ccp/var/log/apache2/access.log.1" ]; then
+		gzip -c -9 /ccp/var/log/apache2/access.log.1 \
+			> /ccp/var/log/apache2/historic/`date '+%Y.%m.%d'`.gz
+	fi
+	endscript
+}
+

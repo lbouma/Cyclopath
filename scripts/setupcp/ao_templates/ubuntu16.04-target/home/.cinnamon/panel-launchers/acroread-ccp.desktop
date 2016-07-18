@@ -1,0 +1,8 @@
+[Desktop Entry]
+Comment=
+Terminal=false
+Name=Dev docs
+Exec=/ccp/opt/Adobe/Reader9/bin/acroread /ccp/doc/postgis-2.1.0.pdf /ccp/doc/mapserver-6.0.1.pdf /ccp/doc/gnuplot-4.4.pdf /ccp/doc/python-2.7.2/library.pdf
+Type=Application
+Icon=acroread
+

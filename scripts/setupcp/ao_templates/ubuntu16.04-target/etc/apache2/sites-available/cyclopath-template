@@ -1,0 +1,188 @@
+# E.g., http://localhost:HTTPD_PORT_NUM()
+
+<VirtualHost *:HTTPD_PORT_NUM()>
+
+    ServerName CCPBASEDIR().TARGETDOMAIN():HTTPD_PORT_NUM()
+
+    ServerAlias HTTPD_HOST_ALIAS() CCPBASEDIR() CCPBASEDIR().TARGETDOMAIN()
+
+    ServerAdmin TARGETUSER()@localhost
+
+    # Don't forget to also set PythonPath below.
+    DocumentRoot /ccp/dev/CCPBASEDIR()/htdocs
+
+#
+    VirtualDocumentRoot /ccp/dev/CCPBASEDIR()/htdocs
+
+    # NOTE: The PythonInterpreter should be unique, at least for
+    #       servers that share the same port number at VirtualHost.
+    # Doesn't work with m4: PythonInterpreter minnesota___CCPBASEDIR()
+    PythonInterpreter PY_INTERPRETER()
+
+    # By default, serve nothing
+    <Directory />
+        Options FollowSymLinks
+        AllowOverride None
+    </Directory>
+
+    # Don't serve .svn directories
+    <DirectoryMatch "\.svn/">
+        Deny from all
+    </DirectoryMatch>
+
+    # DocumentRoot / Static files
+    <Directory /ccp/dev/CCPBASEDIR()/htdocs>
+        Options FollowSymLinks
+        #AllowOverride None
+#        AllowOverride AuthConfig
+#        Order allow,deny
+        # Must allow from all so outside world can see awesome demo
+#        Allow from all
+        #Allow from .umn.edu
+        #Allow from .cs.umn.edu
+        #Allow from localhost
+# FIXME: New directive needed in Apache 2.4.3: 
+AllowOverride all
+Require all granted
+        # Default caching policy: caches can go 1 hour between re-validations
+        <IfModule !mpm_winnt.c>
+         Header set Cache-Control "max-age=3600, must-revalidate"
+        </IfModule>
+    </Directory>
+
+    # Home page (http://cyclopath.org/)
+    Alias /home/ /ccp/dev/CCPBASEDIR()/mediawiki/home/
+    <Directory /ccp/dev/CCPBASEDIR()/mediawiki/home>
+        Options FollowSymLinks
+        AllowOverride None
+        Order allow,deny
+        Allow from all
+    </Directory>
+
+    # Public download area
+    # (for insentive downloads for clients)
+    <Directory /ccp/dev/CCPBASEDIR()/htdocs/exports>
+        Options Indexes FollowSymLinks
+        #AllowOverride AuthConfig
+        #Order allow,deny
+        #Allow from all
+    </Directory>
+    # 2013.05.24: The activity statistics are only linked from the private
+    # GroupLens Wiki. But that's okay: it's very unlikely anyone will find
+    # these. And the data does not reveal any private user information, but
+    # it does show our usage information... which could cause investor sell
+    # off or a bull run if people know about our numbers.
+    # See:
+    #  http://wiki.grouplens.org/index.php/Cyclopath/Team_Activity_Statistics
+    #  http://wiki.grouplens.org/index.php/Cyclopath/Usage_Statistics
+    <Directory /ccp/dev/CCPBASEDIR()/htdocs/statistics>
+        Options FollowSymLinks
+        AllowOverride None
+    </Directory>
+
+    # Protected download area
+    # (for sentive downloads for clients)
+    <Directory /ccp/dev/CCPBASEDIR()/htdocs/reports>
+        Options Indexes FollowSymLinks
+        AllowOverride AuthConfig
+        #Order allow,deny
+        #Allow from all
+    </Directory>
+
+    ## Cyclopath
+
+    # MapServer
+    # UBUNTU:
+    #    Alias /wms /ccp/opt/mapserver/mapserv
+    # FEDORA
+    #    Alias /wms /usr/sbin/mapserv
+    Alias /wms /ccp/opt/mapserver/mapserv
+    <Location /wms>
+        Order allow,deny
+        Allow from all
+        #Allow from .umn.edu
+        #Allow from .cs.umn.edu
+        #Allow from localhost
+        SetHandler cgi-script
+        Options +ExecCGI
+        SetEnv MS_MAPFILE /ccp/var/tilecache-cache/CCPBASEDIR()/wms_instance.map
+    </Location>
+
+    # TileCache via mod_python
+    <Location /tilec>
+        Order allow,deny
+        Allow from all
+        SetHandler mod_python
+        PythonHandler TileCache.Service
+        PythonPath "['/ccp/opt/tilecache'] + sys.path"
+        PythonOption TileCacheConfig /ccp/var/tilecache-cache/CCPBASEDIR()/tilecache.cfg
+    </Location>
+
+    # Try to fix browsers re-loading stale versions of main.swf: allow only
+    # one second before re-validating.
+    <Location /main.swf>
+        Header set Cache-Control "max-age=1, must-revalidate"
+    </Location>
+
+    # Pysever via mod_python
+    <Location /gwis>
+        Order allow,deny
+        Allow from all
+        #Allow from .umn.edu
+        #Allow from .cs.umn.edu
+        #Allow from localhost
+        # No caching directives for the pyserver
+        Header unset Cache-Control
+
+        SetOutputFilter DEFLATE
+
+        # NOTE: In Apache under Ubuntu 10.04, 'from osgeo import osr' works
+        # with just the site-packages in the path, but under Ubuntu 11.04, it
+        # can't find the module. So we have to include the GDAL subdirectory in
+        # the path, too. Weird. Oh, and weirder: if you 'PYTHONPATH=... python'
+        # without said GDAL subdir, the import works, but if you just 'python' 
+        # and then 'sys.path = ...' with the GDAL subdir, it doesn't work. And
+        # here I always thought $PYTHONPATH and sys.path were the same.
+        SetHandler mod_python
+        PythonDebug On
+
+# FIXME: Missing: /ccp/opt/gdal/lib/python2.7/site-packages
+#        Missing: /ccp/opt/usr/lib64/python2.7/site-packages
+# /ccp/opt/gdal/lib/
+# /ccp/opt/usr/lib/python2.7/site-packages/
+
+        PythonPath "['/ccp/dev/CCPBASEDIR()/pyserver', '/ccp/dev/CCPBASEDIR()/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages', '/ccp/opt/usr/lib64/PYTHONVERS()/site-packages', '/ccp/opt/gdal/lib/', '/ccp/opt/gdal/lib/PYTHONVERS()/site-packages', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/GDAL-1.10.1-PYVERSABBR()-linux-x86_64.egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/networkx-1.8.1-PYVERSABBR().egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/Fiona-1.1.4-py2.6-linux-x86_64.egg', '/ccp/opt/usr/lib/python2.6/site-packages/six-1.5.2-py2.6.egg', '/ccp/opt/usr/lib/python2.6/site-packages/ordereddict-1.1-py2.6.egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/python_Levenshtein-0.11.2-py2.6-linux-x86_64.egg',] + sys.path"
+        PythonHandler gwis_mod_python
+    </Location>
+
+    # Instance assets (logo, etc.)
+    Alias /instance /ccp/dev/CCPBASEDIR()/htdocs/instance/minnesota
+
+    # BUG nnnn: Consolidate error logs under /ccp/var/log
+    #ErrorLog /var/log/apache2/error.log
+    ErrorLog /ccp/var/log/apache2/error.log
+
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel warn
+
+    LogFormat "%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\" %{ptime}e" combinedplus
+    # BUG nnnn: Consolidate error logs under /ccp/var/log
+    # MAYBE: Does it matter if each Cyclopath installation writes to the same
+    #        log file? E.g., might we end up with interleaved output?
+    #CustomLog /var/log/apache2/access.log combinedplus
+    CustomLog /ccp/var/log/apache2/access.log combinedplus
+
+    ServerSignature On
+
+#    Alias /doc/ "/usr/share/doc/"
+#    <Directory "/usr/share/doc/">
+#        Options Indexes MultiViews FollowSymLinks
+#        AllowOverride None
+#        Order deny,allow
+#        Deny from all
+#        Allow from 127.0.0.0/255.0.0.0 ::1/128
+#    </Directory>
+
+</VirtualHost>
+

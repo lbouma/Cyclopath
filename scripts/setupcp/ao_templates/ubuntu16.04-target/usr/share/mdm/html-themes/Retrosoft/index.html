@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+<head>	
+
+		<style type="text/css">
+
+			body {
+				background-color: #326696;
+				margin: 0px;
+				overflow: hidden;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+				text-align:center;
+			}
+
+			a {
+				color:#0078ff;
+			}
+
+		</style>
+
+	<link href="css/bootstrap.min.css" rel="stylesheet" media="screen">
+
+	<script src="js/bootstrap.min.js"></script>	
+	<script src="js/jquery-1.9.1.min.js"></script>	
+	
+	<!-- bootbox code -->
+	<script src="js/bootbox.min.js"></script>
+
+	<!--
+	<script src="js/motio.min.js"></script>
+	-->
+
+	<link href="theme.css" rel="stylesheet" media="screen">					
+
+</head>
+<body>
+
+
+		<script>	
+			
+		var selected_user = -1;
+		var num_users = 0;
+	
+		// Called by MDM to disable user input
+		function mdm_disable() {
+			$('#entry').prop("disabled", true);
+			$('#ok_button').prop("disabled", true);
+			$('#login-box').css('cursor', 'progress');
+			$('#entry').css('cursor', 'progress');
+			$('#ok_button').css('cursor', 'progress');
+		}
+		
+		// Called by MDM to enable user input
+		function mdm_enable() {
+			$('#entry').prop("disabled", false);
+			$('#ok_button').prop("disabled", false);
+			$('#login-box').css('cursor', 'default');
+			$('#entry').css('cursor', 'text');
+			$('#ok_button').css('cursor', 'default');
+		}
+		
+		// Called by MDM to set the welcome message
+		function set_welcome_message(message) {			
+			//document.getElementById("welcome_message").innerHTML = message;
+		}
+		
+		// Called by MDM to update the clock
+		function set_clock(message) {			
+			//document.getElementById("clock").innerHTML = message;
+		}
+		
+		// Called by MDM to allow the user to input a username		
+		function mdm_prompt(message) {	
+			mdm_enable();
+			$('#login_box').hide();
+			for (var i=0;i<num_users;i++) {
+				$('#user' + i).appendTo('#top_users');
+				$('#user' + i).show();
+			}
+			//document.getElementById("welcome_message").innerHTML = message;
+			document.getElementById("entry").value = "";
+			document.getElementById("entry").type = "text";
+			document.getElementById("entry").focus();
+			selected_user = -1;			
+		}
+		
+		// Called by MDM to allow the user to input a password
+		function mdm_noecho(message) {	
+			mdm_enable();	
+			$('#login_box').fadeIn();	
+			//document.getElementById("welcome_message").innerHTML = message;
+			document.getElementById("entry").value = "";
+			document.getElementById("entry").type = "password";
+			document.getElementById("entry").focus();
+		}
+		
+		// Called by MDM to show a message (usually "Please enter your username")
+		function mdm_msg(message) {			
+			//document.getElementById("message").innerHTML = message;			
+		}
+		
+		// Called by MDM to show a timed login countdown
+		function mdm_timed(message) {
+			if (message != "") {
+				document.getElementById("timed").style.display = 'block';
+			}
+			else {
+				document.getElementById("timed").style.display = 'none';
+			}			
+			document.getElementById("timed").innerHTML = message;			
+		}
+		
+		// Called by MDM to show an error		
+		function mdm_error(message) {						
+			if (message != "") {
+				document.getElementById("error").style.display = 'block';
+			}
+			else {
+				document.getElementById("error").style.display = 'none';
+			}
+			document.getElementById("error").innerHTML = message;
+		}	
+						
+		// Send user input to MDM
+		function send_login() {
+			// read the value before we disable the field, as it will be changed to "disabled"
+			var value = document.getElementById("entry").value;
+			mdm_disable();
+			alert("LOGIN###" + value);
+			return false;
+		}
+		
+		function init() {
+			document.getElementById("error").style.display = 'none';			
+			document.getElementById("timed").style.display = 'none';			
+			document.getElementById("current_session_picture").width = 16;				
+		}
+		
+		// Called by MDM to add a user to the list of users
+		function mdm_add_user(username, gecos, status) {
+
+			var top_users = document.getElementById("top_users");
+					
+			var link = document.createElement('a');
+				link.setAttribute('href', "javascript:alert('USER###"+username+"')");
+				link.username = username;
+				link.gecos = gecos;
+				link.current_status = status;
+				link.setAttribute('id', "user" + num_users);
+
+			var div = document.createElement('div');				
+				div.setAttribute('class', "user_box");
+
+
+			var font_username = document.createElement('font');
+				font_username.setAttribute('class', "font_username");
+				font_username.innerHTML = username;
+
+			var font_gecos = document.createElement('font');
+				font_gecos.setAttribute('class', "font_gecos");
+				font_gecos.innerHTML = " " + gecos;
+
+			div.appendChild(font_username);
+			div.appendChild(font_gecos);
+			link.appendChild(div);
+			top_users.appendChild(link);
+
+			num_users = num_users + 1;             
+		}	
+		
+		// Called by MDM to add a session to the list of sessions
+		function mdm_add_session(session_name, session_file) {
+			
+			session_name = session_name.replace("Ubuntu", "Unity");
+			
+			var filename = session_name.toLowerCase();
+			filename = filename.replace(/ /g, "-");
+			filename = filename.replace(/\(/g, "");
+			filename = filename.replace(/\)/g, "");
+													
+			var link1 = document.createElement('a');	
+				link1.setAttribute('href', "javascript:alert('SESSION###"+session_name+"###"+session_file+"');select_session('"+session_name+"','"+session_file+"');");
+
+			var link2 = document.createElement('a');	
+				link2.setAttribute('href', "javascript:alert('SESSION###"+session_name+"###"+session_file+"');select_session('"+session_name+"','"+session_file+"');");
+				
+			var picture = document.createElement('img');
+				picture.setAttribute('class', "session-picture");
+				picture.setAttribute('src', "../common/img/sessions/"+filename+".svg");
+				picture.setAttribute('onerror', "this.src='../common/img/sessions/default.svg';");
+							
+			var name_div = document.createTextNode(session_name);				
+																																			
+			link1.appendChild(picture);
+			link2.appendChild(name_div);
+				
+			var table = document.getElementById("sessions");
+ 
+            var rowCount = table.rows.length;
+            var row = table.insertRow(rowCount);
+ 
+            var cell1 = row.insertCell(0); 
+            cell1.width = "28px";          
+            cell1.appendChild(link1);
+          
+            var cell2 = row.insertCell(1);           
+            cell2.appendChild(link2);
+		}	
+
+		function select_session(session_name, session_file) {
+			var filename = session_name.toLowerCase();
+			filename = filename.replace(/ /g, "-");
+			filename = filename.replace(/\(/g, "");
+			filename = filename.replace(/\)/g, "");
+			document.getElementById("current_session_picture").src = "../common/img/sessions/"+filename+".svg";
+			document.getElementById("current_session_picture").title = session_name;
+			document.getElementById("current_session_picture").width = 16;
+			$('#current_session_picture').popover('hide');
+		}
+
+		// Called by MDM to add a language to the list of languages
+		function mdm_add_language(language_name, language_code) {
+
+			var filename = language_code.toLowerCase();
+			filename = filename.replace(".utf-8", "");
+			bits = filename.split("_");
+			if (bits.length == 2) {
+				filename = bits[1];
+			}
+
+			var link1 = document.createElement('a');	
+				link1.setAttribute('href', "javascript:alert('LANGUAGE###"+language_code+"')");
+
+			var link2 = document.createElement('a');	
+				link2.setAttribute('href', "javascript:alert('LANGUAGE###"+language_code+"')");
+
+			var picture = document.createElement('img');
+				picture.setAttribute('class', "language-picture");
+				picture.setAttribute('src', "../common/img/languages/"+filename+".png");
+				picture.setAttribute('onerror', "this.src='../common/img/languages/generic.png';");
+				picture.setAttribute('title', language_name);				
+											
+			var name_div = document.createTextNode(language_name);				
+																																			
+			link1.appendChild(picture);
+			link2.appendChild(name_div);
+
+			var table = document.getElementById("languages");
+ 
+            var rowCount = table.rows.length;
+            var row = table.insertRow(rowCount);
+            
+            var cell1 = row.insertCell(0);
+            cell1.width = "25px";
+            cell1.appendChild(link1);
+            
+            var cell2 = row.insertCell(1);
+            cell2.appendChild(link2);
+		}
+
+		function mdm_set_current_language(language_name, language_code)	{
+			var filename = language_code.toLowerCase();
+			filename = filename.replace(".utf-8", "");
+			bits = filename.split("_");
+			if (bits.length == 2) {
+				filename = bits[1];
+			}
+			document.getElementById("current_language_flag").src = "../common/img/languages/"+filename+".png";
+			document.getElementById("current_language_flag").title = language_name;
+			document.getElementById("current_language_flag").width = 16;
+		}
+
+		function mdm_set_current_user(username)	{
+			//document.getElementById("lsb").innerHTML = username;
+			for (var i=0;i<num_users;i++) {
+				var user = document.getElementById("user" + i);
+				if (user.username == username) {
+					select_user_at_index(i, false);
+				}
+			}
+		}
+
+		function select_user_at_index(index, alert_mdm) {					
+
+			var index_to_select = index;
+			if (index_to_select < 0) {
+				index_to_select = num_users - 1;
+			}
+			if (index_to_select >= num_users) {
+				index_to_select = 0;
+			}
+			
+			var username = null;
+
+			for (var i=0;i<num_users;i++) {
+				if (i < index_to_select) {
+
+					$('#user' + i).appendTo('#top_users');
+					//$('#user' + i).show();
+				}
+				else if  (i == index_to_select) {
+					var user = document.getElementById("user" + i);
+					var current_gecos = document.getElementById("current_gecos");
+					var current_username = document.getElementById("current_username");
+					var selected_status = document.getElementById("selected_status");					
+					username = user.username;
+					current_username.innerHTML = user.username;
+					current_gecos.innerHTML = user.gecos;
+					selected_status.innerHTML = user.current_status;
+					var picture = document.getElementById('selected_avatar');				
+					picture.setAttribute('src', "file:///home/"+username+"/.face");
+					//$('#user' + i).hide();
+					$('#user' + i).appendTo('#selected_user');
+				}
+				else {
+					$('#user' + i).appendTo('#bottom_users');
+					//$('#user' + i).show();
+				}	
+				selected_user = index_to_select;
+			}			
+
+			if (alert_mdm) {
+				alert('USER###'+ username);
+			}
+		}		
+		
+		// Called by MDM if the SHUTDOWN command shouldn't appear in the greeter
+		function mdm_hide_shutdown() {
+			document.getElementById("shutdown").style.display = 'none';
+		}	
+		
+		// Called by MDM if the SUSPEND command shouldn't appear in the greeter
+		function mdm_hide_suspend() {
+			document.getElementById("suspend").style.display = 'none';
+		}
+		
+		// Called by MDM if the RESTART command shouldn't appear in the greeter
+		function mdm_hide_restart() {
+			document.getElementById("restart").style.display = 'none';
+		}
+		
+		// Called by MDM if the QUIT command shouldn't appear in the greeter
+		function mdm_hide_quit() {
+			document.getElementById("quit").style.display = 'none';
+		}
+		
+		// Called by MDM if the XDMCP command shouldn't appear in the greeter
+		function mdm_hide_xdmcp() {
+			document.getElementById("xdmcp").style.display = 'none';
+		}				
+
+		function quit_dialog() {			
+			bootbox.dialog("<font color='white'>$areyousuretoquit</font>", 
+			[
+				{
+					"label" : "<button type='button' class='btn btn-default btn-sm'><span class='glyphicon glyphicon-off'></span> $shutdown</button>",					
+					"callback": function() {
+						alert('FORCE-SHUTDOWN###');
+					}
+				},
+
+				{
+					"label" : "<button type='button' class='btn btn-default btn-sm'><span class='glyphicon glyphicon-download-alt'></span> $suspend</button>",
+					"callback": function() {
+						alert('FORCE-SUSPEND###');
+					}
+				},
+
+				{
+					"label" : "<button type='button' class='btn btn-default btn-sm'><span class='glyphicon glyphicon-refresh'></span> $restart</button>",
+					"callback": function() {
+						alert('FORCE-RESTART###');
+					}
+				},				
+				{
+					"label" : "<button type='button' class='btn btn-default btn-sm'><span class='glyphicon glyphicon-remove'></span> $cancel_label</button>"
+				}
+			]);
+		}
+
+		
+	
+	</script>
+
+   
+
+    <div id="background" class="background">
+    <div id="panel">
+		<!-- <div id="lsb"><img src="img/logo.png"/><br/>$lsb_description</div> -->
+      <!-- <div id="clock"></div> -->
+	</div>
+	</div>
+	<div id="left_box">
+				<div id="top_box">
+					<div id="top_inner_box">
+						<div id="top_users"></div>
+					</div>
+				</div>
+
+				<div id="bottom_users"></div>
+				<div id="hidden_users" class="hide"></div>
+	
+	
+	</div> <!-- left_box -->
+	<div id="right-box">
+		<div id="quit" onClick="quit_dialog();"><span class="glyphicon glyphicon-off"></span></div>
+		<div id="error" class="alert alert-error"></div>
+		<div id="timed" class="alert alert-info"></div>
+				
+		<!-- <div id="welcome_message"></div>  -->
+
+				<div id="middle_box">				
+						<div id="login_box">	
+							<img id="current_language_flag" class="selection-picture" src="../common/img/languages/generic.png" height="16" data-container="body" data-toggle="popover" data-placement="right"/>
+							<img id="current_session_picture" class="selection-picture" src="img/cog.png" data-container="body" data-toggle="popover" data-placement="right"></img>							
+							<img id="selected_avatar" onerror="this.src='img/default-user.svg'" src="img/default-user.svg"/></img>
+							<div id="selected_status"></div>
+							<div id="selected_user"></div>
+							<div id="selected_user_box" class="hide"><font class="selected_font_username" id="current_username"></font> <font class="selected_font_gecos" id="current_gecos"></font></div>
+							<form onSubmit="return send_login();">		
+								<div id="entry_box"><input type="text" id="entry"></div>
+								<div id="ok_button_box"><input type="submit" id="ok_button" value="$ok_label"></input></div>		
+							</form>
+							<div id="sessions-title" class="hide">$selectsession</div>
+							<div id="sessions-body" class="hide">
+								<p>
+									<table class="table-striped table-hover table-condensed" id="sessions"></table>				
+									</ul>
+									</p>
+							</div>
+
+							<div id="languages-title" class="hide">$selectlanguage</div>
+							<div id="languages-body" class="hide">
+								<p>
+									<table class="table-striped table-hover table-condensed" id="languages"></table>
+									</p>
+							</div>							
+                  </div> <!-- login_box -->				
+				</div> <!-- middle_box -->
+
+	</div>
+		
+
+</body>
+</html>
+
+<script src="js/bootstrap.min.js"></script>
+
+<script>
+	$('#login_box').hide();
+	init();
+
+	$("body").on("keydown", function(e){
+		if(e.keyCode === 38) {
+        	// up
+       		select_user_at_index(selected_user - 1, true);
+       		return false;   
+    	}
+    	else if(e.keyCode === 40) {
+        	// down
+        	select_user_at_index(selected_user + 1, true);
+        	return false;
+    	}
+    	else if (e.keyCode == 9) {
+    		// tab    
+    		$('#entry').focus();
+    		return false;
+    	}
+    	else if (e.keyCode == 13) {
+    		// enter
+    		if ($('#login_box').is(':hidden')) {
+    			return false;
+    		}
+    		else {
+    			send_login();
+    			return false;
+    		}
+    	}    	
+ 	});   	
+
+	//// Panning
+	//panning = new Motio(document.getElementById('background'), {
+	//	fps: 30,
+	//	speedY: 30
+	//	
+	//});
+
+	function moveDiv(){
+        var speed = Math.floor((Math.random()*3)+1);
+        speed = speed -2;
+        speed = speed * 30;
+        //panning.set('speedX', speed);                 
+    };
+
+	//panning.play(); // Start playing animation
+
+	moveDiv();
+	setInterval(moveDiv, 10000);
+
+	// $(document).ready(function() {
+	// 	document.getElementById("entry").focus();
+ //        $("body").css("display", "none");
+ //        $("body").delay(2000).fadeIn(2000);
+ //    });
+
+ 	  $('#current_session_picture').popover({ 
+		    html : true,
+		    title: function() {
+		      return $("#sessions-title").html();
+		    },
+		    content: function() {
+		      return $("#sessions-body").html();
+		    }
+		});
+
+ 	  $('#current_language_flag').popover({ 
+		    html : true,
+		    title: function() {
+		      return $("#languages-title").html();
+		    },
+		    content: function() {
+		      return $("#languages-body").html();
+		    }
+		});
+
+ 	  $.fn.animateTo = function(appendTo, destination, duration, easing, complete) {
+  if(appendTo !== 'appendTo'     &&
+     appendTo !== 'prependTo'    &&
+     appendTo !== 'insertBefore' &&
+     appendTo !== 'insertAfter') return this;
+  var target = this.clone(true).css('visibility','hidden')[appendTo](destination);
+  this.css({
+    'position' : 'relative',
+    'top'      : '0px',
+    'left'     : '0px'
+  }).animate({
+    'top'  : (target.offset().top - this.offset().top)+'px',
+    'left' : (target.offset().left - this.offset().left)+'px'
+  }, duration, easing, function() {
+    target.replaceWith($(this));
+    $(this).css({
+      'position' : 'static',
+      'top'      : '',
+      'left'     : ''
+    });
+    if($.isFunction(complete)) complete.call(this);
+  });
+}
+ 	
+	
+
+
+</script>
+
+    
+
+    
+     

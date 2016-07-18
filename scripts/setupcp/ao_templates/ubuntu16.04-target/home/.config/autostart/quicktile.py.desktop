@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/local/bin/quicktile.py --daemonize
+Hidden=false
+X-MATE-Autostart-enabled=true
+Name[en_US]=Quicktile
+Name=Quicktile
+Comment[en_US]=
+Comment=

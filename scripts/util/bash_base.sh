@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: Call this script from another script.
@@ -182,9 +182,10 @@ FEDORAVERSABBR=$(cat /etc/issue \
                  | grep Fedora \
                  | /bin/sed 's/^Fedora release ([0-9]+) \((.*)\)$/\1/')
 # /etc/issue is, e.g., 'Ubuntu 12.04 LTS (precise) \n \l'
-UBUNTUVERSABBR=$(cat /etc/issue \
-                 | grep Ubuntu \
-                 | /bin/sed -r 's/^Ubuntu ([.0-9]+) [^(]*\((.*)\).*$/\1/')
+#UBUNTUVERSABBR=$(cat /etc/issue \
+#                 | grep Ubuntu \
+#                 | /bin/sed -r 's/^Ubuntu ([.0-9]+) [^(]*\((.*)\).*$/\1/')
+UBUNTUVERSABBR=$(cat /etc/issue | grep Ubuntu | /bin/sed -r 's/^Ubuntu ([.0-9]+) .*$/\1/')
 # /etc/issue is, e.g., 'Linux Mint 16 Petra \n \l'
 MINTVERSABBR=$(cat /etc/issue \
                | grep "Linux Mint" \

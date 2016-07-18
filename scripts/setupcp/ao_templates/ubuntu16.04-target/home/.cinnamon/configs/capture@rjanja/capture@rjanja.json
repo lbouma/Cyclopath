@@ -1,0 +1,245 @@
+{
+    "general stetings": {
+        "type": "header",
+        "description": "General Settings"
+    },
+    "camera-program": {
+        "default": "cinnamon",
+        "type": "combobox",
+        "options": {
+            "Cinnamon Screenshot": "cinnamon",
+            "GNOME Screenshot": "gnome-screenshot"
+        },
+        "description": "Screen capture program",
+        "tooltip": "Preferred screen capture program",
+        "value": "cinnamon"
+    },
+    "recorder-program": {
+        "default": "cinnamon",
+        "type": "combobox",
+        "options": {
+            "Cinnamon Recorder": "cinnamon",
+            "RecordMyDesktop": "gtk-recordmydesktop"
+        },
+        "description": "Screen recorder program",
+        "tooltip": "Preferred screen recorder program",
+        "value": "cinnamon"
+    },
+    "div1": {
+        "type": "separator"
+    },
+    "cinn screenshot settings": {
+        "type": "header",
+        "description": "Screenshot Settings"
+    },
+    "camera-save-dir": {
+        "default": "~/Pictures/screenshots",
+        "type": "filechooser",
+        "select-dir": true,
+        "description": "Save location for screen grabs",
+        "allow-none": true,
+        "value": "~/Pictures/screenshots"
+    },
+    "camera-save-prefix": {
+        "default": "screenshot-%TYPE-%Y-%M-%D-%H%I%S",
+        "type": "entry",
+        "description": "Filename format",
+        "tooltip": "Filename format for screen grabs",
+        "value": "screenshot-%TYPE-%Y-%M-%D-%H%I%S"
+    },
+    "include-cursor": {
+        "default": false,
+        "type": "checkbox",
+        "description": "Include mouse cursor",
+        "tooltip": "Whether to include mouse cursor in screenshot",
+        "value": false
+    },
+    "use-timer": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Use timer",
+        "tooltip": "Whether to use a timer before capturing",
+        "value": true
+    },
+    "delay-seconds": {
+        "default": 2,
+        "type": "spinbutton",
+        "min": 0,
+        "max": 600,
+        "units": 1,
+        "step": 1,
+        "description": "Capture delay",
+        "tooltip": "How many seconds to wait before taking a screenshot",
+        "dependency": "use-timer",
+        "value": 2
+    },
+    "show-capture-timer": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Show capture timer",
+        "tooltip": "Whether to show the timer on the screen",
+        "dependency": "use-timer",
+        "value": true
+    },
+    "div2": {
+        "type": "separator"
+    },
+    "cinn screenshot settings-window": {
+        "type": "header",
+        "description": "Cinnamon Screenshot"
+    },
+    "kb-cs-window": {
+        "type": "keybinding",
+        "description": "Keybinding to capture a window: ",
+        "default": "<Control>F5",
+        "value": "<Control>F5"
+    },
+    "kb-cs-area": {
+        "type": "keybinding",
+        "description": "Keybinding to capture an area: ",
+        "default": "<Control>F6",
+        "value": "<Control>F6"
+    },
+    "kb-cs-ui": {
+        "type": "keybinding",
+        "description": "Keybinding to capture a UI element: ",
+        "default": "<Control>F7",
+        "value": "<Control>F7"
+    },
+    "kb-cs-screen": {
+        "type": "keybinding",
+        "description": "Keybinding to capture the screen: ",
+        "default": "<Control>F8",
+        "value": "<Control>F8"
+    },
+    "kb-cs-monitor-0": {
+        "type": "keybinding",
+        "description": "Keybinding to capture monitor 1: ",
+        "default": "<Control>F9",
+        "value": "<Control>F9"
+    },
+    "capture-window-as-area": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Capture window as area (suggested, or shots may be black or distorted)",
+        "tooltip": "Whether to use area selection for window captures",
+        "value": true
+    },
+    "include-window-frame": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Include window frame",
+        "tooltip": "Whether to include the window frame and titlebar in window captures",
+        "value": true
+    },
+    "use-camera-flash": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Use camera flash",
+        "tooltip": "Whether to show a bright flash over the capture area",
+        "value": true
+    },
+    "include-styles": {
+        "default": false,
+        "type": "checkbox",
+        "description": "Include applied styles in UI capture",
+        "tooltip": "Whether to include CSS selection styles in Cinnamon UI screenshots",
+        "value": false
+    },
+    "use-symbolic-icon": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Use symbolic (black and white) icon for applet",
+        "tooltip": "Whether to use symbolic (black and white) icon for applet",
+        "value": true
+    },
+    "play-shutter-sound": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Play shutter sound",
+        "tooltip": "Whether to play the shutter sound as the capture is made",
+        "value": true
+    },
+    "play-timer-interval-sound": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Play timer interval sound",
+        "tooltip": "Whether to play the timer interval sound as the timer counts down",
+        "value": true
+    },
+    "copy-to-clipboard": {
+        "default": true,
+        "type": "combobox",
+        "options": {
+            "Off": 0,
+            "Path and filename": 1,
+            "Only Directory": 2,
+            "Only Filename": 3,
+            "Image Data": 4
+        },
+        "description": "Copy to clipboard",
+        "tooltip": "Whether to copy path/filename of screenshots to clipboard after capture",
+        "value": true
+    },
+    "upload-to-imgur": {
+        "default": false,
+        "type": "generic",
+        "description": "Upload all captures to imgur.com",
+        "tooltip": "If enabled, all captures will be uploaded to imgur. The view and delete URLs for each capture are stored in a file imgur.log in the capture save directory.",
+        "value": false
+    },
+    "send-notification": {
+        "default": true,
+        "type": "checkbox",
+        "description": "Show desktop notification",
+        "tooltip": "Whether to send a notification to desktop after capture",
+        "value": true
+    },
+    "open-after": {
+        "default": false,
+        "type": "checkbox",
+        "description": "Open file manager after capture",
+        "tooltip": "Whether to open the screenshot in file manager",
+        "value": false
+    },
+    "div3": {
+        "type": "separator"
+    },
+    "cinn recorder settings": {
+        "type": "header",
+        "description": "Cinnamon Recorder"
+    },
+    "recorder-save-dir": {
+        "default": "~/Videos/screencasts",
+        "type": "filechooser",
+        "select-dir": true,
+        "description": "Save location for screen recordings",
+        "allow-none": true,
+        "value": "~/Videos/screencasts"
+    },
+    "recorder-save-prefix": {
+        "default": "screencast-%Y-%M-%D-%H%I%S",
+        "type": "entry",
+        "description": "Filename format for screen recordings",
+        "value": "screencast-%Y-%M-%D-%H%I%S"
+    },
+    "last-selected-page": {
+        "default": 0,
+        "type": "generic",
+        "description": "Last selected page (tab index) of settings application",
+        "value": 0
+    },
+    "last-selected-subpage": {
+        "default": 0,
+        "type": "generic",
+        "description": "Last selected sub-page (tab index) of settings application",
+        "value": 0
+    },
+    "record-sound": {
+        "default": 0,
+        "type": "generic",
+        "description": "Record sound",
+        "value": 0
+    },
+    "__md5__": "d4647271bd9b6282979ffe1fe7925b23"
+}

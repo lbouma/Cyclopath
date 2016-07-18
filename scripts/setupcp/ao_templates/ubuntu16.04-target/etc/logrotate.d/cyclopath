@@ -1,0 +1,10 @@
+
+
+FIXME: Keep one of the Ccp logs as backup each... the rest can go?
+or maybe we keep for a period of time instead
+anyway, /ccp/var/log/pyserver is fillin up
+
+also,
+/tmp/mapserv.debug.txt
+
+
