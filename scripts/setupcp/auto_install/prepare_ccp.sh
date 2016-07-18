@@ -244,6 +244,11 @@ ccp_setup_branch () {
   else
     echo -n " .. checkingout ${checkout_from}... "
 
+    echo
+    echo "FATAL: 2016-07-18: SVN is deprecated. Get from git instead."
+    echo
+    exit 1
+
     # NOTE: $svnroot is set by check_parms.sh. For local devs, it's, i.e.,
     #       ssh://$USER@$HOSTNAME.cs.umn.edu; for other devs, it's the
     #       public svn address, svn://cycloplan.cyclopath.org/cyclingproject.

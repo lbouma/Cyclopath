@@ -141,8 +141,9 @@ if [[ "$MACHINE_DOMAIN" == "cs.umn.edu" ]]; then
     echo
     #echo "Error: Please specify \$svnroot or \$SVNROOT."
     svnroot="svn+ssh://$USER@$HOSTNAME.cs.umn.edu/project/Grouplens/svn/cyclingproject"
-    echo "Warning: \$svnroot or \$SVNROOT not found. But we can guess..."
-    echo
+    # 2016-07-18: SVN is deprecated.
+    #echo "Warning: \$svnroot or \$SVNROOT not found. But we can guess..."
+    #echo
   fi
 else
   # FIXME: The cyclop group is not automatically created...
@@ -154,7 +155,7 @@ else
     svnroot="svn://cycloplan.cyclopath.org/cyclingproject"
   fi
 fi
-echo "Using svnroot: $svnroot"
+#echo "Using svnroot: $svnroot"
 
 # Setup PYTHONVERS, PYVERSABBR, httpd_user, httpd_etc_dir.
 
