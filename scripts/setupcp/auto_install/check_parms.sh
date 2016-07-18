@@ -8,8 +8,13 @@
 
 #script_relbase=$(dirname $0)
 #script_absbase=`pwd $script_relbase`
-echo "SCRIPT_DIR=\$(dirname \$(readlink -f $0))"
-SCRIPT_DIR=$(dirname $(readlink -f $0))
+if [[ `echo "$0" | grep "bash$" -` ]]; then
+  # User sourcing us from terminal.
+  SCRIPT_DIR=$(pwd -P)
+else
+  SCRIPT_DIR=$(dirname $(readlink -f $0))
+fi
+echo "SCRIPT_DIR: $SCRIPT_DIR"
 
 USAGE="Usage: $0 MASTER_HOSTNAME|- TARGET_USERNAME|-"
 # Skipping: $3, $4, and $5, which is used internally.
