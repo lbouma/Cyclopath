@@ -422,7 +422,7 @@ class Ccp_Send_Emails(Ccp_Script_Base):
                'user_unsubscribe', recipient_email, unsubscribe_proof)
 
             # To test the unsubscribe feature, try a link like this:
-# http://ccpv3/gwis?request=user_unsubscribe&email=cyclopath@retrosoft.com&proof=asdasdasd
+# http://ccpv3/gwis?request=user_unsubscribe&email=somewhere@domain.tld&proof=asdasdasd
 
          db.close()
 

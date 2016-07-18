@@ -855,3 +855,90 @@ if (__name__ == '__main__'):
    a2s = Apache2Sql()
    a2s.go()
 
+
+
+if False:
+  # FIXME: Use this:
+  __nothing__ = """
+http://www.dabeaz.com/generators/Generators.pdf
+
+Tuples to Dictionaries
+
+• Let's turn tuples into dictionaries
+colnames = ('host','referrer','user','datetime',
+            'method','request','proto','status','bytes')
+log = (dict(zip(colnames,t)) for t in tuples)
+
+• This generates a sequence of named fields
+{ 'status' : '200',
+'proto' : 'HTTP/1.1',
+'referrer': '-',
+'request' : '/ply/ply.html',
+'bytes' : '97238',
+'datetime': '24/Feb/2008:00:08:59 -0600',
+'host' : '140.180.132.213',
+'user' : '-',
+'method' : 'GET'}
+
+def field_map(dictseq,name,func):
+   for d in dictseq:
+      d[name] = func(d[name])
+      yield d
+
+import os
+import fnmatch
+def gen_find(filepat,top):
+   for path, dirlist, filelist in os.walk(top):
+      for name in fnmatch.filter(filelist,filepat):
+         yield os.path.join(path,name) 
+
+import gzip, bz2
+def gen_open(filenames):
+   for name in filenames:
+      if name.endswith(".gz"):
+         yield gzip.open(name)
+      elif name.endswith(".bz2"):
+         yield bz2.BZ2File(name)
+      else:
+         yield open(name)
+
+def gen_cat(sources):
+   for s in sources:
+      for item in s:
+      yield item
+
+def lines_from_dir(filepat, dirname):
+   names = gen_find(filepat,dirname)
+   files = gen_open(names)
+   lines = gen_cat(files)
+   return lines
+
+def apache_log(lines):
+   groups = (logpat.match(line) for line in lines)
+   tuples = (g.groups() for g in groups if g)
+   colnames = ('host', 'referrer', 'user', 'datetime', 'method',
+               'request', 'proto', 'status', 'bytes')
+   log = (dict(zip(colnames,t)) for t in tuples)
+   log = field_map(log, "bytes", lambda s: int(s) if s != '-' else 0)
+   log = field_map(log, "status", int)
+
+lines = lines_from_dir("access-log*","www")
+log = apache_log(lines)
+for r in log:
+   print r
+
+# You may need to pre-filter if you're just looking for specific lines,
+# e.g., rather than
+addrs = set(r['host'] for r in log if 'robots.txt' in r['request'])
+# you'll want to do something line
+lines = lines_from_dir("big-access-log",".")
+lines = (line for line in lines if 'robots.txt' in line)
+log = apache_log(lines)
+# etc...
+
+
+
+
+"""
+
+

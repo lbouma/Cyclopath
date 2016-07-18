@@ -332,7 +332,7 @@ class Request(object):
       #  '<data>\n  <metadata>\n    <changenote/>\n    <user name')
       # '<data>\n  <metadata>\n    <changenote/>\n    <user name':
       #  [Field('<data>\n  <metadata>\n    <changenote/>\n
-      #    <user name', '"landonb" token="sdfdsfdsfdsfsd"/>\n
+      #    <user name', '"username" token="sdfdsfdsfdsfsd"/>\n
       #    </metadata>\n  <items>\n
       #    <merge_job stack_id="-10" version="0" name="null" deleted="0"
       #     job_act="upload" job_priority="0" for_group_id="0"

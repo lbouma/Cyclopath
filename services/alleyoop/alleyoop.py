@@ -37,6 +37,68 @@ otherwise ask?)
 See: Natural Language Toolkit for Python.
 http://nltk.googlecode.com/svn/trunk/doc/book/book.html
 
+# ***
+
+# Running Concorde and QSopt
+
+# Note: We're solving an asymmetrical traveling salesperson problem.
+#       [lb] is using the matrix format found in the TSLLIB examples.
+#       I guess matrix is not the default, because without telling
+#       Concorde the format, Concorde complains:
+#         Problem Type: ATSP
+#         Not a TSP problem
+#         CCutil_gettsplib failed
+# See ./concorde --help:
+#   -N #  norm (must specify if dat file is not a TSPLIB file)
+#         0=MAX, 1=L1, 2=L2, 3=3D, 4=USER, 5=ATT, 6=GEO, 7=MATRIX,
+#         8=DSJRAND, 9=CRYSTAL, 10=SPARSE, 11-15=RH-norm 1-5, 16=TOROIDAL
+#         17=GEOM, 18=JOHNSON
+# Here, we use the MATRIX option.
+
+cd /ccp/dev/cp/services/alleyoop
+/ccp/opt/.downloads/concorde-tsp-co031219/TSP/concorde -N 7 atsp-easyfour.atsp
+
+# ***
+
+# Using ./ccp.py to get a route:
+
+./ccp.py --py_host cycloplan.cyclopath.org --route --from 'gateway fountain' --to 'eagan, mn'
+
+FIXME: Save route XML to file or somehow pass back here...
+
+# ***
+
+# Install MongoDB
+
+# The mongodb docs say to import the public key used by the pkg mgmt sys,
+# but I didn't do this:
+#
+# sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
+# echo \
+#   'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' \
+#   | sudo tee /etc/apt/sources.list.d/mongodb.list
+# sudo apt-get update
+# sudo apt-get install mongodb-org
+
+sudo apt-get install mongodb-server
+sudo apt-get install python-pymongo python-pymongo-doc
+
+# Either/or:
+#sudo /etc/init.d/mongodb start
+sudo service mongodb start
+
+tail -n +0 -F /var/log/mongodb/mongodb.log
+
+
+import pymongo
+from pymongo import MongoClient
+client = MongoClient('localhost', 27017)
+# Same as:
+#  client = MongoClient('mongodb://localhost:27017/')
+
+db = client.alleyoopcat
+
+
 """
 
 # This daemon runs the Alleyooooop*Cat service.

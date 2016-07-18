@@ -4,6 +4,7 @@
 
 package org.cyclopath.android.gwis;
 
+import java.net.URLEncoder;
 import java.util.ArrayList;
 
 import org.cyclopath.android.G;
@@ -44,7 +45,8 @@ public class GWIS_Geocode extends GWIS {
       StringBuilder xml_data = new StringBuilder("<addrs>");
       for (String addr : addrs) {
          xml_data.append("<addr addr_line=\"" 
-                         + addr 
+// [lb] is guessing...
+                         + URLEncoder.encode(addr)
                          + "\" />");
       }
       xml_data.append("</addrs>");

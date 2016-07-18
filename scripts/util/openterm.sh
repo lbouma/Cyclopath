@@ -4,7 +4,7 @@ script_name = "Monitor-aware gnome-terminal wrapper"
 script_version = "1.0"
 
 __version__ = script_version
-__author__ = "Landon Bouma <cyclopath@retrosoft.com>"
+__author__ = "Landon Bouma <landon.bouma@gmail.com>"
 __date__ = "2011-08-14"
 
 import optparse

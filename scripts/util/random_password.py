@@ -22,7 +22,6 @@ import random
 import string
 import sys
 
-
 # In lieu of something more robust and complicated, like
 # argparse.ArgumentParser, we just read the one arg.
 target_len = 13 # A default.

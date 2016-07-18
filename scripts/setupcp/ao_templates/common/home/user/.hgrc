@@ -1,5 +1,5 @@
 [ui]
-username = HG_USER_NAME() <HG_USER_EMAIL>
+username = HG_USER_NAME() <HG_USER_EMAIL()>
 # Enable SSH compression for Mercurial
 # https://confluence.atlassian.com/pages/viewpage.action?pageId=270827678
 ssh = ssh -C

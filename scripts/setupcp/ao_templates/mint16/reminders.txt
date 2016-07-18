@@ -11,7 +11,7 @@ of these are suggestions, except for the caveats.
 
 === Caveat: Postgresql.conf is setup based on RAM ===
 
-We configured Postgresql.conf for 5120 GB or RAM.
+We configured Postgresql.conf for 5120 GB of RAM.
 
 If you change virtual machine RAM (especially if you lower it),
 you'll want to edit '''<tt>/etc/sysctl.conf</tt>''' and modify
@@ -50,7 +50,7 @@ Once you have a key, add it to the pyserver configuration file:
  yahoo_app_id: 
  mappoint_user: 
  mappoint_password: 
- bing_maps_id: ''my_new_key_123
+ bing_maps_id: ''my_new_key_123''
 
 ==== Cyclopath Services ====
 
@@ -76,7 +76,6 @@ your browser requests try to use https.
 #* Visit: https://www.eff.org/files/https-everywhere-latest.xpi
 
 # Run Chrome and install HTTPS Everywhere.
-#* Note: The Chrome version is labeled "Beta".
 #* Visit: https://chrome.google.com/webstore/detail/gcbommkclmclpchllfjekcdonpmejbdp
 
 ==== Gesture Plugin ====
@@ -86,27 +85,34 @@ If you like browser mouse gestures, these two seem to work well:
 # Gestures for Mozilla Firefox
 #* https://addons.mozilla.org/en-US/firefox/addon/firegestures/
 
-# Smooth Gestures for Google Chrome
-#* Works well but adds ads to the bottom of pages sometimes.
-#* https://chrome.google.com/webstore/detail/smooth-gestures/lfkgmnnajiljnolcgolmmgnecgldgeld
-
-# CrxMouse
+# CrxMouse for Google Chrome
 #* https://chrome.google.com/webstore/detail/crxmouse/jlgkpaicikihijadgifklkbpdajbkhjo
 
-# We didn't configure Firefox or Chrome, so you'll want to set preferences the way you like 'em. Some possibilies:
+==== Browser Configuration ====
+
+We didn't configure Firefox or Chrome, so you'll want to set preferences the way you like 'em. Some possibilies:
 #* Tell 'em both to start with tabs and windows from last time.
 #* Change the homepages as you like.
 #* Tell Firefox not to warn when closing multiple tabs, or that many tabs might slow down the machine (silly warnings).
 #* Hide the Firefox menu bar to gain a little vertical space.
 #* Linux Mint 16 gets revenue by using Yahoo as the default Firefox page and search engine. But you can always enable Google:
 #** http://www.linuxmint.com/searchengines.php
-#** http://www.linuxmint.com/searchengines/anse.php?sen=Google&c=y
+#   Then click on the Google icon beneath "Commercial Engines"
+#   (The page is http://www.linuxmint.com/searchengines/anse.php?sen=Google&c=y but it is
+#    blank unless loaded from the base page.)
+
+In Firefox, ...-
+
+In chrome://settings/:
+#* On startup: [Select] Continue where you left off
+#* Appearance: [Deselect] Use system title bar and borders
 
 ==== Setup the MATE panels ====
 
 These steps are merely suggestions, or maybe it's just a list of what [lb] likes to do.
 
-* Add a second bottom panel, two rows tall, and add just the application window list to it; and remove the window list from the original, single-row panel.
+* Add a second panel just for the Window List applets. Right-click the bottom panel and choose New Panel, and increase its height from the default of 24 pixels to 52 pixels. Set its Orientation to Bottom; you might have to edit the properties of the original panel to set its Orientation to Top and then back to Bottom so that the original, one-row panel is at the very bottom and the new, two-row panel sits on top of it.
+** Remove the Window List from the orignal panel and add one to the new panel.
 ** Some people use workspaces to manage windows, or maybe they group by application, or maybe they only open one or two terminal windows, but I usually find myself with a dozen terminal windows and a dozen browser windows. Using a dedicated, two row window list panel accomodates this lifestyle, even on a small (laptop) monitor.
 * Next to the clock, add the weather and system monitor. [lb]
 * Open Pidgin and tell it to run at boot and to add itself to the notification area.
@@ -115,6 +121,27 @@ These steps are merely suggestions, or maybe it's just a list of what [lb] likes
 *** You might want to edit the Meld command so that it starts a comparison of your Cyclopath working directory and the trunk.
 *** You can also have Reader or Atril open some of your go-to user docs, like the Python reference.
 *** [lb] has Dia set to open the Cyclopath data model, <tt>/ccp/dev/cp/doc/data-model.dia</tt>
+
+==== Configure Pidgin ====
+
+From http://mylinuxbook.com/how-to-get-pidgin-working-with-gtalk/
+
+So, this is the ‘Not Authorized’ error problem that I was talking about in the beginning of the article.
+
+At first, I could not understand the reason behind it and tried to click the ‘Enabled’ check box multiple times (in the previous window) but it was of no use. Then I googled a bit and realised that Pidgin gives this kind of a problem while connecting to Gmail accounts that have Two-Step Verification ON. So was in my case.
+
+To make Pidgin connect and sign-in properly, users need to generate and set an application specific password for Pidgin in your Google accounts.
+
+To do this :
+
+    Go to your google accounts by logging in to http://accounts.google.com/
+    In the ‘Security’ menu (left side of the window), go to the 2-step verification section
+    Under this section., click the ‘Manage your application-specific passwords’ link.
+    Sign-in again (if prompted)
+    Set any name relevant to the application. For example, pidgin-messenger and hit the ‘Generate Password’ button.
+    Copy the password generated (along with the spaces, it doesn’t matter) and hit the ‘done’ button.
+
+Now, hit the ‘Modify account’ button on the Pidgin window, paste the copied password in the ‘password’ text box and click the ‘save’ button. You will again be presented the ‘Add accounts’ window. In this window try again to tick the ‘Enabled’ check box
 
 ==== Setup Wiresharek ====
 

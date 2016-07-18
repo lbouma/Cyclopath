@@ -16,7 +16,7 @@
     #Options FollowSymLinks
 
     # Don't forget to also set PythonPath below.
-    DocumentRoot /ccp/dev/cp_1997/htdocs
+    DocumentRoot /ccp/dev/cp/htdocs
 
     PythonInterpreter minnesota
 
@@ -32,7 +32,7 @@
     </DirectoryMatch>
 
     # DocumentRoot / Static files
-    <Directory /ccp/dev/cp_1997/htdocs>
+    <Directory /ccp/dev/cp/htdocs>
         Options FollowSymLinks
         #AllowOverride None
         # This is needed in Fedora 14 because of SELinux:
@@ -52,8 +52,8 @@
     </Directory>
 
     # Home page (http://cyclopath.org/)
-    Alias /home/ /ccp/dev/cp_1997/mediawiki/home/
-    <Directory /ccp/dev/cp_1997/mediawiki/home>
+    Alias /home/ /ccp/dev/cp/mediawiki/home/
+    <Directory /ccp/dev/cp/mediawiki/home>
         Options FollowSymLinks
         AllowOverride None
         Order allow,deny
@@ -65,15 +65,15 @@
     # BUG 1998: Remove this code someday. ** begin-compliance
     #
     # BetterCP Assets 
-    Alias /bettercp/assets /ccp/dev/cp_1997/bettercp/assets
-    <Directory /ccp/dev/cp_1997/bettercp/assets> 
+    Alias /bettercp/assets /ccp/dev/cp/bettercp/assets
+    <Directory /ccp/dev/cp/bettercp/assets> 
         Options FollowSymLinks 
         AllowOverride None 
         Order allow,deny 
         Allow from all 
     </Directory>
     # BetterCP Scripts
-    ScriptAlias /bettercp /ccp/dev/cp_1997/bettercp
+    ScriptAlias /bettercp /ccp/dev/cp/bettercp
     <Directory /bettercp> 
         AllowOverride Options
         Order allow,deny
@@ -99,7 +99,7 @@
         Allow from 127.0.0.1
         SetHandler cgi-script
         Options +ExecCGI
-        SetEnv MS_MAPFILE /ccp/dev/cp_1997/mapserver/wms.map
+        SetEnv MS_MAPFILE /ccp/dev/cp/mapserver/wms.map
     </Location>
 
     # TileCache via mod_python
@@ -140,12 +140,12 @@
 
         SetHandler mod_python
         PythonDebug On
-        PythonPath "['/ccp/dev/cp_1997/pyserver', '/ccp/dev/cp_1997/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python2.6/site-packages', '/ccp/opt/usr/lib/python2.7/site-packages'] + sys.path"
+        PythonPath "['/ccp/dev/cp/pyserver', '/ccp/dev/cp/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python2.6/site-packages', '/ccp/opt/usr/lib/python2.7/site-packages'] + sys.path"
         PythonHandler wfs_mod_python
     </Location>
 
     # Instance assets (logo, etc.)
-    Alias /instance /ccp/dev/cp_1997/htdocs/instance/minnesota
+    Alias /instance /ccp/dev/cp/htdocs/instance/minnesota
 
     ErrorLog /var/log/httpd/error_log
 

@@ -107,7 +107,7 @@ ccp_time_0=$(date +%s.%N)
 # NOTE: From the shell, you can determine the current e, or errexit,
 #       setting with the command:
 #
-#        $ set -o | grep errexit | sed -r 's/^errexit\s+//'
+#        $ set -o | grep errexit | /bin/sed -r 's/^errexit\s+//'
 #
 #       which returns on or off.
 #
@@ -126,6 +126,15 @@ reset_errexit () {
   fi
 }
 reset_errexit
+
+# Determine Python version.
+PYVERS_RAW=`python3 --version \
+	|& /usr/bin/awk '{print $2}' \
+	| /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/g'`
+if [[ -z $PYVERS_RAW ]]; then
+	echo "Unexpected: Could not parse Python version."
+	exit 1
+fi
 
 # *** Helper fcns.
 
@@ -1092,7 +1101,7 @@ if [[ ! -e /ccp/dev/cp/flashclient/build/main.swf ]]; then
     #  https://help.ubuntu.com/community/SSH/OpenSSH/Keys
     #
     # Disable password auth. You'll have to setup SSH keys to connect.
-    sudo sed -i.bak \
+    sudo /bin/sed -i.bak \
       "s/^#PasswordAuthentication yes$/#PasswordAuthentication yes\nPasswordAuthentication no/" \
       /etc/ssh/sshd_config
 
@@ -1277,7 +1286,7 @@ if [[ ! -e /ccp/dev/cp/flashclient/build/main.swf ]]; then
     sudo chmod 644 /usr/local/lib/php.ini
 
     # Set the timezone.
-    sudo sed -i.bak \
+    sudo /bin/sed -i.bak \
       "s/^;date.timezone =/date.timezone = $USE_TIMEZONE/" \
       /usr/local/lib/php.ini
 
@@ -1887,20 +1896,32 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       set +ex
       ./quicktile.py
       reset_errexit
+      #
+      # 2014.11.17: Make sure we use Python2.
+      /bin/sed -i.bak \
+        "s/^#\!\/usr\/bin\/env python$/#\!\/usr\/bin\/env python2/" \
+        ./setup.py
+      #
       # ./setup.py build
       sudo ./setup.py install
+      #
       # Test:
       #  quicktile.py --daemonize
       # Well, that's odd:
       sudo chmod 644 /etc/xdg/autostart/quicktile.desktop
       sudo chmod 755 /usr/local/bin/quicktile.py
+      #sudo /bin/ln -s \
+      #  /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.0.0-py${PYVERS_RAW}.egg \
+      #  /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW}.egg
       sudo $USE_CCPDFILES/scripts/util/fixperms.pl --public \
-        /usr/local/lib/python2.7/dist-packages/QuickTile-0.2.2-py2.7.egg
+        /usr/local/lib/python${PYVERS_RAW}/dist-packages/QuickTile-0.2.2-py${PYVERS_RAW}.egg
       # Hrm. I reinstalled but then had to make my own startup file, since 
       # /etc/xdg/autostart/quicktile.desktop no longer seemed to work (it
       # doesn't appear to be registered; probably a dconf problem). SO
       # just make your own startup file and have it execute:
       #   /usr/local/bin/quicktile.py --daemonize
+      # If you want to run quicktile from the command line, try:
+      #   sudo /usr/local/bin/quicktile.py --daemonize &
 
     fi
 
@@ -1995,7 +2016,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
         # org.mate.sound theme-name 'LinuxMint'
       fi
 
-      sudo sed -i.bak \
+      sudo /bin/sed -i.bak \
         "s/^\[greeter\]$/[greeter]\nHTMLTheme=$THEME_NAME/" \
         /etc/mdm/mdm.conf
     fi
@@ -2156,7 +2177,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       # Show hidden Startup Applications.
       # http://www.howtogeek.com/103640/
       #   how-to-make-programs-start-automatically-in-linux-mint-12/
-      # sudo sed -i \
+      # sudo /bin/sed -i \
       #   's/NoDisplay=true/NoDisplay=false/g' /etc/xdg/autostart/*.desktop
 
     fi # end: if $WM_IS_CINNAMON
@@ -2356,6 +2377,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       #   "Enable for loops over items with spaces in their name."
       #   We don't really need to change IFS, but it's good form.
       #   ... unless you never use spaces in your file names.
+      OLD_IFS=$IFS
       IFS=$'\n'
       # Huh. I guess the wildcard doesn't work in the quotes.
       #  for dir in `ls "$MINT_FILES/home/$home_path/*.desktop"`
@@ -2366,6 +2388,9 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
           $dtop_file \
           > ~/$home_path/`basename $dtop_file`
       done
+      # Similar to: IFS=$' \t\n'
+      IFS=$OLD_IFS
+      # You can view the IFS using: printf %q "$IFS".
 
       # Rearrange the Panel launchers
       gsettings set org.cinnamon panel-launchers \
@@ -2385,7 +2410,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
 
       # Customize the Mint Menu: Change icon and remove text label.
 
-      # MAYBE: Use sed instead, since you're just changing two values.
+      # MAYBE: Use /bin/sed instead, since you're just changing two values.
       home_path=.cinnamon/configs/menu@cinnamon.org
       /bin/cp -f \
         $MINT_FILES/home/$home_path/menu@cinnamon.org.json \
@@ -2457,7 +2482,7 @@ error_log = /ccp/var/log/mediawiki/php_errors.log
       touch /ccp/var/log/postgresql/postgresql-9.1-main.log
       sudo chown postgres /ccp/var/log/postgresql/postgresql-9.1-main.log
       sudo chmod 664 /ccp/var/log/postgresql/postgresql-9.1-main.log
-      tot_sys_mem=`cat /proc/meminfo | grep MemTotal | sed s/[^0-9]//g`
+      tot_sys_mem=`cat /proc/meminfo | grep MemTotal | /bin/sed s/[^0-9]//g`
       PGSQL_SHBU=$(($tot_sys_mem / 3))kB
       m4 \
         --define=PGSQL_SHBU=$PGSQL_SHBU \

@@ -97,23 +97,27 @@ ccp_apache_reload () {
 # *** Python-related
 
 # Determine the Python version-path.
+
 # NOTE: The |& redirects the python output (which goes to stderr) to stdout.
-# FIXME: Is this flexible enough? Probably...
-# 2012.08.21: Ubuntu 8.04 does not support the |& redirection syntax?
-if [[ -n "`cat /etc/issue | grep '^Ubuntu 8.04'`" ]]; then
-  PYTHONVERS=python2.5
-  PYVERSABBR=py2.5
-elif [[ -n "`python --version |& grep 'Python 2.7'`" ]]; then
-  PYTHONVERS=python2.7
-  PYVERSABBR=py2.7
-elif [[ -n "`python --version |& grep 'Python 2.6'`" ]]; then
-  PYTHONVERS=python2.6
-  PYVERSABBR=py2.6
-else
-  echo 
-  echo "Unexpected Python version."
-  exit 1
-fi
+
+# FIXME: Delete this and use the parsing version below.
+#
+## FIXME: Is this flexible enough? Probably...
+## 2012.08.21: Ubuntu 8.04 does not support the |& redirection syntax?
+#if [[ -n "`cat /etc/issue | grep '^Ubuntu 8.04'`" ]]; then
+#  PYTHONVERS=python2.5
+#  PYVERSABBR=py2.5
+#elif [[ -n "`python --version |& grep 'Python 2.7'`" ]]; then
+#  PYTHONVERS=python2.7
+#  PYVERSABBR=py2.7
+#elif [[ -n "`python --version |& grep 'Python 2.6'`" ]]; then
+#  PYTHONVERS=python2.6
+#  PYVERSABBR=py2.6
+#else
+#  echo 
+#  echo "Unexpected Python version."
+#  exit 1
+#fi
 
 # Here's another way:
 #if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
@@ -130,6 +134,24 @@ fi
 #  PYTHONVERS=python2.7
 #fi
 
+# Convert, e.g., 'Python 2.7.6' to '2.7'.
+PYVERS_RAW=`python --version \
+	|& /usr/bin/awk '{print $2}' \
+	| /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/g'`
+PYVERS_DOTLESS=`python --version \
+	|& /usr/bin/awk '{print $2}' \
+	| /bin/sed -r 's/^([0-9]+)\.([0-9]+)\.[0-9]+/\1\2/g'`
+if [[ -z $PYVERS_RAW ]]; then
+	echo "Unexpected: Could not parse Python version."
+	exit 1
+fi
+PYVERS_RAW=python${PYVERS_RAW}
+PYVERS_RAW_m=python${PYVERS_RAW}m
+PYVERS_CYTHON=${PYVERS_DOTLESS}m
+#
+PYTHONVERS=python${PYVERS_RAW}
+PYVERSABBR=py${PYVERS_RAW}
+
 # ============================================================================
 # *** Postgres-related
 
@@ -138,15 +160,18 @@ fi
 # Note that if you alias sed, e.g., sed='sed -r', then you'll get an error if
 # you source this script from the command line (e.g., it expands to sed -r -r).
 # So use /bin/sed to avoid any alias.
-POSTGRESABBR=$(psql --version \
-               | grep psql \
-               | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+\.[0-9]+)\.[0-9]+/\1/')
-POSTGRES_MAJOR=$(psql --version \
-                 | grep psql \
-                 | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+)\.[0-9]+\.[0-9]+/\1/')
-POSTGRES_MINOR=$(psql --version \
-                 | grep psql \
-                 | /bin/sed -r 's/psql \(PostgreSQL\) [0-9]+\.([0-9]+)\.[0-9]+/\1/')
+POSTGRESABBR=$( \
+  psql --version \
+  | grep psql \
+  | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+\.[0-9]+)\.[0-9]+/\1/')
+POSTGRES_MAJOR=$( \
+  psql --version \
+  | grep psql \
+  | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+)\.[0-9]+\.[0-9]+/\1/')
+POSTGRES_MINOR=$( \
+  psql --version \
+  | grep psql \
+  | /bin/sed -r 's/psql \(PostgreSQL\) [0-9]+\.([0-9]+)\.[0-9]+/\1/')
 
 # ============================================================================
 # *** Ubuntu-related

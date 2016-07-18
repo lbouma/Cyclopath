@@ -10,7 +10,7 @@
     ServerAdmin your_name@localhost
     
     # Don't forget to also set PythonPath below.
-    DocumentRoot /export/scratch/ccp/dev/cp_1997/htdocs
+    DocumentRoot /export/scratch/ccp/dev/cp/htdocs
 
     PythonInterpreter minnesota
 
@@ -26,7 +26,7 @@
     </DirectoryMatch>
 
     # DocumentRoot / Static files
-    <Directory /export/scratch/ccp/dev/cp_1997/htdocs>
+    <Directory /export/scratch/ccp/dev/cp/htdocs>
         Options FollowSymLinks
         AllowOverride None
         Order allow,deny
@@ -42,8 +42,8 @@
     </Directory>
 
     # Home page (http://cyclopath.org/)
-    Alias /home/ /export/scratch/ccp/dev/cp_1997/mediawiki/home/
-    <Directory /export/scratch/ccp/dev/cp_1997/mediawiki/home>
+    Alias /home/ /export/scratch/ccp/dev/cp/mediawiki/home/
+    <Directory /export/scratch/ccp/dev/cp/mediawiki/home>
         Options FollowSymLinks
         AllowOverride None
         Order allow,deny
@@ -55,15 +55,15 @@
     # BUG 1998: Remove this code someday. ** begin-compliance
     #
     # BetterCP Assets 
-    Alias /bettercp/assets /export/scratch/ccp/dev/cp_1997/bettercp/assets
-    <Directory /export/scratch/ccp/dev/cp_1997/bettercp/assets> 
+    Alias /bettercp/assets /export/scratch/ccp/dev/cp/bettercp/assets
+    <Directory /export/scratch/ccp/dev/cp/bettercp/assets> 
         Options FollowSymLinks 
         AllowOverride None 
         Order allow,deny 
         Allow from all 
     </Directory>
     # BetterCP Scripts
-    ScriptAlias /bettercp /export/scratch/ccp/dev/cp_1997/bettercp
+    ScriptAlias /bettercp /export/scratch/ccp/dev/cp/bettercp
     <Directory /bettercp>
         AllowOverride Options
         Order allow,deny
@@ -89,7 +89,7 @@
         Allow from 127.0.0.1
         SetHandler cgi-script
         Options +ExecCGI
-        SetEnv MS_MAPFILE /export/scratch/ccp/dev/cp_1997/mapserver/wms.map
+        SetEnv MS_MAPFILE /export/scratch/ccp/dev/cp/mapserver/wms.map
     </Location>
 
     # TileCache via mod_python
@@ -123,12 +123,12 @@
 
         SetHandler mod_python
         PythonDebug On
-        PythonPath "['/export/scratch/ccp/dev/cp_1997/pyserver', '/export/scratch/ccp/dev/cp_1997/pyserver/bin/winpdb', '/export/scratch/ccp/opt/usr/lib/python/', '/export/scratch/ccp/opt/usr/lib/python2.6/site-packages/'] + sys.path"
+        PythonPath "['/export/scratch/ccp/dev/cp/pyserver', '/export/scratch/ccp/dev/cp/pyserver/bin/winpdb', '/export/scratch/ccp/opt/usr/lib/python/', '/export/scratch/ccp/opt/usr/lib/python2.6/site-packages/'] + sys.path"
         PythonHandler wfs_mod_python
     </Location>
 
     # Instance assets (logo, etc.)
-    Alias /instance /export/scratch/ccp/dev/cp_1997/htdocs/instance/minnesota
+    Alias /instance /export/scratch/ccp/dev/cp/htdocs/instance/minnesota
 
     ErrorLog /var/log/apache2/error.log
 

@@ -64,6 +64,8 @@ public class Constants {
    
    /** Photo layers available for aerial viewing */
    public static final String[][] PHOTO_LAYERS = new String[][] {
+         {"nga2012", "2012 Twin Cities"},    // Twin Cities
+         {"fsa2013", "2013 Minnesota"},      // State-wide
          {"met10",   "2010 Color High-Res"}, // Twin Cities
          {"fsa2010", "2010 Color Low-Res"},  // State-wide
          {"fsa2009", "2009 Color Low-Res"},  // State-wide

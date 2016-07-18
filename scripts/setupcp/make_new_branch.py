@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2015 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage:
@@ -34,19 +34,22 @@
     --editors terveen landonb mekhyl torre
 
 /* 2014.07.02: Add individual member: */
+-- psql -U cycling ccpv3_live
+BEGIN TRANSACTION;
 SELECT cp_group_membership_new(
-   cp_user_id('masstralka'),        -- IN user_id_ INTEGER
-   'masstralka',                    -- IN username_ TEXT
+   cp_user_id('someone'),           -- IN user_id_ INTEGER
+   'someone',                       -- IN username_ TEXT
    cp_branch_baseline_id(),         -- IN branch_baseline_id INTEGER
    1,                               -- IN rid_beg INTEGER
    cp_rid_inf(),                    -- IN rid_inf INTEGER
    cp_group_shared_id('Metc Bikeways 2012 Editors'),
                                     -- IN group_id_ INTEGER
    cp_access_level_id('editor'));   -- IN access_level_id_ INTEGER
+COMMIT;
 
 # And update the reports file:
 $ cd /ccp/dev/cycloplan_live/htdocs/reports
-$ htpasswd .htpasswd 'masstralka'
+$ htpasswd .htpasswd 'someone'
 
 '''
 
