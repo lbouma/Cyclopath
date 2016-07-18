@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # This script loads a database dump. No sanity checks. Use with care.
@@ -62,7 +62,7 @@ fi
 #  echo "Unknown OS: `cat /proc/version`"
 #  #echo Unknown OS "`cat /proc/version`"
 #  return 0
-#fi;
+#fi
 
 postgis_home="/ccp/opt/postgis"
 

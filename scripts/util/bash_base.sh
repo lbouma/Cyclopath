@@ -77,7 +77,7 @@ elif [[ "`cat /proc/version | grep Red\ Hat`" ]]; then
 else
   echo "Error: Unknown OS."
   exit 1
-fi;
+fi
 
 # Reload the Web server.
 ccp_apache_reload () {
@@ -97,7 +97,7 @@ ccp_apache_reload () {
   else
     echo "Error: Unknown OS."
     exit 1
-  fi;
+  fi
 }
 
 # ============================================================================
@@ -219,7 +219,7 @@ check_prev_cmd_for_error () {
   if [[ -z "$1" || -z "$2" ]]; then
     echo "Usage: $0 last_status log_file [no_errexit] [ignr_case] [just_tail]"
     exit 1;
-  fi;
+  fi
   PREV_CMD_VALUE=$1
   SAVED_LOG_FILE=$2
   DONT_EXIT_ON_ERROR=$3

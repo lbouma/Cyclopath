@@ -100,10 +100,10 @@ sudo -v
 
 #GEOS_VERS='3.3.2'
 # Never tried: GEOS_VERS='3.3.9'
-#GEOS_VERS='3.4.2'
+GEOS_VERS='3.4.2'
 # 2016-07-18: There's a 3.5.0 from 16-Aug-2015. Should we try it?
 # I'm going to try it. It's just a minor bump. I'd never try a major bump, though.
-GEOS_VERS='3.5.0'
+#GEOS_VERS='3.5.0'
 
 function setup_install_geos () {
 
@@ -135,7 +135,7 @@ function setup_install_geos () {
   ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/geos-${GEOS_VERS}/
 
   /bin/rm -f /ccp/opt/geos
-  ln -s /ccp/opt/geos-${GEOS_VERS} /ccp/opt/geos
+  ln -sf /ccp/opt/geos-${GEOS_VERS} /ccp/opt/geos
 
   # See if we have to edit ld.so.conf or not.
   if [[ "`cat /etc/ld.so.conf \
@@ -153,7 +153,7 @@ function setup_install_geos () {
     # Cleanup.
     /bin/rm -f $RANDOM_NAME/ld.so.conf
     rmdir $RANDOM_NAME
-  fi;
+  fi
 
   # Configure dynamic linker run-time bindings (reload ld.so.conf).
   sudo ldconfig
@@ -165,9 +165,9 @@ function setup_install_geos () {
 
 # *** ODBC
 
-#ODBC_VERS="2.3.2"
+ODBC_VERS="2.3.2"
 # 2016-07-18: Should be safe to try latest build with same minor.
-ODBC_VERS="2.3.4"
+#ODBC_VERS="2.3.4"
 #ODBC_VERS="2.3.5-pre"
 
 function setup_install_odbc () {
@@ -231,13 +231,13 @@ function setup_install_odbc () {
 #GDAL_VERS='1.5.1'
 #GDAL_VERS='1.7.3'
 #GDAL_VERS='1.9.0'
-#GDAL_VERS='1.10.1'
+GDAL_VERS='1.10.1'
 # SYNC_ME: When you change GDAL versions, change the apache
 #          confs' references to it (search /ccp/bin/ccpdev/private)
 #          and update the /scripts/daily code that references its
 #          /bin/ folder.
 # 2016-07-18: Trying the last(est) 1.x release. Fingers crossed!
-GDAL_VERS='1.11.5'
+#GDAL_VERS='1.11.5'
 # 2016-07-18: FIXME: Upgrade to 2.x series. Latest: 2.1.1.
 #GDAL_VERS='2.1.1'
 
@@ -287,8 +287,6 @@ install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
   # NOTE: The make takes lots of minutes to complete.
   make
 
-  export PYTHONPATH=$ccp/opt/usr/lib/python2.7
-
   make install
 
   #sudo chmod 2755 /ccp/opt/gdal-${GDAL_VERS}
@@ -297,7 +295,7 @@ install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
   ${SCRIPT_DIR}/../../util/fixperms.pl --public /ccp/opt/gdal-${GDAL_VERS}/
 
   /bin/rm -f /ccp/opt/gdal
-  ln -s /ccp/opt/gdal-${GDAL_VERS} /ccp/opt/gdal
+  ln -sf /ccp/opt/gdal-${GDAL_VERS} /ccp/opt/gdal
 
   ${SCRIPT_DIR}/../../util/fixperms.pl --public \
    /ccp/opt/usr/lib/$PYTHONVERS/site-packages/GDAL-${GDAL_VERS}-${PYVERSABBR2}-linux-x86_64.egg/
@@ -320,7 +318,7 @@ install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
     # Cleanup.
     /bin/rm -f $RANDOM_NAME/ld.so.conf
     rmdir $RANDOM_NAME
-  fi;
+  fi
 
   # Configure dynamic linker run-time bindings (reload ld.so.conf).
   sudo ldconfig
@@ -334,7 +332,7 @@ install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
 
 LIBXML2_VERS='2.9.1'
 # 2016-07-18: 2.9.4.
-LIBXML2_VERS='2.9.4'
+#LIBXML2_VERS='2.9.4'
 
 function setup_install_libxml2 () {
 
@@ -345,7 +343,18 @@ function setup_install_libxml2 () {
 
   pushd /ccp/opt/.downloads &> /dev/null
 
-  wget -N ftp://xmlsoft.org/libxml2/libxml2-${LIBXML2_VERS}.tar.gz
+  # 2016-07-18: Crap. Again with the FTP creds issue.
+  # --2016-07-18 16:45:00--  ftp://xmlsoft.org/libxml2/libxml2-2.9.4.tar.gz
+  #            => ‘.listing’
+  # Resolving xmlsoft.org (xmlsoft.org)... 91.121.203.120
+  # Connecting to xmlsoft.org (xmlsoft.org)|91.121.203.120|:21... connected.
+  # Logging in as anonymous ... Logged in!
+  # ==> SYST ... done.    ==> PWD ... done.
+  # ==> TYPE I ... done.  ==> CWD (1) /libxml2 ... done.
+  # ==> PASV ... 
+  if [[ ! -e libxml2-${LIBXML2_VERS}.tar.gz ]]; then
+    wget -N ftp://xmlsoft.org/libxml2/libxml2-${LIBXML2_VERS}.tar.gz
+  fi
 
   # Remove versions we've used in the past.
   /bin/rm -rf /ccp/opt/.downloads/libxml2-2.7.8
@@ -411,9 +420,9 @@ function setup_install_libxml2 () {
 
 # *** PROJ.4 - Cartographic Projections Library
 
-#PROJ4_VERS='4.8.0'
+PROJ4_VERS='4.8.0'
 # 2016-07-18: Trying new minor.
-PROJ4_VERS='4.9.2'
+#PROJ4_VERS='4.9.2'
 
 function setup_install_proj_4 () {
 
@@ -468,7 +477,7 @@ function setup_install_proj_4 () {
   #   jniproj.c:52:26: fatal error: org_proj4_PJ.h: No such file or directory
   # There's a bug ticket suggesting including a differ header,
   #   http://trac.osgeo.org/proj/ticket/153
-  # Doesn't work: ln -s src/org_proj4_Projections.h src/org_proj4_PJ.h
+  # Doesn't work: ln -sf src/org_proj4_Projections.h src/org_proj4_PJ.h
   # But copying the file seems to work...
   # 2013.12.13: [lb] is not going to check this in:
   #             on pluto I don't have this file, either,
@@ -504,8 +513,8 @@ function setup_install_proj_4 () {
     # Cleanup.
     /bin/rm -f $RANDOM_NAME/ld.so.conf
     rmdir $RANDOM_NAME
-  fi;
-  #
+  fi
+
   # Configure dynamic linker run-time bindings (reload ld.so.conf).
   sudo ldconfig
 
@@ -529,10 +538,10 @@ function setup_install_proj_4 () {
 # *** json-c
 
 # Never tried: JSONC_VERS='json-c-0.10-20120530'
-#JSONC_VERS='json-c-0.11-20130402'
+JSONC_VERS='json-c-0.11-20130402'
 # Never tried: JSONC_VERS='json-c-0.12-20140410'
 # 2016-07-18: Trying something new:
-JSONC_VERS='json-c-0.12.1-20160607'
+#JSONC_VERS='json-c-0.12.1-20160607'
 
 function setup_install_json_c () {
 
@@ -563,6 +572,7 @@ function setup_install_json_c () {
 
   tar -xvzf ${JSONC_VERS}.tar.gz \
     > /dev/null
+
   pushd json-c-${JSONC_VERS} &> /dev/null
 
   ./configure --prefix=/ccp/opt/json-c-${JSONC_VERS}
@@ -585,9 +595,9 @@ function setup_install_json_c () {
 #POSTGIS_VERS='2.0.0'
 #POSTGIS_VERS='2.0.4'
 #POSTGIS_VERS='2.1.0'
-#POSTGIS_VERS='2.1.8'
+POSTGIS_VERS='2.1.8'
 # 2016-07-18: Hello new minor version.
-POSTGIS_VERS='2.2.2'
+#POSTGIS_VERS='2.2.2'
 
 function setup_install_postgis () {
 
@@ -627,12 +637,12 @@ function setup_install_postgis () {
   # FIXME: What about json-c? Or whatever: it's optional, anyway
   #        (it's only used if you call PostGIS's ST_GeomFromGeoJson).
   ./configure \
-    --prefix=/ccp/opt/$PGIS_VERS \
-    --with-geosconfig=/ccp/opt/geos-${GEOS_VERS}/bin/geos-config \
-    --with-pgconfig=/usr/bin/pg_config \
-    --with-xml2config=/ccp/opt/libxml2-${LIBXML2_VERS}/bin/xml2-config \
-    --with-projdir=/ccp/opt/proj-${PROJ4_VERS} \
-    --with-gdalconfig=/ccp/opt/gdal/bin/gdal-config
+    --prefix="/ccp/opt/${PGIS_VERS}" \
+    --with-geosconfig="/ccp/opt/geos-${GEOS_VERS}/bin/geos-config" \
+    --with-pgconfig="/usr/bin/pg_config" \
+    --with-xml2config="/ccp/opt/libxml2-${LIBXML2_VERS}/bin/xml2-config" \
+    --with-projdir="/ccp/opt/proj-${PROJ4_VERS}" \
+    --with-gdalconfig="/ccp/opt/gdal/bin/gdal-config"
 
   make
 
@@ -648,8 +658,8 @@ function setup_install_postgis () {
   # This is db_load. So we want the source code and not the library-containing
   # (.so) folder.
   /bin/rm -f /ccp/opt/postgis
-  #ln -s /ccp/opt/.downloads/$PGIS_VERS/postgis /ccp/opt/postgis
-  ln -s /ccp/opt/.downloads/$PGIS_VERS /ccp/opt/postgis
+  #ln -sf /ccp/opt/.downloads/$PGIS_VERS/postgis /ccp/opt/postgis
+  ln -sf /ccp/opt/.downloads/$PGIS_VERS /ccp/opt/postgis
 
   popd &> /dev/null
   popd &> /dev/null
@@ -700,8 +710,9 @@ function setup_install_xerces () {
 # *** MapServer
 
 #MAPSERVER_VERS='5.6.6'
-#MAPSERVER_VERS='5.6.8'
-MAPSERVER_VERS='5.6.9'
+MAPSERVER_VERS='5.6.8'
+# SYNC_ME: See source file: mappostgis.c
+#MAPSERVER_VERS='5.6.9'
 # LATER/MEH/TOO_MUCH_WORK: Update MapServer to 6.x.
 # See all the gory details (it actually doesn't seem like too much work):
 #  http://mapserver.org/MIGRATION_GUIDE.html#migration
@@ -741,7 +752,7 @@ function setup_install_mapserver () {
     #if [[ -n "`cat /etc/issue | grep '^Ubuntu 11.04'`" ]]; then
     #  pushd /usr/lib &> /dev/null
     #  if ! [[ -e /usr/lib/libedit.so ]]; then
-    #    sudo ln -s libedit.so.2.11 libedit.so
+    #    sudo ln -sf libedit.so.2.11 libedit.so
     #  fi
     #  popd &> /dev/null
     #fi
@@ -761,10 +772,10 @@ function setup_install_mapserver () {
       # Oh, wait, we can cheat and make the links...
       pushd /usr/lib &> /dev/null
       if ! [[ -e /usr/lib/libgd.a ]]; then
-        sudo ln -s x86_64-linux-gnu/libgd.a libgd.a
+        sudo ln -sf x86_64-linux-gnu/libgd.a libgd.a
       fi
       if ! [[ -e /usr/lib/libgd.so ]]; then
-        sudo ln -s x86_64-linux-gnu/libgd.so libgd.so
+        sudo ln -sf x86_64-linux-gnu/libgd.so libgd.so
       fi
       popd &> /dev/null
     fi
@@ -785,9 +796,12 @@ function setup_install_mapserver () {
     pushd mapserver-${MAPSERVER_VERS} &> /dev/null
 
     # Fix the source file we mentioned earlier.
-    /bin/cp -f \
-      ${SCRIPT_DIR}/../ao_templates/common/ccp/opt/.downloads/mapserver-${MAPSERVER_VERS}/mappostgis.c \
-      /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS}
+    SRCPATH="${SCRIPT_DIR}/../ao_templates/common/ccp/opt/.downloads/mapserver-${MAPSERVER_VERS}/mappostgis.c"
+    if [[ ! -e ${SRCPATH} ]]; then
+      echo "FATAL: Could not locate .c fix. Your build will probably die without it."
+      exit 1
+    fi
+    /bin/cp -f ${SRCPATH} /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS}
 
     # Avoid this error:
     # configure: error: Could not find gd.h or libgd.a/libgd.so in 
@@ -795,14 +809,17 @@ function setup_install_mapserver () {
     # calling configure. You may also get this error if you did not
     # specify the appropriate location for one of GDs dependencies
     # (freetype, libpng, libjpeg or libiconv).
-    pushd /usr/include &> /dev/null
-    sudo ln -s /usr/lib/x86_64-linux-gnu/libgd.a libgd.a
-    sudo ln -s /usr/lib/x86_64-linux-gnu/libgd.so libgd.so
 
-    #
+    pushd /usr/include &> /dev/null
+
+    sudo /bin/ln -sf /usr/lib/x86_64-linux-gnu/libgd.a libgd.a
+    sudo /bin/ln -sf /usr/lib/x86_64-linux-gnu/libgd.so libgd.so
+
     # NOTE: On Ubuntu, /usr/lib/postgresql/8.4/bin/pg_config is same as
     #       /usr/bin/pg_config. On Fedora, only the latter exists
+
     pushd /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS} &> /dev/null
+
     ./configure                                                           \
       --prefix=/ccp/opt/mapserver-${MAPSERVER_VERS}                       \
       --with-geos=/ccp/opt/geos-${GEOS_VERS}/bin/geos-config              \
@@ -813,6 +830,8 @@ function setup_install_mapserver () {
       --with-gd=/usr/include
     # --with-gd
     # --with-postgis=/usr/lib/postgresql/${POSTGRESABBR}/bin/pg_config
+    # Doesn't work:
+    #   --without-shp2img
 
     # WTF. On Fedora, complains: /usr/bin/ld: cannot find -lpgport
     #      because Fedora doesn't want you to link against static libs.
@@ -829,15 +848,18 @@ function setup_install_mapserver () {
     fi
 
     # Make MapServer on Mint 16!
-    LD_RUN_PATH=/ccp/opt/gdal-${GDAL_VERS}/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib make
+    # Somewhat unhelpful and extremely chatty:
+    #   LD_DEBUG=all \
+    LD_RUN_PATH=/ccp/opt/gdal-${GDAL_VERS}/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib \
+      make
 
     # FIXME: Fedora needs the lib path setup, even though we edited ldconfig...
     # sudo yum install hdf5-devel
     #LD_LIBRARY_PATH=/ccp/opt/gdal-${GDAL_VERS}/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib:/ccp/opt/.downloads/${XERCES_VERS}/lib ../../mapserver/mapserv
 
     # Make a link for httpd.conf.
-    /bin/rm -f /ccp/opt/mapserver
-    ln -s /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS} \
+    #/bin/rm -f /ccp/opt/mapserver
+    ln -sf /ccp/opt/.downloads/mapserver-${MAPSERVER_VERS} \
       /ccp/opt/mapserver
 
     popd &> /dev/null
@@ -905,7 +927,7 @@ function setup_install_tilecache () {
 
   # Make a link for httpd.conf.
   /bin/rm -f /ccp/opt/tilecache
-  ln -s /ccp/opt/.downloads/tilecache-${TILECACHE_VERS} \
+  ln -fs /ccp/opt/.downloads/tilecache-${TILECACHE_VERS} \
     /ccp/opt/tilecache
 
   # 2013.01.14: The TileCache config got moved to /ccp/var/ when the
@@ -913,15 +935,15 @@ function setup_install_tilecache () {
   mv /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg \
      /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg-ORIG
 
-  # ln -s /ccp/dev/cp/mapserver/tilecache.cfg \
-  #       /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
+  # ln -sf /ccp/dev/cp/mapserver/tilecache.cfg \
+  #        /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
   # NOTE: The target might not exist. See check_cache_now cron job.
   # NOTE: To allow multiple instances with difference tilecache.cfg files,
   #       use --config= when you call tilecache_seed.py.
   # 2013.04.21: See mapserver/check_cache_now.sh and related. We'll deal
   #             with tilecache on an installation-by-installation basis.
-  # ln -s /ccp/var/tilecache-cache/tilecache.cfg \
-  #       /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
+  # ln -sf /ccp/var/tilecache-cache/tilecache.cfg \
+  #        /ccp/opt/.downloads/tilecache-${TILECACHE_VERS}/tilecache.cfg
 
   popd &> /dev/null
   popd &> /dev/null
@@ -1186,6 +1208,7 @@ function setup_install_pytz () {
 # *** Graphserver
 
 # 2016-07-18: v1.0.0 Feb 25, 2011 still the most recentest.
+
 GRAPHSERVER_VERS='1.0.0'
 
 function setup_install_graphserver () {
@@ -1239,8 +1262,8 @@ function setup_install_graphserver () {
   /bin/rm -f /ccp/opt/graphserver
 
   # FIXME: Do we need to link?
-  #ln -s /ccp/opt/.downloads/graphserver_$DATE_EXT \
-  #  /ccp/opt/graphserver
+  #ln -sf /ccp/opt/.downloads/graphserver_$DATE_EXT \
+  #       /ccp/opt/graphserver
 
   #Install Graphserver to, e.g., /usr/lib/python2.7/site-packages/.
 
@@ -1634,7 +1657,7 @@ function setup_install_fiona () {
 
 # *** Levenshtein Distance library
 
-LEVENSHTEIN_VERS='0.11.2'
+#LEVENSHTEIN_VERS='0.11.2'
 # 2016-07-18: Bump.
 LEVENSHTEIN_VERS='0.12.0'
 
@@ -2026,6 +2049,49 @@ function setup_fix_permissions () {
 }
 
 function gis_compile_main () {
+
+  if false; then
+    # DEV: Cxpx helpers.
+    GEOS_VERS='3.4.2'
+    #GEOS_VERS='3.5.0'
+    ODBC_VERS="2.3.2"
+    #ODBC_VERS="2.3.4"
+    GDAL_VERS='1.10.1'
+    #GDAL_VERS='1.11.5'
+    LIBXML2_VERS='2.9.1'
+    #LIBXML2_VERS='2.9.4'
+    PROJ4_VERS='4.8.0'
+    #PROJ4_VERS='4.9.2'
+    JSONC_VERS='json-c-0.11-20130402'
+    #JSONC_VERS='json-c-0.12.1-20160607'
+    POSTGIS_VERS='2.1.8'
+    #POSTGIS_VERS='2.2.2'
+    XERCES_VERS='xerces-c-3.1.4'
+    MAPSERVER_VERS='5.6.8'
+    #MAPSERVER_VERS='5.6.9'
+    TILECACHE_VERS='2.11'
+    SPATIALINDEX_VERS='1.8.1'
+    RTREE_VERS='0.7.0'
+    SIMPLEJSON_VERS='3.3.1'
+    #SERVABLE_VERS='trunk'
+    #PYTZ_VERS=''
+    GRAPHSERVER_VERS='1.0.0'
+    LIBYAML_VERS='0.1.6'
+    PYYAML_VERS='3.11'
+    #OATH_VERS='master'
+    #PYTHONTWITTER_VERS='master'
+    NETWORKX_VERS='1.11'
+    NUMPY_VERS='1.11.1'
+    FIONA_VERS='1.7.0.post2'
+    LEVENSHTEIN_VERS='0.12.0'
+    SWFOBJECT_VERS='2.2'
+    #QSOPT_VERS=''
+    #CPLEX_VERS=''
+    CONCORDERTSP_VERS='co031219'
+    #RWITHCONCORDE_VERS=''
+  fi
+
+  # 2016-07-18: 26 apps.
 
   setup_install_geos
 

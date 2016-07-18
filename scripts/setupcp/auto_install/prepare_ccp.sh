@@ -1078,7 +1078,7 @@ if [[ $isbranchmgr -ne 0 || $isprodserver -ne 0 ]]; then
     echo
     echo "Error: Unknown OS!"
     exit 1
-  fi;
+  fi
 
 fi
 

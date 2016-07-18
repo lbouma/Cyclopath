@@ -79,7 +79,7 @@ DEBUG_TRACE=true
 # If the user is running from a terminal (and not from cron), always be chatty.
 if [[ "dumb" != "${TERM}" ]]; then
   DEBUG_TRACE=true
-fi;
+fi
 
 # ***
 

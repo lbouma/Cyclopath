@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: call this script from another script. If it produces any output, it
@@ -124,7 +124,7 @@ else
   echo "Error: Unknown OS!"
   exit 1
 
-fi;
+fi
 
 exit 0
 

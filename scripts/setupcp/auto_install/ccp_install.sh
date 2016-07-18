@@ -275,8 +275,8 @@ if [[ "$sure" == "y" || "$sure" == "Y" ]]; then
     echo "?"
     echo "Error: Unknown OS!"
     exit
-  fi;
-fi;
+  fi
+fi
 
 # If we're overlaying the install, we need to fixperms.
 if [[ -d /ccp ]]; then

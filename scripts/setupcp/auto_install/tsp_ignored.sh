@@ -300,7 +300,7 @@ __ignore_me () {
     # Cleanup.
     /bin/rm -f $RANDOM_NAME/ld.so.conf
     rmdir $RANDOM_NAME
-  fi;
+  fi
   #
   # Configure dynamic linker run-time bindings (reload ld.so.conf).
   sudo ldconfig

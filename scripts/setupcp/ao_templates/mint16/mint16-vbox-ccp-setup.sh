@@ -129,9 +129,10 @@ reset_errexit () {
 reset_errexit
 
 # Determine Python version.
+# 2016-07-18: Ubuntu 16.04: Adds a plus sign!: Python 3.5.1+
 PYVERS_RAW3=`python3 --version \
-	|& /usr/bin/awk '{print $2}' \
-	| /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+/\1/g'`
+  |& /usr/bin/awk '{print $2}' \
+  | /bin/sed -r 's/^([0-9]+\.[0-9]+)\.[0-9]+\+?/\1/g'`
 if [[ -z $PYVERS_RAW3 ]]; then
 	echo "Unexpected: Could not parse Python version."
 	exit 1
