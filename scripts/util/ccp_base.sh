@@ -14,10 +14,18 @@
 # Make it easy to reference the script name and relative or absolute path.
 
 # NOTE: The parent `source`d us, so $0 is _its_ name.
+#       Unless the parent was also sourced.
 
-script_name=$(basename $0)
-
-script_relbase=$(dirname $0)
+if [[ `echo "$0" | grep "bash$" -` ]]; then
+  # User sourcing us (via parent) from terminal.
+  script_name=$BASH_SOURCE
+  script_relbase=$(pwd -P)
+else
+  script_name=$(basename $0)
+  script_relbase=$(dirname $0)
+fi
+#echo "script_name: $script_name"
+#echo "script_relbase: $script_relbase"
 
 # From our good friends at http://stackoverflow.com
 #   /questions/7126580/expand-a-possible-relative-path-in-bash

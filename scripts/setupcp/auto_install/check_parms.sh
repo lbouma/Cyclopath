@@ -11,10 +11,13 @@
 if [[ `echo "$0" | grep "bash$" -` ]]; then
   # User sourcing us from terminal.
   SCRIPT_DIR=$(pwd -P)
+  script_name=$BASH_SOURCE
 else
   SCRIPT_DIR=$(dirname $(readlink -f $0))
+  script_name=$(basename $0)
 fi
 echo "SCRIPT_DIR: $SCRIPT_DIR"
+echo "script_name: $script_name"
 
 USAGE="Usage: $0 MASTER_HOSTNAME|- TARGET_USERNAME|-"
 # Skipping: $3, $4, and $5, which is used internally.
