@@ -521,9 +521,12 @@ function setup_install_psycopg2 () {
   echo "Installing psycopg2"
 
   #psycopg2_version="psycopg2-2.4.4"
-  psycopg2_version="psycopg2-2.4.6"
+  #psycopg2_version="psycopg2-2.4.6"
+  # 2016-07-18: Giving a whack at a double minor jump.
+  psycopg2_version="psycopg2-2.6.2"
   cd /ccp/opt/.downloads
-  wget -N http://initd.org/psycopg/tarballs/PSYCOPG-2-4/$psycopg2_version.tar.gz
+  #wget -N http://initd.org/psycopg/tarballs/PSYCOPG-2-4/$psycopg2_version.tar.gz
+  wget -N http://initd.org/psycopg/tarballs/PSYCOPG-2-6/$psycopg2_version.tar.gz
   /bin/rm -rf /ccp/opt/.downloads/$psycopg2_version
   tar xvf $psycopg2_version.tar.gz \
     > /dev/null
@@ -535,10 +538,9 @@ function setup_install_psycopg2 () {
   echo -n "Compiling and installing psycopg2... "
   PYTHONPATH=$ccp_python_path \
     PATH=/usr/bin/pg_config:$PATH \
-    python setup.py install --prefix=/ccp/opt/usr \
+    python setup.py install --prefix=/export/scratch/ccp/opt/usr \
     > /dev/null
   echo "ok."
-  #
 
   # Fix the permissions on the psycopg2 folder so apache can load it.
 

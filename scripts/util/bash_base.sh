@@ -168,18 +168,25 @@ PYVERSABBR=py${PYVERS_RAW}
 # Note that if you alias sed, e.g., sed='sed -r', then you'll get an error if
 # you source this script from the command line (e.g., it expands to sed -r -r).
 # So use /bin/sed to avoid any alias.
-POSTGRESABBR=$( \
-  psql --version \
-  | grep psql \
-  | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+\.[0-9]+)\.[0-9]+/\1/')
-POSTGRES_MAJOR=$( \
-  psql --version \
-  | grep psql \
-  | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+)\.[0-9]+\.[0-9]+/\1/')
-POSTGRES_MINOR=$( \
-  psql --version \
-  | grep psql \
-  | /bin/sed -r 's/psql \(PostgreSQL\) [0-9]+\.([0-9]+)\.[0-9]+/\1/')
+PSQL_OK=$(psql --version &> /dev/null)
+if [[ $? -eq 0 ]]; then
+  POSTGRESABBR=$( \
+    psql --version \
+    | grep psql \
+    | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+\.[0-9]+)\.[0-9]+/\1/')
+  POSTGRES_MAJOR=$( \
+    psql --version \
+    | grep psql \
+    | /bin/sed -r 's/psql \(PostgreSQL\) ([0-9]+)\.[0-9]+\.[0-9]+/\1/')
+  POSTGRES_MINOR=$( \
+    psql --version \
+    | grep psql \
+    | /bin/sed -r 's/psql \(PostgreSQL\) [0-9]+\.([0-9]+)\.[0-9]+/\1/')
+else
+  POSTGRESABBR='9.5'
+  POSTGRES_MAJOR='9'
+  POSTGRES_MINOR='5'
+fi
 
 # ============================================================================
 # *** Ubuntu-related
