@@ -153,16 +153,42 @@ echo "Installing ODBC"
 # http://www.unixodbc.org/
 
 cd /ccp/opt/.downloads
-wget -N ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-2.3.2.tar.gz
-/bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.2
+#ODBC_VERS="2.3.2"
+# 2016-07-18
+ODBC_VERS="2.3.4"
+#ODBC_VERS="2.3.5-pre"
+
+# What now?!
+# 
+# --2016-07-18 14:19:43--  ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-2.3.4.tar.gzdd
+#            => ‘.listing’
+# Resolving ftp.unixodbc.org (ftp.unixodbc.org)... 87.106.19.214
+# Connecting to ftp.unixodbc.org (ftp.unixodbc.org)|87.106.19.214|:21... connected.
+# Logging in as anonymous ... Logged in!
+# ==> SYST ... done.    ==> PWD ... done.
+# ==> TYPE I ... done.  ==> CWD (1) /pub/unixODBC ... done.
+# ==> PASV ... ^C
+#
+# Not even curl works.
+# But downloading via browser works find.
+#
+# Crap, you'll probably need to download manually...
+#  so plop it in /ccp/opt/.downloads/ and we won't touch it.
+if [[ ! -e unixODBC-${ODBC_VERS}.tar.gz ]]; then
+  wget -N ftp://ftp.unixodbc.org/pub/unixODBC/unixODBC-${ODBC_VERS}.tar.gz
+fi
+
+/bin/rm -rf /ccp/opt/.downloads/unixODBC-${ODBC_VERS}
 # 2013.10.13: Upgrading from 2.3.1, so make sure that's scrubbed.
 /bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.1
+# 2016-07-18: Installing on a fresh system so this is a no-op.
+/bin/rm -rf /ccp/opt/.downloads/unixODBC-2.3.2
 #
-tar xvf unixODBC-2.3.2.tar.gz \
+tar xvf unixODBC-${ODBC_VERS}.tar.gz \
   > /dev/null
-cd unixODBC-2.3.2
+cd unixODBC-${ODBC_VERS}
 #
-./configure --prefix=/ccp/opt/unixODBC-2.3.2
+./configure --prefix=/ccp/opt/unixODBC-${ODBC_VERS}
 make
 make install
 
@@ -174,7 +200,7 @@ sudo -v # keep sudo alive
 #           (and call sudo ldconfig)
 #        2. Why is unixODBS-2.3.1 hard coded and not a symbolic path?
 #        2013.10.31: I manually added the hard path...
-#                     /ccp/opt/unixODBC-2.3.2/lib
+#                     /ccp/opt/unixODBC-${ODBC_VERS}/lib
 
 # *** GDAL
 
@@ -207,7 +233,7 @@ cd gdal-1.10.1
 ./configure \
   --prefix=/ccp/opt/gdal-1.10.1 \
   --with-geos=/ccp/opt/geos-3.4.2/bin/geos-config \
-  --with-odbc=/ccp/opt/unixODBC-2.3.2 \
+  --with-odbc=/ccp/opt/unixODBC-${ODBC_VERS} \
   --with-pg=/usr/bin/pg_config \
   --with-python
 # I [lb] couldn't find a configure option for the python library, so edit the
@@ -654,11 +680,11 @@ if [[ "`cat /proc/version | grep Ubuntu`" ]]; then
   fi
 
   # Make MapServer on Mint 16!
-  LD_RUN_PATH=/ccp/opt/gdal-1.10.1/lib:/ccp/opt/unixODBC-2.3.2/lib make
+  LD_RUN_PATH=/ccp/opt/gdal-1.10.1/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib make
 
   # FIXME: Fedora needs the lib path setup, even though we edited ldconfig...
   # sudo yum install hdf5-devel
-  #LD_LIBRARY_PATH=/ccp/opt/gdal-1.10.1/lib:/ccp/opt/unixODBC-2.3.2/lib:/ccp/opt/.downloads/xerces-c-src_2_8_0/lib ../../mapserver/mapserv
+  #LD_LIBRARY_PATH=/ccp/opt/gdal-1.10.1/lib:/ccp/opt/unixODBC-${ODBC_VERS}/lib:/ccp/opt/.downloads/xerces-c-src_2_8_0/lib ../../mapserver/mapserv
 
   # Make a link for httpd.conf.
   /bin/rm -f /ccp/opt/mapserver
