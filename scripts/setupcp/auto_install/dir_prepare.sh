@@ -16,7 +16,7 @@ set -e
 
 #script_relbase=$(dirname $0)
 #script_absbase=`pwd $script_relbase`
-echo SCRIPT_DIR=$(dirname $(readlink -f $0))
+echo "SCRIPT_DIR=\$(dirname \$(readlink -f $0))"
 SCRIPT_DIR=$(dirname $(readlink -f $0))
 
 # SYNC_ME: This block of code is shared.
