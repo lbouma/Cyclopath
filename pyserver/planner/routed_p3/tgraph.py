@@ -163,6 +163,10 @@ class Trans_Graph(Trans_Graph_Base):
    # SYNC_ME: pyserver.planner.routed_p3.tgraph::Trans_Graph.burden_vals
    #          services.route_analysis.rider_profiles.yml
    #          flashclient.views.panel_branch.Widget_Analysis.mxml
+# 2014.08.25/BUG nnnn: A user is trying to rate roads low but is still
+#                      routed on them. If only one person rates a road,
+#                      and they rate it low, the average rating is low,
+#                      so we should avoid that segment, right? Test/fix.
    burden_vals = set([10, 20, 40, 65, 90, 95, 98,])
    # The 'rac' weights add a lot of extra memory, so trying just a few...
    #weights_enabled_rac_burden = set([10, 20, 40, 65, 90, 95, 98,])
@@ -273,7 +277,7 @@ class Trans_Graph(Trans_Graph_Base):
    # A rank of 0 means that an edge with the indicated facility will
    # not be penalized (think: pow(n, 0) = 1, and edge_len *= 1 == edge_len).
    #
-   # BUG nnnn: Include AADT when consider edge weights...
+   # BUG nnnn: NEW nnnn: Include AADT when considering edge weights...
    #           currently, we use a general notion of traffic,
    #           i.e., high traffic vs. low traffic, but we should
    #           really account for the actual AADT... if it's not
@@ -487,7 +491,7 @@ class Trans_Graph(Trans_Graph_Base):
       # Blocks for minutes: new_graph_di = networkx.DiGraph(self.graph)
       new_graph_di = networkx.DiGraph()
       graph_edges = self.graph.edges_iter(data=True, keys=False)
-      # FIXME: Test different values here... and compare against runtimes.
+# FIXME: Test different values here... and compare against runtimes.
       edge_count = 0
       for edge_tup in graph_edges:
          # BUG nnnn: For multiple, parallel edges, we only consume first edge.
@@ -506,6 +510,7 @@ class Trans_Graph(Trans_Graph_Base):
          #   sys.setcheckinterval(n)
          # that affects thread context switching,
          # otherwise [lb] knows of another trick:
+# MAYBE: Only do his every n iterations, to reduce context switches.
          #time.sleep(0.001)
          if (edge_count % 5) == 0:
             time.sleep(0.001)
