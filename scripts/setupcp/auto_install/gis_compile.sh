@@ -2191,7 +2191,5 @@ function gis_compile_main () {
   echo "GIS software compiled!"
 }
 
-#gis_compile_main
-
-echo "HI!"
+gis_compile_main
 
