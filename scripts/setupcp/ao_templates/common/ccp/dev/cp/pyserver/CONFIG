@@ -1,4 +1,4 @@
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # SECURITY: Please do not check this file into public-facing SVN.
@@ -158,7 +158,7 @@ aliases_seed: 12345678
 # Python prompt whenever they want. For apache, we can just add the paths to 
 # the httpd.conf file. But for sudo commands (and possibly for other usages) 
 # there's not a clear place to hardcode paths. So this is a catchall location.
-pythonpath: /ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS()/site-packages
+pythonpath: /ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS2()/site-packages
 
 # As with PYTHONPATH, LD_LIBRARY_PATH can be specified by the caller's
 # environment. It can also be enstated system-wide, by editing /etc/ld.so.conf

@@ -25,7 +25,7 @@ SCRIPT_DIR=$(dirname $(readlink -f $0))
 #          variables become ours.
 . ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
-#            reload_databases, PYTHONVERS, and httpd_user.
+#            reload_databases, PYTHONVERS2, and httpd_user.
 
 # *** Helper fcns.
 

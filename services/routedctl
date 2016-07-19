@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # This script should be auto-started on boot. See /etc/init.d/cyclopath-routed.
@@ -29,7 +29,7 @@ PYSERVER_HOME=/ccp/dev/greatermn_prod/pyserver
 # [lb]'s route server for remote debugging
 INSTANCE=minnesota___cp_2628
 PYSERVER_HOME=/ccp/dev/cp_2628/pyserver
-export PYTHONPATH=$ccp/opt/usr/lib/python:$ccp/opt/usr/lib/$PYTHONVERS/site-packages:$ccp/opt/gdal/lib/$PYTHONVERS/site-packages:$ccp/dev/cp/pyserver/bin/winpdb
+export PYTHONPATH=$ccp/opt/usr/lib/python:$ccp/opt/usr/lib/$PYTHONVERS2/site-packages:$ccp/opt/gdal/lib/$PYTHONVERS2/site-packages:$ccp/dev/cp/pyserver/bin/winpdb
 echo 'DELETE FROM routed_ports WHERE port=4666;' \
  | psql -U cycling ccpv3_test
 echo 'SELECT * FROM routed_ports WHERE port=4666;' \

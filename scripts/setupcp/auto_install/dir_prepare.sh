@@ -24,7 +24,7 @@ SCRIPT_DIR=$(dirname $(readlink -f $0))
 #          variables become ours.
 . ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
-#            reload_databases, PYTHONVERS, and httpd_user.
+#            reload_databases, PYTHONVERS2, and httpd_user.
 
 # Check that the master's ccp/ dir is accessible.
 if ! [[ -d /scratch/$masterhost/ccp/dev ]]; then

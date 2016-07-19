@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # Usage: ./flash_debug.sh
@@ -19,7 +19,8 @@ script_relbase=$(dirname $0)
 #          variables become ours.
 . $script_relbase/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
-#            reload_databases, PYTHONVERS, and httpd_user.
+
+#            reload_databases, PYTHONVERS2, and httpd_user.
 
 # *** This script only works on x64.
 

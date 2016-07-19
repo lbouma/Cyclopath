@@ -21,7 +21,7 @@ script_relbase=$(dirname $0)
 #          variables become ours.
 . $script_relbase/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
-#            reload_databases, PYTHONVERS, and httpd_user.
+#            reload_databases, PYTHONVERS2, and httpd_user.
 
 # Check that the master's ccp/ dir is accessible.
 if ! [[ -d /scratch/$masterhost/ccp/dev ]]; then

@@ -1,5 +1,7 @@
 127.0.0.1	localhost
-127.0.1.1	cs-u-runic.cs.umn.edu	cs-u-runic
+127.0.1.1	HOSTNAME()
+# FIXME: Add also domain: 
+# 127.0.1.1	cs-u-runic.cs.umn.edu	cs-u-runic
 
 # The following lines are desirable for IPv6 capable hosts
 ::1     localhost ip6-localhost ip6-loopback

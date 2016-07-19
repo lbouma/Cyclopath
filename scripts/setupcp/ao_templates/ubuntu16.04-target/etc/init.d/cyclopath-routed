@@ -21,7 +21,7 @@
 #   sudo update-rc.d cyclopath-routed defaults
 
 cd /export/scratch/ccp/dev/cp/services
-su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v1 $@" www-data
-su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v2 $@" www-data
-su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v3 $@" www-data
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS2()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v1 $@" www-data
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS2()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v2 $@" www-data
+su -c "INSTANCE=minnesota PYTHONPATH=/export/scratch/ccp/opt/usr/lib/python:/export/scratch/ccp/opt/usr/lib/PYTHONVERS2()/site-packages:/export/scratch/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages PYSERVER_HOME=/export/scratch/ccp/dev/cp/pyserver ./routedctl --routed_ver=v3 $@" www-data
 

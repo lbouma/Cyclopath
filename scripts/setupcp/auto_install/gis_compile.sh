@@ -32,7 +32,7 @@ SCRIPT_DIR=$(dirname $(readlink -f $0))
 #          variables become ours.
 . ${SCRIPT_DIR}/check_parms.sh $*
 # This sets: masterhost, targetuser, isbranchmgr, isprodserver,
-#            reload_databases, PYTHONVERS, and httpd_user.
+#            reload_databases, PYTHONVERS2, and httpd_user.
 
 # Make a spot for the downloads...
 
@@ -95,6 +95,23 @@ sudo -v
 #sh setuptools-0.6c11-py$PYTHONNUMB.egg \
 #  --prefix=/ccp/opt/usr
 #popd &> /dev/null
+
+# *** Fcn. wrapper
+
+function time_run () {
+  time_0=$(date +%s.%N)
+  #eval $1
+  $1
+  time_1=$(date +%s.%N)
+  TM_USED=`printf "%.2F" $(echo "($time_1 - $time_0) / 60.0" | bc -l)`
+  echo
+  echo "#################################################################"
+  echo
+  echo "Ran $1 in ${TM_USED} mins."
+  echo
+  echo "#################################################################"
+  echo
+}
 
 # *** GEOS
 
@@ -231,13 +248,24 @@ function setup_install_odbc () {
 #GDAL_VERS='1.5.1'
 #GDAL_VERS='1.7.3'
 #GDAL_VERS='1.9.0'
-GDAL_VERS='1.10.1'
+#GDAL_VERS='1.10.1'
+# 2016-07-18: GDAL 1.10.1:
+# make[4]: Entering directory '/ccp/opt/.downloads/gdal-1.10.1/ogr/ogrsf_frmts/geojson/jsonc'
+# /bin/bash /ccp/opt/.downloads/gdal-1.10.1/libtool --mode=compile --tag=CC gcc -g -O2 -DHAVE_SSE_AT_COMPILE_TIME  -Wall -Wdeclaration-after-statement  -DOGR_ENABLED -I/ccp/opt/.downloads/gdal-1.10.1/port -I/ccp/opt/unixODBC-2.3.2 -I/ccp/opt/unixODBC-2.3.2/include  -c -o ../../o/json_object.lo json_object.c
+# libtool: compile:  gcc -g -O2 -DHAVE_SSE_AT_COMPILE_TIME -Wall -Wdeclaration-after-statement -DOGR_ENABLED -I/ccp/opt/.downloads/gdal-1.10.1/port -I/ccp/opt/unixODBC-2.3.2 -I/ccp/opt/unixODBC-2.3.2/include -c json_object.c  -fPIC -DPIC -o ../../o/.libs/json_object.o
+# In file included from /usr/include/string.h:630:0,
+#                  from /ccp/opt/.downloads/gdal-1.10.1/port/cpl_port.h:147,
+#                  from /ccp/opt/.downloads/gdal-1.10.1/port/cpl_conv.h:34,
+#                  from json_object.c:12:
+# json_object.c:29:9: error: expected identifier or '(' before '__extension__'
+#    char* strndup(const char* str, size_t n);
+#
 # SYNC_ME: When you change GDAL versions, change the apache
 #          confs' references to it (search /ccp/bin/ccpdev/private)
 #          and update the /scripts/daily code that references its
 #          /bin/ folder.
 # 2016-07-18: Trying the last(est) 1.x release. Fingers crossed!
-#GDAL_VERS='1.11.5'
+GDAL_VERS='1.11.5'
 # 2016-07-18: FIXME: Upgrade to 2.x series. Latest: 2.1.1.
 #GDAL_VERS='2.1.1'
 
@@ -259,6 +287,7 @@ function setup_install_gdal () {
   /bin/rm -rf /ccp/opt/.downloads/gdal-1.10.1
   /bin/rm -rf /ccp/opt/.downloads/gdal-1.11.0
   /bin/rm -rf /ccp/opt/.downloads/gdal-1.11.5
+  /bin/rm -rf /ccp/opt/.downloads/gdal-2.1.1
   /bin/rm -rf /ccp/opt/.downloads/gdal-${GDAL_VERS}
 
   tar xvf gdal-${GDAL_VERS}.tar.gz \
@@ -277,12 +306,12 @@ function setup_install_gdal () {
   # I [lb] couldn't find a configure option for the python library, so edit the
   # cfg directly.
   echo "[easy_install]
-install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
+install_dir=/ccp/opt/usr/lib/$PYTHONVERS2/site-packages
 " >> /ccp/opt/.downloads/gdal-${GDAL_VERS}/swig/python/setup.cfg
 
   # Make sure the directory exists.
   # FIXME: Should this be lib64? Or doesn't it matter?
-  mkdir -p /ccp/opt/usr/lib/$PYTHONVERS/site-packages
+  mkdir -p /ccp/opt/usr/lib/$PYTHONVERS2/site-packages
 
   # NOTE: The make takes lots of minutes to complete.
   make
@@ -298,7 +327,7 @@ install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
   ln -sf /ccp/opt/gdal-${GDAL_VERS} /ccp/opt/gdal
 
   ${SCRIPT_DIR}/../../util/fixperms.pl --public \
-   /ccp/opt/usr/lib/$PYTHONVERS/site-packages/GDAL-${GDAL_VERS}-${PYVERSABBR2}-linux-x86_64.egg/
+   /ccp/opt/usr/lib/$PYTHONVERS2/site-packages/GDAL-${GDAL_VERS}-${PYVERSABBR2}-linux-x86_64.egg/
 
   # See if we have to edit ld.so.conf or not. This permanently sets
   # LD_LIBRARY_PATH, so if we run python from the command line or if Apache runs
@@ -1025,7 +1054,7 @@ function setup_install_rtree () {
   pushd Rtree-${RTREE_VERS} &> /dev/null
 
   echo "[easy_install]
-  install_dir=/ccp/opt/usr/lib/$PYTHONVERS/site-packages
+  install_dir=/ccp/opt/usr/lib/$PYTHONVERS2/site-packages
   " >> /ccp/opt/.downloads/Rtree-${RTREE_VERS}/setup.cfg
   LD_LIBRARY_PATH=/ccp/opt/usr/lib python setup.py build
   LD_LIBRARY_PATH=/ccp/opt/usr/lib python setup.py install
@@ -1494,7 +1523,7 @@ function setup_install_networkx () {
   # Apply the patch for the Cyclopath p3 planner:
   # change astar to be able to call edge weight fcn.
   patch \
-    /ccp/opt/usr/lib/$PYTHONVERS/site-packages/networkx-${NETWORKX_VERS}-py${PYTHONNUMB}.egg/networkx/algorithms/shortest_paths/astar.py \
+    /ccp/opt/usr/lib/$PYTHONVERS2/site-packages/networkx-${NETWORKX_VERS}-py${PYTHONNUMB}.egg/networkx/algorithms/shortest_paths/astar.py \
     < /ccp/dev/cp/scripts/setupcp/ao_templates/common/other/astar.patch
 
   # To test: $ py / import networkx
@@ -2060,8 +2089,9 @@ function gis_compile_main () {
     #GEOS_VERS='3.5.0'
     ODBC_VERS="2.3.2"
     #ODBC_VERS="2.3.4"
-    GDAL_VERS='1.10.1'
-    #GDAL_VERS='1.11.5'
+    # 2016-07-18: 1.10.1 failing compile on Ub. 16.04.
+    #GDAL_VERS='1.10.1'
+    GDAL_VERS='1.11.5'
     LIBXML2_VERS='2.9.1'
     #LIBXML2_VERS='2.9.4'
     PROJ4_VERS='4.8.0'
@@ -2097,65 +2127,65 @@ function gis_compile_main () {
 
   # 2016-07-18: 26 apps.
 
-  setup_install_geos
+  time_run setup_install_geos
 
-  setup_install_odbc
+  time_run setup_install_odbc
 
-  setup_install_gdal
+  time_run setup_install_gdal
 
-  setup_install_libxml2
+  time_run setup_install_libxml2
 
-  setup_install_proj_4
+  time_run setup_install_proj_4
 
-  setup_install_json_c
+  time_run setup_install_json_c
 
-  setup_install_postgis
+  time_run setup_install_postgis
 
-  setup_install_xerces
+  time_run setup_install_xerces
 
-  setup_install_mapserver
+  time_run setup_install_mapserver
 
-  setup_install_tilecache
+  time_run setup_install_tilecache
 
-  setup_install_spatialindex
+  time_run setup_install_spatialindex
 
-  setup_install_rtree
+  time_run setup_install_rtree
 
-  setup_install_simplejson
+  time_run setup_install_simplejson
 
-  setup_install_servable
+  time_run setup_install_servable
 
-  setup_install_pytz
+  time_run setup_install_pytz
 
-  setup_install_graphserver
+  time_run setup_install_graphserver
 
-  setup_install_libyaml
+  time_run setup_install_libyaml
 
-  setup_install_oath
+  time_run setup_install_oath
 
-  setup_install_python_twitter
+  time_run setup_install_python_twitter
 
-  setup_install_networkx
+  time_run setup_install_networkx
 
-  setup_install_numpy
+  time_run setup_install_numpy
 
-  setup_install_fiona
+  time_run setup_install_fiona
 
-  setup_install_levenshtein
+  time_run setup_install_levenshtein
 
-  setup_install_swfobject
+  time_run setup_install_swfobject
 
-  setup_install_QSopt
+  time_run setup_install_QSopt
 
-  setup_install_CPLEX
+  time_run setup_install_CPLEX
 
   # FIXME: Concorder web site offline.
   #        Also google has a solver now.
   #        https://developers.google.com/optimization/routing/tsp
-  #setup_install_concorde_tsp
-  #setup_install_r_with_concorde
+  #time_run setup_install_concorde_tsp
+  #time_run setup_install_r_with_concorde
 
-  setup_fix_permissions
+  time_run setup_fix_permissions
 
   echo
   echo "GIS software compiled!"

@@ -183,15 +183,15 @@ TILECACHE_CACHE=${TILECACHE_BASE}/${CCP_INSTANCE}
 # Ubuntu 11.04 (Python 2.7). Works fine without under Ubuntu 10.04 (Python 2.6)
 # This is usually used when sudo'ing a command, to supply the path to root or
 # to httpd_user.
-# No: /export/scratch/ccp/opt/gdal/lib/$PYTHONVERS/site-packages/GDAL-1.10.1-${PYVERSABBR2}-linux-x86_64.egg:\
+# No: /export/scratch/ccp/opt/gdal/lib/$PYTHONVERS2/site-packages/GDAL-1.10.1-${PYVERSABBR2}-linux-x86_64.egg:\
 # No: /ccp/opt/usr/lib/python2.6/site-packages/networkx-1.8.1-py2.6.egg
 #      (networkx is installed for users, but not for www-data...
 #       you have to point the httpd.conf at the location).
 ccp_python_path="\
 /export/scratch/ccp/opt/usr/lib/python:\
-/export/scratch/ccp/opt/usr/lib/$PYTHONVERS/site-packages:\
-/export/scratch/ccp/opt/gdal/lib/$PYTHONVERS/site-packages:\
-/export/scratch/ccp/opt/usr/lib64/$PYTHONVERS/site-packages"
+/export/scratch/ccp/opt/usr/lib/$PYTHONVERS2/site-packages:\
+/export/scratch/ccp/opt/gdal/lib/$PYTHONVERS2/site-packages:\
+/export/scratch/ccp/opt/usr/lib64/$PYTHONVERS2/site-packages"
 
 # ============================================================================
 # *** Crude miscellany

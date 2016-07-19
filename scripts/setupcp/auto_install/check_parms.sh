@@ -167,7 +167,7 @@ else
 fi
 #echo "Using svnroot: $svnroot"
 
-# Setup PYTHONVERS, PYVERSABBR2, httpd_user, httpd_etc_dir.
+# Setup PYTHONVERS2, PYVERSABBR2, httpd_user, httpd_etc_dir.
 
 PYSERVER_HOME=/dev/null
 CCP_WORKING=${SCRIPT_DIR}/../../../

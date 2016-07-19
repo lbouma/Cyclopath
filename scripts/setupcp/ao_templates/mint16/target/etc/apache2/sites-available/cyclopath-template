@@ -151,7 +151,7 @@ Require all granted
 # /ccp/opt/gdal/lib/
 # /ccp/opt/usr/lib/python2.7/site-packages/
 
-        PythonPath "['/ccp/dev/CCPBASEDIR()/pyserver', '/ccp/dev/CCPBASEDIR()/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages', '/ccp/opt/usr/lib64/PYTHONVERS()/site-packages', '/ccp/opt/gdal/lib/', '/ccp/opt/gdal/lib/PYTHONVERS()/site-packages', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/GDAL-1.10.1-PYVERSABBR()-linux-x86_64.egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/networkx-1.8.1-PYVERSABBR().egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/Fiona-1.1.4-py2.6-linux-x86_64.egg', '/ccp/opt/usr/lib/python2.6/site-packages/six-1.5.2-py2.6.egg', '/ccp/opt/usr/lib/python2.6/site-packages/ordereddict-1.1-py2.6.egg', '/ccp/opt/usr/lib/PYTHONVERS()/site-packages/python_Levenshtein-0.11.2-py2.6-linux-x86_64.egg',] + sys.path"
+        PythonPath "['/ccp/dev/CCPBASEDIR()/pyserver', '/ccp/dev/CCPBASEDIR()/pyserver/bin/winpdb', '/ccp/opt/usr/lib/python', '/ccp/opt/usr/lib/PYTHONVERS2()/site-packages', '/ccp/opt/usr/lib64/PYTHONVERS2()/site-packages', '/ccp/opt/gdal/lib/', '/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages', '/ccp/opt/usr/lib/PYTHONVERS2()/site-packages/GDAL-1.10.1-PYVERSABBR()-linux-x86_64.egg', '/ccp/opt/usr/lib/PYTHONVERS2()/site-packages/networkx-1.8.1-PYVERSABBR().egg', '/ccp/opt/usr/lib/PYTHONVERS2()/site-packages/Fiona-1.1.4-py2.6-linux-x86_64.egg', '/ccp/opt/usr/lib/python2.6/site-packages/six-1.5.2-py2.6.egg', '/ccp/opt/usr/lib/python2.6/site-packages/ordereddict-1.1-py2.6.egg', '/ccp/opt/usr/lib/PYTHONVERS2()/site-packages/python_Levenshtein-0.11.2-py2.6-linux-x86_64.egg',] + sys.path"
         PythonHandler gwis_mod_python
     </Location>
 

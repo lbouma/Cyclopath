@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2006-2013 Regents of the University of Minnesota.
+# Copyright (c) 2006-2013, 2016 Regents of the University of Minnesota.
 # For licensing terms, see the file LICENSE.
 
 # This script should be loaded by other service control scripts.
@@ -126,7 +126,7 @@ start() {
    else
      echo "Unknown OS: `cat /proc/version`"
      exit 1
-   fi;
+   fi
    #echo "."
    echo
 }
@@ -143,7 +143,7 @@ stop() {
    else
      echo "Unknown OS: `cat /proc/version`"
      exit 1
-   fi;
+   fi
    echo "."
 }
 

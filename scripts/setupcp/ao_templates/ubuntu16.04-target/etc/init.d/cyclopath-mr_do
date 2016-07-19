@@ -23,11 +23,11 @@
 cd /ccp/dev/cp/services
 
 #sudo -u www-data INSTANCE=minnesota \
-#   PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/ccp/opt/gdal/lib/PYTHONVERS()/site-packages \
+#   PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS2()/site-packages:/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages \
 #   PYSERVER_HOME=/ccp/dev/cp/pyserver ./mr_doctl $@
 
 su -c "INSTANCE=minnesota \
-   PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS()/site-packages:/ccp/opt/gdal/lib/PYTHONVERS()/site-packages \
+   PYTHONPATH=/ccp/opt/usr/lib/python:/ccp/opt/usr/lib/PYTHONVERS2()/site-packages:/ccp/opt/gdal/lib/PYTHONVERS2()/site-packages \
    PYSERVER_HOME=/ccp/dev/cp/pyserver ./mr_doctl $@" www-data
 
 # NOTE: Not starting Mr. Do! for other INSTANCEs, i.e., colorado.
