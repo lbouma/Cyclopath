@@ -1590,7 +1590,7 @@ __install_numpy__ () {
   #   > numpy.__version__
 
   popd &> /dev/null
-  popd &> /dev/null\
+  popd &> /dev/null
 }
 
 __dev_stall_scipy_etc__ () {
